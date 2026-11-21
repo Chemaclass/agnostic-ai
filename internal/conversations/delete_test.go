@@ -1095,3 +1095,14 @@ func TestDelete_DeletesAClosedSessionWithoutReadingItsReply(t *testing.T) {
 	}
 	assertFiles(t, files, false)
 }
+
+func TestDelete_RefusesWhenTheRunningProcessHidesItsStart(t *testing.T) {
+	scanner, stores, _, _ := deleteScanner(t, fakeProcesses{})
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "4242.json"), `{"pid":4242,"sessionId":"`+idSafari+`","procStart":"134397694254382773"}`)
+	dateBefore(t, stores.ClaudeDir, archivedAt.Add(-time.Hour))
+	scanner.Processes = tableOnly{fakeProcesses{table: []ProcessInfo{{PID: 4242, Command: "claude"}}}}
+
+	if reply, err := scanner.Delete(context.Background(), ToolClaude, idSafari, ScanOptions{}); err == nil || reply.Deleted {
+		t.Errorf("deleted a session whose process runs: %s", asJSON(t, reply))
+	}
+}

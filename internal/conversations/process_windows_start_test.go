@@ -155,3 +155,31 @@ func TestWindowsProcStart_ReadsAFileTimeInProcStart(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestSystemProcesses_OnWindowsAProcessThatHidesItsStartRuns(t *testing.T) {
+	defer func(saved nativeReader) { nativeProcesses = saved }(nativeProcesses)
+	nativeProcesses = fakeNative{table: []ProcessInfo{{PID: 7, Command: "claude"}}}
+
+	if alive, err := (SystemProcesses{}).AliveAmong([]ProcessRef{{PID: 7, ProcStart: startFiletimeText}}); err != nil || !alive[7] {
+		t.Errorf("alive %v err %v", alive, err)
+	}
+}
+
+func TestCommandName_ReadsTheProgramOfACommandLine(t *testing.T) {
+	for line, want := range map[string]string{
+		`/usr/local/bin/node /x/cursor-agent.js`:                        "node",
+		`cursor-agent --resume x`:                                       "cursor-agent",
+		`"C:\Program Files\nodejs\node.exe" C:\x\cursor-agent\index.js`: "node",
+		`C:\Users\dev\AppData\Local\cursor-agent\cursor-agent.EXE -p`:   "cursor-agent",
+	} {
+		if got := commandName(line); got != want {
+			t.Errorf("%q: got %q, want %q", line, got, want)
+		}
+	}
+}
+
+func TestWithoutExe_KeepsANameWithSpaces(t *testing.T) {
+	if got := withoutExe("Code - Insiders.EXE"); got != "Code - Insiders" {
+		t.Errorf("got %q", got)
+	}
+}

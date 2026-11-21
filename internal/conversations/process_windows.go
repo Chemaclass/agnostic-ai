@@ -25,7 +25,7 @@ func (windowsProcesses) processes() ([]ProcessInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("process snapshot: %w", err)
 	}
-	defer windows.CloseHandle(snapshot)
+	defer func() { _ = windows.CloseHandle(snapshot) }()
 	var table []ProcessInfo
 	entry := windows.ProcessEntry32{Size: uint32(unsafe.Sizeof(windows.ProcessEntry32{}))}
 	for err = windows.Process32First(snapshot, &entry); err == nil; err = windows.Process32Next(snapshot, &entry) {
@@ -37,7 +37,7 @@ func (windowsProcesses) processes() ([]ProcessInfo, error) {
 			PID:     int(entry.ProcessID),
 			PPID:    int(entry.ParentProcessID),
 			Started: started,
-			Command: windows.UTF16ToString(entry.ExeFile[:]),
+			Command: withoutExe(windows.UTF16ToString(entry.ExeFile[:])),
 		})
 	}
 	if !errors.Is(err, windows.ERROR_NO_MORE_FILES) {
@@ -54,7 +54,7 @@ func processStarted(pid uint32) (started string, runs bool) {
 	if err != nil {
 		return "", true
 	}
-	defer windows.CloseHandle(process)
+	defer func() { _ = windows.CloseHandle(process) }()
 	var code uint32
 	if windows.GetExitCodeProcess(process, &code) == nil && code != stillActive {
 		return "", false
@@ -81,7 +81,7 @@ func commandLine(pid uint32) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	defer windows.CloseHandle(process)
+	defer func() { _ = windows.CloseHandle(process) }()
 	var size uint32
 	_ = windows.NtQueryInformationProcess(process, windows.ProcessCommandLineInformation, nil, 0, &size)
 	if size < uint32(unsafe.Sizeof(windows.NTUnicodeString{})) {
@@ -126,7 +126,7 @@ func restartManagerHolders(paths []string) ([]int, error) {
 	if code, _, _ := rmStartSession.Call(uintptr(unsafe.Pointer(&session)), 0, uintptr(unsafe.Pointer(&key[0]))); code != 0 {
 		return nil, fmt.Errorf("RmStartSession: %w", windows.Errno(code))
 	}
-	defer rmEndSession.Call(uintptr(session))
+	defer func() { _, _, _ = rmEndSession.Call(uintptr(session)) }()
 	names := make([]*uint16, 0, len(paths))
 	for _, path := range paths {
 		name, err := windows.UTF16PtrFromString(path)

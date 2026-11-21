@@ -113,7 +113,8 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) 
 		}
 		for _, process := range processes {
 			start, runs := started[process.PID]
-			if runs && process.PID > 0 && (process.ProcStart == "" || start == strings.TrimSpace(process.ProcStart)) {
+			// A process of another account may hide its start; it still runs.
+			if runs && process.PID > 0 && (process.ProcStart == "" || start == "" || start == strings.TrimSpace(process.ProcStart)) {
 				alive[process.PID] = true
 			}
 		}
@@ -296,17 +297,7 @@ func readHolders(paths []string) (map[string]int, error) {
 // follows the running processes, not how many files the folder keeps.
 func (SystemProcesses) HoldersUnder(dir string) (map[string]int, error) {
 	if nativeProcesses != nil {
-		var files []string
-		err := filepath.WalkDir(dir, func(path string, entry fs.DirEntry, err error) error {
-			if err == nil && entry.Type().IsRegular() {
-				files = append(files, path)
-			}
-			return err
-		})
-		if err != nil {
-			return map[string]int{}, err
-		}
-		return nativeProcesses.holders(files)
+		return nativeHoldersUnder(dir)
 	}
 	if err := canRead("lsof"); err != nil {
 		return map[string]int{}, err

@@ -1,6 +1,7 @@
 package conversations
 
 import (
+	"io/fs"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -92,4 +93,54 @@ func nativeAppRunning(table []ProcessInfo, name string) bool {
 		}
 	}
 	return false
+}
+
+// nativeHoldersUnder is HoldersUnder through the native reader: every
+// file under dir, named under dir as given when dir is a link.
+func nativeHoldersUnder(dir string) (map[string]int, error) {
+	resolved, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return map[string]int{}, err
+	}
+	named := map[string]string{}
+	var files []string
+	err = filepath.WalkDir(resolved, func(path string, entry fs.DirEntry, err error) error {
+		if err == nil && entry.Type().IsRegular() {
+			rel, relErr := filepath.Rel(resolved, path)
+			if relErr != nil {
+				return relErr
+			}
+			named[path] = filepath.Join(dir, rel)
+			files = append(files, path)
+		}
+		return err
+	})
+	if err != nil {
+		return map[string]int{}, err
+	}
+	held, err := nativeProcesses.holders(files)
+	under := make(map[string]int, len(held))
+	for path, pid := range held {
+		under[named[path]] = pid
+	}
+	return under, err
+}
+
+// commandName is the program a command line runs: the base name of its
+// first word, which Windows may quote, without a Windows .exe.
+func commandName(line string) string {
+	line = strings.TrimSpace(line)
+	first, _, _ := strings.Cut(line, " ")
+	if rest, quoted := strings.CutPrefix(line, `"`); quoted {
+		first, _, _ = strings.Cut(rest, `"`)
+	}
+	return withoutExe(filepath.Base(strings.ReplaceAll(first, `\`, "/")))
+}
+
+// withoutExe drops a Windows program's .exe, in any case.
+func withoutExe(name string) string {
+	if strings.EqualFold(filepath.Ext(name), ".exe") {
+		return name[:len(name)-len(".exe")]
+	}
+	return name
 }

@@ -148,8 +148,7 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 {% <details summary="Details: what did not run on Windows"> %}
 - Not run: Windows 11 or any desktop a person uses; a standard (not administrator) account; **Start at login** across a real login; a new shortcut; more than one screen; Codex and Cursor chats; working and waiting states; a real Claude Code sign-in; a cloud session opened in the browser; a real `claude` or `codex` resumed (neither is installed on the runner).
 - `agnostic-ai serve`, which the companion starts, has a console window of its own, hidden.
-- The server does not read processes on Windows yet, so it cannot tell whether a terminal chat still runs. A chat written in the last day is not resumed; its command shows instead. A chat left open but quiet for over a day is resumed as a second copy.
-- A chat that still runs in a terminal cannot be switched to on Windows, and a chat cannot be deleted there.
+- A chat that still runs in a terminal shows as open, but the server cannot bring its window forward on Windows.
 {% </details> %}
 
 ## Commands {#commands}

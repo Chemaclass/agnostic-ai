@@ -18,7 +18,7 @@ func TestWindowsProcesses_ListThisProcessWithItsStartAndParent(t *testing.T) {
 	}
 	for _, process := range table {
 		if process.PID == os.Getpid() {
-			if process.PPID != os.Getppid() || process.Started == "" || !strings.HasSuffix(strings.ToLower(process.Command), ".exe") {
+			if process.PPID != os.Getppid() || process.Started == "" || process.Command != strings.TrimSuffix(filepath.Base(os.Args[0]), ".exe") {
 				t.Errorf("this process: %+v", process)
 			}
 			if !(SystemProcesses{}).Alive(os.Getpid(), process.Started) || (SystemProcesses{}).Alive(os.Getpid(), "1") {
@@ -57,7 +57,7 @@ func TestWindowsProcesses_NameTheProcessThatHoldsAFile(t *testing.T) {
 	if err := holder.Start(); err != nil {
 		t.Fatal(err)
 	}
-	defer holder.Process.Kill()
+	defer func() { _ = holder.Process.Kill() }()
 	ready := make([]byte, 4)
 	if _, err := out.Read(ready); err != nil {
 		t.Fatal(err)

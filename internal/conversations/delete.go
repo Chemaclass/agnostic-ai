@@ -336,7 +336,7 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 	}
 	for _, entry := range entries {
 		start, runs := started[entry.PID]
-		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || start == strings.TrimSpace(entry.ProcStart)) {
+		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || start == "" || start == strings.TrimSpace(entry.ProcStart)) {
 			live = true
 		}
 	}
