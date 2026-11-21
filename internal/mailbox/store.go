@@ -28,6 +28,11 @@ type Store struct {
 }
 
 func (s Store) Send(ctx context.Context, from conversations.Ref, req SendRequest) (Receipt, error) {
+	return s.SendFromWorktree(ctx, from, req, "")
+}
+
+// SendFromWorktree uses the session folder discovered by the caller outside the request.
+func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder string) (Receipt, error) {
 	refused := ValidateSend(from, req)
 	if refused == nil && req.To.Tool == "" {
 		refused = NewRefusal("unknown-session")
@@ -37,7 +42,7 @@ func (s Store) Send(ctx context.Context, from conversations.Ref, req SendRequest
 	}
 	var refs *ReviewRefs
 	if req.Type == ReviewRequest {
-		resolved, err := resolveReviewSend(ctx, req.ReviewFolder, *req.Refs)
+		resolved, err := resolveReviewSend(ctx, sourceFolder, *req.Refs)
 		if err != nil {
 			if refused, ok := errors.AsType[*Refusal](err); ok {
 				err = errors.Join(refused, s.RecordRefusal(ctx, from, req, refused))

@@ -26,13 +26,12 @@ const (
 const schemaVersion = "mailbox/v1"
 
 type SendRequest struct {
-	To           conversations.Ref `json:"to"`
-	Type         string            `json:"type"`
-	Body         string            `json:"body,omitempty"`
-	Thread       string            `json:"thread,omitempty"`
-	Refs         *ReviewInput      `json:"refs,omitempty"`
-	Models       *ModelInput       `json:"models,omitempty"`
-	ReviewFolder string            `json:"-"`
+	To     conversations.Ref `json:"to"`
+	Type   string            `json:"type"`
+	Body   string            `json:"body,omitempty"`
+	Thread string            `json:"thread,omitempty"`
+	Refs   *ReviewInput      `json:"refs,omitempty"`
+	Models *ModelInput       `json:"models,omitempty"`
 }
 
 type ReviewInput struct {

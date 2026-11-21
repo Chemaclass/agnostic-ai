@@ -93,7 +93,7 @@ func TestStore_ReviewRequestAcceptsOnlyResolvedCodeRefs(t *testing.T) {
 	head := reviewCommit(t, repo, "changed.txt")
 	root := reviewGitFixture(t, repo, "rev-parse", "--show-toplevel")
 	s := Store{Dir: t.TempDir()}
-	request := SendRequest{To: codex, Type: ReviewRequest, ReviewFolder: repo, Refs: &ReviewInput{
+	request := SendRequest{To: codex, Type: ReviewRequest, Refs: &ReviewInput{
 		Worktree: root, Base: base, Commit: head,
 	}}
 	for _, example := range []struct {
@@ -117,13 +117,13 @@ func TestStore_ReviewRequestAcceptsOnlyResolvedCodeRefs(t *testing.T) {
 			req := request
 			req.Refs = &refs
 			example.edit(&req)
-			_, err := s.Send(context.Background(), claude, req)
+			_, err := s.SendFromWorktree(context.Background(), claude, req, repo)
 			requireGuard(t, err, example.guard)
 		})
 	}
 	request.Refs.Paths = []string{"changed.txt"}
 	request.Models = &ModelInput{From: "Model A", To: "Model B"}
-	receipt, err := s.Send(context.Background(), claude, request)
+	receipt, err := s.SendFromWorktree(context.Background(), claude, request, repo)
 	if err != nil {
 		t.Fatalf("send resolved review = %v", err)
 	}
@@ -146,10 +146,10 @@ func TestStore_ReviewRequestCountsTowardCapAndObeysThreadState(t *testing.T) {
 	root := reviewGitFixture(t, repo, "rev-parse", "--show-toplevel")
 	s := Store{Dir: t.TempDir()}
 	request := SendRequest{
-		To: codex, Type: ReviewRequest, ReviewFolder: repo,
+		To: codex, Type: ReviewRequest,
 		Refs: &ReviewInput{Worktree: root, Base: base},
 	}
-	receipt, err := s.Send(ctx, claude, request)
+	receipt, err := s.SendFromWorktree(ctx, claude, request, repo)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,7 +157,7 @@ func TestStore_ReviewRequestCountsTowardCapAndObeysThreadState(t *testing.T) {
 	if err := s.Change(ctx, receipt.Thread, "pause"); err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.Send(ctx, claude, request)
+	_, err = s.SendFromWorktree(ctx, claude, request, repo)
 	requireGuard(t, err, "paused")
 	if err := s.Change(ctx, receipt.Thread, "resume"); err != nil {
 		t.Fatal(err)
@@ -165,11 +165,11 @@ func TestStore_ReviewRequestCountsTowardCapAndObeysThreadState(t *testing.T) {
 	for range 7 {
 		sendQuestion(t, s, receipt.Thread)
 	}
-	_, err = s.Send(ctx, claude, request)
+	_, err = s.SendFromWorktree(ctx, claude, request, repo)
 	requireGuard(t, err, "cap")
 	if _, err := s.Send(ctx, claude, SendRequest{To: codex, Type: Done, Thread: receipt.Thread}); err != nil {
 		t.Fatal(err)
 	}
-	_, err = s.Send(ctx, claude, request)
+	_, err = s.SendFromWorktree(ctx, claude, request, repo)
 	requireGuard(t, err, "closed")
 }

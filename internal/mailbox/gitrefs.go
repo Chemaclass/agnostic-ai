@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
@@ -216,15 +215,16 @@ func reviewFilterOverrides(ctx context.Context, root string) ([]string, error) {
 }
 
 func reviewGit(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	prefix := []string{"--no-pager", "--no-optional-locks", "--no-replace-objects", "-c", "core.fsmonitor=false", "-C", dir}
+	prefix := []string{"--no-pager", "--no-optional-locks", "--no-replace-objects", "-c", "core.fsmonitor=false"}
 	cmd := exec.CommandContext(ctx, "git", append(prefix, args...)...)
-	cmd.Env = append(reviewGitEnv(), "GIT_NO_LAZY_FETCH=1", "GIT_ALLOW_PROTOCOL=", disabledReviewFilter+"=")
+	cmd.Dir = dir
+	cmd.Env = append(reviewGitEnv(cmd.Environ()), "GIT_NO_LAZY_FETCH=1", "GIT_ALLOW_PROTOCOL=", disabledReviewFilter+"=")
 	cmd.WaitDelay = time.Second
 	return cmd.Output()
 }
 
-func reviewGitEnv() []string {
-	env := gitquery.IsolatedEnv(os.Environ())
+func reviewGitEnv(environ []string) []string {
+	env := gitquery.IsolatedEnv(environ)
 	return slices.DeleteFunc(env, func(value string) bool {
 		key, _, _ := strings.Cut(value, "=")
 		switch strings.ToUpper(key) {

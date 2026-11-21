@@ -135,14 +135,11 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		return
 	}
 	req.To = to
-	if req.Type == mailbox.ReviewRequest {
-		if !filepath.IsAbs(source.Folder) {
-			refuse(req, mailbox.NewRefusal("refs"))
-			return
-		}
-		req.ReviewFolder = source.Folder
+	if req.Type == mailbox.ReviewRequest && !filepath.IsAbs(source.Folder) {
+		refuse(req, mailbox.NewRefusal("refs"))
+		return
 	}
-	receipt, err := store.Send(ctx, req.From, req.SendRequest)
+	receipt, err := store.SendFromWorktree(ctx, req.From, req.SendRequest, source.Folder)
 	if err != nil {
 		writeMailboxError(w, err)
 		return
