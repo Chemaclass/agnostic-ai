@@ -24,7 +24,7 @@ func TestLintGlobal_CleanHomeExitsZeroOutsideProject(t *testing.T) {
 
 	out, _, err := runGlobalCheck("lint", "--strict")
 	if err != nil {
-		t.Fatalf("lint --global on a clean home: %v\n%s", err, out)
+		t.Fatalf("lint --scope user on a clean home: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "2 spec(s) clean") {
 		t.Errorf("expected both layers counted as clean, got:\n%s", out)
@@ -38,13 +38,13 @@ func TestLintGlobal_ReportsMistypedKeyInSharedLayer(t *testing.T) {
 
 	out, _, err := runGlobalCheck("lint")
 	if err != nil {
-		t.Fatalf("a warning alone must not fail lint --global: %v", err)
+		t.Fatalf("a warning alone must not fail lint --scope user: %v", err)
 	}
 	if !strings.Contains(out, "LINT007") || !strings.Contains(out, agent) {
 		t.Errorf("expected LINT007 on %s, got:\n%s", agent, out)
 	}
 	if _, _, err := runGlobalCheck("lint", "--strict"); err == nil {
-		t.Error("lint --global --strict must fail on a warning")
+		t.Error("lint --scope user --strict must fail on a warning")
 	}
 }
 
@@ -56,7 +56,7 @@ func TestLintGlobal_BrokenLocalOverrideExitsOne(t *testing.T) {
 
 	out, _, err := runGlobalCheck("lint")
 	if err == nil {
-		t.Fatalf("lint --global must exit non-zero on an error finding:\n%s", out)
+		t.Fatalf("lint --scope user must exit non-zero on an error finding:\n%s", out)
 	}
 	if !strings.Contains(out, "LINT006") || !strings.Contains(out, override) {
 		t.Errorf("expected LINT006 on the local override %s, got:\n%s", override, out)
@@ -70,7 +70,7 @@ func TestValidateGlobal_CleanHomeExitsZeroOutsideProject(t *testing.T) {
 
 	out, _, err := runGlobalCheck("validate")
 	if err != nil {
-		t.Fatalf("validate --global on a clean home: %v\n%s", err, out)
+		t.Fatalf("validate --scope user on a clean home: %v\n%s", err, out)
 	}
 	if !strings.Contains(out, "loaded 2 entries.") {
 		t.Errorf("expected both layers loaded, got:\n%s", out)
@@ -86,7 +86,7 @@ func TestValidateGlobal_ReportsUnknownHookEventAndScopedLocalRule(t *testing.T) 
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
-		t.Fatalf("validate --global must exit non-zero on issues:\n%s", out)
+		t.Fatalf("validate --scope user must exit non-zero on issues:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "OnBoot"`) {
 		t.Errorf("expected the unknown hook event on %s, got:\n%s", hook, out)
@@ -103,7 +103,7 @@ func TestValidateGlobal_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
-		t.Fatalf("validate --global must reject an event no hook-writing global target fires:\n%s", out)
+		t.Fatalf("validate --scope user must reject an event no hook-writing global target fires:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "PostCompaction"`) {
 		t.Errorf("expected the Devin-only event reported on %s, got:\n%s", hook, out)
@@ -117,7 +117,7 @@ func TestLintGlobal_ScopedRuleExitsOne(t *testing.T) {
 
 	out, _, err := runGlobalCheck("lint")
 	if err == nil {
-		t.Fatalf("lint --global must exit non-zero on a rule sync --global rejects:\n%s", out)
+		t.Fatalf("lint --scope user must exit non-zero on a rule sync --scope user rejects:\n%s", out)
 	}
 	if !strings.Contains(out, "LINT010") || !strings.Contains(out, rule) {
 		t.Errorf("expected LINT010 on %s, got:\n%s", rule, out)
@@ -131,7 +131,7 @@ func TestLintGlobal_EmptyHintNamesResolvedSourceRoot(t *testing.T) {
 
 	_, errOut, err := runGlobalCheck("lint")
 	if err != nil {
-		t.Fatalf("an empty global home must exit 0 like sync --global: %v", err)
+		t.Fatalf("an empty global home must exit 0 like sync --scope user: %v", err)
 	}
 	if !strings.Contains(errOut, missing) || strings.Contains(errOut, "$AGNOSTIC_AI_HOME") {
 		t.Errorf("expected the hint to name %s, got:\n%s", missing, errOut)

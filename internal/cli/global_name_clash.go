@@ -76,17 +76,17 @@ func (c globalNameClash) message() string {
 	global := homeRelative(c.global.Path)
 	if c.global.Layer == layerNameBuiltin {
 		global = entrySourceText(c.global)
-		return fmt.Sprintf("%s also exists in %s; %s; rename the project spec to load both, or remove %s from the global home config's builtins list and run `agnostic-ai sync --global`", c.head(), global, c.winners(), c.global.Name)
+		return fmt.Sprintf("%s also exists in %s; %s; rename the project spec to load both, or remove %s from the global home config's builtins list and run `agnostic-ai sync --scope user`", c.head(), global, c.winners(), c.global.Name)
 	}
 	if c.content == contentIdentical {
 		if c.project.Layer == layerNameBuiltin {
-			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom global copy and run `agnostic-ai sync --global`, or remove %s from the project's builtins list", c.head(), global, c.project.Name)
+			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom global copy and run `agnostic-ai sync --scope user`, or remove %s from the project's builtins list", c.head(), global, c.project.Name)
 		}
-		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one", c.head(), global)
+		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the global one", c.head(), global)
 	}
 	fix := "rename one to load both"
 	if len(c.globalWins) > 0 {
-		fix = fmt.Sprintf("to load both, rename the global one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --global`", c.global.Name)
+		fix = fmt.Sprintf("to load both, rename the global one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`", c.global.Name)
 	}
 	differs := ""
 	if c.content == contentDiffers {

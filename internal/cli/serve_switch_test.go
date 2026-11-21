@@ -165,7 +165,7 @@ func TestSwitch_ReportsTheCommandWhenNoServerStarts(t *testing.T) {
 	defer h.close()
 
 	rec, _ := postSwitch(t, h)
-	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "agnostic-ai ui --global") {
+	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "agnostic-ai ui --scope user") {
 		t.Errorf("switch = %d %s", rec.Code, rec.Body)
 	}
 }
@@ -418,7 +418,7 @@ func TestSwitch_RacingProjectsEachOpenAGlobalServerThatLinksBack(t *testing.T) {
 
 			for i, rec := range recs {
 				if tc.ports == 1 && i == 1 {
-					if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "agnostic-ai ui --global") {
+					if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "agnostic-ai ui --scope user") {
 						t.Errorf("loser without a port = %d %s", rec.Code, rec.Body)
 					}
 					continue

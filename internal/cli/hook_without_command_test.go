@@ -125,7 +125,7 @@ func TestExplainGlobal_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "no target sync --global writes takes anything") {
+	if !strings.Contains(out, "no target sync --scope user writes takes anything") {
 		t.Errorf("explain must list no output for a hook with nothing to run:\n%s", out)
 	}
 	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\ncommand: echo hi\n")

@@ -17,7 +17,7 @@ const editTargetsPath = "/api/edit/targets"
 var errLastTarget = errors.New("keep at least one coding tool on")
 
 // supportedTargetNames are the tools a switch may name: every built-in
-// adapter in a project, the user-level ones with --global.
+// adapter in a project, the user-level ones with --scope user.
 func (h *editHandler) supportedTargetNames() []string {
 	if h.global {
 		return globalTargetNames()

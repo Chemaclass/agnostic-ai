@@ -40,7 +40,7 @@ describe('spec move', () => {
   })
 
   it('keeps a saved notice only when it has every field', () => {
-    const moved = { name: 'review-pr', mode: 'move', destination: '~/.agnostic-ai/skills/review-pr/SKILL.md', syncCommands: ['agnostic-ai sync', 'agnostic-ai sync --global'] }
+    const moved = { name: 'review-pr', mode: 'move', destination: '~/.agnostic-ai/skills/review-pr/SKILL.md', syncCommands: ['agnostic-ai sync', 'agnostic-ai sync --scope user'] }
     expect(parseSpecMoved(moved)).toEqual(moved)
     expect(specMovedText(parseSpecMoved(moved)!)).toBe('Moved review-pr to ~/.agnostic-ai/skills/review-pr/SKILL.md.')
     expect(parseSpecMoved({ ...moved, mode: 'link' })).toBeUndefined()

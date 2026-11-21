@@ -62,7 +62,7 @@ func emitConfig(sess *emit.Session, mcps, settings []spec.Entry, path string, dr
 	permissions := emit.SettingsPermissions(settings)
 	for _, e := range settings {
 		if e.Meta["model"] != nil {
-			emit.NoteFieldNoOp(target, spec.KindSettings, "model", 1, "Grok reads model settings only from the user config; use sync --global")
+			emit.NoteFieldNoOp(target, spec.KindSettings, "model", 1, "Grok reads model settings only from the user config; use sync --scope user")
 		}
 		if p, _ := e.Meta["permissions"].(map[string]any); p["default-mode"] != nil {
 			emit.NoteFieldNoOp(target, spec.KindSettings, "permissions.default-mode", 1, "Grok project config reads permission lists only")

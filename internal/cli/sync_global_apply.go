@@ -119,7 +119,7 @@ func globalFolderMatches(dir string, planned map[string][]byte) (bool, error) {
 }
 
 // inManagedTree reports whether path sits under one of the directory
-// surfaces sync --global owns for the targets in this run.
+// surfaces sync --scope user owns for the targets in this run.
 func inManagedTree(path string, trees []string) bool {
 	for _, tree := range trees {
 		if strings.HasPrefix(path, tree+string(filepath.Separator)) {

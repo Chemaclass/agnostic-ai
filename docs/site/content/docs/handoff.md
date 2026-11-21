@@ -21,7 +21,7 @@ builtins: [handoff]
 ```
 
 - `init` projects have it on already.
-- For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
+- For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --scope user`.
 - Most tools get a skill; tools with `emit-skills-as-commands` also get a command. Aider gets inline text when `outputs.aider.rules-file` is set. Jules has no skill support.
 
 ## Leave a session
@@ -125,7 +125,7 @@ A lead asks each delegate to write a handoff for its branch before returning. Af
 | --- | --- | --- |
 | [project] | `.agnostic-ai/rules/learnings.md` | `agnostic-ai sync` |
 | [personal] | `.agnostic-ai/local/rules/learnings-local.md` | `agnostic-ai sync` |
-| [global] | `~/.agnostic-ai/rules/learnings.md` | `agnostic-ai sync --global` |
+| [global] | `~/.agnostic-ai/rules/learnings.md` | `agnostic-ai sync --scope user` |
 
 - Project lessons are shared in Git, personal ones stay in the checkout, global ones apply everywhere.
 - The project file follows `sources.rules` if changed; the global file follows `AGNOSTIC_AI_HOME` if set.
@@ -190,11 +190,11 @@ Factory shows hook rows in the session transcript by default (`hooks.showHookOut
 
 If you set it to `false`, change only `hooks.showHookOutput` to `true` in your existing `.factory/settings.json`, keeping the other `hooks` entries.
 
-Factory hooks only work per project, not through `sync --global`.
+Factory hooks only work per project, not through `sync --scope user`.
 
 ### Global hooks
 
-- Claude Code, Codex, Gemini CLI, and Qoder CLI can get the hooks through `agnostic-ai sync --global`. They still find the current project at run time.
+- Claude Code, Codex, Gemini CLI, and Qoder CLI can get the hooks through `agnostic-ai sync --scope user`. They still find the current project at run time.
 - A project sync adds `.agnostic-ai/local/` to the ignore file. With only global hooks or skills, add that line to the project's `.gitignore` yourself.
 
 </details>

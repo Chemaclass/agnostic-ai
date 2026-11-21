@@ -228,7 +228,7 @@ func (h *editHandler) serveTargetsToggle(w http.ResponseWriter, body []byte) (ed
 	}
 	if !req.Reset && !slices.Contains(h.supportedTargetNames(), req.Name) {
 		if h.global && slices.Contains(adapters.Names(), req.Name) {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --global cannot write %s; change it in a project", req.Name)})
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --scope user cannot write %s; change it in a project", req.Name)})
 			return editPlan{}, false
 		}
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "name must be one of " + strings.Join(h.supportedTargetNames(), ", ")})

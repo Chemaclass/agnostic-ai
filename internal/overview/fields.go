@@ -31,8 +31,8 @@ var settingsFields = map[string][]fieldDef{
 	SectionSettings: {
 		{key: "model", label: "Default model", description: "The model each tool starts with: one value, a map per tool, or a model tier name."},
 		{key: "effort", label: "Reasoning effort", description: "The default reasoning effort: one value, or a map per tool."},
-		{key: "session-retention-days", label: "Session retention", description: "Days to keep session transcripts, at least 1. Only sync --global writes it."},
-		{key: "voice.enabled", label: "Voice dictation", description: "Turn voice dictation on or off. Only sync --global writes it."},
+		{key: "session-retention-days", label: "Session retention", description: "Days to keep session transcripts, at least 1. Only sync --scope user writes it."},
+		{key: "voice.enabled", label: "Voice dictation", description: "Turn voice dictation on or off. Only sync --scope user writes it."},
 		{key: "voice.mode", label: "Voice mode", description: "Hold to record, or tap to start and stop recording."},
 		{key: "voice.language", label: "Voice language", description: "The spoken language passed to each tool that supports it."},
 		{key: "x-", label: "Native keys", description: "Keys written as they are into one tool's own settings file, under x-claude, x-codex, and so on.", prefix: true},
@@ -40,7 +40,7 @@ var settingsFields = map[string][]fieldDef{
 }
 
 // voiceGlobalOnlyReason explains why a project cannot edit voice fields.
-const voiceGlobalOnlyReason = "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global."
+const voiceGlobalOnlyReason = "Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user."
 
 // buildFields lists every field of section with the values each settings
 // spec in items gives it.
@@ -156,17 +156,17 @@ func settingsFieldEdit(d fieldDef, set []FieldSource, items []SectionItem, entri
 }
 
 // settingsFieldKind starts the editor of d with its value kind, the
-// values it allows, and the rule that limits it to sync --global.
+// values it allows, and the rule that limits it to sync --scope user.
 func settingsFieldKind(d fieldDef, targets []string, global bool) *FieldEdit {
 	edit := &FieldEdit{Kind: "text", SyncCommand: "agnostic-ai sync"}
 	if global {
-		edit.SyncCommand = "agnostic-ai sync --global"
+		edit.SyncCommand = "agnostic-ai sync --scope user"
 	}
 	switch {
 	case d.key == "session-retention-days":
 		edit.Kind = "number"
 		if !global {
-			edit.DisabledReason = "Session retention is written only by sync --global. Open Settings in agnostic-ai ui --global."
+			edit.DisabledReason = "Session retention is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user."
 		}
 	case d.voice():
 		if d.key == "voice.enabled" {
@@ -313,7 +313,7 @@ func localEditPath(root string, e spec.Entry, global bool) string {
 const PermissionModeKey = "permissions.default-mode"
 
 // PermissionModeProjectReason explains why a project cannot edit the
-// default mode: only sync --global writes Claude Code's defaultMode.
+// default mode: only sync --scope user writes Claude Code's defaultMode.
 const PermissionModeProjectReason = "Applies through global sync only. Set it in global settings."
 
 // ProtectedKey is the settings block that lists protected paths.
@@ -329,7 +329,7 @@ func protectedFieldEdit(entries []spec.Entry, cfg *config.Config, root string, g
 		edit.Sources[i].DisabledReason = ""
 	}
 	if global {
-		edit.DisabledReason = "sync --global does not write protected paths. Protect files from a project's Authority page."
+		edit.DisabledReason = "sync --scope user does not write protected paths. Protect files from a project's Authority page."
 	}
 	return edit
 }
@@ -379,7 +379,7 @@ func PermissionEditDisabledReason(e spec.Entry, root string) string {
 func PermissionFieldEdit(entries []spec.Entry, cfg *config.Config, root string, global bool) *FieldEdit {
 	edit := &FieldEdit{Kind: "permission-list", SyncCommand: "agnostic-ai sync"}
 	if global {
-		edit.SyncCommand += " --global"
+		edit.SyncCommand += " --scope user"
 	}
 	var candidates []spec.Entry
 	for _, e := range entries {
@@ -578,7 +578,7 @@ func SettingsOverride(settings []spec.Entry, i int, key string, targets []string
 }
 
 // overridesFor is setsFor for a later spec, without the Claude model
-// name target cannot load, as project sync drops it. sync --global
+// name target cannot load, as project sync drops it. sync --scope user
 // writes it.
 func overridesFor(e spec.Entry, key, target string, global bool) bool {
 	if key == "model" && !global && foreignClaudeModel(e, target) {

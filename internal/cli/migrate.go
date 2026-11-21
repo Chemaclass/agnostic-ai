@@ -38,7 +38,7 @@ type specMigration struct {
 }
 
 // migrationScope is the spec tree a migration reads and writes: the
-// project at root, or the global home at root that sync --global reads.
+// project at root, or the global home at root that sync --scope user reads.
 type migrationScope struct {
 	root   string
 	global bool
@@ -233,7 +233,7 @@ func newMigrateCmd() *cobra.Command {
 	return cmd
 }
 
-// resolveMigrationScope is the global home with --global, else the
+// resolveMigrationScope is the global home with --scope user, else the
 // project in the working directory.
 func resolveMigrationScope(global bool) (migrationScope, error) {
 	if global {
@@ -292,7 +292,7 @@ func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
 	return withoutBuiltinEntries(b), withoutBuiltinLayers(layers), err
 }
 
-// loadGlobalSpecs loads the global layers as sync --global reads them,
+// loadGlobalSpecs loads the global layers as sync --scope user reads them,
 // after the home config's requires holds.
 func (s migrationScope) loadGlobalSpecs() (spec.Bundle, []spec.Layer, error) {
 	if err := requireGlobalVersion(s.root, nil); err != nil {

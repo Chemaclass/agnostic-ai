@@ -135,7 +135,7 @@ The change apply and undo endpoints also write generated files. See [prerequisit
 
 `/api/switch` is the only route that starts a server. Its destination is fixed at startup: the user configuration for a project server, or the starting project for a global server. Requests carry no path, port, or argument. `/api/global/create` runs `git init` once in its fixed folder when asked.
 
-Switching first looks on `127.0.0.1:4310` to `4319` for a server whose health names the destination configuration. A global server must also report the project it would find from the caller's project folder, or no project when none would be found. If none matches, the switch starts the same binary as `serve --addr <port> --global` or `serve --addr <port> --dir <project>`, with `--switch-back <this server's address>` and no `--allow-origin`. It stops the child when the parent stops, or on Linux when the parent dies. If two project pages compete for a port, the loser tries the next.
+Switching first looks on `127.0.0.1:4310` to `4319` for a server whose health names the destination configuration. A global server must also report the project it would find from the caller's project folder, or no project when none would be found. If none matches, the switch starts the same binary as `serve --addr <port> --scope user` or `serve --addr <port> --dir <project>`, with `--switch-back <this server's address>` and no `--allow-origin`. It stops the child when the parent stops, or on Linux when the parent dies. If two project pages compete for a port, the loser tries the next.
 
 A child validates `--switch-back` as a loopback IP and port and tries it before the port range. This lets it return to a parent on any `--addr`. The address comes from the parent's listener, never from a request.
 
@@ -143,7 +143,7 @@ Server reuse trusts a local process that reports the expected root, as `ui` does
 
 Each server edits one configuration. The global server has a separate origin, preventing a project tab from editing `~/.agnostic-ai`. Requests cannot choose a configuration path.
 
-Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--global` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
+Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--scope user` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
 
 ## Uncertainty codes
 

@@ -37,13 +37,13 @@
       "tool": "claude",
       "app": "cli",
       "id": "c3b8e0d2-61f4-4a9e-8d27-5e0f9a1b7c64",
-      "title": "Plan the sync --global dry run",
+      "title": "Plan the sync --scope user dry run",
       "folder": "/Users/you/Products/agnostic-ai/.worktrees/sync-global",
       "branch": "motechfr/sync-global-dry-run",
       "startedAt": "2026-11-07T14:05:00Z",
       "updatedAt": "2026-11-07T14:58:00Z",
       "opening": [
-        "Add a --dry-run flag to sync --global.",
+        "Add a --dry-run flag to sync --scope user.",
         "It should print the files it would write and change nothing."
       ],
       "prompt": "Go with the second option and show me the plan before you edit.",

@@ -139,7 +139,7 @@ func TestImportAll_ReplacesTheStarterNoteWithARootAgentsMainFile(t *testing.T) {
 }
 
 // In the home folder, .agnostic-ai/AGNOSTIC_AI.md is the global
-// instructions file, which sync --global shares with every project.
+// instructions file, which sync --scope user shares with every project.
 func TestInitCmd_LeavesTheGlobalNoteAloneInTheHomeFolder(t *testing.T) {
 	dir := t.TempDir()
 	testutil.Chdir(t, dir)

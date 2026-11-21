@@ -18,7 +18,7 @@ func TestSyncGlobal_ResolvesModelTiersFromHomeConfig(t *testing.T) {
 
 	_, errOut, err := runGlobalCheck("sync")
 	if err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, errOut)
+		t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 	}
 	if strings.Contains(errOut, "ignoring models") {
 		t.Errorf("models must be read in global mode:\n%s", errOut)
@@ -53,11 +53,11 @@ func TestSyncGlobal_TargetFlagSkipsOnlyTheBrokenTierFile(t *testing.T) {
 		"---\nname: scout\ndescription: Scout code\nmodel: fast\n---\nScout.\n")
 
 	if _, _, err := runGlobalCheck("sync"); err == nil || !strings.Contains(err.Error(), `unknown target "claud"`) {
-		t.Fatalf("a broken tier stops a plain sync --global, got %v", err)
+		t.Fatalf("a broken tier stops a plain sync --scope user, got %v", err)
 	}
 	_, errOut, err := runGlobalCheck("sync", "-t", "claude")
 	if err != nil {
-		t.Fatalf("sync --global -t claude: %v\n%s", err, errOut)
+		t.Fatalf("sync --scope user -t claude: %v\n%s", err, errOut)
 	}
 	for _, want := range []string{local + `: models.fast: unknown target "claud"`, `scout.md: model "fast" names a tier`} {
 		if !strings.Contains(errOut, want) {

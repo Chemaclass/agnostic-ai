@@ -234,7 +234,7 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 	return loads, nil
 }
 
-// globalSessionLoads measures each target sync --global writes. Every
+// globalSessionLoads measures each target sync --scope user writes. Every
 // target with an instructions file gets the same managed block.
 func globalSessionLoads(source string, targets []string, tiers map[string]config.ModelTier, b spec.Bundle) ([]sessionLoad, error) {
 	layers, err := globalInstructionLayers(source, tiers, b.Rules)

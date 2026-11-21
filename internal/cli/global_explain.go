@@ -15,7 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// runExplainGlobal lists where sync --global places one global spec for
+// runExplainGlobal lists where sync --scope user places one global spec for
 // each target it writes: a whole file, a section of a shared file, or a
 // key of a user settings file. A settings key a later spec overrides is
 // not this spec's to claim.
@@ -62,7 +62,7 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 		return fmt.Errorf("write explain output: %w", err)
 	}
 	if len(contributions) == 0 {
-		_, err := fmt.Fprintln(out, "  (no target sync --global writes takes anything from this spec)")
+		_, err := fmt.Fprintln(out, "  (no target sync --scope user writes takes anything from this spec)")
 		return err
 	}
 	for _, c := range contributions {
@@ -74,7 +74,7 @@ func runExplainGlobal(cmd *cobra.Command, input string, jsonOut bool) error {
 }
 
 // globalContributions is where one spec lands for target under sync
-// --global, following the same surfaces buildGlobalWrites writes.
+// --scope user, following the same surfaces buildGlobalWrites writes.
 func globalContributions(home, source, target string, entry spec.Entry, b spec.Bundle) ([]contribution, error) {
 	g := globalTargets[target]
 	if err := g.rootError(target); err != nil {

@@ -42,7 +42,7 @@ func TestApprovalsStatus_ReviewerKeyMissingAsksForSync(t *testing.T) {
 
 	codex := toolStatus(t, approvalsStatusJSON(t), "codex")
 
-	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "approvals_reviewer") || !strings.Contains(codex.Notes[0], "sync --global") {
+	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "approvals_reviewer") || !strings.Contains(codex.Notes[0], "sync --scope user") {
 		t.Errorf("codex notes: %q", codex.Notes)
 	}
 }
@@ -105,7 +105,7 @@ func TestApprovalsStatus_HandSetCodexReviewerIsNamedAsOutside(t *testing.T) {
 
 	codex := toolStatus(t, approvalsStatusJSON(t), "codex")
 
-	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "outside agnostic-ai") || strings.Contains(codex.Notes[0], "sync --global") {
+	if len(codex.Notes) != 1 || !strings.Contains(codex.Notes[0], "outside agnostic-ai") || strings.Contains(codex.Notes[0], "sync --scope user") {
 		t.Errorf("codex notes: %q", codex.Notes)
 	}
 }

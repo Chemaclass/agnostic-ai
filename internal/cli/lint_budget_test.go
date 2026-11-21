@@ -308,7 +308,7 @@ func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 
 	out, errOut, err := runGlobalCheck("lint")
 	if err != nil {
-		t.Fatalf("a budget warning alone must not fail lint --global: %v\n%s", err, out)
+		t.Fatalf("a budget warning alone must not fail lint --scope user: %v\n%s", err, out)
 	}
 	if strings.Contains(errOut, "ignoring") {
 		t.Errorf("the home config's lint key must be read, not ignored:\n%s", errOut)
@@ -324,7 +324,7 @@ func TestLintGlobal_WarnsWhenInstructionsExceedBudget(t *testing.T) {
 		}
 	}
 	if _, _, err := runGlobalCheck("lint", "--strict"); err == nil {
-		t.Error("lint --global --strict must fail on a budget warning")
+		t.Error("lint --scope user --strict must fail on a budget warning")
 	}
 }
 

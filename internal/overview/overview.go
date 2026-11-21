@@ -547,7 +547,7 @@ var builtinAbouts = map[string]BuiltinAbout{
 	"approvals": {
 		Summary: "Adds a hook to Claude Code and Codex that approves one tool call at a time when the approvals mode is yolo.",
 		Points: []string{
-			"Only the home config turns it on: sync --global writes the hook to ~/.claude/settings.json and ~/.codex/hooks.json. A project sync skips it.",
+			"Only the home config turns it on: sync --scope user writes the hook to ~/.claude/settings.json and ~/.codex/hooks.json. A project sync skips it.",
 			"Deleting, publishing, network, secrets and edits outside the project always ask. agnostic-ai approvals ask stops it on the next request.",
 			"Every decision goes to a log under $AGNOSTIC_AI_HOME/local/approvals/.",
 		},
@@ -677,7 +677,7 @@ func builtinItems(in Inputs) []SectionItem {
 	items := make([]SectionItem, 0, len(names))
 	for _, name := range names {
 		if name == config.ApprovalsBuiltin && !in.Global && !slices.Contains(enabled, name) {
-			// A project cannot turn it on: only sync --global writes its hooks.
+			// A project cannot turn it on: only sync --scope user writes its hooks.
 			continue
 		}
 		description := builtinDescriptions[name]

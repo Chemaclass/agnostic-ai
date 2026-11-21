@@ -55,14 +55,14 @@ func TestInstallHookGlobal_WritesTheGlobalGate(t *testing.T) {
 
 	out, err := runInstallHook("--scope", "user")
 	if err != nil {
-		t.Fatalf("install-hook --global: %v", err)
+		t.Fatalf("install-hook --scope user: %v", err)
 	}
 	if !strings.Contains(out, "appended the checks to") {
 		t.Errorf("want the append reported, got %q", out)
 	}
 	out, err = runInstallHook("--scope", "user")
 	if err != nil {
-		t.Fatalf("second install-hook --global: %v", err)
+		t.Fatalf("second install-hook --scope user: %v", err)
 	}
 	if !strings.Contains(out, "already runs the checks") {
 		t.Errorf("want the rerun reported as a no-op, got %q", out)
@@ -86,8 +86,8 @@ func TestInstallHook_InTheGlobalHomePointsAtGlobal(t *testing.T) {
 	source, _ := globalGitHome(t)
 
 	_, err := runInstallHook()
-	if err == nil || !strings.Contains(err.Error(), "agnostic-ai install-hook --global") {
-		t.Fatalf("want the refusal to point at install-hook --global, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "agnostic-ai install-hook --scope user") {
+		t.Fatalf("want the refusal to point at install-hook --scope user, got %v", err)
 	}
 	if _, err := os.Stat(globalHookPath(source)); !os.IsNotExist(err) {
 		t.Errorf("plain install-hook wrote a hook into the global home: %v", err)
@@ -106,7 +106,7 @@ func TestInstallHookGlobal_RefusesOutsideTheHome(t *testing.T) {
 		t.Fatalf("want %q, got %v", want, err)
 	}
 	if _, err := os.Stat(globalHookPath(project)); !os.IsNotExist(err) {
-		t.Errorf("install-hook --global wrote a hook outside the home: %v", err)
+		t.Errorf("install-hook --scope user wrote a hook outside the home: %v", err)
 	}
 }
 

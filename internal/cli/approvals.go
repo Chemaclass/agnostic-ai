@@ -34,7 +34,7 @@ var (
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
 	Tools []approvalsToolStatus `json:"tools"`
-	// reviewerWritten is set when a native reviewer key sync --global
+	// reviewerWritten is set when a native reviewer key sync --scope user
 	// wrote is still on.
 	reviewerWritten bool
 }
@@ -76,7 +76,7 @@ func newApprovalsStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Print the approvals mode and route per tool for the working directory",
-		Long: "Prints, for each tool sync --global writes, the approvals mode for the working directory, the setting " +
+		Long: "Prints, for each tool sync --scope user writes, the approvals mode for the working directory, the setting " +
 			"that chose it, and how the tool carries it out. A tool with no route for the mode falls back to ask.",
 		Example: `  agnostic-ai approvals status
   agnostic-ai approvals status --json`,
@@ -118,7 +118,7 @@ func newApprovalsAskCmd() *cobra.Command {
 			}
 			cmd.Printf("approvals: ask for every tool and project. Wrote %s.\n", path)
 			if before.reviewerWritten {
-				cmd.Println("Run sync --global to remove the native reviewer keys it wrote to the tools' user settings.")
+				cmd.Println("Run sync --scope user to remove the native reviewer keys it wrote to the tools' user settings.")
 			}
 			if before.reviewerWritten || slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
 				cmd.Println("A running session in a native reviewer mode keeps it until you switch modes in the tool (Shift+Tab in Claude Code).")
@@ -239,9 +239,9 @@ func approvalsMechanismName(m *approvals.Mechanism) string {
 const approvalHookCommand = "agnostic-ai hook approve"
 
 // approvalHookProblem says why tool's approvals hook cannot answer yet:
-// sync --global has not written it, or Codex has not trusted it.
+// sync --scope user has not written it, or Codex has not trusted it.
 func approvalHookProblem(tool string) string {
-	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --global"
+	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --scope user"
 	if tool == "kiro" {
 		return kiroHookProblem(notSynced)
 	}

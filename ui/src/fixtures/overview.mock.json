@@ -531,7 +531,7 @@
               "transport": "http"
             }
           ],
-          "import": "agnostic-ai import --global claude"
+          "import": "agnostic-ai import --scope user claude"
         }
       ]
     },
@@ -978,13 +978,13 @@
         {
           "key": "session-retention-days",
           "label": "Session retention",
-          "description": "Days to keep session transcripts, at least 1. Only sync --global writes it.",
+          "description": "Days to keep session transcripts, at least 1. Only sync --scope user writes it.",
           "set": []
         },
         {
           "key": "voice.enabled",
           "label": "Voice dictation",
-          "description": "Turn voice dictation on or off. Only sync --global writes it.",
+          "description": "Turn voice dictation on or off. Only sync --scope user writes it.",
           "set": []
         },
         {

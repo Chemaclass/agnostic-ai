@@ -101,7 +101,7 @@ Blocking:
 
 With `builtins: [memory]`, sync adds an executable `.augment/hooks/memory-augment-session-start.sh` and a `SessionStart` entry for Auggie CLI on its [supported platforms](https://docs.augmentcode.com/cli/setup-auggie/install-auggie-cli#system-requirements): macOS, Linux, and Windows WSL.
 
-- The script finds the project from its working directory and returns both indexes in `hookSpecificOutput.additionalContext`. `sync --global` installs it too.
+- The script finds the project from its working directory and returns both indexes in `hookSpecificOutput.additionalContext`. `sync --scope user` installs it too.
 - Auggie 0.x injects that output.
 - Auggie 1.x (stable from 1.2.0) runs `SessionStart` hooks in the background and drops their output ([1.x hooks docs](https://docs.augmentcode.com/cli/hooks.md)), so the memory rule tells the agent to read the indexes.
 - The IDE keeps the memory rule.

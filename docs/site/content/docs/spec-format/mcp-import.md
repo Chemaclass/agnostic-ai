@@ -91,7 +91,7 @@ Check these by hand:
 - a credential value that starts with `-` in its own argument after a flag;
 - a value shorter than 8 characters in its own argument after a flag whose name ends in `key`, `apikey`, `authentication`, or `authorization`;
 - a `Bearer` token shorter than 20 characters with only letters;
-- a token in a URL path, such as a Slack webhook `https://hooks.slack.com/services/...`, also under `import --global`;
+- a token in a URL path, such as a Slack webhook `https://hooks.slack.com/services/...`, also under `import --scope user`;
 - a URL username that is a token without one of the prefixes above;
 - a token format not listed above.
 
@@ -99,7 +99,7 @@ Check these by hand:
 
 ## Global import
 
-`import --global` cannot change a server, so it leaves out each server with a literal credential: any credential above, or an `env` or header value with a [credential name](#credential-names) or that looks like a credential. It names the server and field, never the value.
+`import --scope user` cannot change a server, so it leaves out each server with a literal credential: any credential above, or an `env` or header value with a [credential name](#credential-names) or that looks like a credential. It names the server and field, never the value.
 
 - A plain setting such as `NODE_ENV: production`, a path, a number, or `Bearer ${TOKEN}` imports as written, marked [`!literal`](@/docs/spec-format/mcps.md#plain-settings).
 - A value under a credential name that does not look like a credential stays unmarked, so `lint` asks about it.

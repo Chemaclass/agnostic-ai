@@ -292,7 +292,7 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 }
 
 // validateSyncFlags rejects flag combinations sync cannot honor, in a
-// fixed order so the first conflict named stays the same. --global
+// fixed order so the first conflict named stays the same. --scope user
 // checks the rest of its flags itself.
 func validateSyncFlags(f syncFlags) error {
 	if f.jobs < 0 {

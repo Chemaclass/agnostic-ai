@@ -98,7 +98,7 @@ Sync rebuilds project `config.toml`. Import existing keys into the overlay befor
 
 `outputs.codex.config` sets the listed `.codex/config.toml` keys on each sync. It wins over a portable Settings spec `model`. In a trusted project, [project values take precedence over home values](https://learn.chatgpt.com/docs/config-file/config-basic). Keep user-level keys in your [home configuration](@/docs/global-configuration.md).
 
-`approvals` set to `review` for Codex makes `sync --global` write `approvals_reviewer = "auto_review"` to `~/.codex/config.toml`, so Codex Auto-review answers eligible prompts. It reviews only with an interactive `approval-policy` such as `on-request`. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
+`approvals` set to `review` for Codex makes `sync --scope user` write `approvals_reviewer = "auto_review"` to `~/.codex/config.toml`, so Codex Auto-review answers eligible prompts. It reviews only with an interactive `approval-policy` such as `on-request`. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
 
 ```yaml
 outputs:

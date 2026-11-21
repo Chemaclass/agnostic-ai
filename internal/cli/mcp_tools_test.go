@@ -79,7 +79,7 @@ func TestMCPTools_ListsAndCachesToolsTheOverviewThenReadsOffline(t *testing.T) {
 			}
 		}
 	}
-	if l := tools["mail"]; l == nil || l.State != overview.ToolsListed || len(l.Tools) != 1 || l.Tools[0].Name != "send_email" || l.Command != "agnostic-ai mcp tools --global" {
+	if l := tools["mail"]; l == nil || l.State != overview.ToolsListed || len(l.Tools) != 1 || l.Tools[0].Name != "send_email" || l.Command != "agnostic-ai mcp tools --scope user" {
 		t.Errorf("mail = %+v", l)
 	}
 	if l := tools["unset"]; l == nil || l.State != overview.ToolsFailed {

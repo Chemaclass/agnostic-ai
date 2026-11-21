@@ -125,7 +125,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	switch r.URL.Path {
 	case builtinPreviewPath:
 		if request.Name == config.ApprovalsBuiltin && request.Enabled != nil && *request.Enabled {
-			writeEditJSON(w, http.StatusBadRequest, editError{Error: "approvals is read only from the home config; add it to builtins there and run sync --global"})
+			writeEditJSON(w, http.StatusBadRequest, editError{Error: "approvals is read only from the home config; add it to builtins there and run sync --scope user"})
 			return
 		}
 		toggle := slices.Contains(builtins.Names(), request.Name) && request.Enabled != nil && !request.Reset && request.Setting == nil

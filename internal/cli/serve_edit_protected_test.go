@@ -160,7 +160,7 @@ func TestProtectedEdit_GlobalViewRefuses(t *testing.T) {
 	root := t.TempDir()
 	h := &editHandler{root: root, global: true}
 	rec := protectedRequest(t, h, map[string]any{"action": "preview", "audience": "shared", "protected": map[string]any{"paths": []string{"a"}, "decision": "ask", "reason": ""}})
-	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --global does not write protected paths") {
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --scope user does not write protected paths") {
 		t.Fatalf("global = %d %s", rec.Code, rec.Body)
 	}
 	if entries, _ := os.ReadDir(root); len(entries) != 0 {

@@ -121,14 +121,14 @@ func TestWhy_LeavesTheGeminiMemoryRuleOutOfAFileCodexReads(t *testing.T) {
 	}
 }
 
-// sync --global writes one block that every tool reads, so a built-in
+// sync --scope user writes one block that every tool reads, so a built-in
 // rule for one tool stays out of it instead of stopping the sync.
 func TestSyncGlobal_LeavesTheGeminiMemoryRuleOut(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [gemini]\nbuiltins: [memory]\n")
 
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 
 	got := readFile(t, filepath.Join(home, ".gemini", "GEMINI.md"))
@@ -136,7 +136,7 @@ func TestSyncGlobal_LeavesTheGeminiMemoryRuleOut(t *testing.T) {
 		t.Errorf("~/.gemini/GEMINI.md should carry the shared memory rule alone:\n%s", got)
 	}
 	if out, err := runCLI(t, "validate", "--scope", "user"); err != nil {
-		t.Errorf("validate --global: %v\n%s", err, out)
+		t.Errorf("validate --scope user: %v\n%s", err, out)
 	}
 }
 

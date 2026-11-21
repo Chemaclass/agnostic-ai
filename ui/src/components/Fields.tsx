@@ -274,7 +274,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
   const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
   const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
-  const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
+  const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --scope user' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
   const locked = pending || settling || !!transaction.proposal
   const resetButton = audience === 'personal' && !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>

@@ -197,7 +197,7 @@ func TestVoice_ProjectSyncLeavesNativeVoiceAlone(t *testing.T) {
 	if _, err := runRoot(t, "sync"); err != nil {
 		t.Fatal(err)
 	}
-	if out := notes.String(); !strings.Contains(out, "voice is personal; only sync --global writes it") {
+	if out := notes.String(); !strings.Contains(out, "voice is personal; only sync --scope user writes it") {
 		t.Errorf("missing personal-scope note: %s", out)
 	}
 	data, err := os.ReadFile(filepath.Join(".claude", "settings.json"))

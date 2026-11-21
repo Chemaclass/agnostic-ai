@@ -15,7 +15,7 @@ import (
 )
 
 // newGlobalOverviewHandler serves the overview of the
-// user-level configuration sync --global reads, built afresh on every
+// user-level configuration sync --scope user reads, built afresh on every
 // request. Unlike the project handler it runs from any working
 // directory: every path comes from $HOME and the global source root.
 func newGlobalOverviewHandler(compareInstalled bool) http.Handler {
@@ -25,16 +25,16 @@ func newGlobalOverviewHandler(compareInstalled bool) http.Handler {
 }
 
 // globalOverviewInputs loads the global and global-local layers as
-// lint --global does, runs the read-only checks that apply to them, and
+// lint --scope user does, runs the read-only checks that apply to them, and
 // builds the snapshot the overview names. The snapshot uses the options
-// the served Authority view uses for --global, so both report one
+// the served Authority view uses for --scope user, so both report one
 // revision for the same sources.
 func globalOverviewInputs() (overview.Inputs, error) {
 	return globalOverviewInputsWith(true)
 }
 
 // globalOverviewInputsWith is globalOverviewInputs that skips comparing
-// the files sync --global would write with disk when compareInstalled is
+// the files sync --scope user would write with disk when compareInstalled is
 // false.
 func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 	scope, err := loadCheckScope(true)
@@ -66,7 +66,7 @@ func globalOverviewInputsWith(compareInstalled bool) (overview.Inputs, error) {
 		Compared:       checks.compared,
 		FieldNotes:     checks.fieldNotes,
 		MCPTools:       mcpprobe.LoadCache(scope.source),
-		RefreshCommand: "agnostic-ai mcp tools --global",
+		RefreshCommand: "agnostic-ai mcp tools --scope user",
 		BuiltinsTeam:   team,
 		BuiltinsLocal:  local,
 		Tools:          overviewTools(scope.source, true),
@@ -86,7 +86,7 @@ func globalNativeMCPServers(source string, cfg *config.Config) []overview.Native
 
 // globalRequires is the requires value of the home config, where
 // local/agnostic-ai.yaml replaces the shared one. A config that cannot
-// be read sets none; lint --global reports it.
+// be read sets none; lint --scope user reports it.
 func globalRequires(source string) string {
 	var requires string
 	for _, path := range globalConfigPaths(source) {
@@ -103,8 +103,8 @@ func globalRequires(source string) string {
 }
 
 // runGlobalOverviewChecks runs the read-only checks the global overview
-// reads: every finding lint --global reports, and drift between the
-// files sync --global would write and the files on disk. The doctor
+// reads: every finding lint --scope user reports, and drift between the
+// files sync --scope user would write and the files on disk. The doctor
 // checks read a project's generated files and do not run.
 func runGlobalOverviewChecks(scope checkScope, compareInstalled bool) overviewChecks {
 	overviewChecksMu.Lock()
@@ -130,7 +130,7 @@ func runGlobalOverviewChecks(scope checkScope, compareInstalled bool) overviewCh
 	return out
 }
 
-// globalSettingsFieldNotes resolves the user settings sync --global
+// globalSettingsFieldNotes resolves the user settings sync --scope user
 // would write for each target it syncs, without planning any file, and
 // returns the model and effort notes that raises.
 func globalSettingsFieldNotes(scope checkScope) []overview.FieldNote {
@@ -142,11 +142,11 @@ func globalSettingsFieldNotes(scope checkScope) []overview.FieldNote {
 }
 
 // globalSyncedTargets splits targets into the ones a default sync
-// --global writes and the ones it skips: unsupported, or with a
+// --scope user writes and the ones it skips: unsupported, or with a
 // configuration root that cannot be resolved.
 func globalSyncedTargets(all []string) (targets, skipped []string) {
 	for _, target := range all {
-		if unsupportedGlobalTarget("--global", target) != nil || globalTargets[target].rootError(target) != nil {
+		if unsupportedGlobalTarget("--scope user", target) != nil || globalTargets[target].rootError(target) != nil {
 			skipped = append(skipped, target)
 			continue
 		}
@@ -166,8 +166,8 @@ func globalOverviewPath(source, path string) string {
 	return filepath.ToSlash(path)
 }
 
-// globalOverviewDriftFindings compares the files sync --global would
-// write for each target with the files on disk, as sync --global --check
+// globalOverviewDriftFindings compares the files sync --scope user would
+// write for each target with the files on disk, as sync --scope user --check
 // does, and credits each file to the targets whose surfaces it carries.
 // A missing file is "not generated" and a differing one is "stale". The
 // sync ledger is left out, because no tool reads it. A target global
@@ -204,7 +204,7 @@ func globalOverviewDriftFindings(scope checkScope) (findings []overview.Finding,
 	return findings, targets, skipped
 }
 
-// planGlobalWrites builds the files a default sync --global would write
+// planGlobalWrites builds the files a default sync --scope user would write
 // for targets, as runGlobalSync does before it writes, without the sync
 // ledger. It reads the user files sync would edit and writes none.
 func planGlobalWrites(home string, scope checkScope, targets []string) ([]globalWrite, error) {
@@ -229,10 +229,10 @@ func planGlobalWrites(home string, scope checkScope, targets []string) ([]global
 func globalOverviewEvidenceNote(checks overviewChecks) string {
 	var parts []string
 	if len(checks.compared) == 0 && len(checks.skipped) == 0 {
-		parts = append(parts, "The files sync --global would write were not compared with disk.")
+		parts = append(parts, "The files sync --scope user would write were not compared with disk.")
 	}
 	if len(checks.compared) > 0 {
-		parts = append(parts, "The files sync --global would write were compared with disk for "+strings.Join(checks.compared, ", ")+".")
+		parts = append(parts, "The files sync --scope user would write were compared with disk for "+strings.Join(checks.compared, ", ")+".")
 	}
 	if len(checks.skipped) > 0 {
 		parts = append(parts, "Not compared, because global sync does not support the tool, its configuration root could not be resolved, or the plan failed: "+strings.Join(checks.skipped, ", ")+".")

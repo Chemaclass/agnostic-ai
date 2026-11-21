@@ -10,7 +10,7 @@ import (
 func voiceTargetNoOpReason(target string) string {
 	switch target {
 	case "codex":
-		return "no voice dictation setting sync --global can write; Codex realtime settings are experimental"
+		return "no voice dictation setting sync --scope user can write; Codex realtime settings are experimental"
 	case "codebuddy":
 		return "no documented voice key; language sets the response language"
 	case "qoder":
@@ -52,7 +52,7 @@ func voiceTargetNoOpReason(target string) string {
 	case "zed":
 		return "Zed microphone settings control calls; no dictation setting"
 	default:
-		return "no voice dictation setting sync --global can write"
+		return "no voice dictation setting sync --scope user can write"
 	}
 }
 

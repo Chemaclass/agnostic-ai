@@ -82,7 +82,7 @@ func TestInstallHookPostCheckout_RejectsGlobal(t *testing.T) {
 	testutil.Chdir(t, dir)
 
 	if _, err := runInstallHook("--post-checkout", "--scope", "user"); err == nil {
-		t.Error("--post-checkout with --global must be rejected")
+		t.Error("--post-checkout with --scope user must be rejected")
 	}
 }
 

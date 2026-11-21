@@ -192,7 +192,7 @@ type serveMuxOptions struct {
 //
 // The overview runs the read-only checks (lint, drift, doctor) in the
 // working directory, which serve has changed into for the project. For
-// --global it runs the global lint and compares the files sync --global
+// --scope user it runs the global lint and compares the files sync --scope user
 // would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts serveMuxOptions) http.Handler {
 	switches := muxOpts.switches

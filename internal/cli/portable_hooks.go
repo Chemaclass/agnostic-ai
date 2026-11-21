@@ -44,7 +44,7 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 // the hooks-portable-events migration rewrites (LINT034, warn). A plan
 // that fails suggests nothing, since migrate then rewrites nothing, and
 // so does a project command run in the global home, where migrate needs
-// --global.
+// --scope user.
 func lintPortableHookForms(s migrationScope, cfg *config.Config, b spec.Bundle) []lintFinding {
 	if refuseGlobalHome(s.root, "") != nil {
 		return nil

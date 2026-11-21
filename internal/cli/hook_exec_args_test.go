@@ -146,7 +146,7 @@ func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), execFormHook)
 	_, warnings, err := runGlobalAgentTest("--only", "augment")
 	if err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 	path := filepath.Join(home, ".augment", "settings.json")
 	var doc map[string]any

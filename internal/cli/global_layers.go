@@ -36,7 +36,7 @@ func globalLayers(source string, names []string) ([]spec.Layer, error) {
 	}...), nil
 }
 
-// loadGlobalBundle loads the global specs. sync --global writes one
+// loadGlobalBundle loads the global specs. sync --scope user writes one
 // instructions block that every tool reads, so a built-in rule with a
 // scope or target condition stays out instead of stopping the sync.
 func loadGlobalBundle(source string, names []string) (spec.Bundle, error) {
@@ -54,7 +54,7 @@ func loadGlobalBundle(source string, names []string) (spec.Bundle, error) {
 	return b, nil
 }
 
-// globalSourceRoot resolves the source root as sync --global does,
+// globalSourceRoot resolves the source root as sync --scope user does,
 // reading HOME only when AGNOSTIC_AI_HOME is unset.
 func globalSourceRoot() (string, error) {
 	if source := os.Getenv(envUserGlobalRoot); source != "" {
@@ -100,8 +100,8 @@ func (s checkScope) migrationScope() migrationScope {
 }
 
 // loadCheckScope loads the project in the working directory, or the
-// global and global-local layers sync --global reads. The global scope
-// checks against the targets a default sync --global writes, from the
+// global and global-local layers sync --scope user reads. The global scope
+// checks against the targets a default sync --scope user writes, from the
 // home config or else every supported one, and against what each writes
 // at user level.
 func loadCheckScope(global bool) (checkScope, error) {
@@ -188,7 +188,7 @@ func (s checkScope) emptyHint() string {
 		"AGNOSTIC_AI_HOME to another root.", s.source)
 }
 
-// lintGlobalRules reports each rule sync --global would refuse, so
+// lintGlobalRules reports each rule sync --scope user would refuse, so
 // lint and validate catch it before a sync does.
 func lintGlobalRules(rules []spec.Entry, targets []string) []validationIssue {
 	var out []validationIssue

@@ -48,7 +48,7 @@ export function switchOffer(served: ServedConfig): SwitchOffer | undefined {
     return {
       label: 'Open global settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
-      command: 'agnostic-ai ui --global',
+      command: 'agnostic-ai ui --scope user',
     }
   }
   if (!served.projectRoot) return undefined
@@ -77,10 +77,10 @@ export function parseSwitchReply(value: unknown): SwitchReply {
 
 export const GLOBAL_SETUP_TITLE = 'No global setup yet'
 export const GLOBAL_SETUP_BODY =
-  'One folder for your own rules, skills, agents, hooks, settings and MCP servers. Run "agnostic-ai sync --global" and every project gets them. Project specs never merge with it, so team defaults stay in the project. Put private files in "local/", which git ignores. Keep the folder in its own git repo and push it to a remote to back it up.'
+  'One folder for your own rules, skills, agents, hooks, settings and MCP servers. Run "agnostic-ai sync --scope user" and every project gets them. Project specs never merge with it, so team defaults stay in the project. Put private files in "local/", which git ignores. Keep the folder in its own git repo and push it to a remote to back it up.'
 
 export function globalSetupCreated(root: string): string {
-  return `Created ${root}. Add files, then run "agnostic-ai sync --global".`
+  return `Created ${root}. Add files, then run "agnostic-ai sync --scope user".`
 }
 
 /** The switch found no global setup; the page offers to create it. */
