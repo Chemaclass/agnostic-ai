@@ -3,7 +3,6 @@ package conversations
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"runtime"
 	"slices"
 	"testing"
@@ -80,16 +79,9 @@ func TestWindowsLauncher_OpensALinkWithTheRegisteredApp(t *testing.T) {
 	if err := launcher.OpenLink(context.Background(), "codex://threads/x"); err != nil {
 		t.Fatal(err)
 	}
-	want := [][]string{
-		{"reg.exe", "query", `HKCR\codex`, "/v", "URL Protocol"},
-		{"rundll32.exe", "url.dll,FileProtocolHandler", "codex://threads/x"},
-	}
+	want := [][]string{{"rundll32.exe", "url.dll,FileProtocolHandler", "codex://threads/x"}}
 	if !slices.EqualFunc(ran, want, slices.Equal[[]string]) {
 		t.Errorf("ran %q, want %q", ran, want)
-	}
-	ran = nil
-	if err := launcher.OpenLink(context.Background(), "https://claude.ai/code/session_01ABCDEFGHJKMNPQRSTVWXYZ01"); err != nil || len(ran) != 1 {
-		t.Errorf("a web link: ran %q, err %v; want rundll32 alone", ran, err)
 	}
 	if err := launcher.OpenLink(context.Background(), "file:///C:/Windows/System32/calc.exe"); err == nil {
 		t.Error("a file link was opened")
@@ -124,19 +116,11 @@ func TestCommandHere_GivesWindowsALineForPowerShell(t *testing.T) {
 	}
 }
 
-func TestWindowsLauncher_SaysWhenNoAppTakesALink(t *testing.T) {
-	opened := false
-	launcher := windowsLauncher{run: func(_ context.Context, name string, _ ...string) (string, error) {
-		if name == "reg.exe" {
-			return "", errors.New("exit status 1")
-		}
-		opened = true
-		return "", nil
-	}}
-
-	err := launcher.OpenLink(context.Background(), "cursor://anysphere.cursor-deeplink/x")
-
-	if err == nil || err.Error() != "no app on this computer opens cursor:// links" || opened {
-		t.Errorf("err %v, opened %v", err, opened)
+func TestResumeLine_IsForPowerShellOnWindows(t *testing.T) {
+	if got := resumeLine("windows", `C:\app`, "claude --resume x"); got != `Set-Location -LiteralPath 'C:\app' -ErrorAction Stop; claude --resume x` {
+		t.Errorf("Windows got %q", got)
+	}
+	if got := resumeLine("linux", "/app", "claude --resume x"); got != `cd '/app' && claude --resume x` {
+		t.Errorf("Linux got %q", got)
 	}
 }

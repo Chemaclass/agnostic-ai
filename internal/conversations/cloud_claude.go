@@ -101,7 +101,7 @@ type CloudCredentials interface {
 // keychain, or in its credentials file on Linux. Claude Code renews it
 // there; this reads it on each call and never touches the refresh token.
 type KeychainCredentials struct {
-	// GOOS is the running system; only darwin and linux have a store to read.
+	// GOOS is the running system; only darwin, linux and windows have a store to read.
 	GOOS string
 	// Read returns the stored sign-in's JSON.
 	Read func(ctx context.Context) ([]byte, error)
