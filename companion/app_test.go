@@ -464,6 +464,7 @@ func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 		{"x.dmg: download: 404 Not Found", updateDownloading, "the release could not be downloaded. Check your connection"},
 		{"/Volumes/agnostic-ai/agnostic-ai companion.app cannot be updated where it is (read-only file system). Move the app to Applications, open it from there, then update", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
 		{"/A/.companion-update-1/agnostic-ai companion.app is not signed by this project: codesign: exit status 3", updateVerifying, "the download is not signed by this project"},
+		{"/A.app: the app that runs is not signed with a project certificate. Download the new disk image by hand once", updateVerifying, "the app that runs is not signed by this project. Download the new disk image by hand once"},
 		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
 		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},
 		{"replace /A.app: permission denied", updateRestarting, "the update command failed"},
@@ -574,5 +575,32 @@ func TestFailedUpdateAfterRestart_ShowsARollbackOnceOnTheNextStart(t *testing.T)
 				t.Errorf("second start = %+v; want idle", got)
 			}
 		})
+	}
+}
+
+func TestFailedUpdateAfterRestart_StaysThroughTheAutomaticCheckAtStart(t *testing.T) {
+	withVersion(t, "0.96.0")
+	s, _ := bundledScript(t, `{"installed":"0.96.0","latest":"0.97.0","method":"binary","oneClick":true,"image":true}`)
+	log := "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nError: replace /A.app: permission denied\n"
+	if err := os.WriteFile(s.appCommands.logPath(), []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.appCommands.current = failedUpdateAfterRestart(s.appCommands.logPath())
+
+	s.appCommands.checkUpdates(t.Context())
+
+	if got := s.updateStatus(); got.State != updateFailed || got.Reason != "the update command failed" {
+		t.Errorf("after the start check, status = %+v; want the failure kept", got)
+	}
+}
+
+func TestFailedUpdateAfterRestart_IgnoresAnUpdateIntoThisVersion(t *testing.T) {
+	withVersion(t, "0.97.0")
+	path := filepath.Join(t.TempDir(), "companion-update.log")
+	if err := os.WriteFile(path, []byte("Downloading agnostic-ai 0.97.0.\nRestarting the companion.\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := failedUpdateAfterRestart(path); got.State != updateIdle {
+		t.Errorf("status = %+v; want idle", got)
 	}
 }

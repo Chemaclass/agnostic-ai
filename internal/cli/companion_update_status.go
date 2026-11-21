@@ -90,8 +90,8 @@ func companionUpdateStatusCommand(detect func(string, bool) (upgradeInfo, bool, 
 		Long: `Show the installed and latest stable release, and how to upgrade.
 
 The companion reads it with --json to offer an update. The answer is kept
-for 24 hours in the update cache agnostic-ai upgrade shares; --refresh asks
-GitHub now.`,
+for up to a day in the update cache agnostic-ai upgrade shares, and a failed
+check keeps the last one; --refresh asks GitHub now.`,
 		Example: `  agnostic-ai companion update-status --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

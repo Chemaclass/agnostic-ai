@@ -75,7 +75,7 @@ func TestCompanionUpdateCache_AsksAtMostOnceADayUnlessRefreshed(t *testing.T) {
 		return true, nil
 	}
 
-	for i, at := range []time.Time{now, now.Add(time.Hour), now.Add(23 * time.Hour)} {
+	for i, at := range []time.Time{now, now.Add(time.Hour), now.Add(22 * time.Hour)} {
 		latest, hasImage, err := companionUpdateCacheAt(path, "0.96.0", at, false, fetch, image)
 		if err != nil || latest != "0.97.0" || !hasImage {
 			t.Fatalf("check %d = %q, %v, %v", i, latest, hasImage, err)
@@ -87,7 +87,7 @@ func TestCompanionUpdateCache_AsksAtMostOnceADayUnlessRefreshed(t *testing.T) {
 	if _, _, err := companionUpdateCacheAt(path, "0.96.0", now.Add(2*time.Hour), true, fetch, image); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := companionUpdateCacheAt(path, "0.96.0", now.Add(27*time.Hour), false, fetch, image); err != nil {
+	if _, _, err := companionUpdateCacheAt(path, "0.96.0", now.Add(26*time.Hour), false, fetch, image); err != nil {
 		t.Fatal(err)
 	}
 	if asked != 3 || imaged != 2 {
@@ -114,18 +114,41 @@ func TestCompanionUpdateCache_LeavesTheGuidedOfferTimeAlone(t *testing.T) {
 	}
 }
 
-func TestCompanionUpdateCache_RemembersAFailedCheckForTheDay(t *testing.T) {
+func TestCompanionUpdateCache_AFailedCheckKeepsTheLastAnswer(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	kept := upgradeCheckCache{CheckedAt: now.Add(-48 * time.Hour), OfferedAt: now.Add(-time.Hour), Current: "0.95.0", Offer: upgradeOffer{Latest: "0.97.0"}}
+	if err := writeUpgradeCache(path, kept); err != nil {
+		t.Fatal(err)
+	}
+	offline := func(string) (upgradeOffer, error) { return upgradeOffer{}, errors.New("offline") }
+
+	for _, refresh := range []bool{false, true} {
+		if _, _, err := companionUpdateCacheAt(path, "0.96.0", now, refresh, offline, nil); err == nil {
+			t.Fatalf("refresh %v: a failed check reported no error", refresh)
+		}
+	}
+
+	var cache upgradeCheckCache
+	raw, _ := os.ReadFile(path)
+	if err := json.Unmarshal(raw, &cache); err != nil || cache.Offer != kept.Offer || !cache.OfferedAt.Equal(kept.OfferedAt) || cache.Current != "0.95.0" {
+		t.Errorf("cache = %+v, %v; want it unchanged", cache, err)
+	}
+}
+
+func TestCompanionUpdateCache_DoesNotAskAgainForAnotherInstalledVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "update-check.json")
 	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
 	asked := 0
-	offline := func(string) (upgradeOffer, error) { asked++; return upgradeOffer{}, errors.New("offline") }
+	fetch := func(string) (upgradeOffer, error) { asked++; return upgradeOffer{Latest: "0.97.0"}, nil }
 
-	if _, _, err := companionUpdateCacheAt(path, "0.96.0", now, false, offline, nil); err == nil {
-		t.Fatal("a failed check reported no error")
+	for _, installed := range []string{"0.96.0", "0.95.0", "0.96.0"} {
+		if _, _, err := companionUpdateCacheAt(path, installed, now, false, fetch, nil); err != nil {
+			t.Fatal(err)
+		}
 	}
-	latest, _, err := companionUpdateCacheAt(path, "0.96.0", now.Add(time.Hour), false, offline, nil)
-	if asked != 1 || latest != "" || err != nil {
-		t.Errorf("an hour later: asked %d, latest %q, err %v; want no second request and no answer", asked, latest, err)
+	if asked != 1 {
+		t.Errorf("asked %d times for two installed versions; want once", asked)
 	}
 }
 

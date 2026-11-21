@@ -43,34 +43,45 @@ func readUpgradeCache(path string) upgradeCheckCache {
 	return cache
 }
 
+// companionUpdateFresh is how long companionUpdateCacheAt trusts an
+// answer: under a day, so a companion that checks every 24 hours asks again.
+const companionUpdateFresh = 23 * time.Hour
+
 // companionUpdateCacheAt answers the latest stable release, and whether
 // it has a companion disk image, from the update cache the guided upgrade
-// shares. It asks again after 24 hours, for another installed version, or
-// when refresh is set; a failed check is remembered for the day. image is
-// checked only for a newer release, and nil skips it.
+// shares. It asks again once the answer is older than companionUpdateFresh
+// or when refresh is set. A failed check keeps the last answer and returns
+// the error. image is checked only for a newer release, and nil skips it.
+// It writes only the fields it owns, over a fresh read of the file.
 func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, fetch func(string) (upgradeOffer, error), image func(string) (bool, error)) (string, bool, error) {
 	cache := readUpgradeCache(path)
-	if refresh || !recentUpgradeCheck(cache.CheckedAt, now) || cache.Current != current {
+	fresh := !cache.CheckedAt.IsZero() && !cache.CheckedAt.After(now) && now.Sub(cache.CheckedAt) < companionUpdateFresh
+	changed := false
+	if refresh || !fresh {
 		offer, err := fetch(current)
 		if err != nil {
-			offer = upgradeOffer{}
-		}
-		if offer.Latest != cache.Offer.Latest {
-			cache.OfferedAt, cache.CompanionImageTag, cache.CompanionImage = time.Time{}, "", false
-		}
-		cache.CheckedAt, cache.Current, cache.Offer = now, current, offer
-		if err != nil {
-			_ = writeUpgradeCache(path, cache)
 			return "", false, err
 		}
+		if offer.Latest != cache.Offer.Latest {
+			cache.CompanionImageTag, cache.CompanionImage = "", false
+		}
+		cache.CheckedAt, cache.Offer, changed = now, offer, true
 	}
 	latest := cache.Offer.Latest
 	if image != nil && newerStableRelease(latest, current) && (refresh || cache.CompanionImageTag != latest) {
 		if listed, err := image(latest); err == nil {
-			cache.CompanionImageTag, cache.CompanionImage = latest, listed
+			cache.CompanionImageTag, cache.CompanionImage, changed = latest, listed, true
 		}
 	}
-	_ = writeUpgradeCache(path, cache)
+	if changed {
+		stored := readUpgradeCache(path)
+		if stored.Offer.Latest != cache.Offer.Latest {
+			stored.OfferedAt = time.Time{}
+		}
+		stored.CheckedAt, stored.Offer = cache.CheckedAt, cache.Offer
+		stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
+		_ = writeUpgradeCache(path, stored)
+	}
 	return latest, cache.CompanionImageTag == latest && cache.CompanionImage, nil
 }
 

@@ -156,6 +156,8 @@ func updateFailureReason(log, step string) string {
 		return "the download did not match its checksum"
 	case strings.Contains(log, "build provenance did not verify"):
 		return "the download's build provenance did not verify"
+	case strings.Contains(log, "the app that runs is not signed with a project certificate"):
+		return "the app that runs is not signed by this project. Download the new disk image by hand once"
 	case strings.Contains(log, "is not signed by this project"):
 		return "the download is not signed by this project"
 	case strings.Contains(log, "codesign"):
@@ -403,6 +405,10 @@ func (c *appCommands) checkUpdates(ctx context.Context) {
 // someone asked for says what it found, and asks before updating.
 func (c *appCommands) check(ctx context.Context, asked bool) {
 	known := c.status()
+	// A failure stays until someone retries or checks again.
+	if !asked && known.State == updateFailed {
+		return
+	}
 	c.setStatus(updateStatus{State: updateChecking, Version: known.Version})
 	next, err := c.latest(ctx, asked)
 	if ctx.Err() != nil {
@@ -462,7 +468,8 @@ func failedUpdateAfterRestart(path string) updateStatus {
 			next = strings.TrimSuffix(strings.TrimSpace(named), ".")
 		}
 	}
-	if _, ok := stableReleaseVersion(next); !ok {
+	// A bundled CLI from before replacedLine finished the update into this version.
+	if _, ok := stableReleaseVersion(next); !ok || next == version {
 		return idle
 	}
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
@@ -484,15 +491,21 @@ func (c *appCommands) update(next string) {
 		step = updateDownloading
 	}
 	c.setStatus(updateStatus{State: updateUpdating, Version: next, Step: step})
+	var file *os.File
 	failed := func(reason string) {
+		if file != nil {
+			_, _ = fmt.Fprintln(file, shownLine)
+		}
 		status := updateStatus{State: updateFailed, Version: next, Reason: reason, Log: path}
 		if c.app == "" {
 			status.Command = upgradeCommand
 		}
 		c.setStatus(status)
 	}
-	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	// Append, so the updater and this companion never write over each other.
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
+		file = nil
 		log.Print(err)
 		failed("the update log could not be written")
 		return

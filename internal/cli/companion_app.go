@@ -95,6 +95,22 @@ type companionAppDeps struct {
 	start      func(string) error
 }
 
+// errInstalledUnpinned is an installed app whose signature names no
+// certificate, such as one signed ad hoc, so no update can match it.
+var errInstalledUnpinned = errors.New("the app that runs is not signed with a project certificate")
+
+// pinnedRequirement is the explicit designated requirement `codesign -d -r-`
+// printed, when it pins a certificate. An ad hoc app prints an implicit
+// "# designated => cdhash H..." line instead.
+func pinnedRequirement(output string) (string, bool) {
+	for line := range strings.Lines(output) {
+		if requirement, ok := strings.CutPrefix(strings.TrimSpace(line), "designated => "); ok && strings.Contains(requirement, "certificate leaf = H\"") {
+			return requirement, true
+		}
+	}
+	return "", false
+}
+
 // sameCompanionSigner checks built against the requirement the installed app
 // was signed with: the bundle identifier and the pinned project certificate.
 // It needs no gh, and stops a replaced release file unless the key leaked too.
@@ -103,12 +119,11 @@ func sameCompanionSigner(ctx context.Context, installed, built string) error {
 	if err != nil {
 		return fmt.Errorf("codesign: read the requirement of %s: %w", installed, withWhatItSaid(err, output))
 	}
-	for line := range strings.Lines(string(output)) {
-		if requirement, ok := strings.CutPrefix(strings.TrimSpace(line), "designated => "); ok {
-			return runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", "-R="+requirement, built)
-		}
+	requirement, ok := pinnedRequirement(string(output))
+	if !ok {
+		return fmt.Errorf("%s: %w", installed, errInstalledUnpinned)
 	}
-	return fmt.Errorf("codesign: %s has no designated requirement", installed)
+	return runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", "-R="+requirement, built)
 }
 
 func updateCompanionApp(ctx context.Context, out io.Writer, app, version string, tools companionTools, deps companionAppDeps) error {
@@ -137,7 +152,9 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", app, err)
 	}
-	if err := deps.sameSigner(ctx, app, built); err != nil {
+	if err := deps.sameSigner(ctx, app, built); errors.Is(err, errInstalledUnpinned) {
+		return fmt.Errorf("%w. Download the new disk image by hand once", err)
+	} else if err != nil {
 		return fmt.Errorf("%s is not signed by this project: %w", built, err)
 	}
 	if err := ctx.Err(); err != nil {
