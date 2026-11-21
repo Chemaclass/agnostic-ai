@@ -58,9 +58,9 @@ func TestServeContext_ReportsTheConfiguredWordBudget(t *testing.T) {
 	}
 }
 
-func TestServeContext_ExplainsThatGlobalScopeHasNoProjectContext(t *testing.T) {
+func TestServeContext_ExplainsThatUserScopeHasNoProjectContext(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Global: true}, serveMuxOptions{compareInstalled: true}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{UserLevel: true}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath, http.StatusOK); view.Supported || view.Reason == "" || view.Report != nil || view.Targets == nil {
 		t.Errorf("global view: %+v", view)

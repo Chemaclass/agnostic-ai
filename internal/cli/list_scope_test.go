@@ -94,7 +94,7 @@ func TestList_ScopeLocalWithoutPersonalSpecsSaysHowToAddOne(t *testing.T) {
 }
 
 func TestList_UserScopeNamesTheUserLayers(t *testing.T) {
-	_, source := globalConfigTestHome(t)
+	_, source := userConfigTestHome(t)
 	writeFile(t, source+"/rules/mine.md", "---\nname: mine\ndescription: Mine.\n---\n\nMine.\n")
 	writeFile(t, source+"/local/rules/mine.md", "---\nname: mine\ndescription: Really mine.\n---\n")
 	writeFile(t, source+"/rules/other.md", "---\nname: other\ndescription: Other.\n---\n\nOther.\n")

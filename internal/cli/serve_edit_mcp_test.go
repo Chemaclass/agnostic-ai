@@ -25,7 +25,7 @@ type mcpEditTestReply struct {
 	Expected    string   `json:"expected"`
 }
 
-func mcpEditGlobal(t *testing.T, native string) (string, string) {
+func mcpEditUser(t *testing.T, native string) (string, string) {
 	t.Helper()
 	silence(t)
 	home := nativeMCPHome(t)
@@ -85,9 +85,9 @@ func mcpEditApply(t *testing.T, h http.Handler, request map[string]any, preview 
 	}
 }
 
-func TestServeEditMCP_GlobalPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
+func TestServeEditMCP_UserPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
 	native := "{\n  \"mcpServers\": {\n    \"notion\": {\"type\": \"http\", \"url\": \"https://mcp.notion.com/mcp\"},\n    \"other\": {\"command\": \"other-mcp\"}\n  },\n  \"keep\": true\n}\n"
-	source, path := mcpEditGlobal(t, native)
+	source, path := mcpEditUser(t, native)
 	beforeInfo, err := os.Stat(path)
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestServeEditMCP_GlobalPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
 	if len(scope.bundle.MCPs) != 1 || scope.bundle.MCPs[0].Name != "notion" {
 		t.Errorf("reloaded MCP specs = %v", scope.bundle.MCPs)
 	}
-	out, warnings, err := runGlobalAgentTest("--dry-run")
+	out, warnings, err := runUserAgentTest("--dry-run")
 	if err != nil {
 		t.Fatalf("sync --scope user --dry-run: %v\n%s\n%s", err, out, warnings)
 	}
@@ -150,7 +150,7 @@ func TestServeEditMCP_GlobalPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
 
 func TestServeEditMCP_RewritesEnvCredentialBeforePreviewAndApply(t *testing.T) {
 	const token = "ghp_synthetic123"
-	source, path := mcpEditGlobal(t, `{"mcpServers":{"github":{"command":"github-mcp","env":{"GITHUB_TOKEN":"`+token+`"}}}}`)
+	source, path := mcpEditUser(t, `{"mcpServers":{"github":{"command":"github-mcp","env":{"GITHUB_TOKEN":"`+token+`"}}}}`)
 	native := readOptional(t, path)
 	h := newEditHandler(source, true)
 	request := mcpEditIdentity("github", "shared", "user", "~/.claude.json")
@@ -168,7 +168,7 @@ func TestServeEditMCP_RewritesEnvCredentialBeforePreviewAndApply(t *testing.T) {
 }
 
 func TestServeEditMCP_RefusesAnArgsCredentialImportCannotRewrite(t *testing.T) {
-	source, path := mcpEditGlobal(t, `{"mcpServers":{"unsafe":{"command":"sh","args":["-c","exec npx mcp-remote https://x.example/mcp?token='T0KEN'"]}}}`)
+	source, path := mcpEditUser(t, `{"mcpServers":{"unsafe":{"command":"sh","args":["-c","exec npx mcp-remote https://x.example/mcp?token='T0KEN'"]}}}`)
 	native := readOptional(t, path)
 	h := newEditHandler(source, true)
 	request := mcpEditIdentity("unsafe", "shared", "user", "~/.claude.json")
@@ -191,7 +191,7 @@ func TestServeEditMCP_RefusesAnArgsCredentialImportCannotRewrite(t *testing.T) {
 }
 
 func TestServeEditMCP_RefusesAnExistingSpecByName(t *testing.T) {
-	source, _ := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+	source, _ := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	file := filepath.Join(source, "mcps", "different-file.yaml")
 	before := "name: notion\ncommand: existing-mcp\n"
 	writeFile(t, file, before)
@@ -205,7 +205,7 @@ func TestServeEditMCP_RefusesAnExistingSpecByName(t *testing.T) {
 }
 
 func TestServeEditMCP_RefusesASpecCreatedAfterPreview(t *testing.T) {
-	source, _ := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+	source, _ := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	h := newEditHandler(source, true)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)
@@ -245,8 +245,8 @@ func TestServeEditMCP_ProjectPersonalSaveStaysOutOfGit(t *testing.T) {
 	}
 }
 
-func TestServeEditMCP_GlobalPersonalSaveStaysOutOfGit(t *testing.T) {
-	source, _ := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+func TestServeEditMCP_UserPersonalSaveStaysOutOfGit(t *testing.T) {
+	source, _ := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	isolateGit(t)
 	git(t, source, "init", "-q")
 	git(t, source, "add", ".")
@@ -262,7 +262,7 @@ func TestServeEditMCP_GlobalPersonalSaveStaysOutOfGit(t *testing.T) {
 }
 
 func TestServeEditMCP_ProjectPageImportsAUserServerToProjectSpecs(t *testing.T) {
-	source, nativePath := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+	source, nativePath := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	project := scopeProject(t)
 	h := newEditHandler(project, false)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
@@ -283,7 +283,7 @@ func TestServeEditMCP_ProjectPageImportsAUserServerToProjectSpecs(t *testing.T) 
 }
 
 func TestServeEditMCP_RefusesAnApplyWithoutPreviewOrAfterNativeChange(t *testing.T) {
-	source, path := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+	source, path := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	h := newEditHandler(source, true)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
 	request["action"] = "apply"
@@ -303,7 +303,7 @@ func TestServeEditMCP_RefusesAnApplyWithoutPreviewOrAfterNativeChange(t *testing
 }
 
 func TestServeEditMCP_PreviewListsShellVariablesOnly(t *testing.T) {
-	source, _ := mcpEditGlobal(t, `{"mcpServers":{"workspace":{"command":"node","args":["${workspaceFolder}/mcp.js","${API_TOKEN}"]}}}`)
+	source, _ := mcpEditUser(t, `{"mcpServers":{"workspace":{"command":"node","args":["${workspaceFolder}/mcp.js","${API_TOKEN}"]}}}`)
 	preview := mcpEditPreview(t, newEditHandler(source, true), mcpEditIdentity("workspace", "shared", "user", "~/.claude.json"))
 	if !slices.Equal(preview.Variables, []string{"API_TOKEN"}) {
 		t.Errorf("variables to set = %v, want only API_TOKEN", preview.Variables)
@@ -314,7 +314,7 @@ func TestServeEditMCP_PreviewListsShellVariablesOnly(t *testing.T) {
 }
 
 func TestServeEditMCP_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
-	source, nativePath := mcpEditGlobal(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
+	source, nativePath := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	native := readOptional(t, nativePath)
 	h := newEditHandler(source, true)
 	body, err := json.Marshal(mcpEditIdentity("notion", "shared", "user", "~/.claude.json"))

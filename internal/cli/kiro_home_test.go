@@ -11,9 +11,9 @@ import (
 )
 
 func TestKiroHome_UsesNativeFallbackAcrossSurfaces(t *testing.T) {
-	home, _ := globalAgentTestHome(t)
-	g := globalTargets["kiro"]
-	paths := []string{g.instructions, g.agents, g.skills, g.hooksDir, g.hookScriptsDir, globalPathHome + ".kiro/settings/cli.json"}
+	home, _ := userAgentTestHome(t)
+	g := userTargets["kiro"]
+	paths := []string{g.instructions, g.agents, g.skills, g.hooksDir, g.hookScriptsDir, userPathHome + ".kiro/settings/cli.json"}
 	cases := []struct {
 		name, root string
 		fallback   bool
@@ -40,7 +40,7 @@ func TestKiroHome_UsesNativeFallbackAcrossSurfaces(t *testing.T) {
 				t.Errorf("native fallback rejected: %v", err)
 			}
 			for _, path := range paths {
-				want := globalPath(home, path)
+				want := userLevelPath(home, path)
 				if !tc.fallback {
 					want = filepath.Join(tc.root, filepath.FromSlash(path[len(g.root):]))
 				}
@@ -48,7 +48,7 @@ func TestKiroHome_UsesNativeFallbackAcrossSurfaces(t *testing.T) {
 					t.Errorf("%s resolves to %q, want %q", path, got, want)
 				}
 			}
-			if tc.root != "" && filepath.Clean(tc.root) != filepath.Clean(home) && tc.fallback && slices.Contains(globalRoots(home), filepath.Clean(tc.root)) {
+			if tc.root != "" && filepath.Clean(tc.root) != filepath.Clean(home) && tc.fallback && slices.Contains(userRoots(home), filepath.Clean(tc.root)) {
 				t.Errorf("invalid profile still expands ownership roots: %q", tc.root)
 			}
 		})
@@ -56,8 +56,8 @@ func TestKiroHome_UsesNativeFallbackAcrossSurfaces(t *testing.T) {
 }
 
 func TestKiroHome_OtherTargetsStillRejectRelativeRoots(t *testing.T) {
-	globalAgentTestHome(t)
-	for name, g := range globalTargets {
+	userAgentTestHome(t)
+	for name, g := range userTargets {
 		if g.rootEnv == "" || name == "kiro" {
 			continue
 		}
@@ -71,19 +71,19 @@ func TestKiroHome_OtherTargetsStillRejectRelativeRoots(t *testing.T) {
 }
 
 func TestKiroHome_RefusesForeignPriorStateWithoutChangingFiles(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	t.Setenv("KIRO_HOME", filepath.Dir(home))
 	oldPath := filepath.Join(t.TempDir(), "steering", "AGENTS.md")
 	original := "User-owned file outside the fallback root.\n"
 	writeFile(t, oldPath, original)
 	statePath := filepath.Join(source, "state", "global.json")
-	state, err := json.Marshal(globalState{Version: globalStateVersion, Files: []string{oldPath}})
+	state, err := json.Marshal(userState{Version: userStateVersion, Files: []string{oldPath}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, statePath, string(state))
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "New instructions.\n")
-	if _, _, err := runGlobalAgentTest("--only", "kiro"); err == nil || !strings.Contains(err.Error(), "recorded under another home") || !strings.Contains(err.Error(), oldPath) {
+	if _, _, err := runUserAgentTest("--only", "kiro"); err == nil || !strings.Contains(err.Error(), "recorded under another home") || !strings.Contains(err.Error(), oldPath) {
 		t.Fatalf("unsafe prior state accepted: %v", err)
 	}
 	if got := readFile(t, oldPath); got != original {

@@ -311,7 +311,7 @@ func hookSpecYAML(req hookSpecRequest) ([]byte, error) {
 }
 
 func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hookSpecPreview, string, error) {
-	scope, hooks, err := loadCheckScopeAllHooks(h.global)
+	scope, hooks, err := loadCheckScopeAllHooks(h.userLevel)
 	if err != nil {
 		return hookSpecPreview{}, "", err
 	}
@@ -327,7 +327,7 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 	}
 	req.TargetsExclude = kept
 	dir := filepath.Join(h.root, "hooks")
-	if !h.global {
+	if !h.userLevel {
 		dir = config.ResolveSourcePath(h.root, scope.cfg.Sources.Hooks)
 	}
 	if where == audiencePersonal {
@@ -366,7 +366,7 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 		return hookSpecPreview{}, "", problems
 	}
 	command := "agnostic-ai sync"
-	if h.global {
+	if h.userLevel {
 		command += " --scope user"
 	}
 	proposed := hookSpecPreview{File: overviewDisplay(h.root, file), Spec: string(data), SyncCommand: command}

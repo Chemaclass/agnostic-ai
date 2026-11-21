@@ -290,7 +290,7 @@ func pickSettings(b *spec.Bundle, cfg *config.Config, opts Options, p paths, sou
 		return 0, false, fmt.Errorf("no settings spec at %s", source)
 	}
 	layer := "project"
-	if opts.Global {
+	if opts.UserLevel {
 		layer = "user"
 	}
 	for i, e := range b.Settings {
@@ -300,7 +300,7 @@ func pickSettings(b *spec.Bundle, cfg *config.Config, opts Options, p paths, sou
 	}
 	dir := config.SourceBaseDir + "/settings"
 	switch {
-	case opts.Global:
+	case opts.UserLevel:
 		dir = "settings"
 	case cfg.Sources.Settings != "":
 		dir = cfg.Sources.Settings

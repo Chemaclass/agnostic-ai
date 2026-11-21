@@ -21,7 +21,7 @@ func builtinClaudeProject(t *testing.T, usableCache bool) string {
 		}
 	})
 	dir := testutil.TempCwd(t)
-	t.Setenv(envUserGlobalRoot, t.TempDir())
+	t.Setenv(envUserRoot, t.TempDir())
 	builtinCache(t, usableCache)
 	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude]\nbuiltins: [memory]\n")
 	return dir

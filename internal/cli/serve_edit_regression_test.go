@@ -29,7 +29,7 @@ func TestEditBuiltinRoundTripKeepsUnrelatedBytes(t *testing.T) {
 			if err := os.Chmod(file, 0o600); err != nil {
 				t.Fatal(err)
 			}
-			h := &editHandler{root: source, global: true}
+			h := &editHandler{root: source, userLevel: true}
 			for _, enabled := range []bool{true, false} {
 				_, err := h.applyValidated(file, func(data []byte) ([]byte, error) { return setBuiltin(data, "handoff", enabled) })
 				if err != nil {
@@ -110,7 +110,7 @@ func TestEditRollbackPreservesConcurrentReplacement(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "agnostic-ai.yaml")
-	h := &editHandler{root: source, global: true}
+	h := &editHandler{root: source, userLevel: true}
 	calls := 0
 	concurrent := "targets: [claude, codex]\n# concurrent save\n"
 	h.validate = func() ([]string, error) {
@@ -137,7 +137,7 @@ func TestEditInterleavedBooleansKeepOtherEdits(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	writeFile(t, file, "# mine\nx-claude:\n    verbose: false # first\n    alwaysThinkingEnabled: false # second\n")
-	h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
+	h := &editHandler{root: source, userLevel: true, validate: func() ([]string, error) { return nil, nil }}
 	for _, change := range []struct {
 		key   string
 		value bool
@@ -156,7 +156,7 @@ func TestEditInterleavedBooleansKeepOtherEdits(t *testing.T) {
 func TestEditRoundTripKeepsExternalUnrelatedSave(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "agnostic-ai.yaml")
-	h := &editHandler{root: source, global: true}
+	h := &editHandler{root: source, userLevel: true}
 	if _, err := h.applyValidated(file, func(data []byte) ([]byte, error) { return setBuiltin(data, "memory", true) }); err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestEditBuiltinEmptyOverrideSurvivesNewHandler(t *testing.T) {
 			t.Fatalf("%d %s", w.Code, w.Body)
 		}
 	}
-	names, err := loadGlobalBuiltins(source, nil)
+	names, err := loadUserBuiltins(source, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestEditBuiltinEmptyOverrideSurvivesNewHandler(t *testing.T) {
 func TestEditRejectsIdenticalBytesInReplacementFile(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "agnostic-ai.yaml")
-	h := &editHandler{root: source, global: true}
+	h := &editHandler{root: source, userLevel: true}
 	_, err := h.applyValidated(file, func(data []byte) ([]byte, error) {
 		other := filepath.Join(source, "editor-save.yaml")
 		if err := os.WriteFile(other, data, 0o600); err != nil {
@@ -225,7 +225,7 @@ func TestEditRollsBackNewFileToAbsence(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "local", "agnostic-ai.yaml")
 	calls := 0
-	h := &editHandler{root: source, global: true, validate: func() ([]string, error) {
+	h := &editHandler{root: source, userLevel: true, validate: func() ([]string, error) {
 		calls++
 		if calls == 2 {
 			return []string{"conflict"}, nil
@@ -247,7 +247,7 @@ func TestEditRollbackReportsRemovedParent(t *testing.T) {
 	file := filepath.Join(dir, "config.yaml")
 	writeFile(t, file, "targets: [claude]\n")
 	calls := 0
-	h := &editHandler{root: source, global: true, validate: func() ([]string, error) {
+	h := &editHandler{root: source, userLevel: true, validate: func() ([]string, error) {
 		calls++
 		if calls == 2 {
 			if err := os.Remove(file); err != nil {
@@ -285,7 +285,7 @@ func TestEditYAMLLayoutsKeepCommentsAndDocumentBoundaries(t *testing.T) {
 			source := editHome(t)
 			file := filepath.Join(source, "agnostic-ai.yaml")
 			writeFile(t, file, original)
-			h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
+			h := &editHandler{root: source, userLevel: true, validate: func() ([]string, error) { return nil, nil }}
 			for _, enabled := range []bool{true, false} {
 				if _, err := h.applyValidated(file, func(data []byte) ([]byte, error) { return setBuiltin(data, "handoff", enabled) }); err != nil {
 					t.Fatal(err)
@@ -314,7 +314,7 @@ func TestEditInheritedBooleanAfterLiteralKeepsNextMapping(t *testing.T) {
 func TestEditBuiltinNewFileRoundTripRestoresAbsence(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "local", "agnostic-ai.yaml")
-	h := &editHandler{root: source, global: true, validate: func() ([]string, error) { return nil, nil }}
+	h := &editHandler{root: source, userLevel: true, validate: func() ([]string, error) { return nil, nil }}
 	for _, enabled := range []bool{true, false} {
 		target, edit, err := h.builtinsEdit(audiencePersonal, builtinRequest{name: "memory", enabled: enabled})
 		if err != nil || target != file {
@@ -336,7 +336,7 @@ func TestEditRollbackKeepsOriginalPrivateMode(t *testing.T) {
 	if err := os.Chmod(file, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	h := &editHandler{root: source, global: true}
+	h := &editHandler{root: source, userLevel: true}
 	_, err := h.applyValidated(file, func([]byte) ([]byte, error) { return []byte("x-claude: [invalid\n"), nil })
 	if err == nil {
 		t.Fatal("invalid edit accepted")
@@ -535,7 +535,7 @@ func TestEditErrorsRedactPathsAndValidationProblems(t *testing.T) {
 		t.Errorf("path response=%d %s", w.Code, w.Body)
 	}
 	calls := 0
-	h := &editHandler{root: source, global: true, validate: func() ([]string, error) {
+	h := &editHandler{root: source, userLevel: true, validate: func() ([]string, error) {
 		calls++
 		if calls == 2 {
 			return []string{"invalid rule \"shell(echo " + token + ")\""}, nil

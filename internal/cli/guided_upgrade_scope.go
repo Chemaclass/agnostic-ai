@@ -11,7 +11,7 @@ import (
 )
 
 func validateGuidedProjectConfigs(root string) error {
-	if err := refuseGlobalHome(root, "upgrade global specs separately"); err != nil {
+	if err := refuseUserHome(root, "upgrade global specs separately"); err != nil {
 		return err
 	}
 	resolvedRoot, err := config.ResolveSourceAlias(root)
@@ -56,7 +56,7 @@ func validateGuidedProjectConfigs(root string) error {
 			return err
 		}
 	}
-	return validateGuidedGlobalEntries(root, resolvedRoot)
+	return validateGuidedUserEntries(root, resolvedRoot)
 }
 
 func guidedProjectPath(resolvedRoot, path string) (string, error) {
@@ -68,7 +68,7 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", path, err)
 	}
-	if err := refuseGlobalHome(target, "upgrade global specs separately"); err != nil {
+	if err := refuseUserHome(target, "upgrade global specs separately"); err != nil {
 		return "", fmt.Errorf("%s points to global specs %s: %w", path, target, err)
 	}
 	inside, err := guidedPhysicalPathInside(resolvedRoot, target)
@@ -81,8 +81,8 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 	return target, nil
 }
 
-func validateGuidedGlobalEntries(root, resolvedRoot string) error {
-	source, err := globalSourceRoot()
+func validateGuidedUserEntries(root, resolvedRoot string) error {
+	source, err := userSourceRoot()
 	if err != nil {
 		return fmt.Errorf("resolve global source root: %w", err)
 	}
@@ -126,11 +126,11 @@ func validateGuidedGlobalEntries(root, resolvedRoot string) error {
 			if err != nil {
 				return fmt.Errorf("resolve %s: %w", entry.Path, err)
 			}
-			global, err := guidedPhysicalPathInside(home, target)
+			userLevel, err := guidedPhysicalPathInside(home, target)
 			if err != nil {
 				return err
 			}
-			if global {
+			if userLevel {
 				return fmt.Errorf("%s points to global specs %s; upgrade global specs separately", entry.Path, target)
 			}
 		}

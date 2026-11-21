@@ -56,8 +56,8 @@ func voiceTargetNoOpReason(target string) string {
 	}
 }
 
-func noteQwenVoiceModel(values map[string]any, want []globalSetting) {
-	if !slices.ContainsFunc(want, func(setting globalSetting) bool {
+func noteQwenVoiceModel(values map[string]any, want []userSetting) {
+	if !slices.ContainsFunc(want, func(setting userSetting) bool {
 		return setting.target == "qwen" && strings.HasPrefix(setting.field, "voice.")
 	}) {
 		return

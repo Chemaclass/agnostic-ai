@@ -279,8 +279,8 @@ func TestSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
 	}
 }
 
-func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
-	home, source := globalConfigTestHome(t)
+func TestUserCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
+	home, source := userConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "requires: \">=0.70.0\"\ntargets: [claude]\n")
 
@@ -288,7 +288,7 @@ func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 		_, _, err := runAsVersion(t, "v0.69.0", append(args, "--scope", "user")...)
 		assertUnmetRequires(t, err, config, ">=0.70.0", "0.69.0")
 	}
-	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": false})
+	assertUserInstructions(t, home, map[string]bool{".claude/CLAUDE.md": false})
 
 	_, errOut, err := runAsVersion(t, "v0.70.0", "sync", "--scope", "user")
 	if err != nil {
@@ -297,11 +297,11 @@ func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 	if strings.Contains(errOut, "ignoring") {
 		t.Errorf("the home config must accept requires, got:\n%s", errOut)
 	}
-	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
+	assertUserInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
 }
 
-func TestGlobalSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
-	_, source := globalConfigTestHome(t)
+func TestUserSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
+	_, source := userConfigTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.60.0\"\n")
 	local := filepath.Join(source, "local", "agnostic-ai.yaml")
 	writeFile(t, local, "requires: \">=0.70.0\"\n")
@@ -310,8 +310,8 @@ func TestGlobalSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
 	assertUnmetRequires(t, err, local, ">=0.70.0", "0.69.0")
 }
 
-func TestGlobalSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
-	_, source := globalConfigTestHome(t)
+func TestUserSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
+	_, source := userConfigTestHome(t)
 	path := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, path, "requires: \"0.76.0\"\n")
 
@@ -329,19 +329,19 @@ func TestGlobalSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
 	}
 }
 
-func TestGlobalSync_NullLocalRequiresClearsShared(t *testing.T) {
-	home, source := globalConfigTestHome(t)
+func TestUserSync_NullLocalRequiresClearsShared(t *testing.T) {
+	home, source := userConfigTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.70.0\"\ntargets: [claude]\n")
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "requires:\n")
 
 	if _, _, err := runAsVersion(t, "v0.69.0", "sync", "--scope", "user"); err != nil {
 		t.Fatalf("a null local requires must clear the shared one, as in a project: %v", err)
 	}
-	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
+	assertUserInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
 }
 
-func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
-	home, source := globalConfigTestHome(t)
+func TestUserSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
+	home, source := userConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "targets: [claude\n")
 
@@ -352,7 +352,7 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 	if !strings.Contains(errOut, "warning: [AAI-004] parse "+config) || !strings.Contains(errOut, "; skipping it") {
 		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)
 	}
-	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
+	assertUserInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
 
 	writeFile(t, config, "requires: \">=0.70.0\"\n")
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [claude\n")
@@ -360,8 +360,8 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 	assertUnmetRequires(t, err, config, ">=0.70.0", "0.69.0")
 }
 
-func TestGlobalSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
-	_, source := globalConfigTestHome(t)
+func TestUserSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
+	_, source := userConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "requires: [\">=0.70.0\"]\n")
 
@@ -390,8 +390,8 @@ func TestDoctor_NextStepGivesTheConfigErrorFix(t *testing.T) {
 	}
 }
 
-func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
-	_, source := globalConfigTestHome(t)
+func TestListUser_WarnsOnUnparsableHomeConfig(t *testing.T) {
+	_, source := userConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "targets: [claude\n")
 	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
@@ -596,8 +596,8 @@ func TestProjectCommands_RangeGetsNoMinimumHint(t *testing.T) {
 	}
 }
 
-func TestGlobalCommands_ExactPinHintsAtMinimum(t *testing.T) {
-	_, source := globalConfigTestHome(t)
+func TestUserCommands_ExactPinHintsAtMinimum(t *testing.T) {
+	_, source := userConfigTestHome(t)
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "requires: \"0.88.0\"\ntargets: [claude]\n")
 

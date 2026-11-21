@@ -149,17 +149,17 @@ func TestPermissionEdit_ValidatesGrammarAndKeepsCredentialsOutOfResponses(t *tes
 	}
 }
 
-func TestPermissionEdit_CreatesConfiguredProjectAndGlobalSources(t *testing.T) {
-	for _, global := range []bool{false, true} {
-		t.Run(map[bool]string{false: "project", true: "global"}[global], func(t *testing.T) {
+func TestPermissionEdit_CreatesConfiguredProjectAndUserSources(t *testing.T) {
+	for _, userLevel := range []bool{false, true} {
+		t.Run(map[bool]string{false: "project", true: "global"}[userLevel], func(t *testing.T) {
 			var h *editHandler
 			var file string
-			if global {
+			if userLevel {
 				root := editHome(t)
 				if err := os.Remove(filepath.Join(root, "settings", "native.yaml")); err != nil {
 					t.Fatal(err)
 				}
-				h, file = &editHandler{root: root, global: true}, filepath.Join(root, "settings", "permissions.yaml")
+				h, file = &editHandler{root: root, userLevel: true}, filepath.Join(root, "settings", "permissions.yaml")
 			} else {
 				h = targetProject(t, "")
 				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\nsources:\n  settings: config/policies\n")
@@ -249,15 +249,15 @@ func TestPermissionEdit_ResetsAPersonalNullWithoutChangingOtherKeys(t *testing.T
 }
 
 func TestPermissionEdit_RefusesWholePersonalPermissionsClearForBothAudiences(t *testing.T) {
-	for _, global := range []bool{false, true} {
-		t.Run(map[bool]string{false: "project", true: "global"}[global], func(t *testing.T) {
+	for _, userLevel := range []bool{false, true} {
+		t.Run(map[bool]string{false: "project", true: "global"}[userLevel], func(t *testing.T) {
 			original := "name: defaults\npermissions:\n  allow: [read]\n"
 			personal := "# Keep my clear.\nname: defaults\npermissions: null\n"
 			var h *editHandler
 			shared, local := ".agnostic-ai/settings/defaults.yaml", ".agnostic-ai/local/settings/defaults.yaml"
-			if global {
+			if userLevel {
 				root := editHome(t)
-				h = &editHandler{root: root, global: true}
+				h = &editHandler{root: root, userLevel: true}
 				shared, local = "settings/native.yaml", "local/settings/defaults.yaml"
 			} else {
 				h = targetProject(t, original)

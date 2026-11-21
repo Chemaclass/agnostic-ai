@@ -7,10 +7,10 @@ import (
 
 const voiceField = "voice"
 
-// globalVoiceKeys names the native key one target's user settings file
+// userVoiceKeys names the native key one target's user settings file
 // takes for each portable voice member. An empty key is not written, and
 // notes says why, per member.
-type globalVoiceKeys struct {
+type userVoiceKeys struct {
 	enabled, mode, language string
 	// modes translates a portable mode to the native value; a missing
 	// mode is written as it is.
@@ -34,10 +34,10 @@ func voiceIssues(settings []spec.Entry) []validationIssue {
 	return issues
 }
 
-// globalVoiceSetting resolves the voice members of the settings specs
+// userVoiceSetting resolves the voice members of the settings specs
 // for target into native keys, later specs winning member by member.
-func globalVoiceSetting(target string, f globalSettingsFile, settings []spec.Entry) []globalSetting {
-	byMember := map[string]globalSetting{}
+func userVoiceSetting(target string, f userSettingsFile, settings []spec.Entry) []userSetting {
+	byMember := map[string]userSetting{}
 	var order []string
 	present := false
 	for _, entry := range settings {
@@ -57,7 +57,7 @@ func globalVoiceSetting(target string, f globalSettingsFile, settings []spec.Ent
 			if _, seen := byMember[member]; !seen {
 				order = append(order, member)
 			}
-			byMember[member] = globalSetting{target: target, key: key, field: voiceField + "." + member, source: entry.Path, value: native}
+			byMember[member] = userSetting{target: target, key: key, field: voiceField + "." + member, source: entry.Path, value: native}
 		}
 		if voice.Enabled != nil {
 			set("enabled", f.voice.enabled, *voice.Enabled)
@@ -80,7 +80,7 @@ func globalVoiceSetting(target string, f globalSettingsFile, settings []spec.Ent
 		adapters.NoteSettingsFieldNoOp(target, voiceField, 1, voiceTargetNoOpReason(target))
 		return nil
 	}
-	var out []globalSetting
+	var out []userSetting
 	for _, member := range order {
 		s := byMember[member]
 		if member == "language" && f.voice.languageValid != nil {
@@ -105,7 +105,7 @@ func globalVoiceSetting(target string, f globalSettingsFile, settings []spec.Ent
 
 // voiceNativeKeys lists the native keys the voice mapping writes for
 // target from the members the settings specs set.
-func voiceNativeKeys(target string, f globalSettingsFile, settings []spec.Entry) []string {
+func voiceNativeKeys(target string, f userSettingsFile, settings []spec.Entry) []string {
 	if f.voice == nil {
 		return nil
 	}

@@ -78,11 +78,11 @@ func outputContains(t *testing.T, root, needle string) bool {
 
 // sync --scope user writes agents without the project coverage report, so
 // Qwen's permissionMode note must come from its own agent writer.
-func TestSyncGlobal_NotesQwenAgentPermissionMode(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestSyncUser_NotesQwenAgentPermissionMode(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agents", "guard.md"), "---\nname: guard\ndescription: Guards the shell.\npermissionMode: plan\n---\n\nGuard.\n")
 	writeFile(t, filepath.Join(source, "agents", "watch.md"), "---\nname: watch\ndescription: Watches the shell.\npermissionMode: plan\n---\n\nWatch.\n")
-	_, errOut, err := runGlobalAgentTest("--only", "qwen")
+	_, errOut, err := runUserAgentTest("--only", "qwen")
 	if err != nil {
 		t.Fatalf("sync --scope user: %v", err)
 	}

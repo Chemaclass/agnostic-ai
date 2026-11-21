@@ -112,8 +112,8 @@ func TestRunOverviewChecks_SkipsRenderingAndReadingGeneratedFiles(t *testing.T) 
 	}
 }
 
-func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
-	globalOverviewHome(t)
+func TestServe_NoInstalledSkipsTheUserOverviewComparison(t *testing.T) {
+	userOverviewHome(t)
 	testutil.Chdir(t, t.TempDir())
 
 	skipped := serveAndFetchEvidence(t, "--scope", "user", "--no-installed")
@@ -133,8 +133,8 @@ func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
 	}
 }
 
-func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testing.T) {
-	home := globalOverviewHome(t)
+func TestServe_NoInstalledKeepsTheUserNoteForSettingsSyncDoesNotWrite(t *testing.T) {
+	home := userOverviewHome(t)
 	source := filepath.Join(home, "source")
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - codex\n  - opencode\n")
 	writeFile(t, filepath.Join(source, "settings", "base.yaml"), "model: gpt-5\neffort: high\n")

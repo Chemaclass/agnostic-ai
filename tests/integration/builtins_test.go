@@ -116,10 +116,10 @@ func TestBuiltinHandoff(t *testing.T) {
 	t.Run("configured-learning-destinations", func(t *testing.T) {
 		dir := project(t)
 		home := t.TempDir()
-		globalSource := filepath.Join(home, "portable")
+		userSource := filepath.Join(home, "portable")
 		t.Setenv("HOME", home)
 		t.Setenv("USERPROFILE", home)
-		t.Setenv("AGNOSTIC_AI_HOME", globalSource)
+		t.Setenv("AGNOSTIC_AI_HOME", userSource)
 		cfg := string(fixture) + "sources:\n  rules: guidance/rules\noutputs:\n  claude:\n    rules-file: CLAUDE.md\n"
 		must(t, os.WriteFile(filepath.Join(dir, "agnostic-ai.yaml"), []byte(cfg), 0o644))
 		for _, rule := range []struct {
@@ -129,12 +129,12 @@ func TestBuiltinHandoff(t *testing.T) {
 		}{
 			{filepath.Join(dir, "guidance", "rules", "learnings.md"), "learnings", "Keep the configured project learning."},
 			{filepath.Join(dir, ".agnostic-ai", "local", "rules", "learnings-local.md"), "learnings-local", "Keep the fixed personal learning."},
-			{filepath.Join(globalSource, "rules", "learnings.md"), "learnings", "Keep the configured global learning."},
+			{filepath.Join(userSource, "rules", "learnings.md"), "learnings", "Keep the configured global learning."},
 		} {
 			must(t, os.MkdirAll(filepath.Dir(rule.path), 0o755))
 			must(t, os.WriteFile(rule.path, []byte("---\nname: "+rule.name+"\nalwaysApply: true\n---\n\n"+rule.body+"\n"), 0o644))
 		}
-		must(t, os.WriteFile(filepath.Join(globalSource, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude]\n"), 0o644))
+		must(t, os.WriteFile(filepath.Join(userSource, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude]\n"), 0o644))
 		run(t, dir, "sync", "--gitignore=off")
 		assertContains(t, filepath.Join(dir, "CLAUDE.md"),
 			"Keep the configured project learning.",

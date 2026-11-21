@@ -129,7 +129,7 @@ func TestEditTargets_RefusesBadRequests(t *testing.T) {
 	}
 }
 
-func TestEditTargets_GlobalWritesTheHomeConfigAndRefusesProjectOnlyTools(t *testing.T) {
+func TestEditTargets_UserWritesTheHomeConfigAndRefusesProjectOnlyTools(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	h := newEditHandler(source, true)

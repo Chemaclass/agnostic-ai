@@ -18,13 +18,13 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 	}
 	field := `{"audience":"personal","path":".agnostic-ai/settings/defaults.yaml","key":"model","value":"opus"}`
 	for _, tc := range []struct {
-		name    string
-		global  bool
-		setup   func(t *testing.T, root string)
-		path    string
-		body    string
-		guarded string
-		allowed string
+		name      string
+		userLevel bool
+		setup     func(t *testing.T, root string)
+		path      string
+		body      string
+		guarded   string
+		allowed   string
 	}{
 		{name: "local settings linked to the team settings", setup: func(t *testing.T, _ string) {
 			t.Helper()
@@ -40,7 +40,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 			t.Helper()
 			link(t, "agnostic-ai.yaml", "agnostic-ai.local.yaml")
 		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
-		{name: "global local folder linked to the source", global: true, setup: func(t *testing.T, root string) {
+		{name: "global local folder linked to the source", userLevel: true, setup: func(t *testing.T, root string) {
 			t.Helper()
 			link(t, ".", filepath.Join(root, "local"))
 		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
@@ -67,13 +67,13 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			root := scopeProject(t)
-			if tc.global {
+			if tc.userLevel {
 				root = editHome(t)
 			}
 			tc.setup(t, root)
 			guarded := filepath.Join(root, cmpOrPath(tc.guarded, tc.allowed))
 			before := readOptional(t, guarded)
-			rec := postEdit(t, newEditHandler(root, tc.global), tc.path, tc.body, nil)
+			rec := postEdit(t, newEditHandler(root, tc.userLevel), tc.path, tc.body, nil)
 			if tc.allowed != "" {
 				if rec.Code != 200 || readOptional(t, guarded) == before {
 					t.Fatalf("save = %d %s, want it written through the link", rec.Code, rec.Body)

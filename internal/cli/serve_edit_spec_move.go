@@ -97,30 +97,30 @@ func moveRefusal(status int, format string, args ...any) specMoveError {
 }
 
 type specMoveHandler struct {
-	root   string
-	global bool
+	root      string
+	userLevel bool
 	// peer is the other level, fixed when the server starts; nil when a
 	// global server knows no project.
 	peer *switchPeer
 }
 
-func newSpecMoveHandler(root string, global bool, peer *switchPeer) http.Handler {
-	return &specMoveHandler{root: root, global: global, peer: peer}
+func newSpecMoveHandler(root string, userLevel bool, peer *switchPeer) http.Handler {
+	return &specMoveHandler{root: root, userLevel: userLevel, peer: peer}
 }
 
-func (h *specMoveHandler) level() string { return levelOf(h.global) }
+func (h *specMoveHandler) level() string { return levelOf(h.userLevel) }
 
 // layerOfLevel is the spec layer a level's own specs load in. The level
 // keeps its name in the API; the layer is what list prints.
-func layerOfLevel(global bool) string {
-	if global {
+func layerOfLevel(userLevel bool) string {
+	if userLevel {
 		return layerNameUser
 	}
 	return layerNameProject
 }
 
-func levelOf(global bool) string {
-	if global {
+func levelOf(userLevel bool) string {
+	if userLevel {
 		return "global"
 	}
 	return "project"
@@ -194,8 +194,8 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	if req.From != h.level() {
 		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "from must be %s, the level this server reads", h.level())
 	}
-	if req.To != levelOf(!h.global) {
-		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "to must be %s", levelOf(!h.global))
+	if req.To != levelOf(!h.userLevel) {
+		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "to must be %s", levelOf(!h.userLevel))
 	}
 	if req.Mode != "copy" && req.Mode != "move" {
 		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "mode must be copy or move")
@@ -203,8 +203,8 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	if h.peer == nil {
 		return specMovePlan{}, moveRefusal(http.StatusConflict, "this server knows no project; start agnostic-ai ui --scope user inside a project")
 	}
-	if !h.global {
-		missing, err := globalHomeMissing(h.peer.root)
+	if !h.userLevel {
+		missing, err := userHomeMissing(h.peer.root)
 		if err != nil {
 			return specMovePlan{}, err
 		}
@@ -215,14 +215,14 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	// A project server loads the working folder, so its spec paths are
 	// relative to it.
 	base := h.root
-	if !h.global {
+	if !h.userLevel {
 		base = "."
 	}
 	root, err := filepath.Abs(base)
 	if err != nil {
 		return specMovePlan{}, err
 	}
-	scope, hooks, err := loadCheckScopeAllHooks(h.global)
+	scope, hooks, err := loadCheckScopeAllHooks(h.userLevel)
 	if err != nil {
 		return specMovePlan{}, err
 	}
@@ -240,11 +240,11 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is a built-in; switch it on in the other level instead", req.Name)
 	case strings.HasPrefix(entry.Layer, layerNamePackPrefix):
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s comes from %s; copy it from the pack instead", req.Name, entry.Layer)
-	case entry.Layer != layerOfLevel(h.global):
+	case entry.Layer != layerOfLevel(h.userLevel):
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is a local spec; local specs stay where they are", req.Name)
 	}
-	if kind == spec.KindRule && !h.global {
-		conditional, err := globalRuleRefused(entry, h.peer.root)
+	if kind == spec.KindRule && !h.userLevel {
+		conditional, err := userRuleRefused(entry, h.peer.root)
 		if err != nil {
 			return specMovePlan{}, err
 		}
@@ -253,8 +253,8 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		}
 	}
 	var srcDir string
-	if h.global {
-		srcDir = filepath.Join(root, sourceFor(globalSources, kind))
+	if h.userLevel {
+		srcDir = filepath.Join(root, sourceFor(userSources, kind))
 	} else {
 		srcDir = config.ResolveSourcePath(root, sourceFor(scope.cfg.Sources, kind))
 	}
@@ -304,7 +304,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	}
 	plan.existing = current != nil
 	if kind == spec.KindHook {
-		if plan.scripts, err = hookMoveScripts(entry, scriptsDirOf(root, h.global), scriptsDirOf(dstRoot, !h.global)); err != nil {
+		if plan.scripts, err = hookMoveScripts(entry, scriptsDirOf(root, h.userLevel), scriptsDirOf(dstRoot, !h.userLevel)); err != nil {
 			return specMovePlan{}, err
 		}
 		for _, f := range plan.scripts {
@@ -317,7 +317,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		}
 	}
 
-	home, _ := globalUserHome()
+	home, _ := userHomeDir()
 	display := func(level, path string) string {
 		if level == "global" {
 			return nativeHomePath(home, path)
@@ -367,8 +367,8 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 
 // destination is the peer's root and its spec folders.
 func (h *specMoveHandler) destination() (string, config.Sources, error) {
-	if !h.global {
-		return h.peer.root, globalSources, nil
+	if !h.userLevel {
+		return h.peer.root, userSources, nil
 	}
 	cfg, _, err := loadValidConfig(h.peer.root)
 	if err != nil {
@@ -380,7 +380,7 @@ func (h *specMoveHandler) destination() (string, config.Sources, error) {
 // refuseOtherDestinationSpec stops a copy that would leave two specs of one
 // name in the destination: one at another path would still win or clash.
 func (h *specMoveHandler) refuseOtherDestinationSpec(root string, sources config.Sources, kind spec.Kind, name, dst string, folder bool) error {
-	b, err := spec.LoadLayered([]spec.Layer{{Name: layerOfLevel(!h.global), Root: root, Sources: sources}})
+	b, err := spec.LoadLayered([]spec.Layer{{Name: layerOfLevel(!h.userLevel), Root: root, Sources: sources}})
 	if err != nil {
 		return err
 	}
@@ -401,17 +401,17 @@ func (h *specMoveHandler) refuseOtherDestinationSpec(root string, sources config
 
 func (h *specMoveHandler) syncCommands(mode string) []string {
 	project := "agnostic-ai sync"
-	if h.global {
+	if h.userLevel {
 		project = "cd " + shellQuote(h.peer.root) + " && agnostic-ai sync"
 	}
-	global := "agnostic-ai sync --scope user"
+	userLevel := "agnostic-ai sync --scope user"
 	if mode == "copy" {
-		if h.global {
+		if h.userLevel {
 			return []string{project}
 		}
-		return []string{global}
+		return []string{userLevel}
 	}
-	return []string{project, global}
+	return []string{project, userLevel}
 }
 
 func sourceFor(s config.Sources, kind spec.Kind) string {
@@ -494,8 +494,8 @@ func readMoveUnit(path string, folder bool) ([]specMoveFile, error) {
 
 // scriptsDirOf is the shared scripts folder of a setup: under
 // .agnostic-ai in a project, at the root of the global setup.
-func scriptsDirOf(root string, global bool) string {
-	if global {
+func scriptsDirOf(root string, userLevel bool) string {
+	if userLevel {
 		return filepath.Join(root, "scripts")
 	}
 	return filepath.Join(root, ".agnostic-ai", "scripts")
@@ -576,7 +576,7 @@ type hookMoveCommand struct {
 func hookMoveCommands(meta map[string]any) []hookMoveCommand {
 	var commands []hookMoveCommand
 	add := func(m map[string]any, literal bool) {
-		for _, command := range globalHookCommands(m["command"]) {
+		for _, command := range userHookCommands(m["command"]) {
 			commands = append(commands, hookMoveCommand{command, literal})
 		}
 		if windows, ok := m["commandWindows"].(string); ok && windows != "" {
@@ -676,20 +676,20 @@ func (p specMovePlan) swapFolder(work string) error {
 // the stage folder must stay.
 type rollbackError struct{ error }
 
-// globalRuleRefused reports whether sync --scope user would refuse rule for
+// userRuleRefused reports whether sync --scope user would refuse rule for
 // the targets the global setup at source selects.
-func globalRuleRefused(rule spec.Entry, source string) (bool, error) {
-	targets, err := loadGlobalTargets(source, io.Discard)
+func userRuleRefused(rule spec.Entry, source string) (bool, error) {
+	targets, err := loadUserTargets(source, io.Discard)
 	if err != nil {
 		return false, err
 	}
 	if len(targets) == 0 {
-		targets = globalTargetNames()
+		targets = userTargetNames()
 	}
 	if slices.Contains(targets, "codebuddy") && !(codebuddy.Adapter{}).AlwaysOnRule(rule) {
 		return true, nil
 	}
-	return globalRuleConditional(rule, targets), nil
+	return userRuleConditional(rule, targets), nil
 }
 
 // overlappingMoveUnits reports whether src and dst, once links are

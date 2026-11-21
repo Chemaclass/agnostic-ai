@@ -61,7 +61,7 @@ func TestCredentialPreview_DryRunAndRenderHideLiteralMCPValues(t *testing.T) {
 	}
 }
 
-func TestCredentialPreview_GlobalDiffHidesSecretOnlyChange(t *testing.T) {
+func TestCredentialPreview_UserDiffHidesSecretOnlyChange(t *testing.T) {
 	dir := t.TempDir()
 	p := filepath.Join(dir, "custom.txt")
 	old := []byte("{\"env\":{\"OPAQUE\":\"PREVIEW_SECRET_2021_OLD\"}}\n")
@@ -70,7 +70,7 @@ func TestCredentialPreview_GlobalDiffHidesSecretOnlyChange(t *testing.T) {
 	var out bytes.Buffer
 	cmd := &cobra.Command{}
 	cmd.SetOut(&out)
-	err := checkGlobalWrites(cmd, []globalWrite{{path: p, data: next}}, nil, "", globalState{}, true)
+	err := checkUserWrites(cmd, []userWrite{{path: p, data: next}}, nil, "", userState{}, true)
 	if err == nil {
 		t.Error("secret-only drift must fail")
 	}
@@ -282,8 +282,8 @@ func TestCredentialPreview_ContinueSubstitutionArgumentIsHidden(t *testing.T) {
 	}
 }
 
-func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestCredentialPreview_UserSummariesHideCredentialsAndPreserveWrites(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	localPath := filepath.Join(source, "mcps", "local.yaml")
 	remotePath := filepath.Join(source, "mcps", "remote.yaml")
 	local := "name: local\ncommand: server\nargs: ['--token', 'PREVIEW_SECRET_2021_FLAG']\nenv:\n  OPAQUE: !literal PREVIEW_SECRET_2021_ENV\n  REFERENCED: '${TOKEN}'\n"
@@ -295,7 +295,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	checkPreview := func(args []string, wantError bool, reference bool) {
 		t.Helper()
 		before := snapshotProject(t, home)
-		out, warnings, err := runGlobalAgentTest(append([]string{"--only", "cursor"}, args...)...)
+		out, warnings, err := runUserAgentTest(append([]string{"--only", "cursor"}, args...)...)
 		if (err != nil) != wantError {
 			t.Errorf("global preview %v: unexpected success/failure", args)
 		}
@@ -351,7 +351,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 		if remoteServer["headers"].(map[string]any)["Authorization"] != header || !strings.HasSuffix(remoteServer["url"].(string), "?api_key=PREVIEW_SECRET_2021_URL") {
 			t.Error("global write changed literal header or URL values")
 		}
-		var state globalState
+		var state userState
 		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
 			t.Fatal("decode global ownership state")
 		}
@@ -360,11 +360,11 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 				t.Error("global ownership state no longer records the exact raw server value")
 			}
 		}
-		if _, _, err := runGlobalAgentTest("--only", "cursor", "--check"); err != nil {
+		if _, _, err := runUserAgentTest("--only", "cursor", "--check"); err != nil {
 			t.Error("global check after raw write failed")
 		}
 	}
-	if _, _, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "cursor"); err != nil {
 		t.Fatal("initial global write failed")
 	}
 	assertRaw("Bearer PREVIEW_SECRET_2021_HEADER_OLD")
@@ -372,7 +372,7 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	for _, mode := range previewModes {
 		checkPreview(mode.args, mode.drift, false)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "cursor"); err != nil {
 		t.Fatal("owned global update failed")
 	}
 	assertRaw("Bearer PREVIEW_SECRET_2021_HEADER_NEW")
@@ -389,12 +389,12 @@ func TestCredentialPreview_GlobalSummariesHideCredentialsAndPreserveWrites(t *te
 	checkPreview(nil, true, false)
 }
 
-func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestCredentialPreview_UserEnvironmentArraysHideLiteralsAndPreserveWrites(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "opaque.yaml"), "name: opaque\nmodel: opus\nx-claude:\n  env:\n    args: [PREVIEW_SECRET_2021_OPAQUE]\n    command: [PREVIEW_SECRET_2021_COMMAND]\n    referenced: ['${TOKEN}']\n")
 	before := snapshotProject(t, home)
 	for _, args := range [][]string{{"--dry-run"}, {"--plan", "--json"}} {
-		out, warnings, err := runGlobalAgentTest(append([]string{"--only", "claude"}, args...)...)
+		out, warnings, err := runUserAgentTest(append([]string{"--only", "claude"}, args...)...)
 		if err != nil {
 			t.Fatal("accepted native environment arrays failed to preview")
 		}
@@ -409,7 +409,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 		}
 		assertProjectUnchanged(t, before, snapshotProject(t, home))
 	}
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal("accepted native environment arrays failed to write")
 	}
 	var doc map[string]any
@@ -423,7 +423,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 			t.Errorf("global write changed accepted native environment array %s", key)
 		}
 	}
-	var state globalState
+	var state userState
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(source, "state", "global.json"))), &state); err != nil {
 		t.Fatal("decode global environment ownership")
 	}
@@ -432,7 +432,7 @@ func TestCredentialPreview_GlobalEnvironmentArraysHideLiteralsAndPreserveWrites(
 			t.Errorf("global ownership changed raw environment array %s", key)
 		}
 	}
-	if _, _, err := runGlobalAgentTest("--only", "claude", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude", "--check"); err != nil {
 		t.Error("global check after environment write failed")
 	}
 }

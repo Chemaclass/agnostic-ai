@@ -339,22 +339,22 @@ func assertQoderMCPProtocolVersion(t *testing.T, path string) {
 	}
 }
 
-func TestImportGlobal_QoderMCPProtocolVersionRoundTrips(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_QoderMCPProtocolVersionRoundTrips(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, qoderSettingsFile)
 	native := `{"mcpServers":{"pinned":{"type":"http","url":"https://example.invalid/mcp","protocolVersion":"2026-07-28"}}}` + "\n"
 	writeFile(t, path, native)
-	if _, warnings, err := runImportGlobalTest("qoder"); err != nil {
+	if _, warnings, err := runImportUserTest("qoder"); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	assertQoderMCPProtocolVersion(t, filepath.Join(source, "mcps/pinned.yaml"))
-	if _, warnings, err := runGlobalAgentTest("--only", "qoder"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "qoder"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != native {
 		t.Errorf("native settings changed: %s", got)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "qoder", "--check"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "qoder", "--check"); err != nil {
 		t.Errorf("sync --check: %v\n%s", err, warnings)
 	}
 }

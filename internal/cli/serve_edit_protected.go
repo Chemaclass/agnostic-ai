@@ -64,7 +64,7 @@ func (h *editHandler) serveProtected(w http.ResponseWriter, body []byte) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "send action preview or apply, audience, and protected as paths, decision, and reason, or null"})
 		return
 	}
-	if h.global {
+	if h.userLevel {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "sync --scope user does not write protected paths; protect files from a project"})
 		return
 	}
@@ -284,7 +284,7 @@ func (h *editHandler) protectedPlan(req protectedEditRequest, where editAudience
 // returns a nil block when no project spec sits under the file or the
 // spec has no block.
 func (h *editHandler) projectProtectBlock(file string) (*protectedBlock, string, error) {
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return nil, "", err
 	}
@@ -293,7 +293,7 @@ func (h *editHandler) projectProtectBlock(file string) (*protectedBlock, string,
 		switch {
 		case e.Base != nil && resolvedAbs(e.Path) == resolvedAbs(file):
 			project = e.Base
-		case !overview.LocalLayer(e) && resolvedAbs(filepath.Join(h.root, overview.SettingsOverlayPath(h.global, e.Name))) == resolvedAbs(file):
+		case !overview.LocalLayer(e) && resolvedAbs(filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, e.Name))) == resolvedAbs(file):
 			project = &e
 		default:
 			continue

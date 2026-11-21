@@ -95,7 +95,7 @@ func TestBuild_ListsTheRecommendedBuiltInWhenItIsOff(t *testing.T) {
 }
 
 func TestBuild_ListsNoGapsForTheUserConfiguration(t *testing.T) {
-	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}, Global: true})
+	v := Build(Inputs{Cfg: &config.Config{Targets: []string{"claude"}}, UserLevel: true})
 	data, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)

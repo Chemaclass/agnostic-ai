@@ -24,7 +24,7 @@ type View struct {
 	Tools         ToolCatalog        `json:"tools"`
 	Health        Health             `json:"health"`
 	// Global is true for user configuration, which has no project to size.
-	Global bool `json:"global,omitempty"`
+	UserLevel bool `json:"global,omitempty"`
 	// Repository is the project's GitHub repository, read from its origin
 	// remote. Absent for user configuration and any other host.
 	Repository *Repository `json:"repository,omitempty"`

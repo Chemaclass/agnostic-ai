@@ -356,7 +356,7 @@ func warnOwnSpecs(cfg *config.Config, b spec.Bundle, targets []string) {
 	for _, f := range lintMalformedGlobs(unscoped) {
 		summaryf("%s %s: %s (%s); the rule loads in every session\n", bang(), filepath.ToSlash(f.Path), f.Message, f.Code)
 	}
-	for _, c := range globalNameClashes(b, targets) {
+	for _, c := range userNameClashes(b, targets) {
 		if c.silencedBy(cfg.Sync) == "" {
 			summaryf("%s %s\n", bang(), c)
 		}

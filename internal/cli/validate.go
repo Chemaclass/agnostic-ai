@@ -21,7 +21,7 @@ import (
 )
 
 func newValidateCmd() *cobra.Command {
-	var fix, global bool
+	var fix, userLevel bool
 	cmd := &cobra.Command{
 		Use:   "validate",
 		Args:  cobra.NoArgs,
@@ -37,14 +37,14 @@ func newValidateCmd() *cobra.Command {
   # Validate the global specs before sync --scope user writes them
   agnostic-ai validate --scope user`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			scope, err := loadCheckScope(global)
+			scope, err := loadCheckScope(userLevel)
 			if err != nil {
 				return err
 			}
 			b := scope.bundle
 			entries := b.All()
 			cmd.Printf("loaded %d entries.\n", len(entries))
-			if !global {
+			if !userLevel {
 				reportNotes(cmd, missingSourceNotes("."))
 				// A user or plugin skill is valid and invisible here.
 				reportNotes(cmd, agentSkillTypos(b))
@@ -76,7 +76,7 @@ func newValidateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&fix, "fix", false, "Apply autofixable issues by rewriting source spec files")
-	addScopeFlag(cmd, &global, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes")
+	addScopeFlag(cmd, &userLevel, "Validate the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes")
 	return cmd
 }
 
@@ -86,12 +86,12 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	b := scope.bundle
 	entries := b.All()
 	var scopeIssues []validationIssue
-	if scope.global {
-		scopeIssues = lintGlobalRules(b.Rules, scope.targets)
+	if scope.userLevel {
+		scopeIssues = lintUserRules(b.Rules, scope.targets)
 		if _, err := config.LoadHomeApprovals(scope.source); err != nil {
-			scopeIssues = append(scopeIssues, validationIssue{Path: globalConfigPaths(scope.source)[0], Field: "approvals", Message: err.Error()})
+			scopeIssues = append(scopeIssues, validationIssue{Path: userConfigPaths(scope.source)[0], Field: "approvals", Message: err.Error()})
 		}
-		scopeIssues = append(scopeIssues, lintGlobalSettings(b.Settings, scope.targets)...)
+		scopeIssues = append(scopeIssues, lintUserSettings(b.Settings, scope.targets)...)
 	} else {
 		scopeIssues = lintEntryPointFences(".", scope.cfg)
 		scopeIssues = append(scopeIssues, approvalsValidationIssues(".")...)
@@ -118,7 +118,7 @@ func scopeValidationIssues(scope checkScope) []validationIssue {
 	issues = append(issues, lintHookEvents(entries, scope.hookTargets)...)
 	orphans, _ := splitOrphanIgnores(lintOrphanKinds(b, scope.targets, scope.support))
 	issues = append(issues, orphans...)
-	if !scope.global {
+	if !scope.userLevel {
 		issues = append(issues, agentSkillClashes(scope.cfg, b, scope.targets)...)
 		issues = append(issues, agentFileCredentialIssues(agentFileMCPs(b, scope.targets))...)
 	}

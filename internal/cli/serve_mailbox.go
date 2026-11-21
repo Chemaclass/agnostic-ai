@@ -31,7 +31,7 @@ const (
 )
 
 func (h *conversationsHandler) mailboxStore() (mailbox.Store, bool) {
-	if !h.global || h.scanner.MarksPath == "" {
+	if !h.userLevel || h.scanner.MarksPath == "" {
 		return mailbox.Store{}, false
 	}
 	return mailbox.Store{Dir: filepath.Join(filepath.Dir(h.scanner.MarksPath), "mailbox")}, true

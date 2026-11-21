@@ -10,7 +10,7 @@ import (
 func qwenSessionStartTimeouts(t *testing.T, path string) []any {
 	t.Helper()
 	var out []any
-	groups := readGlobalJSON(t, path)["hooks"].(map[string]any)["SessionStart"].([]any)
+	groups := readUserJSON(t, path)["hooks"].(map[string]any)["SessionStart"].([]any)
 	for _, group := range groups {
 		for _, handler := range group.(map[string]any)["hooks"].([]any) {
 			out = append(out, handler.(map[string]any)["timeout"])
@@ -49,13 +49,13 @@ func TestQwen_CommandHookTimeoutRoundTripsThroughImport(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_QwenCommandHookTimeoutUnit(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_QwenCommandHookTimeoutUnit(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "short.yaml"), "name: short\non: session-start\ncommand: echo short\ntimeout: 999\n")
 	writeFile(t, filepath.Join(source, "hooks", "edge.yaml"), "name: edge\non: session-start\ncommand: echo edge\ntimeout: 1000\n")
 	writeFile(t, filepath.Join(source, "hooks", "long.yaml"), "name: long\non: session-start\ncommand: echo long\ntimeout: 1200\n")
 
-	if _, warnings, err := runGlobalAgentTest("--only", "qwen"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "qwen"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	got := map[float64]bool{}
@@ -67,7 +67,7 @@ func TestSyncGlobal_QwenCommandHookTimeoutUnit(t *testing.T) {
 			t.Errorf("global timeouts = %v, missing %v", got, want)
 		}
 	}
-	if _, _, err := runGlobalAgentTest("--only", "qwen", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "qwen", "--check"); err != nil {
 		t.Fatalf("check after sync: %v", err)
 	}
 }

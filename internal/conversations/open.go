@@ -85,7 +85,7 @@ const (
 )
 
 // editorUserDirs maps an editor app to its folder under Application
-// Support, whose globalStorage/storage.json records the open windows.
+// Support, whose userStorage/storage.json records the open windows.
 var editorUserDirs = map[string]string{
 	"Cursor":                        "Cursor",
 	"Visual Studio Code":            "Code",

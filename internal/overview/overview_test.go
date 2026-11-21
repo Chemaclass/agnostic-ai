@@ -731,7 +731,7 @@ func TestBuild_ToolCatalogKeepsOrderAndLabelsEveryTool(t *testing.T) {
 	}
 }
 
-func TestBuild_KeepsAGlobalFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
+func TestBuild_KeepsAUserFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
 	in := Inputs{
 		Cfg:      &config.Config{Targets: []string{"claude"}},
 		Bundle:   spec.Bundle{MCPs: []spec.Entry{entry(spec.KindMCP, "db", "mcps/db.yaml", map[string]any{"command": "db-mcp"})}},

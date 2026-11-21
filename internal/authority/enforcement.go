@@ -249,7 +249,7 @@ func (bd *builder) ruleOn(target string, d *declaration) effective {
 	w := d.win
 	label := TargetLabel(target)
 	switch {
-	case bd.opts.Global:
+	case bd.opts.UserLevel:
 		return unexpressed(ResolutionNotExpressed, "sync --scope user writes no permission rules; only permissions.default-mode reaches user settings")
 	case !bd.writesSettings(target):
 		return unexpressed(ResolutionNotExpressed, label+" takes no settings specs, so sync writes no rule for this tool; its own defaults apply")
@@ -317,7 +317,7 @@ func (bd *builder) protectedOn(target string, d *declaration) effective {
 	p := d.win.protect
 	label := TargetLabel(target)
 	switch {
-	case bd.opts.Global:
+	case bd.opts.UserLevel:
 		return unexpressed(ResolutionNotExpressed, "protected paths are relative to a project, so sync --scope user does not write them")
 	case !p.entry.EmitsTo(target):
 		return unexpressed(ResolutionNotExpressed, "the settings spec does not reach "+label+", so sync writes no guard for this tool")
@@ -493,7 +493,7 @@ func (bd *builder) translateAgent(target, rule string, entry spec.Entry) adapter
 // permissionSupport says how target takes permission rules.
 func (bd *builder) permissionSupport(target string) (string, string) {
 	label := TargetLabel(target)
-	if bd.opts.Global {
+	if bd.opts.UserLevel {
 		return "none", "sync --scope user writes no permission rules; only permissions.default-mode reaches user settings."
 	}
 	t := adapters.TranslatePermissionCapabilityIn(target, "allow", capShell, spec.Entry{Kind: spec.KindSettings}, bd.b.Settings, bd.cfg)

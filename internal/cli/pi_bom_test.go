@@ -44,8 +44,8 @@ func TestPiBOM_ProjectImportAndInPlaceSync(t *testing.T) {
 	}
 }
 
-func TestPiBOM_GlobalImportAndAdoptionKeepOriginalBytes(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestPiBOM_UserImportAndAdoptionKeepOriginalBytes(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := piBOM + "{\n // keep native formatting\n \"mcpServers\": {\"tools\":" + piOrderedServer + "}\n}\n"
@@ -53,11 +53,11 @@ func TestPiBOM_GlobalImportAndAdoptionKeepOriginalBytes(t *testing.T) {
 	settings := filepath.Join(home, ".pi/agent/settings.json")
 	beforeSettings := piBOM + "{\n \"defaultModel\": \"model-a\",\n \"theme\": \"light\"\n}\n"
 	writeFile(t, settings, beforeSettings)
-	if _, warn, err := runImportGlobalTest("pi"); err != nil {
+	if _, warn, err := runImportUserTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warn)
 	}
 	requirePiOrder(t, readFile(t, filepath.Join(source, "mcps/tools.yaml")))
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("adopt: %v %s", err, warn)
 	}
 	if got := readFile(t, native); got != before {
@@ -66,13 +66,13 @@ func TestPiBOM_GlobalImportAndAdoptionKeepOriginalBytes(t *testing.T) {
 	if got := readFile(t, settings); got != beforeSettings {
 		t.Errorf("adoption changed settings bytes: %q", got)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestPiBOM_UserOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := piBOM + "{\r\n // keep this comment\r\n \"mcpServers\": {\r\n  \"mine\": {\"command\": \"mine\"}\r\n }\r\n}\r\n"
@@ -82,19 +82,19 @@ func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
 	}
 	specPath := filepath.Join(source, "mcps/tools.yaml")
 	writeFile(t, specPath, piOrderedSpec)
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("add: %v %s", err, warn)
 	}
 	requirePiOrder(t, readFile(t, native))
 	writeFile(t, specPath, strings.Replace(piOrderedSpec, "command: tools-mcp", "command: updated-mcp", 1))
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("update: %v %s", err, warn)
 	}
 	got := readFile(t, native)
 	if !strings.HasPrefix(got, piBOM) || !strings.Contains(got, "updated-mcp") {
 		t.Errorf("owned update changed prefix: %q", got)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatal(err)
 	}
 	if runtime.GOOS != "windows" {
@@ -109,7 +109,7 @@ func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
 	if err := os.Remove(specPath); err != nil {
 		t.Fatal(err)
 	}
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("remove: %v %s", err, warn)
 	}
 	if got := readFile(t, native); got != before {
@@ -117,14 +117,14 @@ func TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes(t *testing.T) {
 	}
 }
 
-func TestPiBOM_GlobalStaleReadStopsBeforeWriting(t *testing.T) {
+func TestPiBOM_UserStaleReadStopsBeforeWriting(t *testing.T) {
 	dir := t.TempDir()
 	native := filepath.Join(dir, "mcp.json")
 	before := []byte(piBOM + `{"mcpServers":{"tools":` + piOrderedServer + `}}`)
 	changed := append(bytes.Clone(before), ' ')
 	writeFile(t, native, string(changed))
-	write := globalWrite{path: native, data: []byte(piBOM + `{}`), mode: 0600, planned: &diskSnapshot{data: before}}
-	if _, err := applyGlobalChanges([]globalWrite{write}, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
+	write := userWrite{path: native, data: []byte(piBOM + `{}`), mode: 0600, planned: &diskSnapshot{data: before}}
+	if _, err := applyUserChanges([]userWrite{write}, nil, false, nil); err == nil || !strings.Contains(err.Error(), "changed while sync ran") {
 		t.Errorf("stale BOM snapshot did not stop: %v", err)
 	}
 	if got := readFile(t, native); got != string(changed) {

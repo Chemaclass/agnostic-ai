@@ -44,7 +44,7 @@ func completeImportSources(_ *cobra.Command, args []string, toComplete string) (
 }
 
 func newImportCmd() *cobra.Command {
-	var dryRun, diff, global, overwrite bool
+	var dryRun, diff, userLevel, overwrite bool
 	cmd := &cobra.Command{
 		Use:   "import <source>...",
 		Short: "Import existing config from one or more AI CLIs into this project's source directories.",
@@ -82,22 +82,22 @@ func newImportCmd() *cobra.Command {
   agnostic-ai import claude --overwrite`,
 		ValidArgsFunction: completeImportSources,
 		Args: func(cmd *cobra.Command, args []string) error {
-			if global {
+			if userLevel {
 				return nil
 			}
 			return cobra.MinimumNArgs(1)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if global {
+			if userLevel {
 				if diff {
 					return errs.Coded(errs.CodeFlagConflict, "--scope user does not support --diff")
 				}
 				if overwrite {
 					return errs.Coded(errs.CodeFlagConflict, "--scope user does not support --overwrite")
 				}
-				return runImportGlobal(cmd, args, dryRun)
+				return runImportUser(cmd, args, dryRun)
 			}
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserHome(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			if diff && !dryRun {
@@ -132,7 +132,7 @@ func newImportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
-	addScopeFlag(cmd, &global, "Read the user settings, MCP files, and Kiro hook files sync --scope user writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
+	addScopeFlag(cmd, &userLevel, "Read the user settings, MCP files, and Kiro hook files sync --scope user writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change. Keys the tool never shows and comments on kept keys stay; ::target blocks for other tools are lost. Without it, an import that would replace a spec with different content stops before writing anything.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
 	cmd.AddCommand(newImportReconcileCmd())

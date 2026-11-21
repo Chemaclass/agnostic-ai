@@ -66,7 +66,7 @@ func runProjectErrorRecovery(cmd *cobra.Command, original error, deps errorRecov
 	if !ok {
 		return false, nil
 	}
-	if err := refuseGlobalHome(project.root, ""); err != nil {
+	if err := refuseUserHome(project.root, ""); err != nil {
 		return false, nil
 	}
 	source, err := openAuthoritySource(project.root, false)

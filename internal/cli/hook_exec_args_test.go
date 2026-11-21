@@ -141,10 +141,10 @@ func TestSync_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_WritesExecFormHookArgsOnAugment(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), execFormHook)
-	_, warnings, err := runGlobalAgentTest("--only", "augment")
+	_, warnings, err := runUserAgentTest("--only", "augment")
 	if err != nil {
 		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
@@ -165,7 +165,7 @@ func TestSyncGlobal_WritesExecFormHookArgsOnAugment(t *testing.T) {
 	if strings.Contains(warnings, "args") {
 		t.Errorf("want no args note, got:\n%s", warnings)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "augment", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "augment", "--check"); err != nil {
 		t.Errorf("check: %v", err)
 	}
 }

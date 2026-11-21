@@ -18,7 +18,7 @@ import (
 func sourceProject(t *testing.T) (string, *httptest.Server) {
 	t.Helper()
 	t.Setenv("HOME", t.TempDir())
-	t.Setenv(envUserGlobalRoot, t.TempDir())
+	t.Setenv(envUserRoot, t.TempDir())
 	budgetProject(t, "targets: [claude]\n")
 	dir, err := os.Getwd()
 	if err != nil {
@@ -251,16 +251,16 @@ func TestServeSource_CutsALargeBodyAndSaysSo(t *testing.T) {
 	}
 }
 
-func TestServeSource_ServesGlobalAndLocalFilesInTheGlobalView(t *testing.T) {
+func TestServeSource_ServesUserAndLocalFilesInTheUserView(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	home := t.TempDir()
-	t.Setenv(envUserGlobalRoot, home)
+	t.Setenv(envUserRoot, home)
 	project := budgetProject(t, "targets: [claude]\n")
 	writeFile(t, filepath.Join(project, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nProject rule.\n")
 	writeFile(t, filepath.Join(home, "AGNOSTIC_AI.md"), "Global guidance.\n")
 	writeFile(t, filepath.Join(home, "local", "AGNOSTIC_AI.md"), "Local guidance.\n")
 	writeFile(t, filepath.Join(home, "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
-	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home, Global: true}, serveMuxOptions{compareInstalled: true}))
+	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home, UserLevel: true}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getSource(t, srv, absSlash(t, filepath.Join(home, "local", "rules", "mine.md")), http.StatusOK); view.Kind != "rule" || view.Body != "Local rule.\n" {
 		t.Errorf("local rule: %+v", view)

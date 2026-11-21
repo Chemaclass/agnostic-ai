@@ -1,0 +1,768 @@
+package cli
+
+import (
+	"bytes"
+	"fmt"
+	"io"
+	"io/fs"
+	"maps"
+	"os"
+	"path/filepath"
+	"slices"
+	"strings"
+
+	"github.com/BurntSushi/toml"
+	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
+
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
+)
+
+// userImportSettingsSpec is where import --scope user puts the default
+// model, effort, and voice settings it reads.
+const userImportSettingsSpec = "settings/imported.yaml"
+
+// runImportUser reads the user settings and MCP files sync --scope user
+// writes and turns them into specs in the home, so a following sync
+// adopts them and changes nothing. A spec file that already exists is
+// never replaced: an equal one is left as it is, and a different one is
+// reported and skipped. Missing permission rules and a compatible
+// voice field can be appended to their existing import specs.
+func runImportUser(cmd *cobra.Command, args []string, dryRun bool) error {
+	home, err := userHomeDir()
+	if err != nil {
+		return err
+	}
+	source := userSourceHome(home)
+	targets, err := userImportTargets(args)
+	if err != nil {
+		return err
+	}
+	for _, target := range targets {
+		if err := userTargets[target].rootError(target); err != nil {
+			return err
+		}
+	}
+	if err := validateUserGrokImport(home, targets); err != nil {
+		return err
+	}
+	if err := validateUserTOMLNames(home, targets); err != nil {
+		return err
+	}
+	stage, err := os.MkdirTemp("", "agnostic-ai-import-global-*")
+	if err != nil {
+		return fmt.Errorf("create staging directory: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(stage) }()
+
+	// Anything a home spec already provides, shared or local, is left
+	// out: importing it again would copy a local secret into the
+	// shared home, or add a second spec for one key.
+	priorSettings, err := snapshotImportedUserSettings(source)
+	if err != nil {
+		return err
+	}
+	names, err := loadUserBuiltins(source, nil)
+	if err != nil {
+		return err
+	}
+	layers, err := userLayers(source, names)
+	if err != nil {
+		return err
+	}
+	bundle, err := spec.LoadLayered(layers)
+	if err != nil {
+		return err
+	}
+	warn := cmd.ErrOrStderr()
+	voiceUpdate, err := stageUserSettings(home, source, stage, targets, bundle.Settings, warn, priorSettings)
+	if err != nil {
+		return err
+	}
+	state, err := loadUserState(filepath.Join(source, "state", "global.json"))
+	if err != nil {
+		return err
+	}
+	if err := stageUserPermissions(home, stage, targets, bundle.Settings, state, warn); err != nil {
+		return err
+	}
+	if err := stageUserTOMLArrays(home, stage, targets, bundle, state); err != nil {
+		return err
+	}
+	if err := stageUserMCP(home, stage, targets, bundle.MCPs, state, warn); err != nil {
+		return err
+	}
+	if err := stageUserHookFiles(home, stage, targets, bundle.Hooks, warn); err != nil {
+		return err
+	}
+
+	out := cmd.OutOrStdout()
+	var created, updated, kept, differ int
+	err = filepath.WalkDir(stage, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(stage, path)
+		if err != nil {
+			return err
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %s: %w", path, err)
+		}
+		dst := filepath.Join(source, rel)
+		existing, readErr := os.ReadFile(dst)
+		switch {
+		case filepath.ToSlash(rel) == userImportSettingsSpec && voiceUpdate != nil:
+			if err := voiceUpdate.before.check(dst); err != nil {
+				return err
+			}
+			updated++
+			if dryRun {
+				_, err := fmt.Fprintf(out, "dry-run: update %s: add voice\n", dst)
+				return err
+			}
+			if _, err := voiceUpdate.before.replace(dst, voiceUpdate.data); err != nil {
+				return err
+			}
+			_, err := fmt.Fprintf(out, "updated %s: added voice\n", dst)
+			return err
+		case readErr == nil && bytes.Equal(existing, data):
+			kept++
+			return nil
+		case readErr == nil && filepath.ToSlash(rel) == userImportPermissionsSpec:
+			merged, added, err := appendPermissionsSpec(dst, existing, data)
+			if err != nil {
+				return err
+			}
+			if added == 0 {
+				kept++
+				return nil
+			}
+			updated++
+			if dryRun {
+				_, err := fmt.Fprintf(out, "dry-run: update %s: add %d permission rule(s)\n", dst, added)
+				return err
+			}
+			if err := importWriteFile(dst, merged, 0o644); err != nil {
+				return fmt.Errorf("write %s: %w", dst, err)
+			}
+			_, err = fmt.Fprintf(out, "updated %s: added %d permission rule(s)\n", dst, added)
+			return err
+		case readErr == nil:
+			differ++
+			_, err := fmt.Fprintf(warn, "skipped %s: it exists with other content; compare it with what the tool holds, then edit it by hand\n", dst)
+			return err
+		case !os.IsNotExist(readErr):
+			return fmt.Errorf("read %s: %w", dst, readErr)
+		}
+		created++
+		if dryRun {
+			_, err := fmt.Fprintf(out, "dry-run: write %s\n", dst)
+			return err
+		}
+		if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
+			return fmt.Errorf("create directory for %s: %w", dst, err)
+		}
+		if err := importWriteFile(dst, data, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", dst, err)
+		}
+		_, err = fmt.Fprintf(out, "wrote %s\n", dst)
+		return err
+	})
+	if err != nil {
+		return err
+	}
+	if created+updated+kept+differ == 0 {
+		_, err := fmt.Fprintf(out, "No user settings, permission rules, MCP servers, or hooks found for %s.\n", strings.Join(targets, ", "))
+		return err
+	}
+	if dryRun {
+		return nil
+	}
+	written := fmt.Sprintf("%d written", created)
+	if updated > 0 {
+		written += fmt.Sprintf(", %d updated", updated)
+	}
+	managed, err := loadUserTargets(source, io.Discard)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "Imported into %s: %s, %d already there, %d skipped. %s\n", source, written, kept, differ, userImportNextStep(targets, managed))
+	return err
+}
+
+// userImportNextStep names a check that passes right after the import.
+// Sync writes each imported MCP server to every tool, so only a one-tool
+// import has files that already match. managed is the home's `targets`
+// list, nil when it has none.
+func userImportNextStep(targets, managed []string) string {
+	if len(targets) != 1 {
+		return "Each imported MCP server goes to every tool `agnostic-ai sync --scope user` manages; run `agnostic-ai sync --scope user --dry-run` to see what it would write."
+	}
+	if managed != nil && !slices.Contains(managed, targets[0]) {
+		return fmt.Sprintf("Sync does not manage %s yet: add it to `targets` in agnostic-ai.yaml, then run `agnostic-ai sync --scope user --only %s --check`.", targets[0], targets[0])
+	}
+	return fmt.Sprintf("Run `agnostic-ai sync --scope user --target %s --check` to confirm nothing would change for %s. The next full `agnostic-ai sync --scope user` also writes the imported MCP servers to every other tool it manages.", targets[0], targets[0])
+}
+
+// userImportTargets is the named targets, or every target sync
+// --scope user writes user settings or MCP servers for.
+func userImportTargets(args []string) ([]string, error) {
+	importable := func(name string) bool {
+		g, ok := userTargets[name]
+		return ok && (g.settings.path != "" || g.mcp.path != "" || g.hooksDir != "" && name != "cline" && name != "goose")
+	}
+	if len(args) == 0 || (len(args) == 1 && args[0] == "all") {
+		var out []string
+		for _, name := range userTargetNames() {
+			if importable(name) {
+				out = append(out, name)
+			}
+		}
+		return out, nil
+	}
+	var out []string
+	for _, name := range args {
+		if !importable(name) {
+			var names []string
+			for _, n := range userTargetNames() {
+				if importable(n) {
+					names = append(names, n)
+				}
+			}
+			return nil, fmt.Errorf("import --scope user: %q has no user settings, MCP file, or hook directory to read; supported: %s", name, strings.Join(names, ", "))
+		}
+		if !slices.Contains(out, name) {
+			out = append(out, name)
+		}
+	}
+	return out, nil
+}
+
+func stageUserSettings(home, source, stage string, targets []string, have []spec.Entry, warn io.Writer, priorSettings *editFileSnapshot) (*importedVoiceUpdate, error) {
+	model, effort := map[string]any{}, map[string]any{}
+	voice, voiceSources := map[string]any{}, map[string]string{}
+	for _, target := range targets {
+		g := userTargets[target]
+		f := g.settings
+		if f.path == "" || f.toolOwned {
+			continue
+		}
+		path := g.path(home, f.path)
+		data, err := os.ReadFile(path)
+		if os.IsNotExist(err) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", path, err)
+		}
+		values, err := settingsValues(path, f.format, data)
+		if err != nil {
+			return nil, err
+		}
+		eligible := slices.DeleteFunc(slices.Clone(have), func(entry spec.Entry) bool { return !entry.EmitsTo(target) })
+		if !homeSetsVoice(have, target) {
+			incoming := importedUserVoice(target, f, values)
+			if err := mergeImportedVoice(voice, voiceSources, target, incoming, warn); err != nil {
+				return nil, err
+			}
+		}
+		if f.model != "" && adapters.SettingsModel(eligible, target) == "" {
+			if v, ok := settingsLookup(values, f.model, f.format); ok {
+				if s, _ := v.(string); s != "" {
+					model[target] = s
+				}
+			}
+		}
+		if f.effort != "" && adapters.SettingsEffort(eligible, target) == nil {
+			if v, ok := settingsLookup(values, f.effort, f.format); ok && f.accepts(v) {
+				effort[target] = v
+			}
+		}
+	}
+	doc, other := map[string]any{}, map[string]any{}
+	coveredVoiceTargets := slices.DeleteFunc(userTargetNames(), func(target string) bool {
+		return !homeSetsVoice(have, target)
+	})
+	if len(voice) > 0 {
+		doc[voiceField] = voice
+		if len(coveredVoiceTargets) > 0 {
+			doc["targets-exclude"] = coveredVoiceTargets
+		}
+	}
+	for _, field := range []struct {
+		name   string
+		values map[string]any
+	}{{"model", model}, {"effort", effort}} {
+		included, excluded := map[string]any{}, map[string]any{}
+		for target, value := range field.values {
+			if len(voice) == 0 || !slices.Contains(coveredVoiceTargets, target) {
+				included[target] = value
+			} else {
+				excluded[target] = value
+			}
+		}
+		if len(included) > 0 {
+			doc[field.name] = included
+		}
+		if len(excluded) > 0 {
+			other[field.name] = excluded
+		}
+	}
+	voiceUpdate, err := stageImportedUserVoice(source, stage, doc, priorSettings, have)
+	if err != nil {
+		return nil, err
+	}
+	if err := stageUserSettingsDoc(stage, userImportSettingsSpec, doc); err != nil {
+		return nil, err
+	}
+	return voiceUpdate, stageUserSettingsDoc(stage, "settings/imported-models.yaml", other)
+}
+
+func stageUserSettingsDoc(stage, name string, doc map[string]any) error {
+	if len(doc) == 0 {
+		return nil
+	}
+	raw, err := yaml.Marshal(doc)
+	if err != nil {
+		return fmt.Errorf("marshal %s: %w", name, err)
+	}
+	dst := filepath.Join(stage, filepath.FromSlash(name))
+	if err := importMkdirAll(filepath.Dir(dst), 0o755); err != nil {
+		return fmt.Errorf("create directory for %s: %w", dst, err)
+	}
+	return importWriteFile(dst, raw, 0o644)
+}
+
+// stageUserMCP writes one MCP spec per user server, with each
+// target's own importer. A server a home spec already names is left
+// out, and so is one whose spec would not render back to the same
+// entry, since sync would then report it as a conflict. A name two
+// targets define differently keeps the first target's server and
+// warns, since one spec reaches both.
+func stageUserMCP(home, stage string, targets []string, have []spec.Entry, state userState, warn io.Writer) error {
+	dst := filepath.Join(stage, "mcps")
+	// first holds, per lowercased server name, the target that supplied
+	// it and its entry; names differing only in case share one file on
+	// a case-insensitive disk.
+	type supplied struct {
+		target, name, out string
+		server            any
+	}
+	first := map[string]supplied{}
+	covered := map[string]bool{}
+	for _, m := range have {
+		covered[strings.ToLower(spec.MCPFileName(m.Name))] = true
+	}
+	skip := func(target, name, reason string) error {
+		_, err := fmt.Fprintf(warn, "warning: %s: skipped MCP server %s: %s\n", target, name, reason)
+		return err
+	}
+	for _, target := range targets {
+		g := userTargets[target]
+		if g.mcp.path == "" {
+			continue
+		}
+		path := g.mcpPath(home)
+		dir, err := os.MkdirTemp(stage, ".mcp-"+target+"-")
+		if err != nil {
+			return fmt.Errorf("create staging directory: %w", err)
+		}
+		var native map[string]any
+		switch g.mcp.format {
+		case "toml-array":
+			homeRecords, err := adapters.UserMCPArrayRecords(target, have)
+			if err != nil {
+				return err
+			}
+			native, err = stageUserMCPArray(path, g.mcp.key, target, dir, homeRecords, state.MCP[target], skip)
+			if err != nil {
+				return err
+			}
+		case "toml":
+			if native, err = stageUserMCPTOML(path, g.mcp.key, target, dir, covered, skip, warn); err != nil {
+				return err
+			}
+		default:
+			if native, err = stageUserMCPJSON(path, g.mcp.key, target, dir, covered, skip); err != nil {
+				return err
+			}
+		}
+		staged, err := spec.LoadLayered([]spec.Layer{{Name: "import", Root: dir, Sources: config.Sources{MCPs: "."}}})
+		if err != nil {
+			return err
+		}
+		rendered := map[string]any{}
+		switch g.mcp.format {
+		case "toml-array":
+			records, err := adapters.UserMCPArrayRecords(target, staged.MCPs)
+			if err != nil {
+				return err
+			}
+			for _, r := range records {
+				name, _ := r["name"].(string)
+				rendered[name] = r
+			}
+		case "toml":
+			tables, _ := adapters.UserMCPServerTables(target, staged.MCPs)
+			for name, table := range tables {
+				values, err := tomlTableValues(path, g.mcp.key, []byte(table))
+				if err != nil {
+					return err
+				}
+				rendered[name] = values[name]
+			}
+		default:
+			rendered, _, err = adapters.CheckedUserMCPServers(target, staged.MCPs)
+			if err != nil {
+				return fmt.Errorf("render %s user MCP servers: %w", target, err)
+			}
+		}
+		var kept []spec.Entry
+		for _, m := range staged.MCPs {
+			same := sameSetting(rendered[m.Name], native[m.Name])
+			if g.mcp.format == "toml-array" {
+				a, _ := rendered[m.Name].(map[string]any)
+				b, _ := native[m.Name].(map[string]any)
+				same = sameSetting(adapters.CanonicalUserArrayRecord(target, g.mcp.key, a), adapters.CanonicalUserArrayRecord(target, g.mcp.key, b))
+			}
+			if g.mcp.format == "json" || target == "grok" || target == "codex" {
+				same = sameMCPServer(target, rendered[m.Name], native[m.Name])
+			}
+			if same {
+				kept = append(kept, m)
+				continue
+			}
+			if err := os.Remove(m.Path); err != nil {
+				return fmt.Errorf("remove %s: %w", m.Path, err)
+			}
+			if err := skip(target, m.Name, "its spec would not write back the same server; add it to the home by hand"); err != nil {
+				return fmt.Errorf("write import warning: %w", err)
+			}
+		}
+		for _, m := range kept {
+			key := strings.ToLower(spec.MCPFileName(m.Name))
+			out := filepath.Join(dst, filepath.Base(m.Path))
+			if prior, ok := first[key]; ok {
+				same := prior.name == m.Name && sameImportedMCPServer(prior.target, prior.server, target, native[m.Name])
+				if !same {
+					if _, err := fmt.Fprintf(warn, "warning: %s: %s defines %s differently from %s's %s; kept %s's\n", target, path, m.Name, prior.target, prior.name, prior.target); err != nil {
+						return fmt.Errorf("write import warning: %w", err)
+					}
+				}
+				if !same || !preferImportedMCPServer(prior.target, target) {
+					continue
+				}
+				if prior.out != out {
+					if err := os.Remove(prior.out); err != nil {
+						return fmt.Errorf("remove %s: %w", prior.out, err)
+					}
+				}
+			}
+			first[key] = supplied{target: target, name: m.Name, out: out, server: native[m.Name]}
+			data, err := os.ReadFile(m.Path)
+			if err != nil {
+				return fmt.Errorf("read %s: %w", m.Path, err)
+			}
+			if err := importMkdirAll(dst, 0o755); err != nil {
+				return fmt.Errorf("create directory for %s: %w", out, err)
+			}
+			if err := importWriteFile(out, data, 0o644); err != nil {
+				return fmt.Errorf("write %s: %w", out, err)
+			}
+		}
+		if err := os.RemoveAll(dir); err != nil {
+			return fmt.Errorf("remove %s: %w", dir, err)
+		}
+	}
+	return nil
+}
+
+// stageUserMCPTOML stages the servers of a TOML MCP file whose
+// servers are tables under key, leaving out covered names, and returns
+// the native value of each table for the write-back check.
+func stageUserMCPTOML(path, key, target, dir string, covered map[string]bool, skip func(string, string, string) error, warn io.Writer) (map[string]any, error) {
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	var docs, native map[string]any
+	if target == "grok" {
+		doc, err := parseGrokConfig(path, data)
+		if err != nil {
+			return nil, err
+		}
+		native = map[string]any{}
+		tables, _ := doc[key].(map[string]any)
+		for name, value := range tables {
+			native[name] = jsonRoundTrip(value)
+		}
+		servers, _ := doc["mcp_servers"].(map[string]any)
+		for name := range servers {
+			if covered[strings.ToLower(spec.MCPFileName(name))] {
+				delete(servers, name)
+			}
+		}
+		for _, note := range droppedGrokMCPDescriptionNotes(servers) {
+			if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
+				return nil, err
+			}
+		}
+		docs = grokMCPDocs(servers)
+	} else {
+		var doc codexConfigDoc
+		if _, err := toml.Decode(string(data), &doc); err != nil {
+			return nil, fmt.Errorf("parse %s: %w", path, err)
+		}
+		servers := doc.MCPServers
+		for name := range servers {
+			if covered[strings.ToLower(spec.MCPFileName(name))] {
+				delete(servers, name)
+			}
+		}
+		docs = codexMCPDocs(servers)
+		if target == "codex" {
+			for _, note := range droppedCodexEnvironmentNotes(servers) {
+				if _, err := fmt.Fprintf(warn, "note: %s\n", note); err != nil {
+					return nil, err
+				}
+			}
+		}
+		if native, err = tomlTableValues(path, key, data); err != nil {
+			return nil, err
+		}
+	}
+	if err := withoutMCPCredentials(target, docs, skip); err != nil {
+		return nil, err
+	}
+	if err := withoutDataStreamMCPNames(target, path, dir, docs, skip); err != nil {
+		return nil, err
+	}
+	if _, err := writeMCPSpecs(docs, dir); err != nil {
+		return nil, err
+	}
+	return native, nil
+}
+
+// stageUserMCPJSON stages the servers of a JSON or JSONC MCP file
+// whose servers sit under key, leaving out covered names, and returns
+// the native value of each staged server for the write-back check.
+func stageUserMCPJSON(path, key, target, dir string, covered map[string]bool, skip func(string, string, string) error) (map[string]any, error) {
+	var servers map[string]any
+	var err error
+	var orders mcpSpecOrderHints
+	var piNative map[string]any
+	switch target {
+	case "pi":
+		servers, orders, piNative, err = readPiMCPMap(path)
+	case "codebuddy":
+		servers, err = readCodebuddyMCPMap(path)
+	case "augment":
+		servers, err = readJSONCMapAt(path, key)
+	default:
+		servers, err = readJSONMapAt(path, key)
+	}
+	if err != nil {
+		return nil, err
+	}
+	native := map[string]any{}
+	for name, server := range servers {
+		if covered[strings.ToLower(spec.MCPFileName(name))] {
+			delete(servers, name)
+			continue
+		}
+		if target == "gemini" {
+			record, _ := server.(map[string]any)
+			if field := geminiOAuthCredential(record["oauth"]); field != "" {
+				delete(servers, name)
+				if err := skip(target, name, "left out; "+field+" holds a literal credential; keep it in user configuration or write a reference"); err != nil {
+					return nil, fmt.Errorf("write import warning: %w", err)
+				}
+				continue
+			}
+		}
+		if target == "pi" {
+			native[name] = piNative[name]
+		} else {
+			native[name] = jsonRoundTrip(server)
+		}
+	}
+	normalizeImportedMCP(target, servers)
+	if err := withoutMCPCredentials(target, servers, skip); err != nil {
+		return nil, err
+	}
+	if err := withoutDataStreamMCPNames(target, path, dir, servers, skip); err != nil {
+		return nil, err
+	}
+	if _, err := writeMCPSpecs(servers, dir, orders); err != nil {
+		return nil, err
+	}
+	return native, nil
+}
+
+// withoutMCPCredentials leaves out each server with a literal
+// credential, since the home is meant to be committed and a reference
+// would not write the user's file back unchanged. That is every
+// credential project import finds in a URL, argument, or other field,
+// and an `env` or header value whose key preview.CredentialKey names or
+// that holds one by its shape. A plain setting such as `NODE_ENV:
+// production`, a path, a number, and `Bearer ${TOKEN}` stay. The warning names the field, never the
+// value.
+func withoutMCPCredentials(target string, servers map[string]any, skip func(target, name, reason string) error) error {
+	probe, _ := jsonRoundTrip(servers).(map[string]any)
+	held := map[string]string{}
+	for _, r := range referenceMCPLiterals(probe) {
+		if _, seen := held[r.server]; seen {
+			continue
+		}
+		if r.field != "env" && r.field != "headers" {
+			held[r.server] = r.field
+			continue
+		}
+		server, _ := servers[r.server].(map[string]any)
+		values, _ := server[r.field].(map[string]any)
+		value, _ := values[r.key].(string)
+		if preview.RefOnly(value) {
+			continue
+		}
+		if mcpCredentialSetting(r.key, value) {
+			held[r.server] = r.field + "." + r.key
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(held)) {
+		delete(servers, name)
+		if err := skip(target, name, "left out; "+held[name]+" holds a credential import cannot rewrite; add it under local/mcps or write a ${NAME} reference by hand"); err != nil {
+			return fmt.Errorf("write import warning: %w", err)
+		}
+	}
+	return nil
+}
+
+// withoutDataStreamMCPNames leaves out, with a warning naming the home
+// config source, each server whose spec file in dir Windows would store
+// as a hidden stream, so one such server does not stop the import.
+func withoutDataStreamMCPNames(target, source, dir string, servers map[string]any, skip func(target, name, reason string) error) error {
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		if !namesDataStream(filepath.Join(dir, spec.MCPFileName(name))) {
+			continue
+		}
+		delete(servers, name)
+		if err := skip(target, name, "left out; "+source+" names it with a colon, which Windows cannot hold in a spec file name; rename the server"); err != nil {
+			return fmt.Errorf("write import warning: %w", err)
+		}
+	}
+	return nil
+}
+
+// normalizeImportedMCP spells each server's transport the portable
+// way, so the spec renders back to the same entry: Gemini's `httpUrl`
+// is streamable HTTP and a bare `url` is SSE, Copilot's `local` is the
+// stdio default, and OpenHands' `transport` becomes `type` once its
+// saved defaults are dropped. target's own environment references read
+// back as `${NAME}`.
+func normalizeImportedMCP(target string, servers map[string]any) {
+	if target == "codebuddy" {
+		normalizeCodebuddyMCP(servers)
+	}
+	for name, raw := range servers {
+		server, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if target == "antigravity" {
+			server = normalizeAntigravityMCPEntry(server)
+			servers[name] = server
+		}
+		if target == "pi" {
+			normalizePiMCPEntry(server)
+		}
+		if target == "kimi" {
+			normalizeKimiMCP(server)
+		}
+		if target == "warp" {
+			server = normalizeWarpMCPEntry(server)
+			servers[name] = server
+		}
+		// Gemini's httpUrl becomes url first, so the literal escaping
+		// below sees it.
+		switch target {
+		case "gemini":
+			normalizeGeminiMCP(server)
+		case "qwen":
+			normalizeGeminiTransport(server)
+		case "qoder":
+			normalizeQoderMCP(server)
+		}
+		adapters.EscapeMCPLiterals(target, server)
+		adapters.ReadMCPEnvRefs(target, server)
+		if target == "copilot" {
+			if server["type"] == "local" || server["type"] == "stdio" {
+				delete(server, "type")
+			}
+			// "*" is the default Copilot gets back when a spec sets none.
+			if tools, ok := server["tools"].([]any); ok && len(tools) == 1 && tools[0] == "*" {
+				delete(server, "tools")
+			}
+			continue
+		}
+		if target == "openhands" {
+			canonicalOpenHandsServer(server)
+			if transport, _ := server["transport"].(string); transport != "" {
+				server["type"] = transport
+			}
+			delete(server, "transport")
+			continue
+		}
+	}
+}
+
+// normalizeGeminiTransport spells a Gemini server's transport the
+// portable way: `httpUrl` is streamable HTTP and a bare `url` is SSE.
+func normalizeGeminiTransport(server map[string]any) {
+	// Gemini ignores an empty httpUrl and connects through url.
+	if url, _ := server["httpUrl"].(string); url != "" {
+		delete(server, "httpUrl")
+		server["url"] = url
+		server["type"] = "http"
+		return
+	}
+	delete(server, "httpUrl")
+	if _, ok := server["url"]; ok && server["type"] == nil {
+		server["type"] = "sse"
+	}
+}
+
+// Codex drops roots and description; Grok drops only description.
+func preferImportedMCPServer(prior, target string) bool {
+	if target == "codex" {
+		return false
+	}
+	return prior == "codex" || prior == "grok" && target != "grok"
+}
+
+func sameImportedMCPServer(targetA string, a any, targetB string, b any) bool {
+	ca, cb := canonicalMCPServer(targetA, a), canonicalMCPServer(targetB, b)
+	var ignored []string
+	if targetA == "codex" || targetB == "codex" {
+		ignored = []string{"description", "roots"}
+	} else if targetA == "grok" || targetB == "grok" {
+		ignored = []string{"description"}
+	}
+	return sameSetting(withoutImportedMCPKeys(ca, ignored), withoutImportedMCPKeys(cb, ignored))
+}
+
+func withoutImportedMCPKeys(v any, keys []string) any {
+	server, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	out := maps.Clone(server)
+	for _, key := range keys {
+		delete(out, key)
+	}
+	return out
+}

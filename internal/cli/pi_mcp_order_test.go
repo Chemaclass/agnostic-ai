@@ -43,36 +43,36 @@ func TestPiExposure_ProjectImportToFreshOutput(t *testing.T) {
 	execCLI(t, "lint")
 }
 
-func TestPiExposure_GlobalStateAndFreshImportKeepPatternOrder(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestPiExposure_UserStateAndFreshImportKeepPatternOrder(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	writeFile(t, native, `{"mcpServers":{"tools":`+piOrderedServer+`}}`)
-	if _, warn, err := runImportGlobalTest("pi"); err != nil {
+	if _, warn, err := runImportUserTest("pi"); err != nil {
 		t.Fatalf("import: %v %s", err, warn)
 	}
 	requirePiOrder(t, readFile(t, filepath.Join(source, "mcps/tools.yaml")))
 	if err := os.Remove(native); err != nil {
 		t.Fatal(err)
 	}
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("sync: %v %s", err, warn)
 	}
 	requirePiOrder(t, readFile(t, native))
 	requirePiOrder(t, readFile(t, filepath.Join(source, "state/global.json")))
-	if _, warn, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatalf("check: %v %s", err, warn)
 	}
 }
 
-func TestPiExposure_GlobalReorderedUserServerConflicts(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestPiExposure_UserReorderedUserServerConflicts(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := `{"mcpServers":{"tools":` + piReversedServer + `}}`
 	writeFile(t, native, before)
 	writeFile(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
-	if _, _, err := runGlobalAgentTest("--only", "pi"); err == nil {
+	if _, _, err := runUserAgentTest("--only", "pi"); err == nil {
 		t.Error("reversed wildcard order was silently adopted")
 	}
 	if got := readFile(t, native); got != before {
@@ -80,8 +80,8 @@ func TestPiExposure_GlobalReorderedUserServerConflicts(t *testing.T) {
 	}
 }
 
-func TestPiExposure_GlobalOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestPiExposure_UserOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := "{\n  // keep this comment\n  \"theme\": \"light\",\n  \"mcpServers\": {\n    \"mine\": {\"z\": 1, \"command\": \"mine\", \"a\": 2}\n  }\n}\n"
@@ -91,24 +91,24 @@ func TestPiExposure_GlobalOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
 	}
 	specPath := filepath.Join(source, "mcps/tools.yaml")
 	writeFile(t, specPath, piOrderedSpec)
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("add: %v %s", err, warn)
 	}
 	requirePiOrder(t, readFile(t, native))
 	writeFile(t, specPath, strings.Replace(piOrderedSpec, "    write_*: hidden\n    '*': direct", "    '*': direct\n    write_*: hidden", 1))
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("owned update: %v %s", err, warn)
 	}
 	if got := readFile(t, native); strings.Index(got, "\"*\"") > strings.Index(got, "write_*") {
 		t.Errorf("owned order update lost: %s", got)
 	}
-	if _, warn, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatalf("check after state reload: %v %s", err, warn)
 	}
 	if err := os.Remove(specPath); err != nil {
 		t.Fatal(err)
 	}
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("remove: %v %s", err, warn)
 	}
 	if got := readFile(t, native); got != before {
@@ -123,20 +123,20 @@ func TestPiExposure_GlobalOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
 	}
 }
 
-func TestPiExposure_GlobalUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
+func TestPiExposure_UserUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
 	for _, operation := range []string{"remove", "move"} {
 		t.Run(operation, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			t.Setenv("PI_CODING_AGENT_DIR", "")
 			native := filepath.Join(home, ".pi/agent/mcp.json")
 			specPath := filepath.Join(source, "mcps/tools.yaml")
 			writeFile(t, specPath, piOrderedSpec)
-			if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+			if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 				t.Fatalf("initial: %v %s", err, warn)
 			}
 			edited := `{"mcpServers":{"tools":` + piReversedServer + `}}`
 			writeFile(t, native, edited)
-			if _, _, err := runGlobalAgentTest("--only", "pi"); err == nil {
+			if _, _, err := runUserAgentTest("--only", "pi"); err == nil {
 				t.Error("user reorder was silently overwritten or adopted")
 			}
 			if got := readFile(t, native); got != edited {
@@ -149,7 +149,7 @@ func TestPiExposure_GlobalUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
 			} else {
 				t.Setenv("PI_CODING_AGENT_DIR", filepath.Join(home, "moved-pi"))
 			}
-			if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+			if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 				t.Fatalf("%s: %v %s", operation, err, warn)
 			}
 			if got := readFile(t, native); got != edited {
@@ -162,24 +162,24 @@ func TestPiExposure_GlobalUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
 	}
 }
 
-func TestPiExposure_GlobalEquivalentAdoptionAndSkippedTargetKeepRawOrder(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestPiExposure_UserEquivalentAdoptionAndSkippedTargetKeepRawOrder(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	t.Setenv("PI_CODING_AGENT_DIR", "")
 	native := filepath.Join(home, ".pi/agent/mcp.json")
 	before := `{"mcpServers":{"tools":{"enabled":true,"toolExposure":{"write_*":"hidden","*":"direct"},"type":"stdio","command":"tools-mcp"}}}`
 	writeFile(t, native, before)
 	writeFile(t, filepath.Join(source, "mcps/tools.yaml"), piOrderedSpec)
-	if _, warn, err := runGlobalAgentTest("--only", "pi"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi"); err != nil {
 		t.Fatalf("adopt: %v %s", err, warn)
 	}
 	if got := readFile(t, native); got != before {
 		t.Errorf("adoption changed bytes: %s", got)
 	}
-	if _, warn, err := runGlobalAgentTest("--only", "codex"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "codex"); err != nil {
 		t.Fatalf("unselected target carry: %v %s", err, warn)
 	}
 	requirePiOrder(t, readFile(t, filepath.Join(source, "state/global.json")))
-	if _, warn, err := runGlobalAgentTest("--only", "pi", "--check"); err != nil {
+	if _, warn, err := runUserAgentTest("--only", "pi", "--check"); err != nil {
 		t.Fatalf("reloaded state: %v %s", err, warn)
 	}
 }
@@ -227,7 +227,7 @@ func TestPiExposure_OldRawStateKeepsActualOrderAndCannotDeleteUserReorder(t *tes
 	dir := testutil.TempCwd(t)
 	statePath := filepath.Join(dir, "global.json")
 	writeFile(t, statePath, `{"version":7,"files":[],"mcp":{"pi":{"mcpServers.tools":`+piOrderedServer+`}}}`)
-	state, err := loadGlobalState(statePath)
+	state, err := loadUserState(statePath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestPiExposure_OldRawStateKeepsActualOrderAndCannotDeleteUserReorder(t *tes
 	native := filepath.Join(dir, "mcp.json")
 	edited := `{"mcpServers":{"tools":` + piReversedServer + `}}`
 	writeFile(t, native, edited)
-	merge, err := mergeGlobalMCP(native, globalTargets["pi"].mcp, []byte(edited), "pi", nil, state.MCP["pi"])
+	merge, err := mergeUserMCP(native, userTargets["pi"].mcp, []byte(edited), "pi", nil, state.MCP["pi"])
 	if err != nil {
 		t.Fatal(err)
 	}

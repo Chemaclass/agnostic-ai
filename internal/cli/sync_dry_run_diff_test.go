@@ -60,10 +60,10 @@ func TestSync_DryRunDiffIsSilentWhenInSync(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".claude", "CLAUDE.md")
@@ -71,7 +71,7 @@ func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 	writeFile(t, filepath.Join(source, "skills", "tidy", "SKILL.md"), "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
 	before := snapshotTree(t, home)
 
-	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
+	out, _, err := runUserAgentTest("--only", "claude", "--dry-run", "--diff")
 	if err != nil {
 		t.Fatalf("a preview exits zero on drift: %v", err)
 	}
@@ -89,19 +89,19 @@ func TestSyncGlobal_DryRunDiffPrintsChangesAndWritesNothing(t *testing.T) {
 		t.Error("--dry-run --diff must change no user files, backups, or state")
 	}
 
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
-	out, _, err = runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
+	out, _, err = runUserAgentTest("--only", "claude", "--dry-run", "--diff")
 	if err != nil || out != "" {
 		t.Errorf("after sync the preview prints nothing, got err = %v, out:\n%s", err, out)
 	}
 }
 
-func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "# Agreements\n\n- Rule one.\n")
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(home, ".claude", "CLAUDE.md")
@@ -112,11 +112,11 @@ func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
 	writeFile(t, path, strings.Replace(string(data), "- Rule one.", "- Rule one, edited by hand.", 1))
 	before := snapshotTree(t, home)
 
-	_, _, err = runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
+	_, _, err = runUserAgentTest("--only", "claude", "--dry-run", "--diff")
 	if err == nil || !strings.Contains(err.Error(), "edited since the last global sync") {
 		t.Fatalf("the preview must stop where sync stops, got %v", err)
 	}
-	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run", "--diff", "--backup")
+	out, _, err := runUserAgentTest("--only", "claude", "--dry-run", "--diff", "--backup")
 	if err != nil {
 		t.Fatalf("with --backup the preview shows the overwrite: %v", err)
 	}
@@ -128,11 +128,11 @@ func TestSyncGlobal_DryRunDiffStopsOnAHandEditLikeSync(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_DryRunDiffNamesARemoval(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_DryRunDiffNamesARemoval(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	src := filepath.Join(source, "skills", "tidy", "SKILL.md")
 	writeFile(t, src, "---\nname: tidy\ndescription: Tidy\n---\nTidy.\n")
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.RemoveAll(filepath.Dir(src)); err != nil {
@@ -140,7 +140,7 @@ func TestSyncGlobal_DryRunDiffNamesARemoval(t *testing.T) {
 	}
 	removed := filepath.Join(home, ".claude", "skills", "tidy", "SKILL.md")
 
-	out, _, err := runGlobalAgentTest("--only", "claude", "--dry-run", "--diff")
+	out, _, err := runUserAgentTest("--only", "claude", "--dry-run", "--diff")
 	if err != nil {
 		t.Fatal(err)
 	}

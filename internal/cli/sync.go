@@ -99,7 +99,7 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&f.jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&f.allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
 	cmd.Flags().IntVar(&f.jobs, "jobs", 0, "Number of targets to emit in parallel (0 = one per CPU; 1 = serial). Output is identical regardless.")
-	addScopeFlag(cmd, &f.global, "Sync user-level instructions, rules, hooks, skills, and native agents")
+	addScopeFlag(cmd, &f.userLevel, "Sync user-level instructions, rules, hooks, skills, and native agents")
 	registerTargetCompletion(cmd)
 	return cmd
 }
@@ -160,12 +160,12 @@ func previewDrift(cfg *config.Config, bundle spec.Bundle, targets []string, back
 
 // syncFlags are the flags of `agnostic-ai sync`.
 type syncFlags struct {
-	targets, only, except                               []string
-	dryRun, check, plan, backup, keepEdits, untrack     bool
-	watch, watchPoll, jsonOut, allTargets, diff, global bool
-	allowEmptyTargets                                   bool
-	gitignoreFlag, format, against                      string
-	jobs                                                int
+	targets, only, except                                  []string
+	dryRun, check, plan, backup, keepEdits, untrack        bool
+	watch, watchPoll, jsonOut, allTargets, diff, userLevel bool
+	allowEmptyTargets                                      bool
+	gitignoreFlag, format, against                         string
+	jobs                                                   int
 }
 
 // writes reports whether the run may write files, so it takes the lock.
@@ -187,10 +187,10 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 	if err := validateSyncFlags(f); err != nil {
 		return err
 	}
-	if f.global {
-		return runGlobalSync(cmd, globalSyncOptions{targets: f.targets, only: f.only, except: f.except, dryRun: f.dryRun, check: f.check, backup: f.backup, plan: f.plan, watch: f.watch, watchPoll: f.watchPoll, jsonOut: f.jsonOut, allTargets: f.allTargets, diff: f.diff, format: f.format, gitignore: f.gitignoreFlag, jobs: f.jobs})
+	if f.userLevel {
+		return runUserSync(cmd, userSyncOptions{targets: f.targets, only: f.only, except: f.except, dryRun: f.dryRun, check: f.check, backup: f.backup, plan: f.plan, watch: f.watch, watchPoll: f.watchPoll, jsonOut: f.jsonOut, allTargets: f.allTargets, diff: f.diff, format: f.format, gitignore: f.gitignoreFlag, jobs: f.jobs})
 	}
-	if err := refuseGlobalHome(".", globalHomeSyncRemedy); err != nil {
+	if err := refuseUserHome(".", userHomeSyncRemedy); err != nil {
 		return err
 	}
 
@@ -298,19 +298,19 @@ func validateSyncFlags(f syncFlags) error {
 	if f.jobs < 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--jobs: want 0 (one per CPU) or more, got %d", f.jobs)
 	}
-	if f.allowEmptyTargets && (f.check || f.plan || f.watch || f.global) {
+	if f.allowEmptyTargets && (f.check || f.plan || f.watch || f.userLevel) {
 		return errs.Coded(errs.CodeFlagConflict, "--allow-empty-targets cannot be combined with --check, --plan, --watch, or --scope user")
 	}
-	if f.keepEdits && (f.check || f.plan || f.watch || f.global) {
+	if f.keepEdits && (f.check || f.plan || f.watch || f.userLevel) {
 		return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --scope user")
 	}
-	if err := validateAgainst(f.against, f.check, f.plan, f.watch, f.global); err != nil {
+	if err := validateAgainst(f.against, f.check, f.plan, f.watch, f.userLevel); err != nil {
 		return err
 	}
-	if f.untrack && (f.check || f.plan || f.dryRun || f.watch || f.global) {
+	if f.untrack && (f.check || f.plan || f.dryRun || f.watch || f.userLevel) {
 		return errs.Coded(errs.CodeFlagConflict, "--untrack cannot be combined with --check, --plan, --dry-run, --watch, or --scope user")
 	}
-	if f.global {
+	if f.userLevel {
 		return nil
 	}
 	if err := validateGitignoreFlag(f.gitignoreFlag); err != nil {

@@ -505,7 +505,7 @@ func TestApprovalsSnapshot_HeaderModeSkipsModesNoToolCarriesOut(t *testing.T) {
 	}
 }
 
-func TestApprovals_GlobalHeaderFollowsProjectPolicyWithoutAConversation(t *testing.T) {
+func TestApprovals_UserHeaderFollowsProjectPolicyWithoutAConversation(t *testing.T) {
 	f := newApprovalsFixture(t, "", true)
 	settings := filepath.Join(f.home, config.ConfigFileName)
 	project := filepath.Join(f.userHome, "sandbox")
@@ -538,7 +538,7 @@ func TestApprovals_GlobalHeaderFollowsProjectPolicyWithoutAConversation(t *testi
 	}
 }
 
-func TestApprovals_GlobalHeaderAlsoChecksThePhysicalProject(t *testing.T) {
+func TestApprovals_UserHeaderAlsoChecksThePhysicalProject(t *testing.T) {
 	f := newApprovalsFixture(t, "", true)
 	project := filepath.Join(f.userHome, "physical", "project")
 	aliasDir := filepath.Join(f.userHome, "aliases")
@@ -569,7 +569,7 @@ func TestApprovals_OnlyAnInstalledClaudeHookHoldsYoloWaits(t *testing.T) {
 	claude := t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", claude)
 	f := newApprovalsFixture(t, config.ApprovalsYolo, true)
-	f.h.global = false
+	f.h.userLevel = false
 	f.h.approvals.activated = approvalsActivated
 	f.h.approvals.routed = func(tool, mode string) bool { return tool == "claude" && approvalsRouted(tool, mode) }
 	f.wait(t, f.now.Add(-time.Second))
@@ -648,7 +648,7 @@ func TestApprovalsHandler_ReadRouteReturnsModeAndDecisionsPerSession(t *testing.
 
 func TestApprovalsHandler_WriteRouteAcceptsOnlyAsk(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv(envUserGlobalRoot, home)
+	t.Setenv(envUserRoot, home)
 	shared := filepath.Join(home, config.ConfigFileName)
 	writeTestFile(t, shared, "approvals:\n  mode: yolo\n")
 	h := approvalsHandler{reader: newApprovalsReader()}

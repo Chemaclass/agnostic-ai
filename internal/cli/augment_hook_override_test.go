@@ -21,11 +21,11 @@ func TestSync_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
 	syncNotes(t, "--check")
 }
 
-func TestSyncGlobal_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [augment]\nbuiltins: [memory]\n")
 	writeFile(t, filepath.Join(source, "local", "hooks", "memory-session-start.yaml"), "timeout: 9\n")
-	if _, _, err := runGlobalAgentTest("--only", "augment"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "augment"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(home, ".augment", "hooks", "memory-augment-session-start.sh"))
@@ -35,7 +35,7 @@ func TestSyncGlobal_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
 	if !strings.Contains(string(data), "hook memory --target augment") {
 		t.Errorf("inherited global script does not load memory: %s", data)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "augment", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "augment", "--check"); err != nil {
 		t.Fatal(err)
 	}
 }

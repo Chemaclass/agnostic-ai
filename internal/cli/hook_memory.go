@@ -257,9 +257,9 @@ func memoryProjectRoot(target string) string {
 			return ""
 		}
 	}
-	isGlobal := globalRootMatcher()
+	isUser := userRootMatcher()
 	for dir := canonicalDir(wd); ; {
-		if !isGlobal(dir) {
+		if !isUser(dir) {
 			if _, _, err := config.ResolveConfigPath(dir); err == nil {
 				return dir
 			}
@@ -275,17 +275,17 @@ func memoryProjectRoot(target string) string {
 		return ""
 	}
 	top = canonicalDir(strings.TrimSpace(top))
-	if isGlobal(top) {
+	if isUser(top) {
 		return ""
 	}
 	return top
 }
 
-// globalRootMatcher returns a test for the global source root. It compares
+// userRootMatcher returns a test for the global source root. It compares
 // files, not path strings, so symlinks and a different path case on a
-// case-insensitive filesystem still match, as refuseGlobalHome does.
-func globalRootMatcher() func(dir string) bool {
-	source, err := globalSourceRoot()
+// case-insensitive filesystem still match, as refuseUserHome does.
+func userRootMatcher() func(dir string) bool {
+	source, err := userSourceRoot()
 	if err != nil {
 		return func(string) bool { return false }
 	}

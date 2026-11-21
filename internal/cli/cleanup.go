@@ -47,7 +47,7 @@ Pair with --dry-run to preview the deletions without touching disk.`,
   agnostic-ai cleanup --backups`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			_ = backups
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserHome(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			if dryRun {

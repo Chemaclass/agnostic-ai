@@ -176,7 +176,7 @@ func TestNeutralHookScripts_AllowsSourceSymlinksWithinScriptsDirectory(t *testin
 	}
 }
 
-func TestRewriteGlobalHookPath_UsesCopiedUserScriptForRootedNeutralReference(t *testing.T) {
+func TestRewriteUserHookPath_UsesCopiedUserScriptForRootedNeutralReference(t *testing.T) {
 	const dir = "/tmp/user home/.codex/hooks"
 	cases := []struct{ command, want string }{
 		{`sh "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/guard.sh"`, `sh "/tmp/user home/.codex/hooks/guard.sh"`},
@@ -189,11 +189,11 @@ func TestRewriteGlobalHookPath_UsesCopiedUserScriptForRootedNeutralReference(t *
 		{`sh '.agnostic-ai/scripts/pre.sh' && sh ".agnostic-ai/scripts/post.sh"`, `sh '/tmp/user home/.codex/hooks/pre.sh' && sh "/tmp/user home/.codex/hooks/post.sh"`},
 	}
 	for _, c := range cases {
-		if got := RewriteGlobalHookPath(c.command, "codex", dir); got != c.want {
+		if got := RewriteUserHookPath(c.command, "codex", dir); got != c.want {
 			t.Errorf("%q became %q, want %q", c.command, got, c.want)
 		}
 	}
-	if got := RewriteGlobalHookPath(".agnostic-ai/scripts/guard.sh", "claude", dir, map[string]any{"args": []any{"--strict"}}); got != dir+"/guard.sh" {
+	if got := RewriteUserHookPath(".agnostic-ai/scripts/guard.sh", "claude", dir, map[string]any{"args": []any{"--strict"}}); got != dir+"/guard.sh" {
 		t.Errorf("exec-form script path was shell quoted: %q", got)
 	}
 }

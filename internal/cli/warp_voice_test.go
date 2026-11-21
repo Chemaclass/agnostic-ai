@@ -39,7 +39,7 @@ func TestWarpVoice_WriteCheckAndRestore(t *testing.T) {
 		{name: "BOM whitespace", original: "\xef\xbb\xbf \r\n\t"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := warpVoiceTestPath(t, home)
 			if !tc.absent {
 				writeFile(t, path, tc.original)
@@ -49,7 +49,7 @@ func TestWarpVoice_WriteCheckAndRestore(t *testing.T) {
 			}
 			portable := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, portable, targetVoiceSpec)
-			if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "warp", "--backup"); err != nil {
 				t.Fatalf("sync: %v\n%s", err, notes)
 			} else if !strings.Contains(notes, "Warp has no voice capture mode setting") {
 				t.Errorf("missing mode note: %s", notes)
@@ -74,20 +74,20 @@ func TestWarpVoice_WriteCheckAndRestore(t *testing.T) {
 						t.Errorf("changed shortcut: %v", got)
 					}
 				}
-				if _, notes, err := runGlobalAgentTest("--only", "warp", "--check"); err != nil {
+				if _, notes, err := runUserAgentTest("--only", "warp", "--check"); err != nil {
 					t.Errorf("check: %v\n%s", err, notes)
 				}
 			}
 			check(true)
 			writeFile(t, portable, "voice:\n  enabled: false\n  language: es\n")
-			if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 				t.Fatalf("update: %v\n%s", err, notes)
 			}
 			check(false)
 			if err := os.Remove(portable); err != nil {
 				t.Fatal(err)
 			}
-			if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, notes)
 			}
 			if tc.absent {
@@ -107,7 +107,7 @@ func TestWarpVoice_WriteCheckAndRestore(t *testing.T) {
 }
 
 func TestWarpVoice_ExplainUsesNativeSettingsPath(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
 	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
@@ -131,12 +131,12 @@ func TestWarpVoice_UsesPlatformSettingsPaths(t *testing.T) {
 		{"linux", filepath.Join(xdg, "warp-terminal", "settings.toml")},
 		{"windows", filepath.Join(local, "warp", "Warp", "config", "settings.toml")},
 	} {
-		if got := globalPath(home, globalTargets["warp"].settings.platformPath(tc.goos)); got != tc.want {
+		if got := userLevelPath(home, userTargets["warp"].settings.platformPath(tc.goos)); got != tc.want {
 			t.Errorf("%s path %q, want %q", tc.goos, got, tc.want)
 		}
 	}
 	t.Setenv("LOCALAPPDATA", "")
-	if got, want := globalPath(home, globalTargets["warp"].settings.windowsPath), filepath.Join(home, "AppData", "Local", "warp", "Warp", "config", "settings.toml"); got != want {
+	if got, want := userLevelPath(home, userTargets["warp"].settings.windowsPath), filepath.Join(home, "AppData", "Local", "warp", "Warp", "config", "settings.toml"); got != want {
 		t.Errorf("Windows fallback %q, want %q", got, want)
 	}
 }
@@ -148,7 +148,7 @@ func TestWarpVoice_RejectsRelativePlatformRoot(t *testing.T) {
 	} {
 		t.Run(tc.goos, func(t *testing.T) {
 			t.Setenv(tc.variable, "relative")
-			if err := globalTargets["warp"].settings.platformRootError(tc.goos); err == nil || !strings.Contains(err.Error(), tc.variable) {
+			if err := userTargets["warp"].settings.platformRootError(tc.goos); err == nil || !strings.Contains(err.Error(), tc.variable) {
 				t.Errorf("relative platform root accepted: %v", err)
 			}
 		})
@@ -158,13 +158,13 @@ func TestWarpVoice_RejectsRelativePlatformRoot(t *testing.T) {
 func TestWarpVoice_LanguageMatchesNativeFormat(t *testing.T) {
 	for _, language := range []string{"es", "", "en-US", "auto", "Spanish", "ES"} {
 		t.Run(language, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := warpVoiceTestPath(t, home)
 			original := "[agents.voice]\nvoice_input_language = 'en' # preference\n"
 			writeFile(t, path, original)
 			portable := filepath.Join(source, "settings", "voice.yaml")
 			writeFile(t, portable, "voice:\n  language: '"+language+"'\n")
-			_, notes, err := runGlobalAgentTest("--only", "warp", "--backup")
+			_, notes, err := runUserAgentTest("--only", "warp", "--backup")
 			if err != nil {
 				t.Fatalf("sync: %v\n%s", err, notes)
 			}
@@ -181,13 +181,13 @@ func TestWarpVoice_LanguageMatchesNativeFormat(t *testing.T) {
 					t.Errorf("native language %v, want %q", got, language)
 				}
 			}
-			if _, notes, err := runGlobalAgentTest("--only", "warp", "--check"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "warp", "--check"); err != nil {
 				t.Fatalf("check: %v\n%s", err, notes)
 			}
 			if err := os.Remove(portable); err != nil {
 				t.Fatal(err)
 			}
-			if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 				t.Fatalf("remove: %v\n%s", err, notes)
 			}
 			if got := readFile(t, path); got != original {
@@ -198,10 +198,10 @@ func TestWarpVoice_LanguageMatchesNativeFormat(t *testing.T) {
 }
 
 func TestWarpVoice_ModeOnlyDoesNotCreateSettings(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), "voice:\n  mode: tap\n")
-	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil || !strings.Contains(notes, "Warp has no voice capture mode setting") {
+	if _, notes, err := runUserAgentTest("--only", "warp"); err != nil || !strings.Contains(notes, "Warp has no voice capture mode setting") {
 		t.Fatalf("mode-only sync: %v\n%s", err, notes)
 	}
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
@@ -210,13 +210,13 @@ func TestWarpVoice_ModeOnlyDoesNotCreateSettings(t *testing.T) {
 }
 
 func TestWarpVoice_NativeOverrideKeepsShortcut(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	original := "[agents.voice]\nvoice_input_enabled=true\nvoice_input_language='en'\nvoice_input_toggle_key='fn' # keep\n"
 	writeFile(t, path, original)
 	portable := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, portable, targetVoiceSpec+"x-warp:\n  agents:\n    voice:\n      voice_input_enabled: false\n      voice_input_language: ''\n      voice_input_toggle_key: control_left\n")
-	if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil || !strings.Contains(notes, "keep other settings in Warp") {
+	if _, notes, err := runUserAgentTest("--only", "warp", "--backup"); err != nil || !strings.Contains(notes, "keep other settings in Warp") {
 		t.Fatalf("native override: %v\n%s", err, notes)
 	}
 	values, err := settingsValues(path, "toml", []byte(readFile(t, path)))
@@ -231,7 +231,7 @@ func TestWarpVoice_NativeOverrideKeepsShortcut(t *testing.T) {
 	if err := os.Remove(portable); err != nil {
 		t.Fatal(err)
 	}
-	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, notes)
 	}
 	if got := readFile(t, path); got != original {
@@ -240,12 +240,12 @@ func TestWarpVoice_NativeOverrideKeepsShortcut(t *testing.T) {
 }
 
 func TestWarpVoice_RemovalKeepsUserChanges(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	writeFile(t, path, "[agents.voice]\nvoice_input_enabled=false\nvoice_input_language='en'\n")
 	portable := filepath.Join(source, "settings", "voice.yaml")
 	writeFile(t, portable, targetVoiceSpec)
-	if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "warp", "--backup"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, notes)
 	}
 	edited := "[agents.voice]\nvoice_input_enabled=false # changed\nvoice_input_language='fr' # changed\nvoice_input_toggle_key='fn'\n"
@@ -253,7 +253,7 @@ func TestWarpVoice_RemovalKeepsUserChanges(t *testing.T) {
 	if err := os.Remove(portable); err != nil {
 		t.Fatal(err)
 	}
-	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("remove: %v\n%s", err, notes)
 	}
 	if got := readFile(t, path); got != edited {
@@ -261,8 +261,8 @@ func TestWarpVoice_RemovalKeepsUserChanges(t *testing.T) {
 	}
 }
 
-func TestWarpVoice_ExistingGlobalImportRoundTripsReadOnly(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestWarpVoice_ExistingUserImportRoundTripsReadOnly(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	original := "# preferences\n[agents.voice]\nvoice_input_enabled=false\nvoice_input_language='es'\nvoice_input_toggle_key='fn' # keep\n"
 	writeFile(t, path, original)
@@ -281,10 +281,10 @@ func TestWarpVoice_ExistingGlobalImportRoundTripsReadOnly(t *testing.T) {
 	if strings.Contains(imported, "toggle_key") {
 		t.Errorf("import included shortcut: %s", imported)
 	}
-	if _, notes, err := runGlobalAgentTest("--only", "warp", "--check"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "warp", "--check"); err != nil {
 		t.Fatalf("check: %v\n%s", err, notes)
 	}
-	if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, notes)
 	}
 	if got := readFile(t, path); got != original {
@@ -299,14 +299,14 @@ func TestWarpVoice_UnsupportedTableShapesStayUnchanged(t *testing.T) {
 		"agents.voice.voice_input_enabled = false\nagents.voice.voice_input_language = 'en'\n",
 	} {
 		t.Run(original, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := warpVoiceTestPath(t, home)
 			writeFile(t, path, original)
 			if err := os.Chmod(path, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-			if _, _, err := runGlobalAgentTest("--only", "warp", "--backup"); err == nil || !strings.Contains(err.Error(), "rewrite it as [agents.voice]") {
+			if _, _, err := runUserAgentTest("--only", "warp", "--backup"); err == nil || !strings.Contains(err.Error(), "rewrite it as [agents.voice]") {
 				t.Errorf("unsupported shape error: %v", err)
 			}
 			if got := readFile(t, path); got != original {
@@ -322,7 +322,7 @@ func TestWarpVoice_UnsupportedTableShapesStayUnchanged(t *testing.T) {
 func TestWarpVoice_NativeNullClearsEarlierOverrides(t *testing.T) {
 	for _, portable := range []bool{false, true} {
 		t.Run(map[bool]string{false: "native only", true: "portable fallback"}[portable], func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := warpVoiceTestPath(t, home)
 			original := "[agents.voice]\nvoice_input_enabled=true\nvoice_input_language='it' # original\nvoice_input_toggle_key='fn'\n"
 			if portable {
@@ -335,12 +335,12 @@ func TestWarpVoice_NativeNullClearsEarlierOverrides(t *testing.T) {
 				spec = "voice:\n  enabled: true\n  language: es\n" + spec
 			}
 			writeFile(t, first, spec)
-			if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "warp", "--backup"); err != nil {
 				t.Fatalf("initial sync: %v\n%s", err, notes)
 			}
 			writeFile(t, later, "x-warp:\n  agents:\n    voice:\n      voice_input_enabled: null\n      voice_input_language: null\n")
 			for range 2 {
-				if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+				if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 					t.Fatalf("clear sync: %v\n%s", err, notes)
 				} else if strings.Contains(notes, "native field requires") || strings.Contains(notes, "lowercase") {
 					t.Errorf("null produced a type note: %s", notes)
@@ -367,7 +367,7 @@ func TestWarpVoice_NativeNullClearsEarlierOverrides(t *testing.T) {
 				if err := os.Remove(later); err != nil {
 					t.Fatal(err)
 				}
-				if _, notes, err := runGlobalAgentTest("--only", "warp"); err != nil {
+				if _, notes, err := runUserAgentTest("--only", "warp"); err != nil {
 					t.Fatalf("remove portable: %v\n%s", err, notes)
 				}
 				if got := readFile(t, path); got != original {
@@ -379,7 +379,7 @@ func TestWarpVoice_NativeNullClearsEarlierOverrides(t *testing.T) {
 }
 
 func TestWarpVoice_NativeNullClearsOnlySelectedOverride(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	first := filepath.Join(source, "settings", "a.yaml")
 	later := filepath.Join(source, "settings", "z.yaml")
@@ -395,7 +395,7 @@ func TestWarpVoice_NativeNullClearsOnlySelectedOverride(t *testing.T) {
 		{"voice_input_enabled: false\n      voice_input_language: de", false, "de"},
 	} {
 		writeFile(t, later, "x-warp:\n  agents:\n    voice:\n      "+tc.override+"\n")
-		if _, notes, err := runGlobalAgentTest("--only", "warp", "--backup"); err != nil {
+		if _, notes, err := runUserAgentTest("--only", "warp", "--backup"); err != nil {
 			t.Fatalf("sync %s: %v\n%s", tc.override, err, notes)
 		}
 		values, err := settingsValues(path, "toml", []byte(readFile(t, path)))

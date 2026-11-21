@@ -66,7 +66,7 @@ func HookFile(e spec.Entry, scriptDirs ...string) ([]byte, error) {
 					if command, ok := handler["command"].(string); ok {
 						var rewritten string
 						if filepath.IsAbs(scriptDir) {
-							rewritten = emit.RewriteGlobalHookPath(command, target, scriptDir)
+							rewritten = emit.RewriteUserHookPath(command, target, scriptDir)
 						} else {
 							rewritten = emit.RewriteGrokHookPath(command, scriptDir)
 						}

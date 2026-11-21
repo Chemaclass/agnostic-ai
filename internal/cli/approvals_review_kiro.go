@@ -14,25 +14,25 @@ const kiroReviewerName = "Kiro Approve for me"
 
 // kiroPermissionsFile is Kiro's user-scoped permissions file, which the
 // user and Kiro's own /permissions page also write.
-const kiroPermissionsFile = globalPathHome + ".kiro/settings/permissions.yaml"
+const kiroPermissionsFile = userPathHome + ".kiro/settings/permissions.yaml"
 
-// globalReviewPolicy is a reviewer preset sync listed in a permissions
+// userReviewPolicy is a reviewer preset sync listed in a permissions
 // file, and what else it added there.
-type globalReviewPolicy struct {
+type userReviewPolicy struct {
 	Path string `json:"path"`
 	Home string `json:"home"`
 	approvals.KiroPolicyOwned
 }
 
 func kiroPermissionsPath(home string) string {
-	return globalTargets["kiro"].path(home, kiroPermissionsFile)
+	return userTargets["kiro"].path(home, kiroPermissionsFile)
 }
 
 // planKiroReview lists approve-for-me in Kiro's user permissions file
 // while the home config sets review for Kiro, and takes out only the
 // item it listed once review goes. A preset the user listed stays
 // theirs, and a file it cannot edit in place gets a warning instead.
-func (p *globalPlan) planKiroReview(target string, _ globalTarget) error {
+func (p *userPlan) planKiroReview(target string, _ userTarget) error {
 	if target != "kiro" {
 		return nil
 	}
@@ -64,13 +64,13 @@ func (p *globalPlan) planKiroReview(target string, _ globalTarget) error {
 	case !add.Changed && owned:
 		p.next.ReviewPolicies[target] = recorded
 	case add.Changed:
-		p.next.ReviewPolicies[target] = globalReviewPolicy{Path: path, Home: p.home, KiroPolicyOwned: add.Owned}
-		return p.placeEditFromSnapshot(path, globalSettingsMerge{data: add.Data, changes: []string{"policies"}}, 0o600, before)
+		p.next.ReviewPolicies[target] = userReviewPolicy{Path: path, Home: p.home, KiroPolicyOwned: add.Owned}
+		return p.placeEditFromSnapshot(path, userSettingsMerge{data: add.Data, changes: []string{"policies"}}, 0o600, before)
 	}
 	return nil
 }
 
-func (p *globalPlan) removeKiroPolicy(target string, recorded globalReviewPolicy) (bool, error) {
+func (p *userPlan) removeKiroPolicy(target string, recorded userReviewPolicy) (bool, error) {
 	before, err := snapshotFile(recorded.Path)
 	if err != nil {
 		return false, err
@@ -84,10 +84,10 @@ func (p *globalPlan) removeKiroPolicy(target string, recorded globalReviewPolicy
 	if string(out) == string(before.data) {
 		return true, nil
 	}
-	return true, p.placeEditFromSnapshot(recorded.Path, globalSettingsMerge{data: out, changes: []string{"policies"}}, 0o600, before)
+	return true, p.placeEditFromSnapshot(recorded.Path, userSettingsMerge{data: out, changes: []string{"policies"}}, 0o600, before)
 }
 
-func (p *globalPlan) kiroReviewWarning(target, from string, cause error) error {
+func (p *userPlan) kiroReviewWarning(target, from string, cause error) error {
 	if _, err := fmt.Fprintf(p.warn, "warning: %s: %s: sync --scope user leaves %s alone (%v); list or remove %s under policies by hand\n",
 		target, from, kiroPermissionsFile, cause, approvals.KiroReviewPreset); err != nil {
 		return fmt.Errorf("write approvals warning: %w", err)
@@ -113,7 +113,7 @@ func kiroReviewerOn(home string) (bool, string, error) {
 // kiroReviewStatus notes whether Kiro's user permissions file matches
 // mode, and falls back to ask when review finds the preset missing. It
 // reports whether a preset sync listed is still there.
-func kiroReviewStatus(status *approvalsToolStatus, home, mode string, state globalState) bool {
+func kiroReviewStatus(status *approvalsToolStatus, home, mode string, state userState) bool {
 	if mode == config.ApprovalsReview {
 		status.MinVersion = "2.36.0"
 	}

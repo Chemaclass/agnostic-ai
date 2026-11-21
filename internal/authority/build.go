@@ -37,7 +37,7 @@ type Options struct {
 	// Global builds the view for the user-level configuration sync
 	// --scope user reads, with Root as the global source directory. sync
 	// --scope user writes no permission rules or protected paths.
-	Global bool
+	UserLevel bool
 }
 
 // NotFoundError reports an agent or target the configuration does not
@@ -236,7 +236,7 @@ func (bd *builder) view() *View {
 	}
 	var files []string
 	truncated := false
-	if bd.opts.FileMatches && !bd.opts.Global {
+	if bd.opts.FileMatches && !bd.opts.UserLevel {
 		files, truncated = projectFiles(bd.paths.root)
 	}
 	infos := bd.enumerateResources(s, domains)

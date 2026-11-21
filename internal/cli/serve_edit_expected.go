@@ -43,7 +43,7 @@ func (h *editHandler) checkBooleanExpected(path, key string, raw json.RawMessage
 	if err != nil {
 		return err
 	}
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func watchEditSources(paths []string, destination, key string) (func() error, er
 }
 
 func (h *editHandler) booleanSourcePaths(shown string) ([]string, error) {
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return nil, err
 	}

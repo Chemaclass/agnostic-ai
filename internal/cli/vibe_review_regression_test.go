@@ -40,8 +40,8 @@ func TestImportVibe_UnsafeNativeHookNameWritesNothing(t *testing.T) {
 		})
 	}
 }
-func TestImportGlobal_VibeUnsafeHookDryRunKeepsSentinel(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_VibeUnsafeHookDryRunKeepsSentinel(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	sentinel := filepath.Join(home, "victim.yaml")
 	writeFile(t, sentinel, "sentinel\n")
 	relative, err := filepath.Rel(os.TempDir(), strings.TrimSuffix(sentinel, ".yaml"))
@@ -50,7 +50,7 @@ func TestImportGlobal_VibeUnsafeHookDryRunKeepsSentinel(t *testing.T) {
 	}
 	name := "../../" + filepath.ToSlash(relative)
 	writeFile(t, filepath.Join(home, ".vibe/hooks.toml"), fmt.Sprintf("[[hooks]]\nname=%q\ntype='pre_tool'\ncommand='check'\n", name))
-	if _, _, err := runImportGlobalTest("vibe", "--dry-run"); err == nil {
+	if _, _, err := runImportUserTest("vibe", "--dry-run"); err == nil {
 		t.Error("unsafe global hook name accepted")
 	}
 	if got := readFile(t, sentinel); got != "sentinel\n" {
@@ -61,11 +61,11 @@ func TestImportGlobal_VibeUnsafeHookDryRunKeepsSentinel(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
+func TestImportUser_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
 	for _, order := range [][]string{{"codex", "vibe"}, {"vibe", "codex"}} {
 		for _, scenario := range []string{"different", "equivalent", "case-collision"} {
 			t.Run(strings.Join(order, "-")+"/"+scenario, func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				codexCommand, vibeCommand, vibeName := "codex-server", "vibe-server", "docs"
 				if scenario != "different" {
 					vibeCommand = codexCommand
@@ -75,7 +75,7 @@ func TestImportGlobal_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
 				}
 				writeFile(t, filepath.Join(home, ".codex/config.toml"), fmt.Sprintf("[mcp_servers.docs]\ncommand=%q\n", codexCommand))
 				writeFile(t, filepath.Join(home, ".vibe/config.toml"), fmt.Sprintf("[[mcp_servers]]\nname=%q\ntransport='stdio'\ncommand=%q\n", vibeName, vibeCommand))
-				_, warnings, err := runImportGlobalTest(order...)
+				_, warnings, err := runImportUserTest(order...)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -99,7 +99,7 @@ func TestImportGlobal_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
 					t.Errorf("first target did not win: %s", got)
 				}
 				if scenario == "equivalent" {
-					if _, warnings, err := runGlobalAgentTest("--only", "codex,vibe"); err != nil {
+					if _, warnings, err := runUserAgentTest("--only", "codex,vibe"); err != nil {
 						t.Fatalf("equivalent imports cannot sync: %v %s", err, warnings)
 					}
 				}
@@ -108,10 +108,10 @@ func TestImportGlobal_VibeMCPUsesSharedCollisionRegistry(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_VibeScalarEditsPreserveArraySeparatorOwnership(t *testing.T) {
+func TestSyncUser_VibeScalarEditsPreserveArraySeparatorOwnership(t *testing.T) {
 	for _, update := range []bool{false, true} {
 		t.Run(strconv.FormatBool(update), func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := "key=1\n"
 			writeFile(t, path, original)
@@ -119,12 +119,12 @@ func TestSyncGlobal_VibeScalarEditsPreserveArraySeparatorOwnership(t *testing.T)
 			mcp := filepath.Join(source, "mcps/docs.yaml")
 			writeFile(t, model, "model: old-model\n")
 			writeFile(t, mcp, "name: docs\ncommand: node\n")
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("add: %v %s", err, w)
 			}
 			if update {
 				writeFile(t, model, "model: new-model\n")
-				if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+				if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 					t.Fatalf("model-only update: %v %s", err, w)
 				}
 			}
@@ -133,7 +133,7 @@ func TestSyncGlobal_VibeScalarEditsPreserveArraySeparatorOwnership(t *testing.T)
 					t.Fatal(err)
 				}
 			}
-			if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+			if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 				t.Fatalf("remove: %v %s", err, w)
 			}
 			if got := readFile(t, path); got != original {
@@ -188,33 +188,33 @@ func TestImportVibe_PostAgentMatchRoundTripsFresh(t *testing.T) {
 	}
 	execCLI(t, "sync", "--check")
 }
-func TestImportGlobal_VibePostAgentStrictFalseRoundTripsFresh(t *testing.T) {
-	home, _ := globalAgentTestHome(t)
+func TestImportUser_VibePostAgentStrictFalseRoundTripsFresh(t *testing.T) {
+	home, _ := userAgentTestHome(t)
 	path := filepath.Join(home, ".vibe/hooks.toml")
 	writeFile(t, path, "[[hooks]]\nname='complete'\ntype='post_agent'\ncommand='check'\nstrict=false\n")
-	if _, _, err := runImportGlobalTest("vibe"); err != nil {
+	if _, _, err := runImportUserTest("vibe"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
-	if _, w, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+	if _, w, err := runUserAgentTest("--only", "vibe"); err != nil {
 		t.Fatalf("sync: %v %s", err, w)
 	}
 	if got := readFile(t, path); !strings.Contains(got, "strict = false") {
 		t.Fatalf("false native default lost: %s", got)
 	}
-	if _, _, err := runGlobalAgentTest("--only", "vibe", "--check"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "vibe", "--check"); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func TestSyncGlobal_VibeCollectsWindowsHookVariant(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_VibeCollectsWindowsHookVariant(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "scripts/guard.sh"), "posix body\n")
 	writeFile(t, filepath.Join(source, "scripts/guard.ps1"), "windows body\n")
 	hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "pre_tool", "command": "sh .agnostic-ai/scripts/guard.sh", "commandWindows": "powershell -File .agnostic-ai/scripts/guard.ps1"}}
-	writes, _, err := buildGlobalWritesForPlatform(home, source, []string{"vibe"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, globalState{Version: globalStateVersion}, nil, io.Discard, "warn", "windows")
+	writes, _, err := buildUserWritesForPlatform(home, source, []string{"vibe"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, userState{Version: userStateVersion}, nil, io.Discard, "warn", "windows")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -249,15 +249,15 @@ func TestSyncGlobal_VibeCollectsWindowsHookVariant(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_VibeSeparatorProofKeepsUserScalarChanges(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_VibeSeparatorProofKeepsUserScalarChanges(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".vibe/config.toml")
 	writeFile(t, path, "key=1\n")
 	model := filepath.Join(source, "settings/model.yaml")
 	mcp := filepath.Join(source, "mcps/docs.yaml")
 	writeFile(t, model, "model: old-model\n")
 	writeFile(t, mcp, "name: docs\ncommand: node\n")
-	if _, _, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "vibe"); err != nil {
 		t.Fatal(err)
 	}
 	text := strings.Replace(readFile(t, path), "key=1", "key=2", 1)
@@ -267,7 +267,7 @@ func TestSyncGlobal_VibeSeparatorProofKeepsUserScalarChanges(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if _, _, err := runGlobalAgentTest("--only", "vibe"); err != nil {
+	if _, _, err := runUserAgentTest("--only", "vibe"); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, path); got != "key=2\n" {
@@ -275,10 +275,10 @@ func TestSyncGlobal_VibeSeparatorProofKeepsUserScalarChanges(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_VibeWindowsVariantRejectsUnsafeArguments(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_VibeWindowsVariantRejectsUnsafeArguments(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"event": "pre_tool", "command": "python", "commandWindows": "powershell", "args": []any{"a'b"}}}
-	if _, _, err := buildGlobalWritesForPlatform(home, source, []string{"vibe"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, globalState{Version: globalStateVersion}, nil, io.Discard, "warn", "windows"); err == nil {
+	if _, _, err := buildUserWritesForPlatform(home, source, []string{"vibe"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, userState{Version: userStateVersion}, nil, io.Discard, "warn", "windows"); err == nil {
 		t.Fatal("selected Windows command ignored unsafe arguments")
 	}
 	if _, err := os.Stat(filepath.Join(home, ".vibe")); !os.IsNotExist(err) {

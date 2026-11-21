@@ -96,18 +96,18 @@ func TestNativeMCPServers_ReadsEachTargetsProjectAndUserFiles(t *testing.T) {
 		t.Errorf("servers =\n%+v\nwant\n%+v", got, want)
 	}
 
-	global := nativeMCPServers(home, ".", "", cfg, true)
-	for _, s := range global {
+	userLevel := nativeMCPServers(home, ".", "", cfg, true)
+	for _, s := range userLevel {
 		if s.Scope != overview.NativeScopeUser {
 			t.Errorf("global page lists a %s server: %+v", s.Scope, s)
 		}
 	}
-	if len(global) != 3 {
-		t.Errorf("global servers = %+v, want the three user servers", global)
+	if len(userLevel) != 3 {
+		t.Errorf("global servers = %+v, want the three user servers", userLevel)
 	}
 }
 
-func TestNativeMCPServers_LeavesOutWhatGlobalSyncWrote(t *testing.T) {
+func TestNativeMCPServers_LeavesOutWhatUserSyncWrote(t *testing.T) {
 	home := nativeMCPHome(t)
 	testutil.TempCwd(t)
 	source := filepath.Join(home, "source")
@@ -285,7 +285,7 @@ func TestOverviewNativeMCPs_KeepsEveryValueOutOfTheView(t *testing.T) {
 	}
 }
 
-func TestGlobalOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
+func TestUserOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 	home := nativeMCPHome(t)
 	dir := testutil.TempCwd(t)
 	writeNativeMCPProject(t, home, dir)

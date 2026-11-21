@@ -145,7 +145,7 @@ func TestEditField_ProjectScopeRejectsRetention(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalRetention(t *testing.T) {
+func TestEditField_UserRetention(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	h := newEditHandler(source, true)
@@ -264,7 +264,7 @@ func TestEditField_TargetedSpecOverridesOnlyItsTools(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalLaterClaudeModelNameOverridesCodex(t *testing.T) {
+func TestEditField_UserLaterClaudeModelNameOverridesCodex(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex]\n")

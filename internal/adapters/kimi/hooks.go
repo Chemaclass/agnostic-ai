@@ -43,7 +43,7 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 		if strings.TrimSpace(command) == "" {
 			return nil, fmt.Errorf("kimi: hook %s requires command", h.Name)
 		}
-		command = emit.RewriteGlobalHookPath(command, target, scriptsDir, m)
+		command = emit.RewriteUserHookPath(command, target, scriptsDir, m)
 		args := list(m["args"])
 		if platform == "windows" && !emit.PowerShellReadsFold(command, args) {
 			return nil, fmt.Errorf("kimi: hook %s arguments cannot be folded safely on Windows", h.Name)

@@ -59,14 +59,14 @@ var projectHook = hookBlock{
 	},
 }
 
-// globalHook runs from the home's repository root, so the checks read
+// userLevelHook runs from the home's repository root, so the checks read
 // the home being committed even when AGNOSTIC_AI_HOME names another.
-var globalHook = hookBlock{
+var userLevelHook = hookBlock{
 	file:     "pre-commit",
 	sentinel: "# agnostic-ai install-hook --global",
 	checks: `AGNOSTIC_AI_HOME="$(git rev-parse --show-toplevel)" || exit 1
 export AGNOSTIC_AI_HOME
-` + globalHookScopeProbe + `
+` + userHookScopeProbe + `
 agnostic-ai lint "${agnostic_ai_scope:---global}" --strict || exit 1
 agnostic-ai validate "${agnostic_ai_scope:---global}" || exit 1
 # A linked worktree holds a branch, not the specs sync --scope user deployed,
@@ -79,20 +79,20 @@ fi`,
 	// Releases before --scope wrote these lines with --global, which
 	// still works and warns on every commit.
 	upgrades: map[string]string{
-		"agnostic-ai lint --global --strict || exit 1":                              globalHookScopeProbe + "\n" + `agnostic-ai lint "${agnostic_ai_scope:---global}" --strict || exit 1`,
+		"agnostic-ai lint --global --strict || exit 1":                              userHookScopeProbe + "\n" + `agnostic-ai lint "${agnostic_ai_scope:---global}" --strict || exit 1`,
 		"agnostic-ai validate --global || exit 1":                                   `agnostic-ai validate "${agnostic_ai_scope:---global}" || exit 1`,
 		"# A linked worktree holds a branch, not the specs sync --global deployed,": "# A linked worktree holds a branch, not the specs sync --scope user deployed,",
 		"agnostic-ai sync --global --check || exit 1":                               `agnostic-ai sync "${agnostic_ai_scope:---global}" --check || exit 1`,
 	},
 }
 
-// globalHookScopeProbe picks the flag the agnostic-ai on PATH takes. A
+// userHookScopeProbe picks the flag the agnostic-ai on PATH takes. A
 // hook outlives the release that wrote it, and a commit must not stop
 // on "unknown flag" because an older agnostic-ai comes first on PATH.
 // The flag is one word, so it survives zsh and a changed IFS, and each
 // check falls back to --global, which every release takes, when a hook
 // edited by hand lost these lines.
-const globalHookScopeProbe = `# An agnostic-ai older than --scope takes --global instead.
+const userHookScopeProbe = `# An agnostic-ai older than --scope takes --global instead.
 agnostic_ai_scope="--scope=user"
 agnostic-ai validate --scope=user --help >/dev/null 2>&1 || agnostic_ai_scope="--global"`
 
@@ -164,7 +164,7 @@ var postMergeHook = hookBlock{
 }
 
 func newInstallHookCmd() *cobra.Command {
-	var shared, global, postCheckout bool
+	var shared, userLevel, postCheckout bool
 	cmd := &cobra.Command{
 		Use:   "install-hook",
 		Short: "Install a pre-commit check or checkout and merge sync hooks.",
@@ -191,14 +191,14 @@ func newInstallHookCmd() *cobra.Command {
   # Same, committed alongside the project
   agnostic-ai install-hook --post-checkout --shared`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if global {
+			if userLevel {
 				// The flag groups below only see the deprecated --global.
 				if shared || postCheckout {
 					return errs.Coded(errs.CodeFlagConflict, "--scope user cannot be combined with --shared or --post-checkout")
 				}
-				return installGlobalPreCommitHook(".", cmd.OutOrStdout())
+				return installUserPreCommitHook(".", cmd.OutOrStdout())
 			}
-			if err := refuseGlobalHome(".", globalHomeHookRemedy); err != nil {
+			if err := refuseUserHome(".", userHomeHookRemedy); err != nil {
 				return err
 			}
 			if postCheckout {
@@ -213,18 +213,18 @@ func newInstallHookCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/<hook> and set core.hooksPath so the hook is shared with the team.")
-	addScopeFlag(cmd, &global, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
+	addScopeFlag(cmd, &userLevel, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
 	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout and post-merge hooks that run `agnostic-ai project` after a checkout or pull, preserving edits and never installing dependencies.")
 	cmd.MarkFlagsMutuallyExclusive("shared", "global")
 	cmd.MarkFlagsMutuallyExclusive("global", "post-checkout")
 	return cmd
 }
 
-// installGlobalPreCommitHook writes the global home's pre-commit hook.
+// installUserPreCommitHook writes the global home's pre-commit hook.
 // dir must be the home itself, at the root of its git repository, so
 // the hook's checks read the same home the commit is for.
-func installGlobalPreCommitHook(dir string, out io.Writer) error {
-	source, err := globalSourceRoot()
+func installUserPreCommitHook(dir string, out io.Writer) error {
+	source, err := userSourceRoot()
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 		return fmt.Errorf("global home %s: %w", source, err)
 	}
 	if here, err := os.Stat(dir); err != nil || !os.SameFile(here, home) {
-		return fmt.Errorf("install-hook --scope user runs in the global home %s; cd there first, or set %s to this directory", source, envUserGlobalRoot)
+		return fmt.Errorf("install-hook --scope user runs in the global home %s; cd there first, or set %s to this directory", source, envUserRoot)
 	}
 	top, err := gitRevParse(source, "--show-toplevel")
 	if err != nil {
@@ -242,7 +242,7 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 	if info, err := os.Stat(top); err != nil || !os.SameFile(info, home) {
 		return fmt.Errorf("%s is not the root of a git repository (it sits inside %s); keep the global home in its own repository", source, top)
 	}
-	hooksDir, err := gitHooksDir(source, globalHook)
+	hooksDir, err := gitHooksDir(source, userLevelHook)
 	if err != nil {
 		return err
 	}
@@ -250,7 +250,7 @@ func installGlobalPreCommitHook(dir string, out io.Writer) error {
 	if existing, err := os.ReadFile(hookPath); err == nil && hasProjectCheck(string(existing)) {
 		return fmt.Errorf("%s runs `agnostic-ai sync --check`, which fails in the global home without blocking the commit; remove that line and run install-hook --scope user again", hookPath)
 	}
-	written, err := writeHookAt(hooksDir, globalHook)
+	written, err := writeHookAt(hooksDir, userLevelHook)
 	if err != nil {
 		return err
 	}

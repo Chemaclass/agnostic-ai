@@ -67,7 +67,7 @@ func TestMCPTools_ListsAndCachesToolsTheOverviewThenReadsOffline(t *testing.T) {
 	}
 
 	srv.Close() // The overview must not connect.
-	in, err := globalOverviewInputs()
+	in, err := userOverviewInputs()
 	if err != nil {
 		t.Fatal(err)
 	}

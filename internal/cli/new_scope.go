@@ -29,11 +29,11 @@ type newPlace struct {
 // the home sync --scope user reads, from any directory.
 func resolveNewPlace(scope, kind, name string) (newPlace, error) {
 	if scope == specScopeUser {
-		source, err := globalSourceRoot()
+		source, err := userSourceRoot()
 		if err != nil {
 			return newPlace{}, err
 		}
-		path, err := newSpecPathIn(source, globalSources, kind, name)
+		path, err := newSpecPathIn(source, userSources, kind, name)
 		if err != nil {
 			return newPlace{}, err
 		}
@@ -42,7 +42,7 @@ func resolveNewPlace(scope, kind, name string) (newPlace, error) {
 		}
 		return newPlace{scope: scope, path: path}, nil
 	}
-	if err := refuseGlobalHome(".", globalHomeNewRemedy); err != nil {
+	if err := refuseUserHome(".", userHomeNewRemedy); err != nil {
 		return newPlace{}, err
 	}
 	if scope != specScopeLocal {
@@ -142,7 +142,7 @@ func newSpecPathIn(root string, sources config.Sources, kind, name string) (stri
 func userScopeKinds() []string {
 	var kinds []string
 	for _, kind := range newSpecKinds {
-		if path, err := newSpecPathIn("", globalSources, kind, "x"); err == nil && path != "" {
+		if path, err := newSpecPathIn("", userSources, kind, "x"); err == nil && path != "" {
 			kinds = append(kinds, kind)
 		}
 	}
