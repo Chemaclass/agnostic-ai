@@ -59,6 +59,9 @@ jobs:
           cache: false
 
       - name: Build the companion archives
+        env:
+          COMPANION_SIGNING_P12: ${{ secrets.COMPANION_SIGNING_P12 }}
+          COMPANION_SIGNING_REQUIRED: "1"
         run: scripts/companion-release.sh "${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/companion-dist"
 
       - name: Hand the archives to GoReleaser

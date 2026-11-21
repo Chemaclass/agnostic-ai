@@ -26,12 +26,42 @@ hdiutil_retrying() {
   done
 }
 
-# macOS keeps a privacy grant, such as Accessibility, against the app's
-# designated requirement. The default ad hoc one is the code hash, which
-# every release changes, so the requirement names the bundle identifier.
-sign_companion_app() {
-  local id=dev.agnostic-ai.companion
-  codesign --force --sign - --identifier "$id" "-r=designated => identifier \"$id\"" "$1"
+# Release builds sign with the project certificate, given base64 as a
+# .p12 in COMPANION_SIGNING_P12. macOS keeps a privacy grant, such as
+# Accessibility, against the app's designated requirement, so pinning it
+# to that certificate carries the grant from one release to the next.
+# Without the certificate the app is signed ad hoc. macOS cannot import a
+# .p12 without a password, so it has a fixed one; the secret guards the key.
+companion_id=dev.agnostic-ai.companion
+companion_signer_cn="agnostic-ai companion release"
+
+# Prints the SHA-1 hash of the certificate it imports into keychain $1.
+import_companion_signer() {
+  local keychain="$1"
+  security create-keychain -p "" "$keychain" >&2
+  security set-keychain-settings "$keychain" >&2
+  printf '%s' "$COMPANION_SIGNING_P12" | base64 --decode > "$keychain.p12"
+  security unlock-keychain -p "" "$keychain" >&2
+  security import "$keychain.p12" -k "$keychain" -P agnostic-ai -T /usr/bin/codesign >&2
+  rm -f "$keychain.p12"
+  security find-certificate -c "$companion_signer_cn" -Z "$keychain" | awk '/^SHA-1 hash:/ { print $3 }' || true
+}
+
+# sign_companion <path> <hash> <keychain> [app]: signs ad hoc when hash is
+# empty. With "app" the signature names the bundle and pins the certificate.
+sign_companion() {
+  local path="$1" hash="$2" keychain="$3"
+  if [ -z "$hash" ]; then
+    codesign --force --sign - "$path"
+    return
+  fi
+  security unlock-keychain -p "" "$keychain"
+  if [ "${4:-}" = app ]; then
+    codesign --force --keychain "$keychain" --sign "$hash" --identifier "$companion_id" \
+      "-r=designated => identifier \"$companion_id\" and certificate leaf = H\"$hash\"" "$path"
+  else
+    codesign --force --keychain "$keychain" --sign "$hash" "$path"
+  fi
 }
 
 # Sourced by scripts/companion-release_test.sh for the functions above.
@@ -63,8 +93,13 @@ export CGO_LDFLAGS="-O2 -g -mmacosx-version-min=$min_macos"
 mkdir -p "$outdir"
 outdir="$(cd "$outdir" && pwd)"
 work="$(mktemp -d)"
+signing_keychain="$work/signing.keychain-db"
+signing_hash=""
 cleanup() {
   case "$work" in "${TMPDIR:-/tmp/}"*|/tmp/*|/private/tmp/*) ;; *) exit 1 ;; esac
+  if [ -n "$signing_hash" ]; then
+    security delete-keychain "$signing_keychain" || true
+  fi
   echo "Removing $work"
   rm -rf "$work"
 }
@@ -72,6 +107,18 @@ trap cleanup EXIT
 mkdir -p "$work/companion.iconset"
 cp "$root/internal/cli/companion-icon.png" "$work/companion.iconset/icon_512x512.png"
 iconutil -c icns "$work/companion.iconset" -o "$work/companion.icns"
+
+if [ -n "${COMPANION_SIGNING_P12:-}" ]; then
+  signing_hash="$(import_companion_signer "$signing_keychain")"
+  if [ -z "$signing_hash" ]; then
+    echo "COMPANION_SIGNING_P12 holds no certificate named $companion_signer_cn" >&2
+    exit 1
+  fi
+  echo "Signing with the certificate $signing_hash, valid until $(security find-certificate -c "$companion_signer_cn" -p "$signing_keychain" | openssl x509 -noout -enddate | cut -d= -f2)"
+elif [ "${COMPANION_SIGNING_REQUIRED:-}" = 1 ]; then
+  echo "COMPANION_SIGNING_P12 is empty; a release must sign with the project certificate" >&2
+  exit 1
+fi
 
 for arch in arm64 amd64; do
   mkdir -p "$work/$arch"
@@ -149,9 +196,12 @@ for arch in arm64 amd64; do
 </plist>
 PLIST
   plutil -lint "$contents/Info.plist"
-  codesign --force --sign - "$contents/Resources/agnostic-ai"
-  sign_companion_app "$app"
+  sign_companion "$contents/Resources/agnostic-ai" "$signing_hash" "$signing_keychain"
+  sign_companion "$app" "$signing_hash" "$signing_keychain" app
   codesign --verify --deep --strict "$app"
+  if [ -n "$signing_hash" ]; then
+    codesign --verify -R="identifier \"$companion_id\" and certificate leaf = H\"$signing_hash\"" "$app"
+  fi
   ln -s /Applications "$work/$arch/image/Applications"
   image="$outdir/${name}_darwin_${arch}.dmg"
   hdiutil_retrying create -ov -format UDZO -volname "$app_name" \

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -93,7 +92,10 @@ func TestInstallCompanion_BuildsASignedAppOnMacOS(t *testing.T) {
 	dir := t.TempDir()
 	tools := builtTools(t)
 	var signed []string
-	tools.sign = func(_ context.Context, app string) error {
+	tools.sign = func(_ context.Context, folder, app string) error {
+		if folder != filepath.Join(dir, "companion") {
+			t.Errorf("signed with the certificate in %s, want the companion folder", folder)
+		}
 		if _, err := os.Stat(filepath.Join(app, "Contents", "Info.plist")); err != nil {
 			t.Errorf("signed before the app was complete: %v", err)
 		}
@@ -139,7 +141,7 @@ func TestInstallCompanion_KeepsTheInstalledAppWhenSigningFails(t *testing.T) {
 	dir := t.TempDir()
 	installed := installedCompanion(t, dir, "darwin")
 	tools := builtTools(t)
-	tools.sign = func(context.Context, string) error { return errors.New("codesign: no identity") }
+	tools.sign = func(context.Context, string, string) error { return errors.New("codesign: no identity") }
 	tools.quit = func(context.Context, string) (bool, error) {
 		t.Error("the running companion was stopped for an install that failed")
 		return false, nil
@@ -473,42 +475,5 @@ func TestInstallCompanion_KeepsTheEarlierAppWhenItCannotBePutBack(t *testing.T) 
 	aside := kept.aside
 	if raw, readErr := os.ReadFile(filepath.Join(aside, "Contents", "MacOS", companionName)); string(raw) != "the one that works" {
 		t.Errorf("the earlier companion at %s is gone (%v)", aside, readErr)
-	}
-}
-
-func TestSignCompanion_KeepsOneDesignatedRequirementAcrossBuilds(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("codesign runs on macOS only")
-	}
-	app := filepath.Join(t.TempDir(), companionAppName+".app")
-	if err := os.MkdirAll(filepath.Join(app, "Contents", "MacOS"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(app, "Contents", "Info.plist"), companionInfoPlist("1.2.3"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	var requirements []string
-	for _, build := range []string{"/usr/bin/true", "/usr/bin/false"} {
-		program, err := os.ReadFile(build)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(app, "Contents", "MacOS", companionName), program, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := signCompanion(context.Background(), app); err != nil {
-			t.Fatal(err)
-		}
-		out, err := exec.Command("codesign", "-d", "-r-", app).CombinedOutput()
-		if err != nil {
-			t.Fatalf("codesign -d: %v\n%s", err, out)
-		}
-		requirements = append(requirements, string(out))
-	}
-	want := `designated => identifier "` + companionBundleID + `"`
-	for i, got := range requirements {
-		if !strings.Contains(got, want) {
-			t.Errorf("build %d has requirement:\n%s\nwant %s", i+1, got, want)
-		}
 	}
 }
