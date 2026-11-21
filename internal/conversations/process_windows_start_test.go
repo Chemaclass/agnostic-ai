@@ -1,6 +1,7 @@
 package conversations
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"slices"
@@ -181,5 +182,17 @@ func TestCommandName_ReadsTheProgramOfACommandLine(t *testing.T) {
 func TestWithoutExe_KeepsANameWithSpaces(t *testing.T) {
 	if got := withoutExe("Code - Insiders.EXE"); got != "Code - Insiders" {
 		t.Errorf("got %q", got)
+	}
+}
+
+func TestFocusTerminal_OnWindowsSaysTheWindowCannotBeBroughtForward(t *testing.T) {
+	defer func(saved string) { shellSystem = saved }(shellSystem)
+	shellSystem = "windows"
+	c := Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42}}
+
+	reply := focusTerminal(context.Background(), c, fakeProcesses{alive: map[int]bool{42: true}}, windowsLauncher{})
+
+	if reply.Opened || reply.Message != "It is open in another window (process 42), and agnostic-ai cannot bring a window forward on Windows. Switch to it there. To resume it elsewhere, end that process first, then run this command." || reply.Command == "" {
+		t.Errorf("reply %+v", reply)
 	}
 }

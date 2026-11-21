@@ -421,6 +421,9 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 			return OpenReply{Message: fmt.Sprintf("Codex keeps this thread open in the background and does not say which of its sessions shows it (%s). Switch to it there.", strings.Join(shortTTYs(placed.ttys), ", "))}
 		}
 	}
+	if placed == nil && shellSystem == "windows" {
+		return resumeElsewhere(fmt.Sprintf("It is open in another window (process %d), and agnostic-ai cannot bring a window forward on Windows. Switch to it there.", c.process.PID), c.Open.Command)
+	}
 	if placed == nil {
 		return resumeElsewhere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found, as in a detached tmux session or after its tab closed. Switch to it there.", c.process.PID), c.Open.Command)
 	}
