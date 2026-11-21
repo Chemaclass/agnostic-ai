@@ -70,7 +70,7 @@ func (m Message) validType() bool {
 	}
 }
 
-func (t *Thread) recordModel(ref conversations.Ref, name string) {
+func (t *Thread) recordModel(ref conversations.Ref, name, statedBy string) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return
@@ -78,7 +78,7 @@ func (t *Thread) recordModel(ref conversations.Ref, name string) {
 	if t.Models == nil {
 		t.Models = map[string]Model{}
 	}
-	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: "human"}
+	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: statedBy}
 }
 
 func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
@@ -89,6 +89,10 @@ func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
 		return refused
 	}
 	if req.Type == Done {
+		// One done that waits for approval is enough; more would only pile up.
+		if slices.ContainsFunc(t.Messages, func(m Message) bool { return m.Type == Done && m.State == Held }) {
+			return NewRefusal("closed")
+		}
 		return nil
 	}
 	if t.contentCount() >= t.Cap {

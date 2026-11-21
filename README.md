@@ -68,7 +68,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Open the web interface](https://agnostic-ai.org/docs/cli-reference/serve/#serve): view context size and edit hooks, MCP servers, and settings with `agnostic-ai ui`.
 - [Save a session handoff](https://agnostic-ai.org/docs/handoff/): switch tools mid-task, or automate Git snapshots with Claude hooks.
 - [Start a side conversation](https://agnostic-ai.org/docs/side-conversation/): `agnostic-ai conversations start` opens a second task in a new terminal tab, linked to the session it came from.
-- [Message another session](https://agnostic-ai.org/docs/mailbox/): use the companion to send questions, request code reviews and hand off claimed files between local Claude Code and Codex sessions. The `mailbox` built-in delivers them with the next prompt.
+- [Message another session](https://agnostic-ai.org/docs/mailbox/): send questions, request code reviews and hand off claimed files between local Claude Code and Codex sessions, from the companion or from the agents with `agnostic-ai mailbox`. The `mailbox` built-in delivers them with the next prompt, and agent messages wait for your approval first.
 - [Answer routine permission prompts](https://agnostic-ai.org/docs/approvals/): with `approvals.mode: yolo` in your home config, a hook approves safe Claude Code, Codex, Kiro, Qwen Code and Qoder tool calls one at a time; risky ones still ask.
 - [Hand off to the cloud](https://agnostic-ai.org/docs/cloud-handoff/): say "send this to a remote agent" to push the task and continue it in a Claude Code or Codex cloud session.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.

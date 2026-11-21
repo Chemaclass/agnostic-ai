@@ -185,7 +185,7 @@ builtins: [handoff]
 | `handoff` | A skill to leave and resume a task | [Session handoffs](@/docs/handoff.md) |
 | `handoff-hook` | Automatic Git snapshots and startup notices | [Automatic snapshots](@/docs/handoff.md#add-automatic-git-snapshots) |
 | `memory` | Shared project and personal memory | [Shared memory](@/docs/memory.md) |
-| `mailbox` | Claude Code and Codex hooks that deliver mailbox messages with the next prompt | [Session mailbox](@/docs/mailbox.md#deliver-with-the-next-prompt) |
+| `mailbox` | Claude Code and Codex hooks that deliver mailbox messages with the next prompt, and a skill that lets agents send and answer them | [Session mailbox](@/docs/mailbox.md#deliver-with-the-next-prompt) |
 | `rtk` | A Claude Code hook that shortens command output | [RTK setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 | `caveman` | An on-demand short-reply skill | [Caveman setup](@/docs/rtk-and-caveman.md#turn-them-on) |
 | `side-conversation` | A skill to start a second task in a new tab | [Side conversations](@/docs/side-conversation.md) |

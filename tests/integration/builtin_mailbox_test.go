@@ -49,6 +49,8 @@ func TestBuiltinMailbox(t *testing.T) {
 	run(t, "sync", "--gitignore=off")
 
 	emitted := []string{".claude/settings.json", ".codex/hooks.json"}
+	skills := []string{".claude/skills/mailbox/SKILL.md", ".agents/skills/mailbox/SKILL.md"}
+	emitted = append(emitted, skills...)
 	output := map[string]string{}
 	for _, path := range emitted {
 		data, err := os.ReadFile(filepath.Join(dir, path))
@@ -64,6 +66,9 @@ func TestBuiltinMailbox(t *testing.T) {
 		compareGolden(t, expectedDir, output, "builtin-mailbox")
 	}
 	run(t, "sync", "--check", "--gitignore=off")
+	if output[skills[0]] != output[skills[1]] {
+		t.Errorf("the mailbox skill differs between tools:\n%s\n---\n%s", output[skills[0]], output[skills[1]])
+	}
 
 	t.Run("emitted-commands-deliver", func(t *testing.T) {
 		if runtime.GOOS == "windows" {
@@ -107,7 +112,12 @@ func TestBuiltinMailbox(t *testing.T) {
 		t.Fatal(err)
 	}
 	run(t, "sync", "--gitignore=off")
-	for _, path := range emitted {
+	for _, path := range skills {
+		if _, err := os.Stat(filepath.Join(dir, path)); !os.IsNotExist(err) {
+			t.Errorf("%s remains after the built-in is off: %v", path, err)
+		}
+	}
+	for _, path := range emitted[:2] {
 		data, err := os.ReadFile(filepath.Join(dir, path))
 		if err == nil && strings.Contains(string(data), "hook mailbox") {
 			t.Errorf("%s keeps the mailbox hook after the built-in is off:\n%s", path, data)

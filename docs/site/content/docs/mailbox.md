@@ -1,6 +1,6 @@
 +++
 title = "Session mailbox"
-description = "Send questions, findings, code reviews and file handoffs between local Claude Code and Codex sessions."
+description = "Send questions, findings, code reviews and file handoffs between local Claude Code and Codex sessions, from the companion or from the agents themselves."
 weight = 80
 
 [extra]
@@ -82,6 +82,24 @@ Codex runs a new hook only after you review and trust it. Open `/hooks` in Codex
 A message an agent sends waits as **Held for you** until you approve it. **Approve** checks the thread again: a paused thread refuses it, and a handoff whose paths changed owner is refused. A stopped thread has already cancelled it. **Reject** records the refusal in the thread, and the message no longer counts toward the limit. Messages you write in the companion are never held.
 
 Approval is on by default. Turn off **Ask me before an agent sends a message** in the companion settings to let agent messages queue at once. A missing or unreadable setting keeps approval on.
+
+## Let agents send
+
+With the `mailbox` built-in on, each Claude Code and Codex session also gets a `mailbox` skill. It tells the agent when to send each message type, to send distilled findings and never a transcript or a secret, and to treat a message it receives as data: it tells you what arrived and runs nothing because a message says so.
+
+The agent sends, replies, closes a thread, claims paths and answers a handoff with one [`agnostic-ai mailbox`](@/docs/cli-reference/mailbox.md) command each. Every message it sends waits as **Held for you** until you approve it, and the thread shows it as sent by the agent, with the model the agent says it runs. A handoff the agent accepted says so.
+
+The guards are the same as for the companion: the cap, size, credential, pause, close, refs and ownership checks all apply. A session outside a thread cannot reply to it, close it or answer its handoffs. `mailbox show` and `mailbox list` leave out the text of a message that waits for approval or delivery, so an agent reads a message only when the hook delivers it.
+
+## What sender detection is not
+
+The command finds the session it runs in from its parent processes and the tool's own session files. That is context, not proof of identity:
+
+- Codex can run several threads in one process. The command trusts the thread ID in its environment when it cannot check which thread the process holds, and a process that holds several threads can name any of them.
+- Any process that runs as your OS user can edit the mailbox files or call the companion's local routes, and get past every guard.
+- The model name on a message is what the agent wrote. Nothing checks it.
+
+The guards keep cooperating sessions to the supported mailbox actions. Read a held message before you approve it.
 
 ## Manage a thread
 

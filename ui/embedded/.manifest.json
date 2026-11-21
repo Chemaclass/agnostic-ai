@@ -106,8 +106,8 @@
     "src/model/coding-tools.ts": "41d7259ddde0091202f8a8c71b5c1a45d1f57246ef9c024b6eff9c8bf3c0de6d",
     "src/model/config-switch.test.ts": "9bcade0726e4cef52b9b85beb05901d22b906b04be76b081d1369026a1954914",
     "src/model/config-switch.ts": "ef5f946147f9593f3b8c0d151cc03acffe9f40fa63435d7db41f058e2e5e8a5f",
-    "src/model/context-advice.test.ts": "cd776b13fa8d52093f446b1b8f55d6498fc85fbdea23b15ccaf7b07c837e4b2b",
-    "src/model/context-advice.ts": "258c17eeee6330ff0a036da1a5242bd2c7ce9567b0862e8467a3920d8d9f0ce0",
+    "src/model/context-advice.test.ts": "c72d5bbfc615102b99ddc3ea8dd10a120e20aa56b2b0b36b9a13d904133570b2",
+    "src/model/context-advice.ts": "c18dd0bbee603185fe31c082e4d1e2165c92997fb1afd534adeb1822488141fb",
     "src/model/context-breakdown.test.ts": "334e881361d47a6fe30063a6a13808f5390bb09aa89c8dc20778b46b0846e228",
     "src/model/context-breakdown.ts": "5298966b071d55ad0b76541077b57fe892936b0bb23994106151a83da500ab7f",
     "src/model/context-prompt.test.ts": "734a6e3367e10e06884e580f93716ff8d53ab7a22b1614a5a4d2f8f9c184cc8c",
@@ -195,12 +195,12 @@
     "assets/factory-BoHOi7Sc.svg": "cf77d7924ae55addfa704bfdf6ceb252cb81351376089c2cd392ca250662920b",
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
-    "assets/index-3ttHvujM.js": "8e98d234ba4746ccfae41101f94d92228ace007464c7d7b917491ad84aa1e33e",
     "assets/index-BYoLMj2O.css": "b90cc77b9c3775c93696c163185b616f16ab4756966253a1180c9ddb1d1e8de7",
+    "assets/index-dZh96v6U.js": "b95952cb248e87ca0c40fd9f53fcd810c57d71b10e302e337d6001cdde36df9e",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Bgk5mmge.js": "0dff328a7d93ba049cea9c88560bea8f2af28bfc2c77b6a2cd7eb0df4ec542ba",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "0da035fc54a6c4115e1650460233d761487784c1ae8bfb1d255f63ed68551be0",
+    "index.html": "b9055a6114b371c7ea6bffcf92c3e6a5d14c08ef8754f665c7470b98268f7e17",
     "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }

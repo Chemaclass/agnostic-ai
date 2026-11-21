@@ -533,7 +533,7 @@ var builtinDescriptions = map[string]string{
 	"memory":            "Shared memory every coding tool reads and saves facts to.",
 	"handoff":           "Saves a task so the next session, in this or another tool, can resume it.",
 	"handoff-hook":      "Offers a saved handoff when a session starts.",
-	"mailbox":           "Delivers mailbox messages from other sessions with your next prompt.",
+	"mailbox":           "Lets agents message each other and delivers their messages with your next prompt.",
 	"rtk":               "Routes shell commands through rtk to cut output tokens.",
 	"caveman":           "Terse replies to cut output tokens.",
 	"cloud-handoff":     "Pushes the current task and continues it in a cloud session.",
@@ -577,9 +577,10 @@ var builtinAbouts = map[string]BuiltinAbout{
 		},
 	},
 	"mailbox": {
-		Summary: "Adds Claude Code and Codex hooks that hand a session its waiting mailbox messages.",
+		Summary: "Adds Claude Code and Codex hooks that hand a session its waiting mailbox messages, and a skill that lets agents send and answer them.",
 		Points: []string{
 			"Messages arrive with your next prompt, or when the session starts or resumes. Compaction and clear deliver nothing.",
+			"Agents send, reply, close threads and answer handoffs with agnostic-ai mailbox commands. The command detects the sending session; that is context, not proof of identity.",
 			"Messages an agent sends wait for your approval in the companion first.",
 			"Codex runs a new or changed hook only after you trust it.",
 		},

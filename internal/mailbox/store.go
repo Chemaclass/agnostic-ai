@@ -42,6 +42,9 @@ func (s Store) SendFromAgent(ctx context.Context, from conversations.Ref, req Se
 
 func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder, by string) (Receipt, error) {
 	refused := ValidateSend(from, req)
+	if refused == nil {
+		refused = checkSender(req, by)
+	}
 	if refused == nil && req.To.Tool == "" {
 		refused = NewRefusal("unknown-session")
 	}
@@ -122,15 +125,16 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 
 	thread.Messages = append(thread.Messages, message)
 	if req.Models != nil {
-		thread.recordModel(from, req.Models.From)
-		thread.recordModel(req.To, req.Models.To)
+		thread.recordModel(from, req.Models.From, "human")
+		thread.recordModel(req.To, req.Models.To, "human")
 	}
+	thread.recordModel(from, req.Model, "agent")
 	action := "send"
 	if message.Type == Done && message.State == Waiting {
 		thread.Status = Closing
 		action = "close"
 	}
-	thread.addEvent(at, action, message.N)
+	thread.addEventBy(at, by, action, message.N)
 	if err := s.writeThread(thread); err != nil {
 		return Receipt{}, err
 	}

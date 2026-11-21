@@ -959,3 +959,18 @@ test('says which tools cannot be read without a command, and none for a tool tha
   assert.equal(missingToolsNoteOf({ tools: [view.tools[0], view.tools[2]] }), undefined)
   assert.equal(missingToolsNoteOf({}), undefined)
 })
+
+test('says which messages an agent sent, the model it states and who answered a handoff', async () => {
+  const { handoffAnswerOf, senderKindOf, statedModelOf } = await import('../frontend/model.js')
+  const from = { tool: 'codex', id: 'a', by: 'agent' }
+  assert.equal(senderKindOf({ from }), 'Sent by the agent')
+  assert.equal(senderKindOf({ from: { ...from, by: 'human' } }), undefined)
+  assert.equal(statedModelOf({ models: { 'codex:a': { name: 'gpt-5.5', statedBy: 'agent' } } }, { from }), 'Says it runs gpt-5.5')
+  assert.equal(statedModelOf({ models: { 'codex:a': { name: 'gpt-5.5', statedBy: 'human' } } }, { from }), undefined)
+  assert.equal(statedModelOf({}, { from }), undefined)
+  const thread = { events: [{ action: 'send', n: 2, by: 'agent' }, { action: 'accept', n: 2, by: 'agent' }, { action: 'decline', n: 3, by: 'human' }] }
+  assert.equal(handoffAnswerOf(thread, { n: 2, handoff: 'accepted' }), 'Accepted by the agent')
+  assert.equal(handoffAnswerOf(thread, { n: 3, handoff: 'declined' }), 'Declined by you')
+  assert.equal(handoffAnswerOf(thread, { n: 4, handoff: 'offered' }), 'Offered')
+  assert.equal(handoffAnswerOf({}, { n: 1 }), undefined)
+})
