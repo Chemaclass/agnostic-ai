@@ -14,6 +14,7 @@ Follow the contributor setup guide to build and run the CLI, then choose an area
 | Add a starter template for a language or framework | [Contributing a preset](contributing-presets.md) |
 | Publish reusable specs | [Pack authors](pack-authors.md) |
 | Measure or improve sync performance | [Benchmarks](benchmarks.md) |
+| Run the cross-model mailbox review experiment | [Cross-model review protocol](experiments/cross-model-review.md) |
 | Assess optional navigation and context tools | [CodeGraph, Ponytail, and Headroom](experiments/navigation-tool-assessment.md) |
 | Work on the browser playground | [Playground development](../playground/README.md) |
 | Ship a version | [Release process](release-process.md) |

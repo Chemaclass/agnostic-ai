@@ -160,7 +160,14 @@ func (s Store) answerHandoff(ctx context.Context, actor *conversations.Ref, id s
 		if at, holder := claimedByOther(state.Claims, from, scope.Worktree, named); holder != nil {
 			conflict.Path, conflict.Holder = at, holder
 		}
-		return s.recordClaimConflict(state, conflict)
+		refused := s.recordClaimConflict(state, conflict)
+		if _, ok := errors.AsType[*Refusal](refused); ok {
+			thread.addEventBy(time.Now().UTC(), by, "conflict", n)
+			if err := s.writeThread(thread); err != nil {
+				return err
+			}
+		}
+		return refused
 	}
 	move := pendingTransfer{Thread: id, N: n, From: from, To: to, Gives: *message.Gives, IgnoreCase: fold, At: time.Now().UTC(), by: by}
 	return writeTransfer(state, thread, move, s.writeClaims, s.writeThread)

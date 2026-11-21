@@ -1,6 +1,6 @@
 +++
 title = "Mailbox commands"
-description = "Send, reply, close threads and answer handoffs from inside an agent session, and resolve the Git refs for a review request."
+description = "Send, reply, close threads and answer handoffs from inside an agent session, resolve the Git refs for a review request, and count what the mailbox recorded."
 weight = 48
 
 [extra]
@@ -134,6 +134,89 @@ Answer a handoff offered to this session. Accepting moves the paths only when no
 
 ```text
 Handoff accepted. Work only in /Users/you/Code/app: src/parser.go.
+```
+
+## mailbox stats
+
+```text
+agnostic-ai mailbox stats [--since <date>] [--json]
+```
+
+Prints counts and durations from every thread on this computer. Run it anywhere; it needs no session and only reads. `--since 2026-11-01` counts only messages, events and refusals at or after that date (UTC); a thread counts when it has a message from then on. `--json` prints the same numbers as JSON with schema `mailbox-stats/v1`. The plain output prints each value as its dotted JSON key.
+
+The output holds no message text, paths or session IDs, and draws no conclusions: zero human actions proves neither that you were watching nor that you were not. Every duration is in seconds. With no data, counts are 0 and every median, percentile and ratio is `null`. An empty or missing mailbox exits 0. A thread file that cannot be read is skipped and named on standard error.
+
+| Key | What it counts | Unit, divided by |
+|---|---|---|
+| `threads.total`, `open`, `paused`, `closing`, `closed` | Threads, by status | Count |
+| `threads.reachedCapWithoutDone` | Threads whose content messages reach the cap and that hold no `done` | Count |
+| `messages.total`, `byType.*`, `byState.*`, `bySender.*` | Messages, by type, state and `from.by` | Count |
+| `refusals.withThread` | Refused sends stored on a thread. A rejected message is not a refusal here; it shows under `humanActions.reject`. A thread keeps its last 100. | Count |
+| `refusals.withoutThread` | Refused sends stored in `audit.json`, which keeps the last 500. A note says when it is full. | Count |
+| `refusals.total`, `byGuard.*` | Both together, and by guard | Count |
+| `refusals.perSendAttempt` | Refusals | Ratio: refusals / (messages + refusals) |
+| `deliverySeconds.count`, `median`, `p90` | Delivered messages only, from `queuedAt` to `deliveredAt`. Time held for approval is not in it; staged messages are not in it. The median averages the two middle values; p90 is the nearest rank. | Seconds |
+| `humanActions.pause`, `resume`, `stop`, `approve`, `reject`, `raiseCap`, `queue` | Thread events a person made | Count |
+| `humanActions.per10Threads` | The seven actions above | Actions / threads × 10 |
+| `handoffs.offered`, `accepted`, `declined` | Handoffs by their current answer. Rejected handoffs are not in it. | Count |
+| `handoffs.conflicts` | Acceptances refused because another session held a path | Count |
+| `handoffs.conflictsPer10Handoffs` | Conflicts | Conflicts / handoffs × 10 |
+| `reviews.requests` | Review requests, not counting rejected ones | Count |
+| `reviews.crossModel`, `sameModel`, `unknownModel` | Review requests where both models are known and differ, both are known and equal (letter case ignored, whatever the tools), or either is missing. The sender's model is the one stated on the message, or else the one stored for that session. | Count |
+| `reviews.firstThreadToFirstEmittedReviewSeconds` | From the first message in the store to the delivery of the first cross-model review request | Seconds |
+
+This run counts one thread: an approved and delivered question, a held finding, and a refused send.
+
+```text
+schemaVersion: mailbox-stats/v1
+since: null
+threads.total: 1
+threads.open: 1
+threads.paused: 0
+threads.closing: 0
+threads.closed: 0
+threads.reachedCapWithoutDone: 0
+messages.total: 2
+messages.byType.question: 1
+messages.byType.finding: 1
+messages.byType.review_request: 0
+messages.byType.handoff: 0
+messages.byType.done: 0
+messages.byState.held: 1
+messages.byState.waiting: 0
+messages.byState.reserved: 0
+messages.byState.staged: 0
+messages.byState.delivered: 1
+messages.byState.rejected: 0
+messages.byState.cancelled: 0
+messages.bySender.human: 0
+messages.bySender.agent: 2
+refusals.total: 1
+refusals.withThread: 1
+refusals.withoutThread: 0
+refusals.byGuard.secret: 1
+refusals.perSendAttempt: 0.3333333333333333
+deliverySeconds.count: 1
+deliverySeconds.median: 0.023458
+deliverySeconds.p90: 0.023458
+humanActions.pause: 0
+humanActions.resume: 0
+humanActions.stop: 0
+humanActions.approve: 1
+humanActions.reject: 0
+humanActions.raiseCap: 0
+humanActions.queue: 0
+humanActions.per10Threads: 10
+handoffs.offered: 0
+handoffs.accepted: 0
+handoffs.declined: 0
+handoffs.conflicts: 0
+handoffs.conflictsPer10Handoffs: null
+reviews.requests: 0
+reviews.crossModel: 0
+reviews.sameModel: 0
+reviews.unknownModel: 0
+reviews.firstThreadToFirstEmittedReviewSeconds: null
 ```
 
 ## mailbox refs

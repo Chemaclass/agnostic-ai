@@ -564,7 +564,7 @@ func TestMailboxListAndShow_LeaveOutContentNotYetShown(t *testing.T) {
 func TestMailboxCommands_HaveOnlyTheDocumentedFlags(t *testing.T) {
 	want := map[string]string{
 		"send": "", "done": "thread", "list": "", "show": "", "claim": "worktree", "release": "worktree",
-		"accept": "n,thread", "decline": "n,thread", "refs": "base,commit",
+		"accept": "n,thread", "decline": "n,thread", "refs": "base,commit", "stats": "json,since",
 	}
 	for _, sub := range newMailboxCmd().Commands() {
 		var names []string
@@ -642,5 +642,146 @@ func TestMailboxCommands_RefuseASessionTheListDoesNotShow(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "(guard: unknown-session)") {
 			t.Errorf("%v by an unlisted session = %q, %v", args, out, err)
 		}
+	}
+}
+
+func runMailboxStats(t *testing.T, args ...string) (string, string, error) {
+	t.Helper()
+	var out, errOut strings.Builder
+	root := NewRootCmd("test")
+	root.SetOut(&out)
+	root.SetErr(&errOut)
+	root.SetArgs(append([]string{"mailbox", "stats"}, args...))
+	err := root.Execute()
+	return out.String(), errOut.String(), err
+}
+
+func TestMailboxStats_AnEmptyMailboxPrintsZerosAndNull(t *testing.T) {
+	_, store := hookMailboxHome(t)
+	out, errOut, err := runMailboxStats(t, "--json")
+	if err != nil || errOut != "" {
+		t.Fatalf("stats on a missing mailbox = %v, stderr %q", err, errOut)
+	}
+	var stats map[string]any
+	if err := json.Unmarshal([]byte(out), &stats); err != nil {
+		t.Fatal(err)
+	}
+	if stats["since"] != nil || stats["deliverySeconds"].(map[string]any)["median"] != nil {
+		t.Errorf("empty stats = %s", out)
+	}
+	if _, err := os.Stat(store.Dir); !os.IsNotExist(err) {
+		t.Errorf("stats created the mailbox: %v", err)
+	}
+	plain, _, err := runMailboxStats(t)
+	if err != nil || !strings.Contains(plain, "threads.total: 0\n") || !strings.Contains(plain, "deliverySeconds.median: null\n") {
+		t.Errorf("plain empty stats = %q, %v", plain, err)
+	}
+}
+
+func TestMailboxStats_PlainAndJSONShowTheSameKeysAndNumbers(t *testing.T) {
+	f := newMailboxAgentFixture(t)
+	f.approval(false)
+	f.as(agentClaude)
+	id := threadOf(t, f.mustSend(`{"to":"codex:`+mailboxCodexID+`","type":"question","body":"Where is the private plan?","model":"gpt-5.5"}`))
+	runHookMailbox(t, "codex", hookPayload(mailboxCodexID, "UserPromptSubmit", ""))
+	_, _ = f.send(`{"thread":"` + id + `","type":"finding","body":"api_key=example-secret-sentinel"}`)
+
+	out, _, err := runMailboxStats(t, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var keys []string
+	var walk func(prefix string, value any)
+	walk = func(prefix string, value any) {
+		object, ok := value.(map[string]any)
+		if !ok || prefix == "refusals.byGuard" {
+			keys = append(keys, prefix)
+			return
+		}
+		for key, nested := range object {
+			name := key
+			if prefix != "" {
+				name = prefix + "." + key
+			}
+			walk(name, nested)
+		}
+	}
+	var decoded map[string]any
+	if err := json.Unmarshal([]byte(out), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	walk("", decoded)
+	slices.Sort(keys)
+	want := []string{
+		"deliverySeconds.count", "deliverySeconds.median", "deliverySeconds.p90",
+		"handoffs.accepted", "handoffs.conflicts", "handoffs.conflictsPer10Handoffs", "handoffs.declined", "handoffs.offered",
+		"humanActions.approve", "humanActions.pause", "humanActions.per10Threads", "humanActions.queue", "humanActions.raiseCap",
+		"humanActions.reject", "humanActions.resume", "humanActions.stop",
+		"messages.bySender.agent", "messages.bySender.human",
+		"messages.byState.cancelled", "messages.byState.delivered", "messages.byState.held", "messages.byState.rejected",
+		"messages.byState.reserved", "messages.byState.staged", "messages.byState.waiting",
+		"messages.byType.done", "messages.byType.finding", "messages.byType.handoff", "messages.byType.question", "messages.byType.review_request",
+		"messages.total",
+		"refusals.byGuard", "refusals.perSendAttempt", "refusals.total", "refusals.withThread", "refusals.withoutThread",
+		"reviews.crossModel", "reviews.firstThreadToFirstEmittedReviewSeconds", "reviews.requests", "reviews.sameModel", "reviews.unknownModel",
+		"schemaVersion", "since",
+		"threads.closed", "threads.closing", "threads.open", "threads.paused", "threads.reachedCapWithoutDone", "threads.total",
+	}
+	if !slices.Equal(keys, want) {
+		t.Errorf("keys =\n%v\nwant\n%v", keys, want)
+	}
+	for _, leak := range []string{"private plan", "example-secret", inProject, mailboxCodexID, f.project, "gpt-5.5"} {
+		if strings.Contains(out, leak) {
+			t.Errorf("stats hold %q: %s", leak, out)
+		}
+	}
+
+	plain, _, err := runMailboxStats(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range []string{
+		"messages.total: 1\n", "messages.byState.delivered: 1\n", "messages.bySender.agent: 1\n",
+		"refusals.withThread: 1\n", "refusals.byGuard.secret: 1\n", "refusals.perSendAttempt: 0.5\n", "deliverySeconds.count: 1\n",
+	} {
+		if !strings.Contains(plain, line) {
+			t.Errorf("plain stats miss %q:\n%s", line, plain)
+		}
+	}
+	for _, key := range want {
+		if key != "refusals.byGuard" && !strings.Contains(plain, key+": ") {
+			t.Errorf("plain stats miss key %s", key)
+		}
+	}
+
+	later, _, err := runMailboxStats(t, "--since", "2999-01-01", "--json")
+	if err != nil || !strings.Contains(later, `"since": "2999-01-01T00:00:00Z"`) || !strings.Contains(later, `"total": 0`) {
+		t.Errorf("stats since a later date = %s, %v", later, err)
+	}
+	if _, _, err := runMailboxStats(t, "--since", "yesterday"); err == nil {
+		t.Error("an unreadable --since date was accepted")
+	}
+}
+
+func TestMailboxStats_NamesACorruptThreadAndAFullAuditOnStandardError(t *testing.T) {
+	_, store := hookMailboxHome(t)
+	writeFile(t, filepath.Join(store.Dir, "threads", "th_20261121_0000000f.json"), "{not json")
+	records := make([]map[string]string, 500)
+	for i := range records {
+		records[i] = map[string]string{"at": "2026-11-21T10:00:00Z", "guard": "format"}
+	}
+	data, _ := json.Marshal(records)
+	writeFile(t, filepath.Join(store.Dir, "audit.json"), string(data))
+	if err := os.Chmod(filepath.Join(store.Dir, "audit.json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := runMailboxStats(t, "--json")
+	if err != nil || !strings.Contains(errOut, "th_20261121_0000000f.json") || !strings.Contains(errOut, "500") ||
+		strings.Contains(errOut, store.Dir) || !strings.Contains(out, `"withoutThread": 500`) {
+		t.Errorf("stats = %s, stderr %q, %v", out, errOut, err)
+	}
+	plain, _, err := runMailboxStats(t)
+	if err != nil || !strings.Contains(plain, "500") || !strings.Contains(plain, "audit") {
+		t.Errorf("plain stats with a full audit file = %q, %v", plain, err)
 	}
 }
