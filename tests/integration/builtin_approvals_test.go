@@ -111,7 +111,7 @@ func TestBuiltinApprovals_GlobalSyncWritesTheHookAndProjectSyncDoesNot(t *testin
 	}
 	must(t, os.MkdirAll(source, 0o755))
 	must(t, os.WriteFile(filepath.Join(source, "agnostic-ai.yaml"), []byte("version: 1\ntargets: [claude, codex, kiro, qwen, qoder]\nbuiltins: [approvals]\napprovals:\n  mode: yolo\n"), 0o644))
-	run(base, "sync", "--global")
+	run(base, "sync", "--scope", "user")
 
 	files := map[string]string{
 		"claude": filepath.Join(home, ".claude", "settings.json"),

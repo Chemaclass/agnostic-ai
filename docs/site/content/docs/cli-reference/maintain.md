@@ -197,7 +197,7 @@ agnostic-ai hook memory --target codex
 
 ## hook approve
 
-Answer a permission prompt from inside a `PermissionRequest` hook. The [`approvals` built-in](@/docs/approvals.md) sets this up for Claude Code, Codex, Kiro, Qwen Code and Qoder through `sync --global`.
+Answer a permission prompt from inside a `PermissionRequest` hook. The [`approvals` built-in](@/docs/approvals.md) sets this up for Claude Code, Codex, Kiro, Qwen Code and Qoder through `sync --scope user`.
 
 ```bash
 command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook approve --target claude
@@ -259,7 +259,7 @@ Install git hooks; see the [git hooks](@/docs/git-hooks.md) guide. By default it
 ```bash
 agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
-agnostic-ai install-hook --global   # checks global specs before committing
+agnostic-ai install-hook --scope user   # checks global specs before committing
 
 agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout and post-merge
 agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
@@ -269,8 +269,8 @@ agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .gith
 - An existing hook keeps its content, and the checks go at its end.
 - A hook that would stop before them is left alone, and the command prints the lines to add by hand. That means its first line does not select `sh` or `bash`, or it has an `exec` or an unindented `exit`.
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
-- `--global` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --global --strict`, `validate --global`, and `sync --global --check` (skipped in a linked worktree).
-- `--global` is not allowed with `--shared` or `--post-checkout`. It stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
+- `--scope user` is for the global specs folder, which must be the root of its own git repository. The hook runs `lint --scope user --strict`, `validate --scope user`, and `sync --scope user --check` (skipped in a linked worktree).
+- `--scope user` is not allowed with `--shared` or `--post-checkout`. It stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
 - `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single file) or a merge, pull included. See [regenerate on checkout](@/docs/git-hooks.md#regenerate-on-checkout).
 {% </details> %}
 

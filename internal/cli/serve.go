@@ -62,10 +62,10 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
   agnostic-ai serve --ui ui/dist --open
 
   # The user-level configuration
-  agnostic-ai serve --global
+  agnostic-ai serve --scope user
 
   # Also list Claude Code cloud sessions and Codex cloud threads
-  agnostic-ai serve --global --cloud-sessions`,
+  agnostic-ai serve --scope user --cloud-sessions`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if apiOnly && (cmd.Flags().Changed("ui") || open) {
@@ -90,12 +90,12 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				allowedOrigins[i] = parsed
 			}
 			if global && cmd.Flags().Changed("dir") {
-				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
+				return errs.Coded(errs.CodeFlagConflict, "--scope user and --dir cannot be combined")
 			}
 			// A project server lists the conversations started in the
 			// project, and a cloud session names no folder.
 			if cloudSessions && !global {
-				return errors.New("--cloud-sessions needs --global: cloud sessions belong to no project folder")
+				return errors.New("--cloud-sessions needs --scope user: cloud sessions belong to no project folder")
 			}
 			if uiDir != "" {
 				abs, err := filepath.Abs(uiDir)
@@ -163,13 +163,13 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	cmd.Flags().StringVar(&uiDir, "ui", "", "Override the bundled web interface with this directory.")
 	cmd.Flags().BoolVar(&apiOnly, "api-only", false, "Serve the JSON API without the web interface.")
 	cmd.Flags().BoolVar(&open, "open", false, "Open the served URL in a browser.")
-	cmd.Flags().BoolVar(&global, "global", false, "Serve the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	addScopeFlag(cmd, &global, "Serve the user-level configuration sync --scope user uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")
 	cmd.Flags().StringVar(&switchBack, "switch-back", "", "Loopback address of the server that started this one; its way back tries it first.")
 	_ = cmd.Flags().MarkHidden("switch-back")
 	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
-	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --global.")
+	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --scope user.")
 	return cmd
 }
 

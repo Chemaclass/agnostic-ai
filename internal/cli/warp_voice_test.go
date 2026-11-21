@@ -110,7 +110,7 @@ func TestWarpVoice_ExplainUsesNativeSettingsPath(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	path := warpVoiceTestPath(t, home)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-	out, err := runRoot(t, "explain", "--global", "settings/voice.yaml")
+	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -266,7 +266,7 @@ func TestWarpVoice_ExistingGlobalImportRoundTripsReadOnly(t *testing.T) {
 	path := warpVoiceTestPath(t, home)
 	original := "# preferences\n[agents.voice]\nvoice_input_enabled=false\nvoice_input_language='es'\nvoice_input_toggle_key='fn' # keep\n"
 	writeFile(t, path, original)
-	if _, err := runRoot(t, "import", "--global", "warp"); err != nil {
+	if _, err := runRoot(t, "import", "--scope", "user", "warp"); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, path); got != original {

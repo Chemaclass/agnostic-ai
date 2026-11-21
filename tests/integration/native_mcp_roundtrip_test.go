@@ -34,15 +34,15 @@ func TestNativeMCPGlobal_ClientSettingsRoundTrip(t *testing.T) {
 					t.Fatalf("%v: %v\n%s", args, err, out)
 				}
 			}
-			run("import", "--global", target)
+			run("import", "--scope", "user", target)
 			imported, err := os.ReadFile(filepath.Join(source, "mcps/remote.yaml"))
 			must(t, err)
 			if target == "pi" && !strings.Contains(string(imported), "x-pi:") {
 				t.Errorf("auth not scoped: %s", imported)
 			}
-			run("sync", "--global", "--only", target)
-			run("sync", "--global", "--only", target)
-			run("sync", "--global", "--only", target, "--check")
+			run("sync", "--scope", "user", "--only", target)
+			run("sync", "--scope", "user", "--only", target)
+			run("sync", "--scope", "user", "--only", target, "--check")
 			got, err := os.ReadFile(path)
 			must(t, err)
 			if string(got) != original {

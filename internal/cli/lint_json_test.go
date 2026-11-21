@@ -87,7 +87,7 @@ func TestLintJSON_GlobalReportsErrorsAndFails(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "defaults.yaml"), "effort:\n  claude: max\n")
 
-	report, _, err := runLintJSON(t, "--global")
+	report, _, err := runLintJSON(t, "--scope", "user")
 	if err == nil {
 		t.Fatal("an error finding must exit 1")
 	}

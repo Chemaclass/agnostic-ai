@@ -126,7 +126,7 @@ func TestSwitch_StartsItsOwnGlobalServerWhenTheRunningOneLinksToAnotherProject(t
 
 func TestPeerServerCommand_UsesFixedArguments(t *testing.T) {
 	args, dir := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", global: true, dir: "/work/repo"}, "127.0.0.1:4311")
-	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--global"}) || dir != "/work/repo" {
+	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--scope", "user"}) || dir != "/work/repo" {
 		t.Errorf("global = %v in %q", args, dir)
 	}
 	args, dir = peerServerCommand(switchPeer{root: "/work/repo"}, "127.0.0.1:4312")
@@ -478,7 +478,7 @@ func TestSwitchPeerFor_ProjectServedWithDirLinksBackToThatProject(t *testing.T) 
 
 func TestPeerServerCommand_PassesTheAddressToGoBackTo(t *testing.T) {
 	args, _ := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", global: true, dir: "/work/repo", back: "127.0.0.1:5000"}, "127.0.0.1:4311")
-	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--global", "--switch-back", "127.0.0.1:5000"}) {
+	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--scope", "user", "--switch-back", "127.0.0.1:5000"}) {
 		t.Errorf("args = %v", args)
 	}
 }
@@ -548,7 +548,7 @@ func TestServe_GlobalServerGoesBackToTheProjectServerThatStartedIt(t *testing.T)
 	cmd := newServeCmdWithBrowser(func(url string) error { served <- url; return nil })
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd.SetContext(ctx)
-	cmd.SetArgs([]string{"--global", "--open", "--addr", "127.0.0.1:0", "--switch-back", back})
+	cmd.SetArgs([]string{"--scope", "user", "--open", "--addr", "127.0.0.1:0", "--switch-back", back})
 	var serveErr error
 	done := make(chan struct{})
 	go func() { serveErr = cmd.Execute(); close(done) }()

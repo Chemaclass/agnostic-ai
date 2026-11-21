@@ -279,7 +279,7 @@ func peerServerCommand(peer switchPeer, addr string) ([]string, string) {
 	args := []string{"serve", "--addr", addr}
 	dir := ""
 	if peer.global {
-		args, dir = append(args, "--global"), peer.dir
+		args, dir = append(args, "--scope", specScopeUser), peer.dir
 	} else {
 		args = append(args, "--dir", peer.root)
 	}

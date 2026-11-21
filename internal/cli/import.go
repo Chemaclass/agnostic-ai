@@ -90,10 +90,10 @@ func newImportCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if global {
 				if diff {
-					return errs.Coded(errs.CodeFlagConflict, "--global does not support --diff")
+					return errs.Coded(errs.CodeFlagConflict, "--scope user does not support --diff")
 				}
 				if overwrite {
-					return errs.Coded(errs.CodeFlagConflict, "--global does not support --overwrite")
+					return errs.Coded(errs.CodeFlagConflict, "--scope user does not support --overwrite")
 				}
 				return runImportGlobal(cmd, args, dryRun)
 			}
@@ -132,7 +132,7 @@ func newImportCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Report which spec files would be written without touching disk.")
-	cmd.Flags().BoolVar(&global, "global", false, "Read the user settings, MCP files, and Kiro hook files sync --global writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
+	addScopeFlag(cmd, &global, "Read the user settings, MCP files, and Kiro hook files sync --scope user writes into specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai). Takes target names, or none for every supported one. Never replaces an existing spec.")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Replace existing specs the import would change. Keys the tool never shows and comments on kept keys stay; ::target blocks for other tools are lost. Without it, an import that would replace a spec with different content stops before writing anything.")
 	cmd.Flags().BoolVar(&diff, "diff", false, "With --dry-run, show created, changed, and unchanged destinations, a unified diff per change, and sources that propose different content for one destination.")
 	cmd.AddCommand(newImportReconcileCmd())

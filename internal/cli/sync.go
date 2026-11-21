@@ -69,7 +69,7 @@ func newSyncCmd() *cobra.Command {
   agnostic-ai sync --plan --diff
 
   # Preview user-level changes and fail on drift
-  agnostic-ai sync --global --plan --check
+  agnostic-ai sync --scope user --plan --check
 
   # Machine-readable output for CI dashboards and editor extensions
   agnostic-ai sync --json
@@ -91,15 +91,15 @@ func newSyncCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&f.plan, "plan", false, "Show per-target added/changed counts without writing; with --diff, then a unified diff per changed file")
 	cmd.Flags().BoolVar(&f.backup, "backup", false, "Copy each existing target file to <path>.bak before overwriting (consumed by `agnostic-ai revert`; clear leftover .bak with `agnostic-ai cleanup --backups`)")
 	cmd.Flags().BoolVar(&f.keepEdits, "keep-edits", false, "Leave each output edited since the last sync in place and list it, writing the rest (for post-checkout and post-merge hooks)")
-	cmd.Flags().BoolVar(&f.untrack, "untrack", false, "Remove a generated path from git's index when it is also gitignored (git rm --cached, working tree untouched). Not with --check, --plan, --dry-run, --watch, or --global.")
-	cmd.Flags().BoolVar(&f.allowEmptyTargets, "allow-empty-targets", false, "With an empty targets list, remove every file sync generated instead of keeping them; with --dry-run, name each file it would remove. Not with --check, --plan, --watch, or --global.")
+	cmd.Flags().BoolVar(&f.untrack, "untrack", false, "Remove a generated path from git's index when it is also gitignored (git rm --cached, working tree untouched). Not with --check, --plan, --dry-run, --watch, or --scope user.")
+	cmd.Flags().BoolVar(&f.allowEmptyTargets, "allow-empty-targets", false, "With an empty targets list, remove every file sync generated instead of keeping them; with --dry-run, name each file it would remove. Not with --check, --plan, --watch, or --scope user.")
 	cmd.Flags().StringVar(&f.gitignoreFlag, "gitignore", "", "Override config: 'on' or 'off' to manage the .gitignore block this run.")
 	cmd.Flags().BoolVar(&f.watch, "watch", false, "Re-emit on spec changes (Ctrl+C to exit)")
 	cmd.Flags().BoolVar(&f.watchPoll, "watch-poll", false, "Force polling instead of fsnotify (use on filesystems where fsnotify is unreliable, e.g. some network mounts)")
 	cmd.Flags().BoolVar(&f.jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&f.allTargets, "all", false, "Sync every configured target without prompting (skip the first-sync target picker)")
 	cmd.Flags().IntVar(&f.jobs, "jobs", 0, "Number of targets to emit in parallel (0 = one per CPU; 1 = serial). Output is identical regardless.")
-	cmd.Flags().BoolVar(&f.global, "global", false, "Sync user-level instructions, rules, hooks, skills, and native agents")
+	addScopeFlag(cmd, &f.global, "Sync user-level instructions, rules, hooks, skills, and native agents")
 	registerTargetCompletion(cmd)
 	return cmd
 }
@@ -299,16 +299,16 @@ func validateSyncFlags(f syncFlags) error {
 		return errs.Coded(errs.CodeFlagConflict, "--jobs: want 0 (one per CPU) or more, got %d", f.jobs)
 	}
 	if f.allowEmptyTargets && (f.check || f.plan || f.watch || f.global) {
-		return errs.Coded(errs.CodeFlagConflict, "--allow-empty-targets cannot be combined with --check, --plan, --watch, or --global")
+		return errs.Coded(errs.CodeFlagConflict, "--allow-empty-targets cannot be combined with --check, --plan, --watch, or --scope user")
 	}
 	if f.keepEdits && (f.check || f.plan || f.watch || f.global) {
-		return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --global")
+		return errs.Coded(errs.CodeFlagConflict, "--keep-edits cannot be combined with --check, --plan, --watch, or --scope user")
 	}
 	if err := validateAgainst(f.against, f.check, f.plan, f.watch, f.global); err != nil {
 		return err
 	}
 	if f.untrack && (f.check || f.plan || f.dryRun || f.watch || f.global) {
-		return errs.Coded(errs.CodeFlagConflict, "--untrack cannot be combined with --check, --plan, --dry-run, --watch, or --global")
+		return errs.Coded(errs.CodeFlagConflict, "--untrack cannot be combined with --check, --plan, --dry-run, --watch, or --scope user")
 	}
 	if f.global {
 		return nil

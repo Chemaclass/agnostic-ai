@@ -100,7 +100,7 @@ func TestBuiltinHandoffHooks(t *testing.T) {
 			handoffSetenv(t, "AGNOSTIC_AI_HOME", source)
 			configPath = filepath.Join(source, "agnostic-ai.yaml")
 			statePath = filepath.Join(source, "state", "global.json")
-			args = []string{"sync", "--global"}
+			args = []string{"sync", "--scope", "user"}
 		}
 		handoffWrite(t, configPath, "version: 1\ntargets: [claude]\nbuiltins: [handoff-hook]\n")
 		run(t, dir, args...)
@@ -1151,7 +1151,7 @@ awk 'BEGIN { print "\\u"; if ("x" ~ /^[^"\\]+$/) print "matched" }'`}
 		handoffInitGit(t, dir)
 		ignore := handoffRead(t, filepath.Join(dir, ".gitignore"))
 		exclude := handoffRead(t, filepath.Join(dir, ".git", "info", "exclude"))
-		run(t, dir, "sync", "--global")
+		run(t, dir, "sync", "--scope", "user")
 		h := handoffReadHandlersFor(t, home, "claude")["PreCompact"]
 		cwd := filepath.Join(dir, "nested")
 		if err := os.MkdirAll(cwd, 0o755); err != nil {

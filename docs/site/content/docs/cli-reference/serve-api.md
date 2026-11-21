@@ -84,7 +84,7 @@ Query: `?target=<tool>`, a configured target. The default is the first one.
 
 - `&file=<path>` adds scoped rules for that file, as `--file` does. `fileTargets` lists the targets that accept it.
 - Returns `targets`, `target`, absolute `root`, `startupWordBudget` (the `lint.instructions-words` value the page compares startup words with), and `report`, the `explain --context --json` output.
-- With `--global`, `supported` is false and `reason` says why.
+- With `--scope user`, `supported` is false and `reason` says why.
 
 ## `GET /api/views/source`
 
@@ -130,7 +130,7 @@ Body: `{audience, name, enabled, expected?}`, or `{audience: "personal", reset: 
 
 Body: `{audience, name, enabled, expected?}`, or `{audience: "personal", reset: true, expected?}` to drop the personal list.
 
-- `name` is a built-in coding tool. With `--global`, it is one `sync --global` can write.
+- `name` is a built-in coding tool. With `--scope user`, it is one `sync --scope user` can write.
 - `expected` is the shown boolean, or the shown list of tools that are on for reset. A changed value returns 409 without saving the requested change.
 - Turning off the last tool returns 400.
 - Returns `{ok, file}`.
@@ -219,7 +219,7 @@ Body: `{action, audience, path?, protected, before?, expected?}`.
 - `before` is the selected audience's own block as shown, or `null`. A mismatch returns 409.
 - Preview returns `schemaVersion: "protected-edit/v1"`, `file`, `audience`, `before`, `protected`, `diff`, `expected`, and `syncCommand`, plus `cleared: true` when the file sets `protected: null`, which `protected: null` in the request removes.
 - Apply works as for `/api/edit/permissions`.
-- The global server returns 400, because `sync --global` does not write protected paths.
+- The global server returns 400, because `sync --scope user` does not write protected paths.
 
 ## `POST /api/edit/field`
 

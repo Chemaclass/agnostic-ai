@@ -73,7 +73,7 @@ func TestExplainLayers_ResolvesReplacedAndExtendedSources(t *testing.T) {
 
 func TestExplainLayers_RejectsOtherViews(t *testing.T) {
 	for _, args := range [][]string{
-		{"--layers"}, {"--layers", "rules/a.md", "--global"},
+		{"--layers"}, {"--layers", "rules/a.md", "--scope", "user"},
 		{"--layers", "--file", "a.go", "--target", "codex"},
 		{"--layers", "--context", "--target", "codex"}, {"--layers", "--inputs"},
 		{"--layers", "AAI-001"}, {"--layers", "LINT011"}, {"--layers", "rules/a.md", "--target", "codex"},

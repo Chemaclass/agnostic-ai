@@ -48,11 +48,11 @@ func newMCPToolsCmd() *cobra.Command {
   agnostic-ai mcp tools
 
   # The user-level configuration
-  agnostic-ai mcp tools --global`,
+  agnostic-ai mcp tools --scope user`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if global && cmd.Flags().Changed("dir") {
-				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
+				return errs.Coded(errs.CodeFlagConflict, "--scope user and --dir cannot be combined")
 			}
 			root, entries, err := mcpToolsScope(dir, global)
 			if err != nil {
@@ -70,7 +70,7 @@ func newMCPToolsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
-	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration sync --global uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	addScopeFlag(cmd, &global, "Read the user-level configuration sync --scope user uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the cached result as JSON.")
 	cmd.Flags().DurationVar(&timeout, "timeout", 20*time.Second, "How long to wait for each server.")
 	return cmd

@@ -180,8 +180,8 @@ func newMigrateCmd() *cobra.Command {
   agnostic-ai migrate
   agnostic-ai migrate --only config
 
-  # Rewrite the global specs sync --global reads
-  agnostic-ai migrate --global`,
+  # Rewrite the global specs sync --scope user reads
+  agnostic-ai migrate --scope user`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			scope, err := resolveMigrationScope(global)
 			if err != nil {
@@ -228,7 +228,7 @@ func newMigrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
 	cmd.Flags().BoolVar(&list, "list", false, "List every migration and whether it applies here.")
 	cmd.Flags().StringSliceVar(&only, "only", nil, "Run only these migration groups (comma-separated).")
-	cmd.Flags().BoolVar(&global, "global", false, "Rewrite the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --global writes.")
+	addScopeFlag(cmd, &global, "Rewrite the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --scope user writes.")
 	cmd.MarkFlagsMutuallyExclusive("list", "dry-run")
 	return cmd
 }

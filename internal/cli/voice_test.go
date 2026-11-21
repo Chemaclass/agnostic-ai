@@ -102,11 +102,11 @@ func TestVoice_LintsModeValues(t *testing.T) {
 		t.Run(tc.spec, func(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "voice.yaml"), tc.spec)
-			out, err := runRoot(t, "lint", "--global")
+			out, err := runRoot(t, "lint", "--scope", "user")
 			if strings.Contains(out, "LINT054") == tc.valid {
 				t.Errorf("LINT054 valid=%t: %v\n%s", tc.valid, err, out)
 			}
-			if _, err := runRoot(t, "validate", "--global"); (err == nil) != tc.valid {
+			if _, err := runRoot(t, "validate", "--scope", "user"); (err == nil) != tc.valid {
 				t.Errorf("validate valid=%t: %v", tc.valid, err)
 			}
 			_, warnings, err := runGlobalAgentTest("--only", "claude")
@@ -171,7 +171,7 @@ func TestVoice_ClaudeOverrideWins(t *testing.T) {
 func TestVoice_ExplainsMappingsAndUnsupportedTargets(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), voiceHomeSpec)
-	out, err := runRoot(t, "explain", "--global", "settings/voice.yaml")
+	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}

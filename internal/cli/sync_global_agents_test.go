@@ -42,7 +42,7 @@ func runGlobalAgentTest(args ...string) (string, string, error) {
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
 	cmd.SetErr(&warnings)
-	cmd.SetArgs(append([]string{"sync", "--global"}, args...))
+	cmd.SetArgs(append([]string{"sync", "--scope", "user"}, args...))
 	err := cmd.Execute()
 	return out.String(), warnings.String(), err
 }

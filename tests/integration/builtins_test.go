@@ -141,9 +141,9 @@ func TestBuiltinHandoff(t *testing.T) {
 			"Keep the fixed personal learning.",
 		)
 		run(t, dir, "sync", "--check", "--gitignore=off")
-		run(t, dir, "sync", "--global")
+		run(t, dir, "sync", "--scope", "user")
 		assertContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Keep the configured global learning.")
-		run(t, dir, "sync", "--global", "--check")
+		run(t, dir, "sync", "--scope", "user", "--check")
 	})
 
 	t.Run("project-dogfood-requires-builtins-release", func(t *testing.T) {
@@ -409,11 +409,11 @@ func TestBuiltinHandoff(t *testing.T) {
 			t.Fatal(err)
 		}
 		dir := t.TempDir()
-		run(t, dir, "sync", "--global")
+		run(t, dir, "sync", "--scope", "user")
 		if _, err := os.Stat(filepath.Join(home, paths[0])); err != nil {
 			t.Errorf("global skill missing: %v", err)
 		}
-		for _, args := range [][]string{{"list", "--global"}, {"explain", "builtin:handoff", "--global"}} {
+		for _, args := range [][]string{{"list", "--scope", "user"}, {"explain", "builtin:handoff", "--scope", "user"}} {
 			if out := run(t, dir, args...); !strings.Contains(out, "builtin:handoff (agnostic-ai v0.80.0)") {
 				t.Errorf("%v missing global provenance: %s", args, out)
 			}

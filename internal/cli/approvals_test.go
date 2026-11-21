@@ -432,7 +432,7 @@ func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
 	source := approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yollo\n")
 	writeFile(t, filepath.Join(source, "rules", "style.md"), "Be brief.\n")
 
-	out, err := runCLI(t, "validate", "--global")
+	out, err := runCLI(t, "validate", "--scope", "user")
 
 	if err == nil || !strings.Contains(out, "yollo") {
 		t.Fatalf("validate --global passed or did not name the value: %v\n%s", err, out)

@@ -210,7 +210,7 @@ func TestSync_AllowEmptyTargetsRemovesFiles(t *testing.T) {
 
 func TestSync_AllowEmptyTargetsConflicts(t *testing.T) {
 	syncedEmptyTargetsProject(t)
-	for _, flag := range []string{"--check", "--plan", "--watch", "--global"} {
+	for _, flag := range []string{"--check", "--plan", "--watch", "--scope=user"} {
 		out, err := runCLI(t, "sync", "--allow-empty-targets", flag)
 		if err == nil || !strings.Contains(err.Error(), "--allow-empty-targets cannot be combined") {
 			t.Errorf("%s: err = %v\n%s", flag, err, out)

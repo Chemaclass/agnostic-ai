@@ -41,7 +41,7 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | Flag | Description |
 |------|-------------|
 | `--fix` | Rewrite source spec files to repair issues it can fix. |
-| `--global` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Works outside a project. |
+| `--scope user` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Works outside a project. |
 
 {% <details summary="Details: what validate checks, and global mode"> %}
 | Check | Reports |
@@ -52,10 +52,10 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | Case-only output clashes | On a filesystem where letter case does not count, such as macOS or Windows: outputs that differ only in letter case, such as the files of rules `b` and `B`, which land on one file. Validate fails with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and names both paths, as `sync` would. To find them it renders every target, which makes validate slower on those filesystems. |
 | Declared sources | A `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr, loads the kind empty, and passes. |
 | Tool-specific instruction blocks | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor an external adapter listed in `targets`. Also a tool that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
-| Global rules | With `--global`: a rule with scope, path, glob, or target conditions, which `sync --global` rejects. |
-| Global settings | With `--global`: a settings `effort` that a tool cannot take, such as `max` for Claude. |
+| Global rules | With `--scope user`: a rule with scope, path, glob, or target conditions, which `sync --scope user` rejects. |
+| Global settings | With `--scope user`: a settings `effort` that a tool cannot take, such as `max` for Claude. |
 
-- With `--global`, hook events are checked against the tools `sync --global` writes hooks for, narrowed by a `targets` list in the home config.
+- With `--scope user`, hook events are checked against the tools `sync --scope user` writes hooks for, narrowed by a `targets` list in the home config.
 - For event names, see [portable hook events](@/docs/spec-format/hook-reference.md#portable-events) and each [target page](@/docs/targets/_index.md). Use `on:` to share an event across tools.
 {% </details> %}
 
@@ -73,14 +73,14 @@ Fix the named source, rerun lint, then sync if generated output changes.
 |------|-------------|
 | `--strict` | Exit 1 on warnings too, for CI. |
 | `--suggest-capabilities` | Suggest neutral names for tool aliases (LINT037). Off by default. |
-| `--global` | Lint the specs in `$AGNOSTIC_AI_HOME` and its `local/` overrides. Works outside a project. |
-| `--json` | Print `{version, command, findings}` on stdout. Works with `--global`. |
+| `--scope user` | Lint the specs in `$AGNOSTIC_AI_HOME` and its `local/` overrides. Works outside a project. |
+| `--json` | Print `{version, command, findings}` on stdout. Works with `--scope user`. |
 | `--files <path>...` | Report only findings on these files, or on specs below a directory. |
 
-{% <details summary="Details: --global, --json, and --files"> %}
-- `--global` also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. `$AGNOSTIC_AI_HOME` defaults to `~/.agnostic-ai`.
+{% <details summary="Details: --scope user, --json, and --files"> %}
+- `--scope user` also reports LINT010 and LINT014. Budgets come from the `lint` key in the home config. `$AGNOSTIC_AI_HOME` defaults to `~/.agnostic-ai`.
 - Each `--json` finding has `code`, `severity` (`error` or `warn`), `path`, and `message`, like the `lint` list in `doctor --json`.
-- `--files -` reads paths from stdin, one per line. A missing path, or no path, fails. Not with `--global`.
+- `--files -` reads paths from stdin, one per line. A missing path, or no path, fails. Not with `--scope user`.
 - The [spec guard hook](@/docs/spec-format/hook-reference.md#spec-guard) uses `--files` after each edit.
 {% </details> %}
 

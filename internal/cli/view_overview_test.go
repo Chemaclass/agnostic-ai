@@ -139,7 +139,7 @@ func TestView_DefaultSourceDoesNotMixProjectAndGlobalTargets(t *testing.T) {
 		{name: "outside", cwd: outside, targets: []string{"codex"}, global: true},
 		{name: "project", cwd: project, targets: []string{"cursor", "opencode"}},
 		{name: "nested", cwd: nested, targets: []string{"cursor", "opencode"}},
-		{name: "explicit global", cwd: project, args: []string{"--global"}, targets: []string{"codex"}, global: true},
+		{name: "explicit global", cwd: project, args: []string{"--scope", "user"}, targets: []string{"codex"}, global: true},
 		{name: "explicit directory", cwd: outside, args: []string{"--dir", project}, targets: []string{"cursor", "opencode"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -185,7 +185,7 @@ func TestView_RejectsInvalidSourcesBeforeOpeningBrowser(t *testing.T) {
 		{name: "file directory", cwd: outside, args: []string{"--dir", file}, want: "not a directory"},
 		{name: "explicit unconfigured directory", cwd: outside, args: []string{"--dir", outside}, want: "no agnostic-ai.yaml"},
 		{name: "source-only directory needs config", cwd: outside, args: []string{"--dir", sourceOnly}, want: "no agnostic-ai.yaml"},
-		{name: "conflicting flags", cwd: outside, args: []string{"--global", "--dir", outside}, want: "cannot be combined"},
+		{name: "conflicting flags", cwd: outside, args: []string{"--scope", "user", "--dir", outside}, want: "cannot be combined"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			testutil.Chdir(t, tc.cwd)
@@ -255,7 +255,7 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 		{name: "outside", cwd: outside, targets: []string{"codex"}, global: true},
 		{name: "project", cwd: project, targets: []string{"cursor", "opencode"}},
 		{name: "nested", cwd: nested, targets: []string{"cursor", "opencode"}},
-		{name: "explicit global", cwd: project, args: []string{"--global"}, targets: []string{"codex"}, global: true},
+		{name: "explicit global", cwd: project, args: []string{"--scope", "user"}, targets: []string{"codex"}, global: true},
 		{name: "explicit directory", cwd: outside, args: []string{"--dir", project}, targets: []string{"cursor", "opencode"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -390,8 +390,8 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 		{name: "same project", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--dir", project}, wantOpen: true, wantProbe: true},
 		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: other, wantProbe: true},
 		{name: "other scope", server: &viewServer{OK: true, Root: project, Global: true, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
-		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--global"}, wantOpen: true, wantProbe: true},
-		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global", "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
+		{name: "same global", server: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--scope", "user"}, wantOpen: true, wantProbe: true},
+		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--scope", "user", "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
 		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: "without the web interface", wantProbe: true},
 		{name: "no server", args: []string{"--dir", project, "--addr", "127.0.0.1:0"}, wantOpen: true, wantProbe: true},
 	} {
@@ -451,7 +451,7 @@ func TestView_ReusesGlobalServerForRelativeHome(t *testing.T) {
 	})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
-	cmd.SetArgs([]string{"--global"})
+	cmd.SetArgs([]string{"--scope", "user"})
 	if err := cmd.Execute(); err != nil || !opened {
 		t.Fatalf("opened=%t err=%v", opened, err)
 	}
@@ -631,7 +631,7 @@ func TestView_OpensAnotherConfigurationOnTheNextFreePort(t *testing.T) {
 		running *viewServer
 		args    []string
 	}{
-		{name: "global after a project", running: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--global"}},
+		{name: "global after a project", running: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--scope", "user"}},
 		{name: "project after global", running: &viewServer{OK: true, Root: globalRoot, Global: true, UI: true}, args: []string{"--dir", project}},
 		{name: "second project", running: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}},
 		{name: "api-only server of the same project", running: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}},
@@ -663,7 +663,7 @@ func TestView_ReusesMatchingServerOnALaterPort(t *testing.T) {
 		ports[1]: {OK: true, Root: project, UI: true},
 		ports[2]: {OK: true, Root: globalRoot, Global: true, UI: true},
 	}
-	opened, out, err := runViewOnPorts(t, ports, servers, "--global")
+	opened, out, err := runViewOnPorts(t, ports, servers, "--scope", "user")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -962,7 +962,7 @@ func TestView_CompanionOpensOnlyItsOwnVersion(t *testing.T) {
 	cmd.Version = "0.97.0"
 	cmd.SetOut(&out)
 	t.Setenv("AGNOSTIC_AI_COMPANION_VIEW", "1")
-	cmd.SetArgs([]string{"--global"})
+	cmd.SetArgs([]string{"--scope", "user"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -984,7 +984,7 @@ func TestView_CompanionServesFreshHomeWithoutCreatingConfig(t *testing.T) {
 	cmd := newViewCmdWithBrowser(func(string) error { return errors.New("the companion opens the browser") })
 	cmd.Version = "0.97.0"
 	cmd.SetContext(ctx)
-	cmd.SetArgs([]string{"--global", "--addr", "127.0.0.1:0"})
+	cmd.SetArgs([]string{"--scope", "user", "--addr", "127.0.0.1:0"})
 	reader, output := io.Pipe()
 	defer func() { _ = reader.Close() }()
 	cmd.SetOut(output)

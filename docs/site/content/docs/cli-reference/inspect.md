@@ -55,7 +55,7 @@ agnostic-ai explain builtin:handoff --json
 |------|-------------|
 | `--json` | Stable JSON for editor extensions and scripts. |
 | `--layers` | Show which project source layers replace or extend a spec. See [below](#debug-a-replaced-spec). |
-| `--global` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
+| `--scope user` | Explain a spec in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) or its `local/` layer. A relative path resolves against that root. |
 | `--file <path>` | Explain a source file. See [below](#explain-a-source-file). |
 | `--context` | Rank startup context. See [below](#rank-context-contributions). |
 | `--inputs` | List generator inputs. See [below](#list-generator-inputs). |
@@ -65,8 +65,8 @@ agnostic-ai explain builtin:handoff --json
 
 - Contributions are grouped by configured target, tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools.
 - A tool outside `targets` that cannot render your setup is left out. A failure from a tool in `targets` stops the command and names it once.
-- With `--global`: an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in a shared hooks file or its standalone hook files, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
-- Directory-based global hooks (Cline, Grok, Kiro) also list copied command scripts, with the same paths and target root settings as `sync --global`.
+- With `--scope user`: an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in a shared hooks file or its standalone hook files, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
+- Directory-based global hooks (Cline, Grok, Kiro) also list copied command scripts, with the same paths and target root settings as `sync --scope user`.
 - A spec with `model` or `effort` lists its [tier](@/docs/spec-format/agents.md#model-tiers) and the model and effort it resolves to per target. `tool default` means the target writes no model. A target with no key for it, such as Codex skills, drops it, and `sync` prints a coverage note.
 - For an agent's `can` or `tools` and settings `permissions`, it lists each target's native names, unsupported rules included.
 - A widening line names extra access a target grants (for Codex, from the merged permissions and any explicit command policy source). `explain` shows it even with `on-unsupported: error`, where `sync` fails.
@@ -294,7 +294,7 @@ MCP rules:
 Permission rules:
 
 - Rows use the source index, such as `permissions.deny[0]`, name the rule, and show native override values and partial mappings.
-- A source or native rule holding a credential shows its tool name around `<redacted>`, as `sync --global` prints, such as `shell(<redacted>)` or `prefix_rule(<redacted>)`. In an `x-<target>` override, only the command pattern or string that holds it is replaced.
+- A source or native rule holding a credential shows its tool name around `<redacted>`, as `sync --scope user` prints, such as `shell(<redacted>)` or `prefix_rule(<redacted>)`. In an `x-<target>` override, only the command pattern or string that holds it is replaced.
 - Credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries but compared as written. Filename patterns and ordinary permission actions stay visible.
 - Codex shell permissions need `outputs.codex.exec-policies-from-permissions: true`.
 - Default-mode applies only to global sync, so project comparison reports it unsupported.
@@ -404,14 +404,14 @@ Connect to each configured MCP server, list its tools, and cache the result so `
 
 ```bash
 agnostic-ai mcp tools
-agnostic-ai mcp tools --global
+agnostic-ai mcp tools --scope user
 ```
 
-Flags: `--dir` (project to read), `--global` (user configuration in `$AGNOSTIC_AI_HOME`), `--json` (print the cached result), `--timeout` (per server, default `20s`).
+Flags: `--dir` (project to read), `--scope user` (user configuration in `$AGNOSTIC_AI_HOME`), `--json` (print the cached result), `--timeout` (per server, default `20s`).
 
 {% <details summary="Flag details and how servers are probed"> %}
 
-- `--dir` defaults to the current directory. `--global` reads the user configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`).
+- `--dir` defaults to the current directory. `--scope user` reads the user configuration in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`).
 - `--timeout` is the maximum probe time per server, including its header helper. Process cleanup is bounded separately.
 
 - Stdio servers start with their `command`, `args`, and `env`. A relative or omitted working directory resolves against the configuration root.

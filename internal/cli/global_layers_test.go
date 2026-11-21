@@ -97,7 +97,7 @@ func TestListGlobal_ReportsEffectiveLayersWithoutProjectConfig(t *testing.T) {
 			root := NewRootCmd("test")
 			var out bytes.Buffer
 			root.SetOut(&out)
-			root.SetArgs([]string{"list", "--global"})
+			root.SetArgs([]string{"list", "--scope", "user"})
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}

@@ -39,7 +39,7 @@ func TestGlobalHookExplain_MatchesNativeSyncFiles(t *testing.T) {
 				}
 				return string(out)
 			}
-			out := run("explain", "--global", "hooks/guard.yaml", "--json")
+			out := run("explain", "--scope", "user", "hooks/guard.yaml", "--json")
 			var got struct {
 				Contributions []struct{ Target, Path, Mode string }
 			}
@@ -57,14 +57,14 @@ func TestGlobalHookExplain_MatchesNativeSyncFiles(t *testing.T) {
 			if _, err := os.Stat(path); !os.IsNotExist(err) {
 				t.Fatalf("explain wrote native hook: %v", err)
 			}
-			if preview := run("sync", "--global", "--only", tc.target, "--dry-run"); !strings.Contains(preview, path) {
+			if preview := run("sync", "--scope", "user", "--only", tc.target, "--dry-run"); !strings.Contains(preview, path) {
 				t.Errorf("sync preview omits explained file:\n%s", preview)
 			}
-			run("sync", "--global", "--only", tc.target)
+			run("sync", "--scope", "user", "--only", tc.target)
 			if data, err := os.ReadFile(path); err != nil || !strings.Contains(string(data), "guard") {
 				t.Errorf("sync did not write explained file: %v\n%s", err, data)
 			}
-			run("sync", "--global", "--only", tc.target, "--check")
+			run("sync", "--scope", "user", "--only", tc.target, "--check")
 		})
 	}
 }

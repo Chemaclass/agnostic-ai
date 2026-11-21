@@ -52,14 +52,14 @@ func TestInstallHookGlobal_WritesTheGlobalGate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := runInstallHook("--global")
+	out, err := runInstallHook("--scope", "user")
 	if err != nil {
 		t.Fatalf("install-hook --global: %v", err)
 	}
 	if !strings.Contains(out, "appended the checks to") {
 		t.Errorf("want the append reported, got %q", out)
 	}
-	out, err = runInstallHook("--global")
+	out, err = runInstallHook("--scope", "user")
 	if err != nil {
 		t.Fatalf("second install-hook --global: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestInstallHookGlobal_WritesTheGlobalGate(t *testing.T) {
 	if !strings.HasPrefix(got, existing) || !strings.HasSuffix(got, globalHook.text()) {
 		t.Errorf("want the checks appended once after the existing content, got:\n%s", got)
 	}
-	for _, line := range []string{"agnostic-ai lint --global --strict", "agnostic-ai validate --global", "\tagnostic-ai sync --global --check"} {
+	for _, line := range []string{"agnostic-ai lint --scope user --strict", "agnostic-ai validate --scope user", "\tagnostic-ai sync --scope user --check"} {
 		if n := strings.Count(got, line); n != 1 {
 			t.Errorf("want %q once, got %d:\n%s", line, n, got)
 		}
@@ -99,8 +99,8 @@ func TestInstallHookGlobal_RefusesOutsideTheHome(t *testing.T) {
 	gitInit(t, project)
 	testutil.Chdir(t, project)
 
-	_, err := runInstallHook("--global")
-	want := "install-hook --global runs in the global home " + source
+	_, err := runInstallHook("--scope", "user")
+	want := "install-hook --scope user runs in the global home " + source
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Fatalf("want %q, got %v", want, err)
 	}
@@ -117,7 +117,7 @@ func TestInstallHookGlobal_RefusesAHomeOutsideGit(t *testing.T) {
 	}
 	testutil.Chdir(t, source)
 
-	_, err := runInstallHook("--global")
+	_, err := runInstallHook("--scope", "user")
 	if err == nil || !strings.Contains(err.Error(), "is not the root of a git repository") {
 		t.Fatalf("want the git root refusal, got %v", err)
 	}
@@ -149,9 +149,9 @@ func TestInstallHookGlobal_RefusesWhenCoreHooksPathSendsGitElsewhere(t *testing.
 				origin = userConfig
 			}
 
-			_, err := runInstallHook("--global")
+			_, err := runInstallHook("--scope", "user")
 			want := "core.hooksPath is " + elsewhere + " (set in " + origin + ")"
-			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "agnostic-ai lint --global --strict") {
+			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "agnostic-ai lint --scope user --strict") {
 				t.Fatalf("want %q with the lines to add, got %v", want, err)
 			}
 			for _, path := range []string{globalHookPath(source), filepath.Join(elsewhere, "pre-commit")} {
@@ -170,7 +170,7 @@ func TestInstallHookGlobal_RefusesAStaleProjectCheck(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := runInstallHook("--global")
+	_, err := runInstallHook("--scope", "user")
 	if err == nil || !strings.Contains(err.Error(), "runs `agnostic-ai sync --check`") || !strings.Contains(err.Error(), "remove that line") {
 		t.Fatalf("want the stale project line refused, got %v", err)
 	}
@@ -186,7 +186,7 @@ func TestInstallHookGlobal_RefusesAHookThatExitsFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := runInstallHook("--global")
+	_, err := runInstallHook("--scope", "user")
 	if err == nil || !strings.Contains(err.Error(), `ends at its "exit 0" line`) {
 		t.Fatalf("want the exit refused, got %v", err)
 	}
@@ -203,7 +203,7 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 		t.Skip("the fake agnostic-ai is a sh script")
 	}
 	source, _ := globalGitHome(t)
-	if _, err := runInstallHook("--global"); err != nil {
+	if _, err := runInstallHook("--scope", "user"); err != nil {
 		t.Fatal(err)
 	}
 	git(t, source, "commit", "-q", "--allow-empty", "--no-verify", "-m", "init")
@@ -220,7 +220,7 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all := []string{"lint --global --strict", "validate --global", "sync --global --check"}
+	all := []string{"lint --scope user --strict", "validate --scope user", "sync --scope user --check"}
 	for _, tc := range []struct {
 		name    string
 		dir     string
@@ -278,5 +278,48 @@ func TestParseConfigOrigin_KeepsPlainPaths(t *testing.T) {
 
 	if value != ".husky" || origin != ".git/config" {
 		t.Errorf("got value %q origin %q", value, origin)
+	}
+}
+
+// A hook an older release wrote runs the checks with --global, which now
+// warns on every commit. Installing again moves each line to --scope user
+// and keeps what the user added around them.
+func TestInstallHookGlobal_UpgradesTheDeprecatedFlagInAnInstalledHook(t *testing.T) {
+	source, _ := globalGitHome(t)
+	old := "#!/bin/sh\necho mine\n" + globalHook.sentinel + "\n" + strings.ReplaceAll(globalHook.checks, "--scope user", "--global") + "\n"
+	if !strings.Contains(old, "agnostic-ai lint --global --strict || exit 1") {
+		t.Fatalf("fixture does not hold the old lines:\n%s", old)
+	}
+	path := globalHookPath(source)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(old), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runInstallHook("--scope", "user")
+	if err != nil {
+		t.Fatalf("install-hook --scope user: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "updated the checks") {
+		t.Errorf("want the update reported, got %q", out)
+	}
+	got := readHook(t, path)
+	if want := "#!/bin/sh\necho mine\n" + globalHook.text(); got != want {
+		t.Errorf("hook after upgrade:\n%s\nwant:\n%s", got, want)
+	}
+	if strings.Contains(strings.ReplaceAll(got, globalHook.sentinel, ""), "--global") {
+		t.Errorf("hook still runs a deprecated flag:\n%s", got)
+	}
+}
+
+func TestInstallHookGlobal_ScopeUserRejectsProjectHookFlags(t *testing.T) {
+	globalGitHome(t)
+	for _, flag := range []string{"--shared", "--post-checkout"} {
+		out, err := runInstallHook("--scope", "user", flag)
+		if err == nil || !strings.Contains(err.Error(), "--scope user cannot be combined") {
+			t.Errorf("install-hook --scope user %s: err=%v out=%q, want a flag conflict", flag, err, out)
+		}
 	}
 }

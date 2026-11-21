@@ -114,7 +114,7 @@ Print all loaded specs as `kind<tab>name<tab>layer`; built-ins add their name an
 
 | Flag | Description |
 |------|-------------|
-| `--global` | List the specs in effect from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, including enabled built-ins. Works outside a project. |
+| `--scope user` | List the specs in effect from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides, including enabled built-ins. Works outside a project. |
 | `--json` | Print an `entries` array of `kind`, `name`, `path`, and `layer`. A built-in has an empty `path` and a `builtin` object with `name` and `version`. An empty scope prints an empty array. |
 
 ## new

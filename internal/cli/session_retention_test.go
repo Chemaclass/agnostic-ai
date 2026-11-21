@@ -84,7 +84,7 @@ func TestSessionRetention_LintsPositiveIntegersOnly(t *testing.T) {
 		t.Run(tc.value, func(t *testing.T) {
 			_, source := globalAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: "+tc.value+"\n")
-			out, err := runRoot(t, "lint", "--global")
+			out, err := runRoot(t, "lint", "--scope", "user")
 			if strings.Contains(out, "LINT045") == tc.valid {
 				t.Errorf("LINT045 valid=%t: %v\n%s", tc.valid, err, out)
 			}
@@ -128,7 +128,7 @@ func TestSessionRetention_ClaudeOverrideWinsAndWarnsForShorterAge(t *testing.T) 
 func TestSessionRetention_ExplainsMappingsAndUnsupportedTargets(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\n")
-	out, err := runRoot(t, "explain", "--global", "settings/retention.yaml")
+	out, err := runRoot(t, "explain", "--scope", "user", "settings/retention.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}

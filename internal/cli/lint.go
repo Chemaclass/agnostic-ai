@@ -70,8 +70,8 @@ func newLintCmd() *cobra.Command {
 			"target's always-loaded instructions pass the lint.instructions-words " +
 			"budget, the AGENTS.md chain Codex reads in a scope passes lint.codex-chain-bytes, " +
 			"or a skill or agent description passes lint.description-chars. " +
-			"With --global, it " +
-			"also flags rules sync --global rejects and settings values a target cannot take. --json prints " +
+			"With --scope user, it " +
+			"also flags rules sync --scope user rejects and settings values a target cannot take. --json prints " +
 			"the findings as JSON on stdout with the same exit status. --files reports only the " +
 			"findings on the named files, read one per line from stdin for `-`; checks across " +
 			"specs still load every spec. Exit code 1 on " +
@@ -83,8 +83,8 @@ func newLintCmd() *cobra.Command {
   # Treat warnings as errors (useful in CI)
   agnostic-ai lint --strict
 
-  # Lint the global specs before sync --global writes them
-  agnostic-ai lint --global
+  # Lint the global specs before sync --scope user writes them
+  agnostic-ai lint --scope user
 
   # List finding codes in a script
   agnostic-ai lint --json | jq -r '.findings[].code'
@@ -96,7 +96,7 @@ func newLintCmd() *cobra.Command {
 				return errors.New("lint takes paths only with --files")
 			}
 			if onlyFiles && global {
-				return errs.Coded(errs.CodeFlagConflict, "--files cannot be combined with --global")
+				return errs.Coded(errs.CodeFlagConflict, "--files cannot be combined with --scope user")
 			}
 			return nil
 		},
@@ -174,7 +174,7 @@ func newLintCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print findings as JSON on stdout.")
 	cmd.Flags().BoolVar(&onlyFiles, "files", false, "Report only findings on the paths given as arguments; - reads paths from stdin.")
-	cmd.Flags().BoolVar(&global, "global", false, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --global writes.")
+	addScopeFlag(cmd, &global, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes.")
 	return cmd
 }
 

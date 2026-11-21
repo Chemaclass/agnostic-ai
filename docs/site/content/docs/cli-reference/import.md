@@ -28,7 +28,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 
 ### Import behavior
 
-`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. An `import` that changes no spec says so instead of listing the sync steps. `import --global [targets]` reads your user config instead.
+`import all` imports each tool it detects. Unedited sync output is skipped, so `import all` right after `sync` changes nothing. An `import` that changes no spec says so instead of listing the sync steps. `import --scope user [targets]` reads your user config instead.
 
 {% <details summary="import all, entry files, and what global import reads"> %}
 
@@ -38,7 +38,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - `import all` (and `init --from all`) reads a root `AGENTS.md` last. It adds each `##` section that `.agnostic-ai/AGNOSTIC_AI.md` lacks and reports `merged <n> sections from AGENTS.md`. With no tool detected:
   - A hand-written root `AGENTS.md` becomes `.agnostic-ai/AGNOSTIC_AI.md` (`seeded from AGENTS.md`).
   - A generated one is left alone (`no importable AI CLI configs detected`).
-- `import --global [targets]` reads your user config from the tools `sync --global` writes into `$AGNOSTIC_AI_HOME`: default model, effort, and [voice dictation](@/docs/spec-format/settings.md#voice-dictation) (`settings/imported.yaml`), Claude Code permission rules (`settings/permissions-claude.yaml`), MCP servers (`mcps/<name>.yaml`), and supported [Kiro hook files](@/docs/targets/kiro.md) (`hooks/<name>.yaml`).
+- `import --scope user [targets]` reads your user config from the tools `sync --scope user` writes into `$AGNOSTIC_AI_HOME`: default model, effort, and [voice dictation](@/docs/spec-format/settings.md#voice-dictation) (`settings/imported.yaml`), Claude Code permission rules (`settings/permissions-claude.yaml`), MCP servers (`mcps/<name>.yaml`), and supported [Kiro hook files](@/docs/targets/kiro.md) (`hooks/<name>.yaml`).
 
 {% </details> %}
 
@@ -48,7 +48,7 @@ agnostic-ai import claude codex --dry-run --diff   # review content and conflict
 - It leaves out anything a home spec provides, `local/` included. Existing specs stay, except for [voice additions](@/docs/spec-format/settings.md#voice-dictation) and new rules appended to `settings/permissions-claude.yaml`.
 - Permission rules come only from `permissions.allow`, `ask`, and `deny` in `~/.claude/settings.json`, never managed or project settings. Rules sync recorded there are left out. Rules with credentials or shell syntax it cannot inspect are left out with a warning.
 - It skips three kinds of server with a warning that names the server and field: one another tool defined differently (the first tool wins), one it cannot convert, and one with a literal [credential](@/docs/spec-format/mcps.md#what-import-writes). A plain setting such as `NODE_ENV: production` still imports.
-- A full `sync --global` writes the imported MCP servers to every tool it manages. After a one-tool import, the printed `sync --global --target <tool> --check` passes while that tool's files match. When the home `targets` list leaves the tool out, import asks you to add it first. After an import from several tools, it points at `sync --global --dry-run`.
+- A full `sync --scope user` writes the imported MCP servers to every tool it manages. After a one-tool import, the printed `sync --scope user --target <tool> --check` passes while that tool's files match. When the home `targets` list leaves the tool out, import asks you to add it first. After an import from several tools, it points at `sync --scope user --dry-run`.
 
 </details>
 

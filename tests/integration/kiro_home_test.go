@@ -50,7 +50,7 @@ func TestKiroHome_BuiltBinaryUsesFallbackAndKeepsUserFiles(t *testing.T) {
 			settingsPath := filepath.Join(root, "settings", "cli.json")
 			originalSettings := `{ "voice.language" : "en", "voice.autoSubmit": false }`
 			write(settingsPath, originalSettings)
-			run("import", "--global", "kiro")
+			run("import", "--scope", "user", "kiro")
 			importedSettings := filepath.Join(source, "settings", "imported.yaml")
 			if data, err := os.ReadFile(importedSettings); err != nil || !strings.Contains(string(data), "language: en") {
 				t.Fatalf("voice import did not use selected root: %s: %v", data, err)
@@ -67,15 +67,15 @@ func TestKiroHome_BuiltBinaryUsesFallbackAndKeepsUserFiles(t *testing.T) {
 			write(manual, "User instructions.\n")
 			write(filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review changes\n---\nReview changes.\n")
 			write(filepath.Join(source, "skills", "helper.md"), "---\nname: helper\ndescription: Help with changes\n---\nHelp with changes.\n")
-			out := run("explain", "--global", "agents/reviewer.md")
+			out := run("explain", "--scope", "user", "agents/reviewer.md")
 			if !strings.Contains(out, filepath.ToSlash(filepath.Join(root, "agents", "reviewer.md"))) {
 				t.Errorf("explain used another root: %s", out)
 			}
-			voiceExplain := run("explain", "--global", "settings/voice.yaml")
+			voiceExplain := run("explain", "--scope", "user", "settings/voice.yaml")
 			if !strings.Contains(voiceExplain, filepath.ToSlash(settingsPath)) || !strings.Contains(voiceExplain, `key "voice.language"`) {
 				t.Errorf("voice explain used another root: %s", voiceExplain)
 			}
-			run("sync", "--global", "--only", "kiro", "--backup")
+			run("sync", "--scope", "user", "--only", "kiro", "--backup")
 			if data, err := os.ReadFile(settingsPath); err != nil || string(data) != strings.Replace(originalSettings, `"en"`, `"es"`, 1) {
 				t.Errorf("voice sync changed unrelated bytes: %q: %v", data, err)
 			}
@@ -84,11 +84,11 @@ func TestKiroHome_BuiltBinaryUsesFallbackAndKeepsUserFiles(t *testing.T) {
 					t.Errorf("expected output %s: %v", path, err)
 				}
 			}
-			run("sync", "--global", "--only", "kiro", "--check")
+			run("sync", "--scope", "user", "--only", "kiro", "--check")
 			for _, path := range []string{"AGNOSTIC_AI.md", "hooks/guard.yaml", "agents/reviewer.md", "skills/helper.md", "settings/voice.yaml", "settings/imported.yaml"} {
 				must(t, os.Remove(filepath.Join(source, filepath.FromSlash(path))))
 			}
-			run("sync", "--global", "--only", "kiro")
+			run("sync", "--scope", "user", "--only", "kiro")
 			if data, err := os.ReadFile(settingsPath); err != nil || string(data) != originalSettings {
 				t.Errorf("voice removal failed to restore bytes: %q: %v", data, err)
 			}

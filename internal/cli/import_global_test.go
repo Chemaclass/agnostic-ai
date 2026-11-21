@@ -15,7 +15,7 @@ func runImportGlobalTest(args ...string) (string, string, error) {
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
 	cmd.SetErr(&warnings)
-	cmd.SetArgs(append([]string{"import", "--global"}, args...))
+	cmd.SetArgs(append([]string{"import", "--scope", "user"}, args...))
 	err := cmd.Execute()
 	return out.String(), warnings.String(), err
 }

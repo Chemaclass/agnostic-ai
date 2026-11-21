@@ -26,7 +26,7 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	writeFile(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal text.\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global"})
+	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("sync --global: %v", err)
 	}
@@ -63,7 +63,7 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	}
 
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--check"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--check"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("second check: %v", err)
 	}
@@ -112,7 +112,7 @@ func TestSyncGlobal_PreflightRejectsUnmanagedSkillBeforeWrites(t *testing.T) {
 	writeFile(t, filepath.Join(home, ".cursor", "skills", "review", "SKILL.md"), "unmanaged\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global"})
+	root.SetArgs([]string{"sync", "--scope", "user"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "unmanaged") {
 		t.Fatalf("want unmanaged collision, got %v", err)
@@ -132,13 +132,13 @@ func TestSyncGlobal_RejectsScopedRuleAndUnsupportedFlags(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	writeFile(t, filepath.Join(home, "source", "rules", "backend", "safe.md"), "---\nname: safe\n---\nSafe.\n")
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global"})
+	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "scoped") {
 		t.Fatalf("want scoped rule error, got %v", err)
 	}
 
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--watch"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--watch"})
 	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "--watch") {
 		t.Fatalf("want flag error, got %v", err)
 	}
@@ -157,7 +157,7 @@ func TestSyncGlobal_PreservesAndRemovesOnlyManagedHooks(t *testing.T) {
 	writeFile(t, filepath.Join(home, ".cursor", "hooks.json"), "{\n  \"version\": 1,\n  \"theme\": \"dark\",\n  \"hooks\": {\"sessionStart\": [{\"command\": \"user-command\"}]}\n}\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "cursor"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "cursor"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestSyncGlobal_PreservesAndRemovesOnlyManagedHooks(t *testing.T) {
 		t.Fatal(err)
 	}
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "cursor"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "cursor"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -197,7 +197,7 @@ func TestSyncGlobal_WritesEachTargetsOwnNativePaths(t *testing.T) {
 	writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\ndescription: Review code\n---\nReview it.\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global"})
+	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("sync --global: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestSyncGlobal_WritesEachTargetsOwnNativePaths(t *testing.T) {
 	}
 
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--check"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--check"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("check after full sync: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestSyncGlobal_SharedPathIsWrittenOnce(t *testing.T) {
 
 	root := NewRootCmd("test")
 	// cline and warp both read ~/.agents/AGENTS.md.
-	root.SetArgs([]string{"sync", "--global", "--only", "cline,warp", "--dry-run"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "cline,warp", "--dry-run"})
 	var out bytes.Buffer
 	root.SetOut(&out)
 	if err := root.Execute(); err != nil {
@@ -289,7 +289,7 @@ func TestSyncGlobal_RejectsTargetWithNoUserLevelSurface(t *testing.T) {
 	writeFile(t, filepath.Join(home, "source", "AGNOSTIC_AI.md"), "Shared instructions\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "-t", "jules"})
+	root.SetArgs([]string{"sync", "--scope", "user", "-t", "jules"})
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "unsupported target \"jules\"") {
 		t.Fatalf("want unsupported-target error, got %v", err)
@@ -308,7 +308,7 @@ func TestSyncGlobal_SweepsAnInstructionsFileAfterItsSourceIsGone(t *testing.T) {
 	writeFile(t, intro, "Shared instructions\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "codex"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "codex"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestSyncGlobal_SweepsAnInstructionsFileAfterItsSourceIsGone(t *testing.T) {
 		t.Fatal(err)
 	}
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "codex"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "codex"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -341,7 +341,7 @@ func TestSyncGlobal_KeepsTheTrailingNewlineOfPreservedUserText(t *testing.T) {
 	writeFile(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Personal notes.\n")
 
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "claude"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "claude"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -349,7 +349,7 @@ func TestSyncGlobal_KeepsTheTrailingNewlineOfPreservedUserText(t *testing.T) {
 		t.Fatal(err)
 	}
 	root = NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "claude"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "claude"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -384,7 +384,7 @@ func TestSyncGlobal_DropsAHooksFileThatHasNothingLeftInIt(t *testing.T) {
 			}
 		}
 		root := NewRootCmd("test")
-		root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor,gemini"})
+		root.SetArgs([]string{"sync", "--scope", "user", "--only", "claude,cursor,gemini"})
 		if err := root.Execute(); err != nil {
 			t.Fatalf("%s: %v", pass, err)
 		}
@@ -396,7 +396,7 @@ func TestSyncGlobal_DropsAHooksFileThatHasNothingLeftInIt(t *testing.T) {
 		t.Fatal(err)
 	}
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor,gemini"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "claude,cursor,gemini"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +443,7 @@ func TestSyncGlobal_FiltersHooksAndSkillsByTarget(t *testing.T) {
 			writeFile(t, filepath.Join(source, "skills", "review", "SKILL.md"), "---\nname: review\n"+tc.filter+"---\nReview code.\n")
 			for _, check := range []bool{false, false, true} {
 				root := NewRootCmd("test")
-				args := []string{"sync", "--global", "--only", "claude,codex,cursor"}
+				args := []string{"sync", "--scope", "user", "--only", "claude,codex,cursor"}
 				if check {
 					args = append(args, "--check")
 				}
@@ -488,14 +488,14 @@ func TestSyncGlobal_RemovesHooksWhenTargetExcluded(t *testing.T) {
 	path := filepath.Join(home, ".cursor", "hooks.json")
 	writeFile(t, path, `{"hooks":{"beforeShellExecution":[{"command":"user-command"}]}}`)
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", "claude,cursor"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "claude,cursor"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	writeFile(t, source, "name: shell\ntarget: claude\nevent: PreToolUse\ncommand: managed-command\n")
 	for _, check := range []bool{false, true} {
 		root = NewRootCmd("test")
-		args := []string{"sync", "--global", "--only", "claude,cursor"}
+		args := []string{"sync", "--scope", "user", "--only", "claude,cursor"}
 		if check {
 			args = append(args, "--check")
 		}

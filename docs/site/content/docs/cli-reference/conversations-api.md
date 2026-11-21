@@ -11,7 +11,7 @@ group = "Reference"
 
 These routes of the [local API](@/docs/cli-reference/serve-api.md) serve the Conversations list and the [companion](@/docs/cli-reference/companion.md). Use them to list your AI chats, reopen one where it lives, send it text, or mark it read.
 
-The three calls most people use, against `agnostic-ai serve --global` on the default port:
+The three calls most people use, against `agnostic-ai serve --scope user` on the default port:
 
 ```bash
 curl -s "http://127.0.0.1:4310/api/views/conversations?tool=claude"

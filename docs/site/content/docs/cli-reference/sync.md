@@ -35,16 +35,16 @@ agnostic-ai sync --only claude,cursor
 
 | Flag | Description |
 |------|-------------|
-| `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there. See [what `--against` compares](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--global`. |
+| `--against <index\|HEAD>` | With `--check`, compare the staged (`index`) or last committed (`HEAD`) specs with the outputs Git holds there. See [what `--against` compares](#against-details) and [git hooks](@/docs/git-hooks.md#check-staged-files). Not with `--plan`, `--watch`, or `--scope user`. |
 | `--format <human\|github>` | With `--check`: a `human` table (default) or `github` Actions annotations. `--json` wins. |
 | `--backup` | Copy each existing output to `<path>.bak` before overwriting, with the file's permissions. Pair with `revert`. |
-| `--keep-edits` | Write every output except those edited since the last sync, printing `~ kept <path>` for each (stderr under `--quiet`). With no sync record, "edited" means a tracked output that differs from `HEAD`. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--global`. |
-| `--allow-empty-targets` | With an empty `targets` list, remove every file sync generated. Not with `--check`, `--plan`, `--watch`, or `--global`. |
-| `--untrack` | Run `git rm --cached` on generated paths git tracks and ignores. The working copy stays. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--global`. |
+| `--keep-edits` | Write every output except those edited since the last sync, printing `~ kept <path>` for each (stderr under `--quiet`). With no sync record, "edited" means a tracked output that differs from `HEAD`. Exits 0. For [git hooks](@/docs/git-hooks.md#regenerate-on-checkout). Not with `--check`, `--plan`, `--watch`, or `--scope user`. |
+| `--allow-empty-targets` | With an empty `targets` list, remove every file sync generated. Not with `--check`, `--plan`, `--watch`, or `--scope user`. |
+| `--untrack` | Run `git rm --cached` on generated paths git tracks and ignores. The working copy stays. Not with `--check`, `--plan`, `--dry-run`, `--watch`, or `--scope user`. |
 | `--gitignore <on\|off>` | Override `gitignore.enabled` for this run. |
 | `--watch-poll` | With `--watch`, poll every 200 ms. For network mounts and container volumes. |
 | `--jobs <n>` | Write targets in [parallel](#parallel-emission): `0` (default) is one per CPU, `1` is serial. |
-| `--global` | Install user-level specs from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's user config. See [global configuration](@/docs/global-configuration.md). |
+| `--scope user` | Install user-level specs from `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai/`) into each tool's user config. See [global configuration](@/docs/global-configuration.md). |
 
 {% </details> %}
 
@@ -77,7 +77,7 @@ agnostic-ai sync --only claude,cursor
 <details>
 <summary>Global sync: accepted flags and output</summary>
 
-- `sync --global` works outside a project. It never loads project config or packs.
+- `sync --scope user` works outside a project. It never loads project config or packs.
 - It loads overrides from `local/` in the source root, and `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there.
 - Accepted: `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--backup`, `--plan`, `--json`, and `--diff` with `--dry-run`, `--check`, or `--plan`.
 - Rejected: `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
@@ -325,6 +325,6 @@ Use `sync -v` or `-vv` for timing, or write a CPU profile with `--profile`.
 - A write over or removal of a hand edit names its copy in `"backup"`.
 - `--plan --json` and `--dry-run --json` write nothing and exit 0. A leftover they would remove is `"delete"`. Kept files are `"orphan"` or `"leftover"`.
 - `--dry-run --json` also lists unchanged outputs as `"skip"`. Count `writes` by `target` for the `--plan` numbers.
-- `sync --global --json` carries `warnings` and `notes` too, or sends them to stderr when a run fails before printing JSON.
+- `sync --scope user --json` carries `warnings` and `notes` too, or sends them to stderr when a run fails before printing JSON.
 
 {% </details> %}

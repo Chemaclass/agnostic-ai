@@ -17,11 +17,11 @@ targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 
 # Global configuration
 
-Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for all your projects in one home folder. Run `agnostic-ai sync --global` to install them in each tool's user files. Put team defaults in a project or pack.
+Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for all your projects in one home folder. Run `agnostic-ai sync --scope user` to install them in each tool's user files. Put team defaults in a project or pack.
 
 ## Source and targets
 
-The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --global` runs from any directory. It loads no packs or project specs. [Global output](@/docs/global-configuration-reference.md#global-output) lists the paths it writes.
+The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --scope user` runs from any directory; `--global` is its older spelling, still accepted with a deprecation warning on stderr. It loads no packs or project specs. [Global output](@/docs/global-configuration-reference.md#global-output) lists the paths it writes.
 
 ```text
 ~/.agnostic-ai/

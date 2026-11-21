@@ -91,7 +91,7 @@ func TestSync_PlanDiffRejectsJSON(t *testing.T) {
 		args := []string{"sync", "--plan", "--diff", "--json"}
 		if global {
 			globalAgentTestHome(t)
-			args = append(args, "--global")
+			args = append(args, "--scope", "user")
 		}
 		root := NewRootCmd("test")
 		root.SetArgs(args)

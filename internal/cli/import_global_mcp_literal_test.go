@@ -28,7 +28,7 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 	if after := readFile(t, cursor); after != native {
 		t.Errorf("cursor file must round-trip unchanged:\n%s", after)
 	}
-	out, _ := runCLI(t, "lint", "--global")
+	out, _ := runCLI(t, "lint", "--scope", "user")
 	if !strings.Contains(out, `"app": env API_KEY`) || strings.Contains(out, "env NODE_ENV") {
 		t.Errorf("lint --global must ask only about API_KEY:\n%s", out)
 	}

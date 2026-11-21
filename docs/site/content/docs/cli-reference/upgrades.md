@@ -120,7 +120,7 @@ Update spec files that use old field names or formats. Old forms keep working an
 agnostic-ai migrate --list      # which migrations apply here
 agnostic-ai migrate --dry-run   # preview the rewrites
 agnostic-ai migrate             # apply them
-agnostic-ai migrate --global    # rewrite the global specs
+agnostic-ai migrate --scope user    # rewrite the global specs
 ```
 
 | Flag | Description |
@@ -128,13 +128,13 @@ agnostic-ai migrate --global    # rewrite the global specs
 | `--dry-run` | Print each rename and a diff of each rewrite, and write nothing. Every `env` and `headers` value, `args` item, URL, and credential-like value prints as `<redacted>`; a `${NAME}` reference and a `!literal` tag still show. See [credential previews](@/docs/cli-reference/sync.md#credential-previews). |
 | `--list` | List every migration with its release and whether it applies here. It names each pack whose author needs to update its specs. |
 | `--only <group>` | Run only these groups, comma-separated. A migration ID starts with its group, such as `config-file-name` in group `config`. |
-| `--global` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
+| `--scope user` | Rewrite the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` folder. |
 
 {% <details summary="Migration rules and limits"> %}
 
 - A migration rewrites only what keeps its meaning; anything else stays, with the reason. `secrets-mcp-literals` names each variable to set, never the value.
 - A symlinked spec keeps its link, and its target gets the rewrite. A pack, or a spec linked into one, is never rewritten; the output names the pack.
-- Migrations stay within the project (or, with `--global`, the global specs folder) and its local folder, even a linked one.
+- Migrations stay within the project (or, with `--scope user`, the global specs folder) and its local folder, even a linked one.
 - A migration that cannot plan, such as on a spec that does not parse, prints `cannot plan` with the reason; the others run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs you, such as a spec setting both old and new forms. `--dry-run` and `--list` show every skip.
 

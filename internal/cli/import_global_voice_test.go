@@ -595,7 +595,7 @@ func TestImportGlobal_PriorVoiceImportStopsIfDestinationChanges(t *testing.T) {
 			} else {
 				cmd.SetOut(writer)
 			}
-			cmd.SetArgs([]string{"import", "--global", "claude", "qwen"})
+			cmd.SetArgs([]string{"import", "--scope", "user", "claude", "qwen"})
 			err := cmd.Execute()
 			if !mutated {
 				t.Fatal("destination was not changed during import")

@@ -12,7 +12,7 @@ func runGlobalCheck(args ...string) (string, string, error) {
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
 	cmd.SetErr(&errOut)
-	cmd.SetArgs(append(args, "--global"))
+	cmd.SetArgs(append(args, "--scope", "user"))
 	err := cmd.Execute()
 	return out.String(), errOut.String(), err
 }

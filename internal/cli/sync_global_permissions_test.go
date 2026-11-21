@@ -236,7 +236,7 @@ func TestExplainGlobal_PermissionRulesNameTheirList(t *testing.T) {
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs([]string{"explain", "--global", "settings/rules.yaml"})
+	cmd.SetArgs([]string{"explain", "--scope", "user", "settings/rules.yaml"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("explain: %v\n%s", err, out.String())
 	}
