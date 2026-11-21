@@ -269,12 +269,13 @@ test('the faded circle stays at 25% with Dim when idle on', async ({ page }) => 
 const settingsMenu = (page: Page) => page.getByRole('region', { name: 'Settings', exact: true })
 
 test('the menu shows the shared list, in its order, with the values in effect', async ({ page }) => {
-  const items: { label: string }[] = await (await page.request.get('/menu.json')).json()
+  const items: { id: string; label: string }[] = await (await page.request.get('/menu.json')).json()
   await openPanel(page)
   await openSettings(page)
 
+  // This fixture cannot update itself, so it has no update entry.
   const labels = await settingsMenu(page).locator('.menu-label, .menu-item').allTextContents()
-  expect(labels).toEqual(items.map((item) => item.label))
+  expect(labels).toEqual(items.filter((item) => item.id !== 'update').map((item) => item.label))
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Small companion' })).toHaveAttribute('aria-checked', 'false')
@@ -413,4 +414,31 @@ test('the send shortcut changes on its own, and the open shortcut\'s keys are re
   await expect(send).toHaveText('⌃⌥B')
   const preferences = await (await page.request.get('/api/preferences')).json()
   expect(preferences).toMatchObject({ shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+B' })
+})
+
+test('a known update shows a badge on the settings button and an entry above Hide', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-available' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const button = page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true })
+  await expect(button).toBeVisible()
+  await expect(button).toHaveAttribute('data-update', '0.97.0')
+  const updates = sent(page, '/api/update')
+
+  await button.click()
+  const menu = page.getByRole('region', { name: 'Settings', exact: true })
+  const entry = menu.getByRole('button', { name: 'Update to v0.97.0', exact: true })
+  await expect(entry).toBeEnabled()
+  await expect(menu.locator('.menu-item')).toHaveText(['Update to v0.97.0', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
+  await entry.click()
+
+  await expect(menu).toBeHidden()
+  expect(updates).toEqual(['/api/update'])
+})
+
+test('a companion that cannot update itself shows no update entry and no badge', async ({ page }) => {
+  await openPanel(page)
+  await expect(page.locator('#menu-button')).not.toHaveAttribute('data-update')
+  await openSettings(page)
+  await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: /update/i })).toHaveCount(0)
 })

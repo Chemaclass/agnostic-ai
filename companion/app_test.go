@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -138,16 +140,144 @@ func fakeBundledCommand(t *testing.T) string {
 	return command
 }
 
-func TestAppMenu_OffersInstallAndUpdatesForBundledCommand(t *testing.T) {
+func menuLabels(menu *application.Menu) []string {
+	var got []string
+	for i := 0; menu.ItemAt(i) != nil; i++ {
+		item := menu.ItemAt(i)
+		if item.IsSeparator() {
+			got = append(got, "---")
+			continue
+		}
+		got = append(got, item.Label())
+	}
+	return got
+}
+
+func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 	command := fakeBundledCommand(t)
-	menu := application.NewMenu()
-	controls := (&shell{}).addAppMenu(menu)
-	if controls == nil || controls.command != command {
-		t.Fatalf("app controls = %+v; want bundled command %s", controls, command)
+	s, _, _, menu := menuShell(t)
+	if s.appCommands == nil || s.appCommands.command != command {
+		t.Fatalf("app controls = %+v; want bundled command %s", s.appCommands, command)
+	}
+	got := strings.Join(menuLabels(menu)[7:], "|")
+	want := "Check for updates|Install command line tool|---|Hide Agnostic AI companion|Quit Agnostic AI companion"
+	if got != want {
+		t.Errorf("menu ends with %q; want %q", got, want)
 	}
 	for _, label := range []string{"Install command line tool", "Check for updates"} {
 		if item := menu.FindByLabel(label); item == nil || !item.Enabled() {
 			t.Errorf("menu has no enabled %q item", label)
 		}
+	}
+}
+
+func TestAppMenu_TerminalInstallHasNoUpdateEntryYet(t *testing.T) {
+	s, _, _, menu := menuShell(t)
+	if s.appCommands != nil || menu.FindByLabel("Check for updates") != nil {
+		t.Fatalf("a companion without a bundled command offers updates")
+	}
+	if got := s.updateStatus(); got.State != updateUnavailable {
+		t.Errorf("update status = %+v; want unavailable", got)
+	}
+}
+
+func TestUpdateLabel_FollowsTheState(t *testing.T) {
+	for _, tc := range []struct {
+		status updateStatus
+		want   string
+	}{
+		{updateStatus{State: updateIdle}, "Check for updates"},
+		{updateStatus{State: updateChecking}, "Checking for updates…"},
+		{updateStatus{State: updateAvailable, Version: "0.97.0"}, "Update to v0.97.0"},
+		{updateStatus{State: updateUpdating, Version: "0.97.0"}, "Updating to v0.97.0…"},
+		{updateStatus{State: updateFailed, Version: "0.97.0"}, "Update to v0.97.0"},
+	} {
+		if got := updateLabel("Check for updates", tc.status); got != tc.want {
+			t.Errorf("updateLabel(%+v) = %q; want %q", tc.status, got, tc.want)
+		}
+	}
+}
+
+// updateShell is a disk image companion whose release check answers next, err.
+func updateShell(t *testing.T, next string, err error) (*shell, *[]updateStatus, *application.Menu) {
+	t.Helper()
+	fakeBundledCommand(t)
+	s, _, _, menu := menuShell(t)
+	told := []updateStatus{}
+	s.tellUpdate = func(status updateStatus) { told = append(told, status) }
+	s.appCommands.latest = func(context.Context) (string, error) { return next, err }
+	return s, &told, menu
+}
+
+func TestCheckUpdates_AutomaticCheckShowsTheReleaseWithoutADialog(t *testing.T) {
+	s, told, menu := updateShell(t, "0.97.0", nil)
+
+	// A dialog would need the app, which this shell does not have.
+	s.appCommands.checkUpdates(t.Context(), false)
+
+	want := []updateStatus{{State: updateChecking}, {State: updateAvailable, Version: "0.97.0"}}
+	if fmt.Sprint(*told) != fmt.Sprint(want) {
+		t.Errorf("the pages were told %+v; want %+v", *told, want)
+	}
+	if item := menu.FindByLabel("Update to v0.97.0"); item == nil || !item.Enabled() {
+		t.Errorf("menu = %q; want an enabled Update to v0.97.0", menuLabels(menu))
+	}
+	rec := httptest.NewRecorder()
+	s.routes(&inbox{}, fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/update", nil))
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"state":"available","version":"0.97.0"}` {
+		t.Errorf("GET /api/update = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestCheckUpdates_DisablesTheEntryWhileChecking(t *testing.T) {
+	s, _, menu := updateShell(t, "", nil)
+	s.appCommands.latest = func(context.Context) (string, error) {
+		if item := menu.FindByLabel("Checking for updates…"); item == nil || item.Enabled() {
+			t.Errorf("while checking, menu = %q; want a disabled Checking for updates…", menuLabels(menu))
+		}
+		return "", nil
+	}
+
+	s.appCommands.checkUpdates(t.Context(), false)
+
+	if got := s.updateStatus(); got.State != updateIdle {
+		t.Errorf("after finding nothing, status = %+v; want idle", got)
+	}
+}
+
+func TestCheckUpdates_FailedAutomaticCheckKeepsTheLastAnswerSilently(t *testing.T) {
+	s, told, _ := updateShell(t, "0.97.0", nil)
+	s.appCommands.checkUpdates(t.Context(), false)
+	s.appCommands.latest = func(context.Context) (string, error) { return "", errors.New("offline") }
+
+	s.appCommands.checkUpdates(t.Context(), false)
+
+	if got := s.updateStatus(); got != (updateStatus{State: updateAvailable, Version: "0.97.0"}) {
+		t.Errorf("after a failed check, status = %+v; want the last answer", got)
+	}
+	if checking := (*told)[len(*told)-2]; checking != (updateStatus{State: updateChecking, Version: "0.97.0"}) {
+		t.Errorf("while checking again, the pages were told %+v; want the known version kept", checking)
+	}
+	if last := (*told)[len(*told)-1]; last.State != updateAvailable {
+		t.Errorf("the pages were last told %+v", last)
+	}
+}
+
+func TestRunUpdate_ManualCheckSaysWhenItCouldNotReachTheRelease(t *testing.T) {
+	s, _, _ := updateShell(t, "", errors.New("offline"))
+	said := make(chan string, 1)
+	s.appCommands.inform = func(_, message string) { said <- message }
+
+	rec := httptest.NewRecorder()
+	s.routes(&inbox{}, fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/update", nil))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("POST /api/update = %d", rec.Code)
+	}
+	if got := <-said; got != "Could not check for updates. Check your connection and try again." {
+		t.Errorf("the manual check said %q", got)
+	}
+	if got := s.updateStatus(); got.State != updateIdle {
+		t.Errorf("after a failed manual check, status = %+v; want idle", got)
 	}
 }

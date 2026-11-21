@@ -156,6 +156,10 @@ export const readAppearance = () => call('/api/appearance')
 export const saveAnimate = (enabled) => post('/api/appearance/animate', { enabled })
 export const saveDimWhenIdle = (enabled) => post('/api/appearance/dim-when-idle', { enabled })
 export const saveSmallCompanion = (enabled) => post('/api/appearance/small-companion', { enabled })
+/** The update entry: {state, version?}; state is unavailable, idle, checking, available, updating or failed. */
+export const readUpdate = () => call('/api/update')
+/** Checks for updates, or offers the known one: the shell asks before it updates. */
+export const startUpdate = () => post('/api/update')
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 
