@@ -123,7 +123,7 @@ func TestPiExposure_UserOwnedOrderUpdateRestoresUnrelatedBytes(t *testing.T) {
 	}
 }
 
-func TestPiExposure_UserUserReorderSurvivesRemovalAndRootMove(t *testing.T) {
+func TestPiExposure_UserLevelReorderSurvivesRemovalAndRootMove(t *testing.T) {
 	for _, operation := range []string{"remove", "move"} {
 		t.Run(operation, func(t *testing.T) {
 			home, source := userAgentTestHome(t)

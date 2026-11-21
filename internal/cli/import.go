@@ -97,7 +97,7 @@ func newImportCmd() *cobra.Command {
 				}
 				return runImportUser(cmd, args, dryRun)
 			}
-			if err := refuseUserHome(".", userHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			if diff && !dryRun {

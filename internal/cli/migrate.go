@@ -243,7 +243,7 @@ func resolveMigrationScope(userLevel bool) (migrationScope, error) {
 		}
 		return migrationScope{root: source, userLevel: true}, nil
 	}
-	if err := refuseUserHome(".", userHomeMigrateRemedy); err != nil {
+	if err := refuseUserSource(".", userHomeMigrateRemedy); err != nil {
 		return migrationScope{}, err
 	}
 	if _, _, err := config.ResolveConfigPath("."); err != nil {

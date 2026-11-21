@@ -11,7 +11,7 @@ import (
 )
 
 func validateGuidedProjectConfigs(root string) error {
-	if err := refuseUserHome(root, "upgrade global specs separately"); err != nil {
+	if err := refuseUserSource(root, "upgrade global specs separately"); err != nil {
 		return err
 	}
 	resolvedRoot, err := config.ResolveSourceAlias(root)
@@ -68,7 +68,7 @@ func guidedProjectPath(resolvedRoot, path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve %s: %w", path, err)
 	}
-	if err := refuseUserHome(target, "upgrade global specs separately"); err != nil {
+	if err := refuseUserSource(target, "upgrade global specs separately"); err != nil {
 		return "", fmt.Errorf("%s points to global specs %s: %w", path, target, err)
 	}
 	inside, err := guidedPhysicalPathInside(resolvedRoot, target)

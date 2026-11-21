@@ -25,9 +25,9 @@ import (
 )
 
 func main() {
-	js.UserLevel().Set("agnosticAIRender", js.FuncOf(render))
-	js.UserLevel().Set("agnosticAITargets", js.FuncOf(listTargets))
-	js.UserLevel().Set("agnosticAICapabilities", js.FuncOf(listCapabilities))
+	js.Global().Set("agnosticAIRender", js.FuncOf(render))
+	js.Global().Set("agnosticAITargets", js.FuncOf(listTargets))
+	js.Global().Set("agnosticAICapabilities", js.FuncOf(listCapabilities))
 	// Park the goroutine; closing it would invalidate the exported
 	// JS callbacks and break the playground after the first call.
 	select {}

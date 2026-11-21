@@ -198,7 +198,7 @@ func newInstallHookCmd() *cobra.Command {
 				}
 				return installUserPreCommitHook(".", cmd.OutOrStdout())
 			}
-			if err := refuseUserHome(".", userHomeHookRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeHookRemedy); err != nil {
 				return err
 			}
 			if postCheckout {

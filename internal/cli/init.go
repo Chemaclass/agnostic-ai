@@ -98,7 +98,7 @@ func newInitCmd() *cobra.Command {
 			return cobra.MaximumNArgs(1)(cmd, args)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseUserHome(".", userHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			if _, _, missing := config.ResolveConfigPath("."); missing != nil {

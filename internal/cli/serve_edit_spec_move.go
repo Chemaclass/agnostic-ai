@@ -404,14 +404,14 @@ func (h *specMoveHandler) syncCommands(mode string) []string {
 	if h.userLevel {
 		project = "cd " + shellQuote(h.peer.root) + " && agnostic-ai sync"
 	}
-	userLevel := "agnostic-ai sync --scope user"
+	userCommand := "agnostic-ai sync --scope user"
 	if mode == "copy" {
 		if h.userLevel {
 			return []string{project}
 		}
-		return []string{userLevel}
+		return []string{userCommand}
 	}
-	return []string{project, userLevel}
+	return []string{project, userCommand}
 }
 
 func sourceFor(s config.Sources, kind spec.Kind) string {

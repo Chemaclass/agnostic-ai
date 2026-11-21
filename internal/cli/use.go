@@ -40,7 +40,7 @@ func newUseCmd() *cobra.Command {
 		Args:      cobra.MinimumNArgs(1),
 		ValidArgs: adapters.Names(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseUserHome(".", userHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			tools, err := knownTools(args)

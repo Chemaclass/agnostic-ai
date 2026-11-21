@@ -43,7 +43,7 @@ type HandlerOptions struct {
 	Installed func(target string, cfg *config.Config, b spec.Bundle) (InstalledState, error)
 	// Now stamps each view; nil means the current time.
 	Now func() time.Time
-	// Global serves the user-level configuration, as Options.Global.
+	// UserLevel serves the user-level configuration, as Options.UserLevel.
 	UserLevel bool
 	// ProjectRoot is the project a global server started in, so the
 	// page can offer the way back. Empty for a project server.

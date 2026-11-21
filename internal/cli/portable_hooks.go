@@ -46,7 +46,7 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 // so does a project command run in the global home, where migrate needs
 // --scope user.
 func lintPortableHookForms(s migrationScope, cfg *config.Config, b spec.Bundle) []lintFinding {
-	if refuseUserHome(s.root, "") != nil {
+	if refuseUserSource(s.root, "") != nil {
 		return nil
 	}
 	hs, err := projectHookMigrationSpecs(s.root, cfg, b)

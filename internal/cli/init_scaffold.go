@@ -297,15 +297,15 @@ func writeStarterNote(root string) error {
 // isUserSourceDir reports whether dir is the global source folder,
 // which a project in the home folder shares with `sync --scope user`.
 func isUserSourceDir(dir string) bool {
-	userLevel, err := userSourceRoot()
+	source, err := userSourceRoot()
 	if err != nil {
 		return false
 	}
-	if filepath.Base(dir) == filepath.Base(userLevel) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(userLevel))) {
+	if filepath.Base(dir) == filepath.Base(source) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(source))) {
 		return true
 	}
 	a, errA := os.Stat(dir)
-	b, errB := os.Stat(userLevel)
+	b, errB := os.Stat(source)
 	return errA == nil && errB == nil && os.SameFile(a, b)
 }
 

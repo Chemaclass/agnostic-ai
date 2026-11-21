@@ -283,7 +283,7 @@ func memoryProjectRoot(target string) string {
 
 // userRootMatcher returns a test for the global source root. It compares
 // files, not path strings, so symlinks and a different path case on a
-// case-insensitive filesystem still match, as refuseUserHome does.
+// case-insensitive filesystem still match, as refuseUserSource does.
 func userRootMatcher() func(dir string) bool {
 	source, err := userSourceRoot()
 	if err != nil {

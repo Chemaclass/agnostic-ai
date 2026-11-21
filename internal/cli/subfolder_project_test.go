@@ -124,7 +124,7 @@ func TestErrorText_MissingConfigInAnotherFolderKeepsTheRegistryFix(t *testing.T)
 	}
 }
 
-func TestInit_StartsAProjectUnderAUserHomeThatIsTheUserHome(t *testing.T) {
+func TestInit_StartsAProjectUnderAUserSourceThatIsTheHomeDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)

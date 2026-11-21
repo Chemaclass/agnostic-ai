@@ -82,7 +82,7 @@ func TestInstallHookUser_WritesTheUserGate(t *testing.T) {
 	}
 }
 
-func TestInstallHook_InTheUserHomePointsAtUser(t *testing.T) {
+func TestInstallHook_InTheUserSourcePointsAtUser(t *testing.T) {
 	source, _ := userGitHome(t)
 
 	_, err := runInstallHook()

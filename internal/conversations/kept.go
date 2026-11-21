@@ -97,11 +97,11 @@ func (s *Scanner) codexFiles() []string {
 // the open windows, each workspace's chat selection, each cursor-agent
 // chat, and the transcripts of the chats a process held at the last read.
 func (s *Scanner) cursorFiles() []string {
-	userStorage := filepath.Dir(s.Stores.CursorDB)
-	workspaces, _ := filepath.Glob(filepath.Join(filepath.Dir(userStorage), "workspaceStorage", "*", "state.vscdb"))
+	globalStorage := filepath.Dir(s.Stores.CursorDB)
+	workspaces, _ := filepath.Glob(filepath.Join(filepath.Dir(globalStorage), "workspaceStorage", "*", "state.vscdb"))
 	agents, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "chats", "*", "*", "store.db"))
 	files := withWAL(s.Stores.CursorDB)
-	files = append(files, filepath.Join(userStorage, "storage.json"))
+	files = append(files, filepath.Join(globalStorage, "storage.json"))
 	files = append(files, withWAL(workspaces...)...)
 	files = append(files, withWAL(agents...)...)
 	s.rolloutsMu.Lock()

@@ -190,7 +190,7 @@ func runSyncCommand(cmd *cobra.Command, f syncFlags) error {
 	if f.userLevel {
 		return runUserSync(cmd, userSyncOptions{targets: f.targets, only: f.only, except: f.except, dryRun: f.dryRun, check: f.check, backup: f.backup, plan: f.plan, watch: f.watch, watchPoll: f.watchPoll, jsonOut: f.jsonOut, allTargets: f.allTargets, diff: f.diff, format: f.format, gitignore: f.gitignoreFlag, jobs: f.jobs})
 	}
-	if err := refuseUserHome(".", userHomeSyncRemedy); err != nil {
+	if err := refuseUserSource(".", userHomeSyncRemedy); err != nil {
 		return err
 	}
 

@@ -258,7 +258,7 @@ func loadUserLint(source string) (config.LintConfig, error) {
 	return lint, nil
 }
 
-// Remedies refuseUserHome offers besides pointing AGNOSTIC_AI_HOME away.
+// Remedies refuseUserSource offers besides pointing AGNOSTIC_AI_HOME away.
 const (
 	userHomeSyncRemedy    = "run `agnostic-ai sync --scope user`"
 	userHomeSpecsRemedy   = "edit its specs by hand and run `agnostic-ai sync --scope user`"
@@ -267,12 +267,12 @@ const (
 	userHomeMigrateRemedy = "run `agnostic-ai migrate --scope user`"
 )
 
-// refuseUserHome stops a project command in the global source root or
+// refuseUserSource stops a project command in the global source root or
 // any directory inside it. Read as a project, the home config would send
 // native files and project scaffolding into the home or its local/ layer.
 // Walking the resolved path and comparing with os.SameFile sees through
 // symlinks and path case.
-func refuseUserHome(dir, remedy string) error {
+func refuseUserSource(dir, remedy string) error {
 	source, err := userSourceRoot()
 	if err != nil {
 		return nil

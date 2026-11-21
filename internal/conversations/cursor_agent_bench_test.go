@@ -107,11 +107,11 @@ func BenchmarkScan_CursorAgentChats(b *testing.B) {
 // cursorFilesBeforeTranscripts is cursorFiles before it named the
 // transcripts of running chats: the status quo.
 func (s *Scanner) cursorFilesBeforeTranscripts() []string {
-	userStorage := filepath.Dir(s.Stores.CursorDB)
-	workspaces, _ := filepath.Glob(filepath.Join(filepath.Dir(userStorage), "workspaceStorage", "*", "state.vscdb"))
+	globalStorage := filepath.Dir(s.Stores.CursorDB)
+	workspaces, _ := filepath.Glob(filepath.Join(filepath.Dir(globalStorage), "workspaceStorage", "*", "state.vscdb"))
 	agents, _ := filepath.Glob(filepath.Join(s.Stores.CursorDir, "chats", "*", "*", "store.db"))
 	files := withWAL(s.Stores.CursorDB)
-	files = append(files, filepath.Join(userStorage, "storage.json"))
+	files = append(files, filepath.Join(globalStorage, "storage.json"))
 	files = append(files, withWAL(workspaces...)...)
 	return append(files, withWAL(agents...)...)
 }

@@ -42,7 +42,7 @@ func resolveNewPlace(scope, kind, name string) (newPlace, error) {
 		}
 		return newPlace{scope: scope, path: path}, nil
 	}
-	if err := refuseUserHome(".", userHomeNewRemedy); err != nil {
+	if err := refuseUserSource(".", userHomeNewRemedy); err != nil {
 		return newPlace{}, err
 	}
 	if scope != specScopeLocal {

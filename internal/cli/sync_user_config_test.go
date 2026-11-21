@@ -363,7 +363,7 @@ func TestLintUser_ChecksKindsAgainstUserSurfaces(t *testing.T) {
 	}
 }
 
-func TestSync_UserHomeAtUserHomeGuardsOnlyTheRoot(t *testing.T) {
+func TestSync_UserSourceAtHomeDirGuardsOnlyTheRoot(t *testing.T) {
 	home, _ := userConfigTestHome(t)
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	writeFile(t, filepath.Join(home, "agnostic-ai.yaml"), "targets: [claude]\n")

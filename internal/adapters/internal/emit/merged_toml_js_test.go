@@ -6,10 +6,10 @@ import (
 )
 
 func TestMergeTOMLFileBrowserCapturesWithoutFilesystem(t *testing.T) {
-	fs := js.UserLevel().Get("fs")
+	fs := js.Global().Get("fs")
 	open := fs.Get("open")
 	unavailable := js.FuncOf(func(_ js.Value, args []js.Value) any {
-		err := js.UserLevel().Get("Error").New("not implemented on js")
+		err := js.Global().Get("Error").New("not implemented on js")
 		err.Set("code", "ENOSYS")
 		args[len(args)-1].Invoke(err)
 		return nil
