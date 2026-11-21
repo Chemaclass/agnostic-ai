@@ -51,11 +51,13 @@ const companionUpdateFresh = 23 * time.Hour
 // it has a companion disk image, from the update cache the guided upgrade
 // shares. It asks again once the answer is older than companionUpdateFresh
 // or when refresh is set. A failed check keeps the last answer and returns
-// the error. image is checked only for a newer release, and nil skips it.
+// the error. image is checked only for a newer release, and nil skips it;
+// when it fails with no answer kept for that release, the latest release
+// comes back with the error.
 // It writes only the fields it owns, over a fresh read of the file.
 func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, fetch func(string) (upgradeOffer, error), image func(string) (bool, error)) (string, bool, error) {
 	cache := readUpgradeCache(path)
-	fresh := !cache.CheckedAt.IsZero() && !cache.CheckedAt.After(now) && now.Sub(cache.CheckedAt) < companionUpdateFresh
+	fresh := cache.Offer.Latest != "" && !cache.CheckedAt.IsZero() && !cache.CheckedAt.After(now) && now.Sub(cache.CheckedAt) < companionUpdateFresh
 	changed := false
 	if refresh || !fresh {
 		offer, err := fetch(current)
@@ -68,9 +70,14 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, f
 		cache.CheckedAt, cache.Offer, changed = now, offer, true
 	}
 	latest := cache.Offer.Latest
+	var imageErr error
 	if image != nil && newerStableRelease(latest, current) && (refresh || cache.CompanionImageTag != latest) {
-		if listed, err := image(latest); err == nil {
+		listed, err := image(latest)
+		switch {
+		case err == nil:
 			cache.CompanionImageTag, cache.CompanionImage, changed = latest, listed, true
+		case cache.CompanionImageTag != latest:
+			imageErr = err
 		}
 	}
 	if changed {
@@ -81,6 +88,9 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, f
 		stored.CheckedAt, stored.Offer = cache.CheckedAt, cache.Offer
 		stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
 		_ = writeUpgradeCache(path, stored)
+	}
+	if imageErr != nil {
+		return latest, false, imageErr
 	}
 	return latest, cache.CompanionImageTag == latest && cache.CompanionImage, nil
 }

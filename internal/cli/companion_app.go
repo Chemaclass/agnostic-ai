@@ -115,9 +115,12 @@ func pinnedRequirement(output string) (string, bool) {
 // was signed with: the bundle identifier and the pinned project certificate.
 // It needs no gh, and stops a replaced release file unless the key leaked too.
 func sameCompanionSigner(ctx context.Context, installed, built string) error {
-	output, err := exec.CommandContext(ctx, "codesign", "-d", "-r-", installed).CombinedOutput()
+	output, err := exec.CommandContext(ctx, "codesign", "-d", "-r-", installed).Output()
 	if err != nil {
-		return fmt.Errorf("codesign: read the requirement of %s: %w", installed, withWhatItSaid(err, output))
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+			err = withWhatItSaid(err, exit.Stderr)
+		}
+		return fmt.Errorf("codesign: read the requirement of %s: %w", installed, err)
 	}
 	requirement, ok := pinnedRequirement(string(output))
 	if !ok {

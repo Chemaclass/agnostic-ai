@@ -66,6 +66,12 @@ func stableReleaseVersion(named string) ([3]uint64, bool) {
 	return version, true
 }
 
+func newerRelease(next, current string) bool {
+	newer, ok := stableReleaseVersion(next)
+	installed, known := stableReleaseVersion(current)
+	return ok && known && slices.Compare(newer[:], installed[:]) > 0
+}
+
 // The states of the update entry both menus show.
 const (
 	updateUnavailable = "unavailable"
@@ -251,23 +257,22 @@ func cliRelease(ctx context.Context, command, current string, refresh, app bool)
 		return release{}, fmt.Errorf("check for companion updates: %w", err)
 	}
 	var status struct {
-		Latest   string `json:"latest"`
-		OneClick bool   `json:"oneClick"`
-		Image    bool   `json:"image"`
+		Latest     string `json:"latest"`
+		OneClick   bool   `json:"oneClick"`
+		Image      bool   `json:"image"`
+		ImageError string `json:"imageError"`
 	}
 	if err := json.Unmarshal(out, &status); err != nil {
 		return release{}, fmt.Errorf("check for companion updates: %w", err)
 	}
-	installed, ok := stableReleaseVersion(current)
-	if !ok {
-		return release{}, nil
-	}
-	latest, ok := stableReleaseVersion(status.Latest)
-	if !ok || slices.Compare(latest[:], installed[:]) <= 0 {
+	if !newerRelease(status.Latest, current) {
 		return release{}, nil
 	}
 	next := release{Version: strings.TrimPrefix(status.Latest, "v")}
 	if app {
+		if status.ImageError != "" {
+			return release{}, fmt.Errorf("check for companion updates: %s", status.ImageError)
+		}
 		if !status.Image {
 			return release{}, nil
 		}
@@ -469,7 +474,7 @@ func failedUpdateAfterRestart(path string) updateStatus {
 		}
 	}
 	// A bundled CLI from before replacedLine finished the update into this version.
-	if _, ok := stableReleaseVersion(next); !ok || next == version {
+	if !newerRelease(next, version) {
 		return idle
 	}
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)

@@ -16,7 +16,7 @@ func TestCompanionUpdateStatus_ReportsTheLatestStableReleaseAndHowToUpgrade(t *t
 	info := upgradeInfo{Method: installHomebrew, Version: "0.96.0", Latest: "0.97.0", Command: upgradeCommandFor(installHomebrew)}
 	var out bytes.Buffer
 
-	if err := writeCompanionUpdateStatus(&out, info, false); err != nil {
+	if err := writeCompanionUpdateStatus(&out, info, companionImage{}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -32,7 +32,7 @@ func TestCompanionUpdateStatus_ReportsTheLatestStableReleaseAndHowToUpgrade(t *t
 
 func TestCompanionUpdateStatus_OffersNoOneClickForAnUnknownInstall(t *testing.T) {
 	var out bytes.Buffer
-	if err := writeCompanionUpdateStatus(&out, upgradeInfo{Method: installUnknown, Version: "0.96.0", Latest: "0.97.0"}, false); err != nil {
+	if err := writeCompanionUpdateStatus(&out, upgradeInfo{Method: installUnknown, Version: "0.96.0", Latest: "0.97.0"}, companionImage{}); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out.String(), `"oneClick":false`) || !strings.Contains(out.String(), `"method":"unknown"`) {
@@ -42,18 +42,18 @@ func TestCompanionUpdateStatus_OffersNoOneClickForAnUnknownInstall(t *testing.T)
 
 func TestCompanionUpdateStatus_FailsWhenTheLatestReleaseIsUnknown(t *testing.T) {
 	var out bytes.Buffer
-	err := writeCompanionUpdateStatus(&out, upgradeInfo{Method: installNPM, Version: "0.96.0", LatestError: errors.New("offline")}, false)
+	err := writeCompanionUpdateStatus(&out, upgradeInfo{Method: installNPM, Version: "0.96.0", LatestError: errors.New("offline")}, companionImage{})
 	if err == nil || !strings.Contains(err.Error(), "offline") || out.Len() != 0 {
 		t.Errorf("err = %v, output %q", err, out.String())
 	}
-	err = writeCompanionUpdateStatus(&out, upgradeInfo{Method: installNPM, Version: "0.96.0", Latest: "0.97.0-rc.1"}, false)
+	err = writeCompanionUpdateStatus(&out, upgradeInfo{Method: installNPM, Version: "0.96.0", Latest: "0.97.0-rc.1"}, companionImage{})
 	if err == nil || !strings.Contains(err.Error(), "not a stable release") {
 		t.Errorf("prerelease err = %v", err)
 	}
 }
 
 func TestCompanionUpdateStatus_OneClickFollowsWhatUpgradeCanRun(t *testing.T) {
-	status, err := companionUpdateStatusOf(upgradeInfo{Method: installBinary, Version: "0.96.0", Latest: "0.97.0"}, false)
+	status, err := companionUpdateStatusOf(upgradeInfo{Method: installBinary, Version: "0.96.0", Latest: "0.97.0"}, companionImage{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,8 +153,49 @@ func TestCompanionUpdateCache_DoesNotAskAgainForAnotherInstalledVersion(t *testi
 }
 
 func TestCompanionUpdateStatus_SaysWhetherTheLatestReleaseHasADiskImage(t *testing.T) {
-	status, err := companionUpdateStatusOf(upgradeInfo{Method: installHomebrew, Version: "0.96.0", Latest: "0.97.0"}, true)
+	status, err := companionUpdateStatusOf(upgradeInfo{Method: installHomebrew, Version: "0.96.0", Latest: "0.97.0"}, companionImage{Listed: true})
 	if err != nil || !status.Image {
 		t.Errorf("status = %+v, %v; want a disk image", status, err)
+	}
+}
+
+func TestCompanionUpdateCache_AsksAgainAfterAFailedGuidedCheck(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(-time.Hour), Current: "0.96.0"}); err != nil {
+		t.Fatal(err)
+	}
+	asked := 0
+	fetch := func(string) (upgradeOffer, error) { asked++; return upgradeOffer{Latest: "0.97.0"}, nil }
+
+	latest, _, err := companionUpdateCacheAt(path, "0.96.0", now, false, fetch, nil)
+	if err != nil || latest != "0.97.0" || asked != 1 {
+		t.Errorf("latest %q, err %v, asked %d; want 0.97.0 after one fetch", latest, err, asked)
+	}
+}
+
+func TestCompanionUpdateCache_ReportsAnUnreadableImageListWhenNothingIsCached(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	fetch := func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.97.0"}, nil }
+	unreadable := func(string) (bool, error) { return false, errors.New("checksums.txt: 502") }
+
+	if latest, _, err := companionUpdateCacheAt(path, "0.96.0", now, true, fetch, unreadable); latest != "0.97.0" || err == nil || !strings.Contains(err.Error(), "502") {
+		t.Fatalf("first check = %q, %v; want the latest release and the image list error", latest, err)
+	}
+
+	if _, _, err := companionUpdateCacheAt(path, "0.96.0", now, true, fetch, func(string) (bool, error) { return true, nil }); err != nil {
+		t.Fatal(err)
+	}
+	_, image, err := companionUpdateCacheAt(path, "0.96.0", now, true, fetch, unreadable)
+	if err != nil || !image {
+		t.Errorf("with a cached answer: image %v, err %v; want the cached image and no error", image, err)
+	}
+}
+
+func TestCompanionUpdateStatus_KeepsTheLatestReleaseWhenTheImageListIsUnreadable(t *testing.T) {
+	status, err := companionUpdateStatusOf(upgradeInfo{Method: installHomebrew, Version: "0.96.0", Latest: "0.97.0"}, companionImage{Err: errors.New("checksums.txt: 502")})
+	if err != nil || status.Latest != "0.97.0" || status.Image || status.ImageError != "checksums.txt: 502" {
+		t.Errorf("status = %+v, %v; want the latest release and the image error", status, err)
 	}
 }

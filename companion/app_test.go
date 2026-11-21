@@ -523,6 +523,24 @@ func TestDiskImageUpdate_OffersOnlyAReleaseWithADiskImage(t *testing.T) {
 	}
 }
 
+func TestCLIRelease_OnlyTheDiskImageAppFailsOnAnUnreadableImageList(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake command is a shell script")
+	}
+	command := filepath.Join(t.TempDir(), "agnostic-ai")
+	status := `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true,"image":false,"imageError":"checksums.txt: 502"}`
+	if err := os.WriteFile(command, []byte(fmt.Sprintf("#!/bin/sh\necho %q\n", status)), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := cliRelease(t.Context(), command, "0.96.0", true, true); err == nil || !strings.Contains(err.Error(), "502") {
+		t.Errorf("disk image app: err = %v; want the image list error", err)
+	}
+	if next, err := cliRelease(t.Context(), command, "0.96.0", true, false); err != nil || next.Version != "0.97.0" {
+		t.Errorf("terminal install = %+v, %v; want 0.97.0", next, err)
+	}
+}
+
 func TestDiskImageUpdate_AManualCheckAsksTheCLIToRefresh(t *testing.T) {
 	withVersion(t, "0.96.0")
 	s, calls := bundledScript(t, `{"installed":"0.96.0","latest":"0.96.0","method":"binary","oneClick":true,"image":false}`)
@@ -547,6 +565,7 @@ func TestDiskImageUpdate_AManualCheckAsksTheCLIToRefresh(t *testing.T) {
 }
 
 func TestFailedUpdateAfterRestart_ShowsARollbackOnceOnTheNextStart(t *testing.T) {
+	withVersion(t, "0.96.0")
 	for _, tc := range []struct {
 		name, log string
 		want      updateStatus
@@ -594,13 +613,17 @@ func TestFailedUpdateAfterRestart_StaysThroughTheAutomaticCheckAtStart(t *testin
 	}
 }
 
-func TestFailedUpdateAfterRestart_IgnoresAnUpdateIntoThisVersion(t *testing.T) {
-	withVersion(t, "0.97.0")
-	path := filepath.Join(t.TempDir(), "companion-update.log")
-	if err := os.WriteFile(path, []byte("Downloading agnostic-ai 0.97.0.\nRestarting the companion.\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if got := failedUpdateAfterRestart(path); got.State != updateIdle {
-		t.Errorf("status = %+v; want idle", got)
+func TestFailedUpdateAfterRestart_IgnoresAnUpdateNotNewerThanThisVersion(t *testing.T) {
+	for _, running := range []string{"0.97.0", "0.98.0", "0.100.0"} {
+		t.Run(running, func(t *testing.T) {
+			withVersion(t, running)
+			path := filepath.Join(t.TempDir(), "companion-update.log")
+			if err := os.WriteFile(path, []byte("Downloading agnostic-ai 0.97.0.\nRestarting the companion.\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if got := failedUpdateAfterRestart(path); got.State != updateIdle {
+				t.Errorf("status = %+v; want idle", got)
+			}
+		})
 	}
 }

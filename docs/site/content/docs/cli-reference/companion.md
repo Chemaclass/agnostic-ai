@@ -132,7 +132,7 @@ Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/
 | `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
 | `companion install-command --app /Applications/agnostic-ai\ companion.app` | Links the app's bundled CLI into a command folder on macOS. |
 | `companion update-app --app /Applications/agnostic-ai\ companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
-| `companion update-status --json` | Prints the installed and latest stable release, the install method, its upgrade command, whether `agnostic-ai upgrade` can run it (`oneClick`), and on macOS whether the newer release lists a disk image for this Mac (`image`). The companion reads it to offer an update. The answer is kept for up to a day in the cache `agnostic-ai upgrade` shares, and a failed check keeps the last one; `--refresh` asks GitHub now. |
+| `companion update-status --json` | Prints the installed and latest stable release, the install method, its upgrade command, whether `agnostic-ai upgrade` can run it (`oneClick`), and on macOS whether the newer release lists a disk image for this Mac (`image`), or why that is unknown (`imageError`). The companion reads it to offer an update. The answer is kept for up to a day in the cache `agnostic-ai upgrade` shares, and a failed check keeps the last one; `--refresh` asks GitHub now. |
 
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` when nothing runs: it succeeds and says so.

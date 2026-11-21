@@ -24,9 +24,18 @@ type companionUpdateStatus struct {
 	OneClick bool `json:"oneClick"`
 	// Image says checksums.txt of a newer latest release lists this Mac's companion disk image.
 	Image bool `json:"image"`
+	// ImageError says why checksums.txt could not tell whether it lists the disk image.
+	ImageError string `json:"imageError,omitempty"`
 }
 
-func companionUpdateStatusOf(info upgradeInfo, image bool) (companionUpdateStatus, error) {
+// companionImage is whether the latest release lists this Mac's disk image,
+// or why that is unknown.
+type companionImage struct {
+	Listed bool
+	Err    error
+}
+
+func companionUpdateStatusOf(info upgradeInfo, image companionImage) (companionUpdateStatus, error) {
 	if info.Latest == "" {
 		if info.LatestError != nil {
 			return companionUpdateStatus{}, fmt.Errorf("check latest release: %w", info.LatestError)
@@ -38,10 +47,14 @@ func companionUpdateStatusOf(info upgradeInfo, image bool) (companionUpdateStatu
 		return companionUpdateStatus{}, fmt.Errorf("check latest release: %q is not a stable release", info.Latest)
 	}
 	oneClick := info.Method != installUnknown && (info.Method != installBinary || standalonePlatformError(runtime.GOOS) == nil)
-	return companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: oneClick, Image: image}, nil
+	status := companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: oneClick, Image: image.Listed}
+	if image.Err != nil {
+		status.ImageError = image.Err.Error()
+	}
+	return status, nil
 }
 
-func writeCompanionUpdateStatus(out io.Writer, info upgradeInfo, image bool) error {
+func writeCompanionUpdateStatus(out io.Writer, info upgradeInfo, image companionImage) error {
 	status, err := companionUpdateStatusOf(info, image)
 	if err != nil {
 		return err
@@ -64,25 +77,29 @@ func companionImageListed(version string) (bool, error) {
 
 // detectCompanionUpdate is what update-status reports: the install, and
 // the latest release from the shared update cache.
-func detectCompanionUpdate(current string, refresh bool) (upgradeInfo, bool, error) {
+func detectCompanionUpdate(current string, refresh bool) (upgradeInfo, companionImage, error) {
 	info, err := detectUpgradeInstallation(current)
 	if err != nil {
-		return upgradeInfo{}, false, err
+		return upgradeInfo{}, companionImage{}, err
 	}
 	path, err := upgradeCachePath()
 	if err != nil {
-		return upgradeInfo{}, false, err
+		return upgradeInfo{}, companionImage{}, err
 	}
 	var image func(string) (bool, error)
 	if runtime.GOOS == "darwin" {
 		image = companionImageListed
 	}
-	latest, hasImage, err := companionUpdateCacheAt(path, info.Version, time.Now(), refresh, fetchUpgradeOffer, image)
-	info.Latest, info.LatestError = latest, err
-	return info, hasImage, nil
+	latest, listed, err := companionUpdateCacheAt(path, info.Version, time.Now(), refresh, fetchUpgradeOffer, image)
+	info.Latest = latest
+	if latest == "" {
+		info.LatestError = err
+		return info, companionImage{}, nil
+	}
+	return info, companionImage{Listed: listed, Err: err}, nil
 }
 
-func companionUpdateStatusCommand(detect func(string, bool) (upgradeInfo, bool, error)) *cobra.Command {
+func companionUpdateStatusCommand(detect func(string, bool) (upgradeInfo, companionImage, error)) *cobra.Command {
 	var asJSON, refresh bool
 	cmd := &cobra.Command{
 		Use:   "update-status",
