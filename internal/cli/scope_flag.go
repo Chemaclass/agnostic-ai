@@ -89,7 +89,7 @@ func addScopeFlag(cmd *cobra.Command, user *bool, userHelp string) {
 			if *state.user {
 				instead = specScopeUser
 			}
-			fmt.Fprintf(cmd.ErrOrStderr(), "warning: --global is deprecated; use --scope %s\n", instead)
+			cmd.PrintErrf("warning: --global is deprecated; use --scope %s\n", instead)
 		}
 		if before != nil {
 			return before(cmd, args)
