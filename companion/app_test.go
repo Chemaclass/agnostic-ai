@@ -102,7 +102,7 @@ func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 		t.Fatalf("app controls = %+v; want bundled command %s", s.appCommands, command)
 	}
 	got := strings.Join(menuLabels(menu)[7:], "|")
-	want := "Check for updates|Install command line tool|---|Hide Agnostic AI companion|Quit Agnostic AI companion"
+	want := "Check for updates automatically|Check for updates|Install command line tool|---|Hide Agnostic AI companion|Quit Agnostic AI companion"
 	if got != want {
 		t.Errorf("menu ends with %q; want %q", got, want)
 	}
