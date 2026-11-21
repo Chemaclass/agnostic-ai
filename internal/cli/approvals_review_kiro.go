@@ -88,7 +88,7 @@ func (p *globalPlan) removeKiroPolicy(target string, recorded globalReviewPolicy
 }
 
 func (p *globalPlan) kiroReviewWarning(target, from string, cause error) error {
-	if _, err := fmt.Fprintf(p.warn, "warning: %s: %s: sync --global leaves %s alone (%v); list or remove %s under policies by hand\n",
+	if _, err := fmt.Fprintf(p.warn, "warning: %s: %s: sync --scope user leaves %s alone (%v); list or remove %s under policies by hand\n",
 		target, from, kiroPermissionsFile, cause, approvals.KiroReviewPreset); err != nil {
 		return fmt.Errorf("write approvals warning: %w", err)
 	}
@@ -125,7 +125,7 @@ func kiroReviewStatus(status *approvalsToolStatus, home, mode string, state glob
 	written := on && owned && recorded.Path == path
 	switch {
 	case mode == config.ApprovalsReview && !on:
-		status.Notes = append(status.Notes, fmt.Sprintf("%s is off: %s is not listed under policies in %s; run sync --global to list it", kiroReviewerName, approvals.KiroReviewPreset, path))
+		status.Notes = append(status.Notes, fmt.Sprintf("%s is off: %s is not listed under policies in %s; run sync --scope user to list it", kiroReviewerName, approvals.KiroReviewPreset, path))
 		if status.Effective == config.ApprovalsReview {
 			status.Effective, status.Route = config.ApprovalsAsk, ""
 			status.Reason = "the reviewer is not on in the tool's user settings"
@@ -133,7 +133,7 @@ func kiroReviewStatus(status *approvalsToolStatus, home, mode string, state glob
 	case mode == config.ApprovalsReview:
 		status.Notes = append(status.Notes, "Kiro asks anyway when its trust classifier is unavailable, or in a session whose /permissions page does not offer approve for me")
 	case on && written:
-		status.Notes = append(status.Notes, fmt.Sprintf("%s stays on from %s until sync --global removes %s", kiroReviewerName, path, approvals.KiroReviewPreset))
+		status.Notes = append(status.Notes, fmt.Sprintf("%s stays on from %s until sync --scope user removes %s", kiroReviewerName, path, approvals.KiroReviewPreset))
 	case on:
 		status.Notes = append(status.Notes, fmt.Sprintf("%s stays on: %s lists %s, set outside agnostic-ai", kiroReviewerName, path, approvals.KiroReviewPreset))
 	}

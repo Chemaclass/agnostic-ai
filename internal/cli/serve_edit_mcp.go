@@ -193,7 +193,7 @@ func (h *editHandler) mcpPreview(req mcpSpecRequest, where editAudience) (mcpSpe
 	}
 	command := "agnostic-ai sync"
 	if h.global {
-		command += " --global"
+		command += " --scope user"
 	}
 	proposed := mcpSpecPreview{File: overviewDisplay(h.root, file), Spec: string(data), Variables: variables, Targets: targets, SyncCommand: command}
 	fingerprint, err := json.Marshal(struct {

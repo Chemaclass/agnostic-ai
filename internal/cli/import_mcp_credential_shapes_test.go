@@ -192,7 +192,7 @@ func TestImportGlobal_LeavesOutServersWithCredentials(t *testing.T) {
 	}
 	for _, secret := range []string{"GL0BALKEY", "GL0BALSH", "GL0BALENV", "GL0BALHDR"} {
 		if strings.Contains(out+warnings, secret) {
-			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+			t.Errorf("import --scope user prints a credential value:\n%s%s", out, warnings)
 		}
 	}
 	for name, field := range map[string]string{"flag": "args[1]", "env": "env.GITHUB_TOKEN", "auth": "headers.Authorization", "shell": "args[1]"} {
@@ -325,7 +325,7 @@ func TestImportGlobal_CredentialKeysAndReferenceValues(t *testing.T) {
 	}
 	for _, secret := range []string{"GL0BALPGPW", "GL0BALNOTION"} {
 		if strings.Contains(out+warnings, secret) {
-			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+			t.Errorf("import --scope user prints a credential value:\n%s%s", out, warnings)
 		}
 	}
 	for name, field := range map[string]string{"pg": "env.PGPASSWORD", "notion": "env.OPENAPI_MCP_HEADERS"} {
@@ -442,7 +442,7 @@ func TestImportGlobal_FinalCredentialKeys(t *testing.T) {
 	}
 	for _, secret := range []string{"GL0BALOAI1", "GL0BALAUTH", "GL0BALHDR1"} {
 		if strings.Contains(out+warnings, secret) {
-			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+			t.Errorf("import --scope user prints a credential value:\n%s%s", out, warnings)
 		}
 	}
 	for name, field := range map[string]string{"openai": "env.OPENAI_KEY", "auth": "env.X_AUTH", "headers": "env.MCP_HEADERS"} {

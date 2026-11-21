@@ -26,7 +26,7 @@ type nativeReviewer struct {
 	// off is a value in the same file that keeps the reviewer from running.
 	off *reviewerOff
 	// overrideEnv names a variable that makes the tool ignore the key in
-	// the file sync --global writes.
+	// the file sync --scope user writes.
 	overrideEnv string
 	// reviewNote is a fixed limit status names whenever the mode is review.
 	reviewNote string
@@ -42,7 +42,7 @@ type reviewerOff struct {
 }
 
 // nativeReviewers carry out review, each through a key in the user
-// settings file sync --global owns. Claude Code honors auto mode only from
+// settings file sync --scope user owns. Claude Code honors auto mode only from
 // user, policy, or flag settings.
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
@@ -84,7 +84,7 @@ func (p *globalPlan) loadPlanApprovals() error {
 		p.approvals = approvals
 		return nil
 	}
-	if _, werr := fmt.Fprintf(p.warn, "warning: %v; sync --global writes no native reviewer key\n", err); werr != nil {
+	if _, werr := fmt.Fprintf(p.warn, "warning: %v; sync --scope user writes no native reviewer key\n", err); werr != nil {
 		return fmt.Errorf("write approvals warning: %w", werr)
 	}
 	return nil
@@ -152,7 +152,7 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 }
 
 // reviewerState is a native reviewer key as the user settings file holds
-// it, and whether sync --global wrote it there.
+// it, and whether sync --scope user wrote it there.
 type reviewerState struct {
 	reviewer             nativeReviewer
 	path                 string
@@ -196,13 +196,13 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	var notes []string
 	switch {
 	case mode == config.ApprovalsReview && !rs.present && r.defaultOn == "":
-		notes = append(notes, fmt.Sprintf("%s is off: %s is not set in %s; run sync --global to write %s", r.name, r.key, rs.path, want))
+		notes = append(notes, fmt.Sprintf("%s is off: %s is not set in %s; run sync --scope user to write %s", r.name, r.key, rs.path, want))
 	case mode == config.ApprovalsReview && !rs.on:
 		notes = append(notes, fmt.Sprintf("%s is off: %s is %s in %s, not %s", r.name, r.key, settingsValueText(r.key, rs.have), rs.path, want))
 	case mode != config.ApprovalsReview && rs.written && homeMode == config.ApprovalsReview:
-		notes = append(notes, fmt.Sprintf("%s stays on here: sync --global wrote %s = %s to %s, which every folder reads", r.name, r.key, want, rs.path))
+		notes = append(notes, fmt.Sprintf("%s stays on here: sync --scope user wrote %s = %s to %s, which every folder reads", r.name, r.key, want, rs.path))
 	case mode != config.ApprovalsReview && rs.written:
-		notes = append(notes, fmt.Sprintf("%s stays on from %s until sync --global removes %s", r.name, rs.path, r.key))
+		notes = append(notes, fmt.Sprintf("%s stays on from %s until sync --scope user removes %s", r.name, rs.path, r.key))
 	case mode != config.ApprovalsReview && rs.on && !rs.present:
 		notes = append(notes, fmt.Sprintf("%s is on %s while %s is unset in %s; to see prompts, set x-%s.%s to %s in a home settings spec",
 			r.name, r.defaultOn, r.key, rs.path, tool, r.key, settingsValueText(r.key, r.askValue)))

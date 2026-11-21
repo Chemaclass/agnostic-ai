@@ -12,7 +12,7 @@ func TestSyncGlobal_NotesClaudeHookIfOnNonToolEvent(t *testing.T) {
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if want := "`if` on 1 hook has no effect on claude"; !strings.Contains(errOut, want) {
 		t.Errorf("want %q in:\n%s", want, errOut)
@@ -25,7 +25,7 @@ func TestSyncGlobal_ClaudeHookIfOnToolEventGetsNoNote(t *testing.T) {
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if strings.Contains(errOut, "`if` on") {
 		t.Errorf("PreToolUse evaluates if, got:\n%s", errOut)

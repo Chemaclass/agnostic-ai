@@ -85,7 +85,7 @@ func TestBuiltinHandoff(t *testing.T) {
 				".agnostic-ai/local/rules/learnings-local.md",
 				"~/.agnostic-ai/rules/learnings.md",
 				"`agnostic-ai sync`",
-				"`agnostic-ai sync --global`",
+				"`agnostic-ai sync --scope user`",
 				"sources.rules",
 				"AGNOSTIC_AI_HOME",
 			} {

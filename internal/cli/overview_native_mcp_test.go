@@ -88,9 +88,9 @@ func TestNativeMCPServers_ReadsEachTargetsProjectAndUserFiles(t *testing.T) {
 		{Name: "sentry", Target: "claude", Path: ".mcp.json", Scope: "project", Transport: "sse", Import: "agnostic-ai import claude"},
 		{Name: "docs", Target: "codex", Path: ".codex/config.toml", Scope: "project", Transport: "stdio", Import: "agnostic-ai import codex"},
 		{Name: "local-db", Target: "claude", Path: "~/.claude.json", Scope: "project", Transport: "stdio"},
-		{Name: "GitHub", Target: "claude", Path: "~/.claude.json", Scope: "user", Transport: "stdio", Import: "agnostic-ai import --global claude"},
-		{Name: "notion", Target: "claude", Path: "~/.claude.json", Scope: "user", Transport: "http", Import: "agnostic-ai import --global claude"},
-		{Name: "linear", Target: "cursor", Path: "~/.cursor/mcp.json", Scope: "user", Transport: "remote", Import: "agnostic-ai import --global cursor"},
+		{Name: "GitHub", Target: "claude", Path: "~/.claude.json", Scope: "user", Transport: "stdio", Import: "agnostic-ai import --scope user claude"},
+		{Name: "notion", Target: "claude", Path: "~/.claude.json", Scope: "user", Transport: "http", Import: "agnostic-ai import --scope user claude"},
+		{Name: "linear", Target: "cursor", Path: "~/.cursor/mcp.json", Scope: "user", Transport: "remote", Import: "agnostic-ai import --scope user cursor"},
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("servers =\n%+v\nwant\n%+v", got, want)
@@ -293,7 +293,7 @@ func TestGlobalOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 
 	out, err := runCLI(t, "view", "--scope", "user", "--json")
 	if err != nil {
-		t.Fatalf("view --global: %v\n%s", err, out)
+		t.Fatalf("view --scope user: %v\n%s", err, out)
 	}
 	var view overview.View
 	if err := json.Unmarshal([]byte(out), &view); err != nil {
@@ -304,7 +304,7 @@ func TestGlobalOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 		for _, h := range n.Holders {
 			got = append(got, n.Name+":"+h.Scope+":"+h.Path)
 		}
-		if !strings.HasPrefix(n.Import, "agnostic-ai import --global ") {
+		if !strings.HasPrefix(n.Import, "agnostic-ai import --scope user ") {
 			t.Errorf("%s import = %q", n.Name, n.Import)
 		}
 	}

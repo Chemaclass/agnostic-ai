@@ -77,7 +77,7 @@ Already have native files? Run `agnostic-ai import kimi` first. See [import and 
 
 ## Output
 
-| Source | Project output | User output (`sync --global --only kimi`) |
+| Source | Project output | User output (`sync --scope user --only kimi`) |
 |---|---|---|
 | Rules | `.kimi-code/AGENTS.md`, scoped `<scope>/.kimi-code/AGENTS.md` | `~/.kimi-code/AGENTS.md` |
 | Agents | `.kimi-code/agents/<name>.md` | `~/.kimi-code/agents/<name>.md` |

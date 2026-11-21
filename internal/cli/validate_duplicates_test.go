@@ -100,10 +100,10 @@ func TestSyncGlobal_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
 
 	_, errOut, err := runGlobalCheck("sync", "--dry-run")
 	if err != nil {
-		t.Fatalf("sync --global --dry-run: %v\n%s", err, errOut)
+		t.Fatalf("sync --scope user --dry-run: %v\n%s", err, errOut)
 	}
 	if !strings.Contains(filepath.ToSlash(errOut), `duplicate rule name "b"`) {
-		t.Errorf("sync --global did not warn about the dropped spec:\n%s", errOut)
+		t.Errorf("sync --scope user did not warn about the dropped spec:\n%s", errOut)
 	}
 }
 

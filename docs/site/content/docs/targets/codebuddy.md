@@ -45,7 +45,7 @@ agnostic-ai sync --check
 
 ## Output
 
-| Source | Project output | User output (`sync --global --only codebuddy`) |
+| Source | Project output | User output (`sync --scope user --only codebuddy`) |
 |---|---|---|
 | Instructions and always-on rules | `CODEBUDDY.md` (or imported `.codebuddy/CODEBUDDY.md`) | `~/.codebuddy/CODEBUDDY.md` |
 | Directory-scoped rules | `<scope>/CODEBUDDY.md` | Not supported |

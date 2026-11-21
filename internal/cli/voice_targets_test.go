@@ -254,7 +254,7 @@ func TestVoiceTargets_EveryUnmappedTargetHasASpecificNote(t *testing.T) {
 		if globalTargets[target].settings.voice != nil {
 			continue
 		}
-		if reason := voiceTargetNoOpReason(target); reason == "" || reason == "no voice dictation setting sync --global can write" {
+		if reason := voiceTargetNoOpReason(target); reason == "" || reason == "no voice dictation setting sync --scope user can write" {
 			t.Errorf("%s has no specific voice note", target)
 		}
 	}

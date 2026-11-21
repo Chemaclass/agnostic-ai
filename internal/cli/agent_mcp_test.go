@@ -105,7 +105,7 @@ func TestSyncGlobal_RefusesANonBooleanAgentOnly(t *testing.T) {
 	writeFile(t, filepath.Join(source, "mcps", "github.yaml"), "name: github\nagent-only: \"yes\"\ncommand: github-mcp\n")
 	_, _, err := runGlobalAgentTest("--only", "claude")
 	if err == nil || !strings.Contains(err.Error(), "agent-only must be true or false") {
-		t.Fatalf("sync --global must refuse it: %v", err)
+		t.Fatalf("sync --scope user must refuse it: %v", err)
 	}
 	if data, err := os.ReadFile(filepath.Join(home, ".claude.json")); err == nil && strings.Contains(string(data), "github") {
 		t.Errorf("~/.claude.json lists the server:\n%s", data)

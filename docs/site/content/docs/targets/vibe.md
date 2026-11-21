@@ -69,7 +69,7 @@ Already have native files? Run `agnostic-ai import vibe` first ([import and owne
 
 ## Output
 
-| Source | Project output | User output with `sync --global --only vibe` |
+| Source | Project output | User output with `sync --scope user --only vibe` |
 |---|---|---|
 | Rules | `AGENTS.md`, scoped ones in deeper `AGENTS.md` files | `~/.vibe/AGENTS.md` |
 | Agents | `.vibe/agents/<name>.toml` | `~/.vibe/agents/<name>.toml` |

@@ -214,11 +214,11 @@ func runGlobalSync(cmd *cobra.Command, o globalSyncOptions) error {
 	return run.output()
 }
 
-// validateGlobalFlags rejects flags --global cannot honor. The first
+// validateGlobalFlags rejects flags --scope user cannot honor. The first
 // failing check wins, so the order of the checks is part of the message.
 func validateGlobalFlags(o globalSyncOptions) error {
 	if o.watch || o.watchPoll || o.allTargets || o.gitignore != "" || o.jobs != 0 {
-		return errs.Coded(errs.CodeFlagConflict, "--global does not support --watch, --watch-poll, --all, --gitignore, or --jobs")
+		return errs.Coded(errs.CodeFlagConflict, "--scope user does not support --watch, --watch-poll, --all, --gitignore, or --jobs")
 	}
 	if o.plan && o.dryRun {
 		return errs.Coded(errs.CodeFlagConflict, "--plan cannot be combined with --dry-run")
@@ -227,7 +227,7 @@ func validateGlobalFlags(o globalSyncOptions) error {
 		return errs.Coded(errs.CodeFlagConflict, "--json cannot be combined with --diff")
 	}
 	if o.diff && !o.check && !o.dryRun && !o.plan {
-		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check, --plan, or --dry-run with --global")
+		return errs.Coded(errs.CodeFlagConflict, "--diff requires --check, --plan, or --dry-run with --scope user")
 	}
 	if len(o.only) > 0 && len(o.except) > 0 {
 		return errs.Coded(errs.CodeFlagConflict, "--only and --except are mutually exclusive")
@@ -236,7 +236,7 @@ func validateGlobalFlags(o globalSyncOptions) error {
 		return err
 	}
 	if o.format != checkFormatHuman && !o.check {
-		return errs.Coded(errs.CodeFlagConflict, "--format requires --check with --global")
+		return errs.Coded(errs.CodeFlagConflict, "--format requires --check with --scope user")
 	}
 	return nil
 }
@@ -269,7 +269,7 @@ func resolveGlobalTargets(o globalSyncOptions, source string, warn io.Writer) (t
 		return nil, nil, false, err
 	}
 	for _, target := range targets {
-		if err := unsupportedGlobalTarget("--global", target); err != nil {
+		if err := unsupportedGlobalTarget("--scope user", target); err != nil {
 			return nil, nil, false, err
 		}
 	}
@@ -364,7 +364,7 @@ func (r globalRun) checkJSON() error {
 	if len(records) == 0 && !globalStateCurrent(r.statePath, r.next) {
 		r.drops.Notes = append(r.drops.Notes, dropRecord{Kind: "ownership", Count: 1, Message: globalOwnershipNote(r.statePath)})
 	}
-	if err := emitGlobalJSON(r.cmd, "sync --global --check", records, r.drops); err != nil {
+	if err := emitGlobalJSON(r.cmd, "sync --scope user --check", records, r.drops); err != nil {
 		return err
 	}
 	if len(records) > 0 {
@@ -395,9 +395,9 @@ func (r globalRun) plan() error {
 		driftErr = errDriftDetected()
 	}
 	if o.jsonOut {
-		command := "sync --global --plan"
+		command := "sync --scope user --plan"
 		if o.dryRun {
-			command = "sync --global --dry-run"
+			command = "sync --scope user --dry-run"
 		}
 		*r.jsonWritten = true
 		return errors.Join(emitGlobalJSON(r.cmd, command, records, r.drops), driftErr)
@@ -465,7 +465,7 @@ func (r globalRun) apply() error {
 	pruneEmptyGlobalDirs(r.removals, r.trees)
 	if r.o.jsonOut {
 		*r.jsonWritten = true
-		return emitGlobalJSON(r.cmd, "sync --global", applied, r.drops)
+		return emitGlobalJSON(r.cmd, "sync --scope user", applied, r.drops)
 	}
 	for _, link := range linked {
 		if _, err := fmt.Fprintln(r.warn, link); err != nil {

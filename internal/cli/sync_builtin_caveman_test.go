@@ -115,7 +115,7 @@ func TestSyncGlobalBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing
 	writeCavemanSourceSkill(t, filepath.Join(source, "skills"))
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: "+cavemanTestTargets+"\n")
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 	before := cavemanSkillDirs(t, home)
 	if len(before) < 3 {
@@ -132,7 +132,7 @@ func TestSyncGlobalBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing
 	}
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: "+cavemanTestTargets+"\nbuiltins: [caveman]\n")
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
-		t.Fatalf("sync --global with the built-in: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user with the built-in: %v\n%s", err, warnings)
 	}
 	if after := cavemanSkillDirs(t, home); !slices.Equal(after, before) {
 		t.Errorf("caveman skill dirs = %v, want %v", after, before)
@@ -142,9 +142,9 @@ func TestSyncGlobalBuiltinCaveman_RemovesPreviouslyOwnedUpstreamFiles(t *testing
 	handWritten := filepath.Join(before[0], "NOTICE")
 	writeFile(t, handWritten, "A notice I wrote.\n")
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
-		t.Fatalf("sync --global after a hand-written file: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user after a hand-written file: %v\n%s", err, warnings)
 	}
 	if body, err := os.ReadFile(handWritten); err != nil || string(body) != "A notice I wrote.\n" {
-		t.Errorf("sync --global changed a hand-written file: %q %v", body, err)
+		t.Errorf("sync --scope user changed a hand-written file: %q %v", body, err)
 	}
 }

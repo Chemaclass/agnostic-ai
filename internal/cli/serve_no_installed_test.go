@@ -140,7 +140,7 @@ func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testi
 	writeFile(t, filepath.Join(source, "settings", "base.yaml"), "model: gpt-5\neffort: high\n")
 	testutil.Chdir(t, t.TempDir())
 
-	const reason = "sync --global does not write this target's user settings yet"
+	const reason = "sync --scope user does not write this target's user settings yet"
 	for _, args := range [][]string{{"--scope", "user"}, {"--scope", "user", "--no-installed"}} {
 		served := serveAndFetchEvidence(t, args...)
 		rows := resolvedByTarget(t, &served.overview)

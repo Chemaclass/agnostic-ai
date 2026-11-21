@@ -46,7 +46,7 @@ func TestLintGlobal_RuleWithTargetOverrideConditionExitsOne(t *testing.T) {
 	for _, command := range []string{"lint", "validate"} {
 		out, _, err := runGlobalCheck(command)
 		if err == nil {
-			t.Fatalf("%s --global must exit non-zero on a rule sync --global rejects:\n%s", command, out)
+			t.Fatalf("%s --scope user must exit non-zero on a rule sync --scope user rejects:\n%s", command, out)
 		}
 		if !strings.Contains(out, rule) || !strings.Contains(out, "scoped or conditional") {
 			t.Errorf("%s: expected the x-claude rule reported on %s, got:\n%s", command, rule, out)

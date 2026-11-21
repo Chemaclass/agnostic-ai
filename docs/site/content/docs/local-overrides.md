@@ -34,7 +34,7 @@ Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
 | Name | Folder | Loaded by | Inspect with |
 |---|---|---|---|
 | `project-user` | `<project>/.agnostic-ai/local/` | `agnostic-ai sync` in that project | `agnostic-ai list` |
-| `global-local` | `~/.agnostic-ai/local/` (or `$AGNOSTIC_AI_HOME/local/`) | `agnostic-ai sync --global` | `agnostic-ai list --global` |
+| `global-local` | `~/.agnostic-ai/local/` (or `$AGNOSTIC_AI_HOME/local/`) | `agnostic-ai sync --scope user` | `agnostic-ai list --scope user` |
 
 A folder loads only when it exists. Project sync ignores `~/.agnostic-ai/`, and global sync ignores every project. Your personal setup wins over the shared one.
 
@@ -208,7 +208,7 @@ rule    testing          project
 rule    scratch-notes    project-user
 ```
 
-`agnostic-ai list --global` does the same for the `global` and `global-local` setups.
+`agnostic-ai list --scope user` does the same for the `global` and `global-local` setups.
 
 ## Watch
 

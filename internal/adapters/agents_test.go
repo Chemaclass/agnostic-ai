@@ -104,7 +104,7 @@ func TestAgentEmitters_NameTheAgentFieldsTheyWrite(t *testing.T) {
 		}
 		coverage, ok := a.(agentCoverage)
 		if !ok {
-			t.Errorf("%s writes user-level agents but does not name its agent fields, so sync --global drops them with no note", name)
+			t.Errorf("%s writes user-level agents but does not name its agent fields, so sync --scope user drops them with no note", name)
 			continue
 		}
 		if got := coverage.AgentCoverage().Target; got != name {

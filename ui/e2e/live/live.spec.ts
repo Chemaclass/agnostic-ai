@@ -130,7 +130,7 @@ createInterface({input:process.stdin}).on('line',line=>{
       if (gitRepository) await run('git', ['init', '--quiet'], { cwd: project, env })
       await run(binary, ['sync'], { cwd: project, env })
     }
-    const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--global'] : ['--dir', project])]
+    const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--scope', 'user'] : ['--dir', project])]
     child = spawn(binary, args, { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const url = await serverURL(child)
     return { root, userHome, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, close }
@@ -181,7 +181,7 @@ test('live global voice saves false, mode and language, then removes its empty s
     await language.getByRole('textbox', { name: 'Voice language value' }).fill('es')
     await language.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => readFile(spec, 'utf8')).toContain('language: es')
-    for (const field of [voice, mode, language]) await expect(field).toContainText('Run agnostic-ai sync --global to apply.')
+    for (const field of [voice, mode, language]) await expect(field).toContainText('Run agnostic-ai sync --scope user to apply.')
     await voiceScreenshot(page, testInfo.outputPath('voice-global-desktop.png'))
     await page.setViewportSize({ width: 390, height: 844 })
     await voiceScreenshot(page, testInfo.outputPath('voice-global-mobile.png'))
@@ -203,7 +203,7 @@ test('live global voice saves false, mode and language, then removes its empty s
 test('live project voice stays read-only when empty or configured and rejects both edit endpoints', async ({ page, request }, testInfo) => {
   const f = await fixture()
   try {
-    const reason = 'Voice is written only by sync --global. Open Settings in agnostic-ai ui --global.'
+    const reason = 'Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user.'
     for (const configured of [false, true]) {
       if (configured) await put(f.settings, f.sharedBytes + 'voice:\n  enabled: false\n  mode: hold\n  language: es\n')
       await page.goto(`${f.url}?view=settings&tab=preferences`)
@@ -437,15 +437,15 @@ test('live global Authority sets the default permission mode and global sync wri
     await modeValue.selectOption('plan')
     await mode.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect(page.locator('.permission-saved .banner-title')).toHaveText('Saved settings/native.yaml')
-    await expect(page.locator('.permission-saved')).toContainText('Run agnostic-ai sync --global')
+    await expect(page.locator('.permission-saved')).toContainText('Run agnostic-ai sync --scope user')
     await expect.poll(() => readFile(f.settings, 'utf8')).toMatch(/^# Shared settings\.\nname: native\nx-claude:\n {4}verbose: false\npermissions:\n {2,4}default-mode: plan\n$/)
     await page.reload()
     await expect(modeValue).toHaveValue('plan')
     await expect(mode).toHaveClass(/is-set/)
     const guarded = alsoRow(page, 'Protected paths')
-    await expect(guarded).toContainText('sync --global does not write protected paths')
+    await expect(guarded).toContainText('sync --scope user does not write protected paths')
 
-    await run(binary, ['sync', '--global', '--only', 'claude'], { cwd: f.root, env: f.env })
+    await run(binary, ['sync', '--scope', 'user', '--only', 'claude'], { cwd: f.root, env: f.env })
     const native = JSON.parse(await readFile(join(f.userHome, '.claude', 'settings.json'), 'utf8'))
     expect(native.permissions.defaultMode).toBe('plan')
   } finally { await f.close() }
@@ -931,7 +931,7 @@ test('live global edits keep the last local builtin disabled and enforce browser
     await expect(memory).toHaveAttribute('aria-checked', 'true')
     await expect(memory).toBeDisabled()
     await page.getByRole('button', { name: 'Local (not committed)', exact: true }).click()
-    await expect(page.getByText('Saves source files. Run agnostic-ai sync --global to apply them to your tools.', { exact: true })).toHaveCount(1)
+    await expect(page.getByText('Saves source files. Run agnostic-ai sync --scope user to apply them to your tools.', { exact: true })).toHaveCount(1)
     await memory.click()
     await expect(memory).toHaveAttribute('aria-checked', 'false')
     await page.reload()
@@ -1026,7 +1026,7 @@ test('live global Tools lists a server held only in ~/.claude.json and none of i
     await expect(row.locator('.native-tools')).toHaveText('In Claude Code')
     await row.getByRole('button', { name: 'Details for notion' }).click()
     await expect(row.locator('.native-details')).toContainText('~/.claude.json')
-    await expect(row.locator('.native-details')).toContainText('agnostic-ai import --global claude')
+    await expect(row.locator('.native-details')).toContainText('agnostic-ai import --scope user claude')
     await expect(block.locator('.item-row', { hasText: 'private' })).toBeVisible()
     await expect(block.locator('.item-row', { hasText: 'local' })).toHaveCount(0)
     expect(await page.locator('body').innerText()).not.toContain(token)
@@ -1067,7 +1067,7 @@ test('live global Tools makes one native server a spec and refuses credentials i
     expect(saved).toContain('type: http')
     expect(saved).not.toContain('command:')
     await page.reload()
-    await expect(page.getByRole('status').filter({ hasText: 'Saved mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync --global')
+    await expect(page.getByRole('status').filter({ hasText: 'Saved mcps/notion.yaml.' })).toContainText('Run agnostic-ai sync --scope user')
 
     const github = block.locator('.item-row', { hasText: 'github' })
     await github.getByRole('button', { name: /^Import / }).click()
@@ -1089,7 +1089,7 @@ test('live global Tools makes one native server a spec and refuses credentials i
     expect(await page.locator('body').innerText()).not.toContain(token)
     expect(await readFile(claudeJSON, 'utf8')).toBe(bytes)
     expect((await stat(claudeJSON)).mode & 0o777).toBe(0o600)
-    const dryRun = await run(binary, ['sync', '--global', '--dry-run'], { cwd: f.root, env: f.env })
+    const dryRun = await run(binary, ['sync', '--scope', 'user', '--dry-run'], { cwd: f.root, env: f.env })
     expect(dryRun.stdout).toContain('notion')
     expect(await readFile(claudeJSON, 'utf8')).toBe(bytes)
   } finally {
@@ -1821,7 +1821,7 @@ async function conversationServers() {
       message: { role: 'user', content: prompt },
     }) + '\n'),
     start: async (...args: string[]) => {
-      const child = spawn(binary, ['serve', '--global', '--addr', '127.0.0.1:0', ...args], { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
+      const child = spawn(binary, ['serve', '--scope', 'user', '--addr', '127.0.0.1:0', ...args], { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
       servers.push(child)
       return serverURL(child)
     },

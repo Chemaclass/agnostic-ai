@@ -1,6 +1,6 @@
 # Local configuration UI
 
-Run `agnostic-ai view` from a project or any folder inside it to open its configuration in a browser. Outside a project, it opens user configuration; `--global` selects that configuration explicitly. Installed binaries include the client.
+Run `agnostic-ai view` from a project or any folder inside it to open its configuration in a browser. Outside a project, it opens user configuration; `--scope user` selects that configuration explicitly. Installed binaries include the client.
 
 | Section | Shows |
 | --- | --- |
@@ -20,7 +20,7 @@ From the repository root, serve a project or the user-level configuration:
 ```sh
 go run ./cmd/agnostic-ai serve --api-only --dir internal/authority/testdata/demo-project --allow-origin http://127.0.0.1:5173
 # Or serve user configuration with the same development origin:
-go run ./cmd/agnostic-ai serve --api-only --global --allow-origin http://127.0.0.1:5173
+go run ./cmd/agnostic-ai serve --api-only --scope user --allow-origin http://127.0.0.1:5173
 ```
 
 Then, in `ui/`:

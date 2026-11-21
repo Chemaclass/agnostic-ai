@@ -81,9 +81,9 @@ Run `agnostic-ai import grok` before the first sync of a native project. It uses
 
 ## Global configuration
 
-- `agnostic-ai sync --global --only grok` writes `$GROK_HOME/AGENTS.md`, `skills/`, `agents/`, `hooks/`, `hook-scripts/`, and `config.toml`.
+- `agnostic-ai sync --scope user --only grok` writes `$GROK_HOME/AGENTS.md`, `skills/`, `agents/`, `hooks/`, `hook-scripts/`, and `config.toml`.
 - `GROK_HOME` defaults to `~/.grok` and must be absolute when set.
 - Global commands and permission lists are not written. Global effort is unsupported.
 - The global model maps to `[models].default`.
 - MCP servers and the model share one planned write of the config file. Sync owns individual servers and the model key, keeps other text and private file modes, checks for concurrent edits, and removes only unchanged owned values.
-- `agnostic-ai import --global grok` reads supported settings, MCP, and hooks. It skips literal credentials.
+- `agnostic-ai import --scope user grok` reads supported settings, MCP, and hooks. It skips literal credentials.

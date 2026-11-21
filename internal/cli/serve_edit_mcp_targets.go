@@ -23,7 +23,7 @@ func mcpPreviewTargets(cfg *config.Config, global bool, data []byte) ([]string, 
 		var reaches bool
 		if global {
 			g, ok := globalTargets[target]
-			if !ok || g.mcp.path == "" || g.mcp.retired != "" || g.rootError(target) != nil || unsupportedGlobalTarget("--global", target) != nil {
+			if !ok || g.mcp.path == "" || g.mcp.retired != "" || g.rootError(target) != nil || unsupportedGlobalTarget("--scope user", target) != nil {
 				continue
 			}
 			entries := []spec.Entry{entry}

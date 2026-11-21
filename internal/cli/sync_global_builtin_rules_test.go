@@ -13,7 +13,7 @@ func TestSyncGlobal_MemoryBuiltinLeavesTheKiroIncludeToProjects(t *testing.T) {
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [kiro, codex]\nbuiltins: [memory]\n")
 
 	if _, warnings, err := runGlobalAgentTest(); err != nil {
-		t.Fatalf("sync --global with the memory built-in: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user with the memory built-in: %v\n%s", err, warnings)
 	}
 	for _, path := range []string{
 		filepath.Join(home, ".kiro", "steering", "AGENTS.md"),
@@ -28,7 +28,7 @@ func TestSyncGlobal_MemoryBuiltinLeavesTheKiroIncludeToProjects(t *testing.T) {
 		}
 	}
 	if _, warnings, err := runGlobalAgentTest("--check"); err != nil {
-		t.Errorf("sync --global --check after sync: %v\n%s", err, warnings)
+		t.Errorf("sync --scope user --check after sync: %v\n%s", err, warnings)
 	}
 }
 
@@ -39,7 +39,7 @@ func TestLintGlobal_MemoryBuiltinRulesAreNotConditionalRules(t *testing.T) {
 	for _, command := range []string{"lint", "validate"} {
 		out, _, err := runGlobalCheck(command)
 		if err != nil || strings.Contains(out, "unconditionally") || strings.Contains(out, "LINT010") {
-			t.Errorf("%s --global with the memory built-in: %v\n%s", command, err, out)
+			t.Errorf("%s --scope user with the memory built-in: %v\n%s", command, err, out)
 		}
 	}
 }

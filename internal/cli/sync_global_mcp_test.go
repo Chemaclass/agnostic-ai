@@ -456,7 +456,7 @@ func TestSyncGlobal_OpenHandsMCPWritesNoUserFile(t *testing.T) {
 	}
 }
 
-// syncOpenHandsMCPAsBefore runs one sync --global the way releases
+// syncOpenHandsMCPAsBefore runs one sync --scope user the way releases
 // before #2576 did, when sync wrote ~/.openhands/mcp.json.
 func syncOpenHandsMCPAsBefore(t *testing.T) {
 	t.Helper()

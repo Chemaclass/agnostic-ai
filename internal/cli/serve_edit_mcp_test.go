@@ -96,7 +96,7 @@ func TestServeEditMCP_GlobalPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
 	h := newEditHandler(source, true)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)
-	if preview.File != "mcps/notion.yaml" || preview.SyncCommand != "agnostic-ai sync --global" {
+	if preview.File != "mcps/notion.yaml" || preview.SyncCommand != "agnostic-ai sync --scope user" {
 		t.Errorf("preview destination = %q, sync = %q", preview.File, preview.SyncCommand)
 	}
 	if !slices.Contains(preview.Targets, "claude") || !slices.Contains(preview.Targets, "cursor") {
@@ -129,7 +129,7 @@ func TestServeEditMCP_GlobalPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
 	}
 	out, warnings, err := runGlobalAgentTest("--dry-run")
 	if err != nil {
-		t.Fatalf("sync --global --dry-run: %v\n%s\n%s", err, out, warnings)
+		t.Fatalf("sync --scope user --dry-run: %v\n%s\n%s", err, out, warnings)
 	}
 	for _, targetPath := range []string{".claude.json", ".cursor/mcp.json"} {
 		if !strings.Contains(filepath.ToSlash(out), targetPath) {

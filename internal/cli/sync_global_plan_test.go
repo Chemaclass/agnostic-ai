@@ -42,7 +42,7 @@ func TestSyncGlobal_PlanJSONListsSettingsKeysAndWritesNothing(t *testing.T) {
 			}
 		}
 	}
-	if !found || plan.Command != "sync --global --plan" {
+	if !found || plan.Command != "sync --scope user --plan" {
 		t.Errorf("plan = %+v", plan)
 	}
 	if got := readFile(t, codexPath); got != "[tui]\ntheme = \"dark\"\n" {
@@ -101,7 +101,7 @@ func TestSyncGlobal_PlanCheckGatesWithoutWriting(t *testing.T) {
 				if err := json.Unmarshal([]byte(out), &plan); err != nil {
 					t.Fatalf("decode: %v", err)
 				}
-				if plan.Command != "sync --global --plan" || len(plan.Writes) == 0 || plan.Writes[0].Action != "create" {
+				if plan.Command != "sync --scope user --plan" || len(plan.Writes) == 0 || plan.Writes[0].Action != "create" {
 					t.Errorf("plan = %+v", plan)
 				}
 			} else if !strings.Contains(out, "create ") {

@@ -156,7 +156,7 @@ func TestSessionRetention_ProjectSyncLeavesNativeRetentionAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "session-retention-days") || !strings.Contains(out, "sync --global") {
+	if !strings.Contains(out, "session-retention-days") || !strings.Contains(out, "sync --scope user") {
 		t.Errorf("missing personal-scope note: %s", out)
 	}
 	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {

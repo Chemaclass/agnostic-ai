@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	userOrManagedReason = "Claude Code ignores it in project settings; set it in a home settings spec and run `sync --global`, or in managed settings"
-	userOnlyReason      = "Claude Code reads it from user settings only; set it in a home settings spec and run `sync --global`"
+	userOrManagedReason = "Claude Code ignores it in project settings; set it in a home settings spec and run `sync --scope user`, or in managed settings"
+	userOnlyReason      = "Claude Code reads it from user settings only; set it in a home settings spec and run `sync --scope user`"
 	managedOnlyReason   = "Claude Code reads it from managed settings only"
 )
 
@@ -153,7 +153,7 @@ func noteProjectSettingsScope(entries []spec.Entry, custom map[string]any) {
 		emit.NoteFieldNoOp(target, spec.KindSettings, s.field, s.count, s.reason)
 	}
 	if _, ok := custom["autoContinueAtUsageLimit"]; ok {
-		emit.NoteProject("claude: x-claude.autoContinueAtUsageLimit in project settings turns automatic continuation off if user settings, --settings, and managed settings leave it unset, even when the project value is true; to enable it, set it in a home settings spec and run `sync --global`")
+		emit.NoteProject("claude: x-claude.autoContinueAtUsageLimit in project settings turns automatic continuation off if user settings, --settings, and managed settings leave it unset, even when the project value is true; to enable it, set it in a home settings spec and run `sync --scope user`")
 	}
 }
 

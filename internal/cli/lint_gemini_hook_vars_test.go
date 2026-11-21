@@ -102,9 +102,9 @@ func TestLintGlobal_GeminiHookVariableInQuotesFailsStrict(t *testing.T) {
 		t.Fatalf("a warning alone must pass: %v\n%s", err, out)
 	}
 	if len(findingLines(out, "LINT030")) != 1 {
-		t.Errorf("want one LINT030 from lint --global:\n%s", out)
+		t.Errorf("want one LINT030 from lint --scope user:\n%s", out)
 	}
 	if _, _, err := runGlobalCheck("lint", "--strict"); err == nil {
-		t.Error("lint --global --strict must fail on LINT030")
+		t.Error("lint --scope user --strict must fail on LINT030")
 	}
 }

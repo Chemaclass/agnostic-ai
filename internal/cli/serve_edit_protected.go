@@ -65,7 +65,7 @@ func (h *editHandler) serveProtected(w http.ResponseWriter, body []byte) {
 		return
 	}
 	if h.global {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "sync --global does not write protected paths; protect files from a project"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "sync --scope user does not write protected paths; protect files from a project"})
 		return
 	}
 	where, err := (audienceFields{Audience: req.Audience}).audience()

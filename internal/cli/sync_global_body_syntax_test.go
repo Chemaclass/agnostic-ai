@@ -15,7 +15,7 @@ func TestSyncGlobal_NotesClaudeSkillSyntaxOnTargetsThatReadPlainText(t *testing.
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude,codex")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	for _, want := range []string{
 		"`!`command`` on 1 skill has no effect on codex",
@@ -39,7 +39,7 @@ func TestSyncGlobal_FencedClaudeSkillSyntaxGetsNoNote(t *testing.T) {
 
 	_, errOut, err := runGlobalAgentTest("--only", "claude,codex")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if strings.Contains(errOut, "has no effect") {
 		t.Errorf("a ::target claude fence reaches only claude, got:\n%s", errOut)
@@ -54,7 +54,7 @@ func TestSyncGlobal_OnUnsupportedErrorFailsOnClaudeSkillSyntax(t *testing.T) {
 
 	_, _, err := runGlobalAgentTest("--only", "codex")
 	if err == nil {
-		t.Fatal("want sync --global to fail under on-unsupported: error")
+		t.Fatal("want sync --scope user to fail under on-unsupported: error")
 	}
 	for _, want := range []string{skill + ":6", "codex reads", "as plain text"} {
 		if !strings.Contains(err.Error(), want) {
@@ -71,7 +71,7 @@ func TestSyncGlobal_LocalOnUnsupportedReplacesSharedValue(t *testing.T) {
 
 	_, errOut, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if strings.Contains(errOut, "has no effect") {
 		t.Errorf("silent hides the note, got:\n%s", errOut)
@@ -85,7 +85,7 @@ func TestSyncGlobal_OnUnsupportedSilentHidesClaudeSkillSyntaxNote(t *testing.T) 
 
 	_, errOut, err := runGlobalAgentTest("--only", "codex")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if strings.Contains(errOut, "has no effect") {
 		t.Errorf("silent hides the note, got:\n%s", errOut)

@@ -16,7 +16,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// globalImportPermissionsSpec is where import --global puts the
+// globalImportPermissionsSpec is where import --scope user puts the
 // permission rules it reads from the user settings file. It is the
 // import's own file, so a later import adds the rules it lacks.
 const globalImportPermissionsSpec = "settings/" + claudePermissionsSpec + ".yaml"

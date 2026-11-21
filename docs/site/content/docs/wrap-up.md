@@ -20,7 +20,7 @@ requires: ">=0.94.0"
 builtins: [wrap-up]
 ```
 
-- Off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
+- Off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --scope user`.
 - Most tools get a skill; tools with `emit-skills-as-commands` also get a command. Aider gets inline text when `outputs.aider.rules-file` is set. Jules has no skill support.
 
 ## Ask for a wrap-up

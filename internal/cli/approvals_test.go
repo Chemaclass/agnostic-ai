@@ -163,7 +163,7 @@ func TestApprovalsStatus_HookNotInstalled(t *testing.T) {
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 
 	claude := toolStatus(t, approvalsStatusJSON(t), "claude")
-	if claude.Effective != config.ApprovalsAsk || !strings.Contains(claude.Reason, "sync --global") {
+	if claude.Effective != config.ApprovalsAsk || !strings.Contains(claude.Reason, "sync --scope user") {
 		t.Errorf("claude: %+v", claude)
 	}
 }
@@ -435,7 +435,7 @@ func TestValidateGlobal_ReportsABrokenApprovalsBlock(t *testing.T) {
 	out, err := runCLI(t, "validate", "--scope", "user")
 
 	if err == nil || !strings.Contains(out, "yollo") {
-		t.Fatalf("validate --global passed or did not name the value: %v\n%s", err, out)
+		t.Fatalf("validate --scope user passed or did not name the value: %v\n%s", err, out)
 	}
 }
 

@@ -171,7 +171,7 @@ func CleanOutputPathOn(p, goos string) string {
 
 // validateProjectPaths refuses config paths that point outside the
 // project at root or into its .git folder, and gitignore lines that would
-// split into several. Project sync writes these paths; `sync --global`
+// split into several. Project sync writes these paths; `sync --scope user`
 // does not read these keys.
 func validateProjectPaths(cfg *Config, root, source string) error {
 	targets := make([]string, 0, len(cfg.Outputs))

@@ -107,7 +107,7 @@ Sync writes the full definition into each agent file that names it, on Claude Co
 - Sync and `validate` refuse an `agent-only` value other than `true` or `false`, such as `yes`.
 - A server no agent names reaches no tool. Sync prints a note.
 - A `disabled: true` server is left out of the agent file.
-- `sync --global` writes no agent-only server.
+- `sync --scope user` writes no agent-only server.
 - Import does not create agent-only servers yet. `import claude` keeps an inline server in the agent's `mcpServers` list, and sync writes it back as it was.
 
 </details>

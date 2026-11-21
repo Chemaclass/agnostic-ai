@@ -280,7 +280,7 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 // writeStarterNote seeds AGNOSTIC_AI.md with the text sync would seed,
 // so a new project has a file to edit before its first sync. An existing
 // note is kept, and an import later replaces the seed. In the home folder
-// the file would be the global instructions `sync --global` shares, so it
+// the file would be the global instructions `sync --scope user` shares, so it
 // is left alone there.
 func writeStarterNote(root string) error {
 	path := filepath.Join(root, agnosticMainFile)
@@ -295,7 +295,7 @@ func writeStarterNote(root string) error {
 }
 
 // isGlobalSourceDir reports whether dir is the global source folder,
-// which a project in the home folder shares with `sync --global`.
+// which a project in the home folder shares with `sync --scope user`.
 func isGlobalSourceDir(dir string) bool {
 	global, err := globalSourceRoot()
 	if err != nil {

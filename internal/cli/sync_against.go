@@ -41,7 +41,7 @@ func validateAgainst(ref string, check, plan, watch, global bool) error {
 		return errs.Coded(errs.CodeFlagConflict, "--against requires --check")
 	}
 	if plan || watch || global {
-		return errs.Coded(errs.CodeFlagConflict, "--against cannot be combined with --plan, --watch, or --global")
+		return errs.Coded(errs.CodeFlagConflict, "--against cannot be combined with --plan, --watch, or --scope user")
 	}
 	return nil
 }

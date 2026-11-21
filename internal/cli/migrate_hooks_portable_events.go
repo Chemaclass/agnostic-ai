@@ -34,7 +34,7 @@ type hookMigrationSpecs struct {
 }
 
 // loadHookMigrationSpecs loads the project, or the global layers and the
-// targets a default sync --global writes hooks for.
+// targets a default sync --scope user writes hooks for.
 func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
 	if !s.global {
 		cfg, b, err := s.loadProject()

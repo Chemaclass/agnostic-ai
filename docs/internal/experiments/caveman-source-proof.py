@@ -193,26 +193,26 @@ try:
           not (global_source / 'agnostic.packs.lock').exists()
           and not (global_source / '.agnostic-ai/packs').exists())
     configure(global_source, True)
-    cli('sync', '--global', '-t', 'claude')
+    cli('sync', '--scope', 'user', '-t', 'claude')
     global_native = claude / 'skills/caveman'
     assert_assets(global_native)
     first = skill_files(global_native)
-    cli('sync', '--global', '-t', 'claude')
-    cli('sync', '--global', '-t', 'claude', '--check')
+    cli('sync', '--scope', 'user', '-t', 'claude')
+    cli('sync', '--scope', 'user', '-t', 'claude', '--check')
     check('Global builtin repeat sync preserves output', first == skill_files(global_native))
     configure(global_source, False)
-    cli('sync', '--global', '-t', 'claude')
+    cli('sync', '--scope', 'user', '-t', 'claude')
     check('Disabling global builtin removes owned output', not global_native.exists())
     global_native.mkdir(parents=True)
     handwritten = global_native / 'SKILL.md'
     handwritten.write_text('---\nname: caveman\n---\nUnmanaged handwritten skill.\n')
     before = handwritten.read_bytes()
     configure(global_source, True)
-    refused = cli('sync', '--global', '-t', 'claude', success=False)
+    refused = cli('sync', '--scope', 'user', '-t', 'claude', success=False)
     check('Global builtin refuses a different handwritten skill and preserves it',
           'unmanaged global skill collision' in refused.stderr and handwritten.read_bytes() == before)
     configure(global_source, False)
-    cli('sync', '--global', '-t', 'claude')
+    cli('sync', '--scope', 'user', '-t', 'claude')
     check('Disabled builtin leaves unowned global skill intact', handwritten.read_bytes() == before)
     results['status'] = 'PASS'
 except Exception as error:

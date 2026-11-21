@@ -989,7 +989,7 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 }
 
 // userMCPDisabledReason explains a dropped `disabled: true` under sync
-// --global: user-scope servers have no per-server disable key.
+// --scope user: user-scope servers have no per-server disable key.
 const userMCPDisabledReason = "a disabled server is left out of ~/.claude.json, where a user server is live in every project"
 
 // mergeHooksInto sets doc's `hooks` to the entries on disk sync did not

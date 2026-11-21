@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// import --global keeps a plain setting and marks it !literal, so the
+// import --scope user keeps a plain setting and marks it !literal, so the
 // home it writes lints clean, while a credential name without a
 // credential shape stays unmarked for the user to decide.
 func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
@@ -30,11 +30,11 @@ func TestImportGlobal_MarksPlainSettingsLiteralAndRoundTrips(t *testing.T) {
 	}
 	out, _ := runCLI(t, "lint", "--scope", "user")
 	if !strings.Contains(out, `"app": env API_KEY`) || strings.Contains(out, "env NODE_ENV") {
-		t.Errorf("lint --global must ask only about API_KEY:\n%s", out)
+		t.Errorf("lint --scope user must ask only about API_KEY:\n%s", out)
 	}
 }
 
-// Auggie reads ~/.augment/settings.json as JSONC, so import --global
+// Auggie reads ~/.augment/settings.json as JSONC, so import --scope user
 // must accept a comment and a trailing comma there.
 func TestImportGlobal_AugmentAcceptsJSONCSettings(t *testing.T) {
 	home, source := globalAgentTestHome(t)

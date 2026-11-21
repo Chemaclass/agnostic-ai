@@ -14,7 +14,7 @@ Start with the [Kilo setup](@/docs/targets/kilo.md). For home configuration and 
 
 ## Shell commands in global skills
 
-`sync --global` writes skills to `~/.kilo/skills/`. Kilo supports inline `` !`command` `` placeholders there and in its trusted `~/.agents/skills/` and `~/.claude/skills/` directories ([shell commands in skills](https://kilo.ai/docs/customize/skills#shell-commands-in-skills)).
+`sync --scope user` writes skills to `~/.kilo/skills/`. Kilo supports inline `` !`command` `` placeholders there and in its trusted `~/.agents/skills/` and `~/.claude/skills/` directories ([shell commands in skills](https://kilo.ai/docs/customize/skills#shell-commands-in-skills)).
 
 - Kilo asks for approval on load. `KILO_DISABLE_SKILL_SHELL` disables execution.
 - Project and remote skills never execute them. A custom output directory is not trusted just because its source is global.

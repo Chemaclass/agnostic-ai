@@ -109,7 +109,7 @@ Other targets do not expand this syntax in project skills. Sync copies the body 
 {% <details summary="Details: note options, lint code and global sync"> %}
 - `on-unsupported: error` fails the sync instead of printing the note. `silent` hides it.
 - `lint` reports each line as LINT019.
-- `sync --global` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
+- `sync --scope user` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
 - In global sync, Kilo's [inline shell placeholders](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) in trusted user skill directories pass. Argument placeholders and Claude dynamic code blocks still raise notes.
 
 {% </details> %}
