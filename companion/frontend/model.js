@@ -142,12 +142,12 @@ export function takesText(conversation) {
 }
 
 /** The apps whose tabs the server can type into, as a live row's route names them: "Switch to Ghostty". */
-const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty'])
+const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm'])
 /** The tools the server types into: they say when they wait for an answer. */
 const TYPED_TOOLS = new Set(['claude', 'codex'])
 
 /**
- * The rows the copied text can be typed into, in list order: live, in a Terminal or Ghostty tab, under
+ * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty or iTerm tab, under
  * Needs you, Working or Active. Like the server, it leaves out a chat that waits for an answer, where typed text
  * could answer it, a Cursor chat, which does not say when it waits, and a working chat whose tool may drop typed text:
  * only Claude Code keeps it.

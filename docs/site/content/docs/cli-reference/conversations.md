@@ -60,12 +60,13 @@ It works from Claude Code, Codex, and Cursor's terminal agent (`cursor-agent`). 
 | Terminal | New conversation |
 |---|---|
 | Ghostty | A new tab in the front window |
+| iTerm | A new tab in the front window |
 | Terminal, macOS 26 or later | A new tab |
 | Terminal, older macOS | A new window |
-| iTerm, Warp, an editor's terminal, or another app | A new Terminal window |
+| Warp, an editor's terminal, or another app | A new Terminal window |
 | Linux or Windows | Refused. The message gives the line to run in a terminal yourself. |
 
-The first time, macOS may ask whether the terminal that runs the command may control Terminal or Ghostty.
+The first time, macOS may ask whether the terminal that runs the command may control Terminal, Ghostty or iTerm.
 
 ### When it refuses
 

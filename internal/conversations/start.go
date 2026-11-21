@@ -200,6 +200,8 @@ func terminalAppOf(table []ProcessInfo, pid int, getenv func(string) string) str
 		return "Ghostty"
 	case "Apple_Terminal":
 		return "Terminal"
+	case "iTerm.app":
+		return "iTerm"
 	}
 	return ""
 }

@@ -486,11 +486,17 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 			reply:        OpenReply{Opened: true, Message: "Switched to the Terminal tab that runs it."},
 			calls:        "focus Terminal /dev/ttys018",
 		},
-		"iTerm2, not supported yet": {
+		"iTerm2 tab": {
 			conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}),
 			launcher:     fakeLauncher{focusOK: true},
-			reply:        OpenReply{Message: "Brought iTerm to the front, but its tab cannot be selected from outside. It runs on ttys040 (process 42)."},
-			calls:        "activate iTerm",
+			reply:        OpenReply{Opened: true, Message: "Switched to the iTerm tab that runs it."},
+			calls:        "focus iTerm /dev/ttys040",
+		},
+		"app without tabs": {
+			conversation: at(terminalHost{App: "Warp", TTY: "/dev/ttys040"}),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        OpenReply{Message: "Brought Warp to the front, but its tab cannot be selected from outside. It runs on ttys040 (process 42)."},
+			calls:        "activate Warp",
 		},
 		"tab not found": {
 			conversation: at(ghostty),
@@ -570,7 +576,8 @@ func TestTitleTab_NamesOnlyTheTabOfALiveSession(t *testing.T) {
 		"Ghostty tab":        {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title Ghostty /dev/ttys004 Fix login"},
 		"Terminal tab":       {conversation: at(terminalHost{App: "Terminal", TTY: "/dev/ttys018"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title Terminal /dev/ttys018 Fix login"},
 		"tab gone":           {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}), processes: alive, calls: "title Ghostty /dev/ttys004 Fix login", fails: true},
-		"app without tabs":   {conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}), processes: alive},
+		"iTerm2 tab":         {conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title iTerm /dev/ttys040 Fix login"},
+		"app without tabs":   {conversation: at(terminalHost{App: "Warp", TTY: "/dev/ttys040"}), processes: alive},
 		"session ended":      {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"})},
 		"terminal not found": {conversation: Conversation{Tool: ToolClaude, process: &liveProcess{PID: 42}}, processes: alive},
 	} {
@@ -595,6 +602,7 @@ func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
 	// look the same in the process table.
 	shell := processesWithTable(ghosttyTable([]ProcessInfo{login, {PID: 45470, PPID: 45469, Stat: "Ss+", TTY: "/dev/ttys004", Command: "-zsh"}}))
 	terminalTab := terminalHost{App: "Terminal", TTY: "/dev/ttys009"}
+	itermTab := terminalHost{App: "iTerm", TTY: "/dev/ttys040"}
 	for name, tc := range map[string]struct {
 		conversation Conversation
 		processes    fakeProcesses
@@ -627,6 +635,11 @@ func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
 			launcher:     fakeLauncher{newTabErr: errors.New("no such command")},
 			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
 			calls:        "new tab Terminal claude --resume x; terminal claude --resume x",
+		},
+		"iTerm2 tab": {
+			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &itermTab},
+			reply:        OpenReply{Opened: true, Message: "Resumed in a new iTerm tab."},
+			calls:        "new tab iTerm claude --resume x",
 		},
 		"no tab remembered": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}},
@@ -684,7 +697,7 @@ func TestScan_LiveClaudePluginSessionKeepsItsEditorLink(t *testing.T) {
 func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 	hostile := "cd '/tmp/a\"b' && echo \"quoted\"\nrm -rf ~"
 	cases := map[string][]string{"new terminal": newTerminalArgs(hostile)}
-	for _, app := range []string{"Terminal", "Ghostty"} {
+	for _, app := range []string{"Terminal", "Ghostty", "iTerm"} {
 		cases["focus "+app] = focusTabArgs(app, hostile)
 		cases["new tab "+app] = runInNewTabArgs(app, hostile)
 		cases["title "+app] = titleTabArgs(app, "/dev/ttys004", hostile)
@@ -701,6 +714,18 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 			if strings.Contains(arg, "echo") {
 				t.Errorf("%s: the value leaked into the script text: %q", name, arg)
 			}
+		}
+	}
+}
+
+func TestTabApps_HaveEveryScript(t *testing.T) {
+	for app := range tabApps {
+		_, focus := tabScripts[app]
+		_, title := titleTabLines[app]
+		_, newTab := newTabLines[app]
+		_, typeIn := typeInTabLines[app]
+		if !focus || !title || !newTab || !typeIn {
+			t.Errorf("%s: focus %v, title %v, new tab %v, type %v", app, focus, title, newTab, typeIn)
 		}
 	}
 }
