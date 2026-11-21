@@ -6,9 +6,7 @@
 # companion archives that `agnostic-ai companion install` downloads.
 # Requires macOS with the Xcode Command Line Tools.
 
-# A busy macOS runner sometimes leaves a new disk image unreadable for a
-# moment, so hdiutil says "Resource temporarily unavailable". Only that
-# error is retried; any other fails at once.
+# macOS can report a disk image is busy while creating or verifying it.
 hdiutil_retrying() {
   local attempts=4 delay=5 attempt=1 output status
   while :; do
@@ -16,7 +14,8 @@ hdiutil_retrying() {
     output="$(hdiutil "$@" 2>&1)" || status=$?
     printf '%s\n' "$output"
     [ "$status" -eq 0 ] && return 0
-    if [[ "$output" != *"Resource temporarily unavailable"* ]] || [ "$attempt" -ge "$attempts" ]; then
+    if [ "$attempt" -ge "$attempts" ] ||
+      [[ "$output" != *"Resource temporarily unavailable"* && "$output" != *" - Resource busy" ]]; then
       return "$status"
     fi
     echo "hdiutil $1: resource busy, attempt $attempt of $attempts; retrying in ${delay}s" >&2
