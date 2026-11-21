@@ -144,15 +144,19 @@ func TestScopeFlag_HidesGlobalFromHelp(t *testing.T) {
 	}
 }
 
-func TestScopeFlag_CompletesTheThreeValues(t *testing.T) {
+// No command runs at local scope yet, so completion does not offer it.
+func TestScopeFlag_CompletesTheScopesCommandsSupport(t *testing.T) {
 	_, stdout, _, err := runScopeCmd(t, cobra.ShellCompNoDescRequestCmd, "--scope", "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	for _, want := range []string{specScopeUser, specScopeProject, specScopeLocal} {
+	for _, want := range []string{specScopeUser, specScopeProject} {
 		if !strings.Contains(stdout, want+"\n") {
 			t.Errorf("completion %q lacks %q", stdout, want)
 		}
+	}
+	if strings.Contains(stdout, specScopeLocal+"\n") {
+		t.Errorf("completion %q offers a scope every command rejects", stdout)
 	}
 }
 
@@ -246,11 +250,56 @@ func TestScopeFlag_GlobalAndScopeUserPrintTheSameStdout(t *testing.T) {
 
 func TestScopeFlag_QuietDropsTheDeprecationNotice(t *testing.T) {
 	globalConfigTestHome(t)
+	// --quiet sets the package verbosity, which later tests read.
+	before := verbosity
+	t.Cleanup(func() { verbosity = before })
 	_, stderr, err := runSplit(t, "list", "--global", "--quiet")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if strings.Contains(stderr, "deprecated") {
 		t.Errorf("--quiet printed the notice: %q", stderr)
+	}
+}
+
+// User-level runs skip the upgrade and recovery prompts. Both spellings
+// of the scope must skip them.
+func TestScopeFlag_UserScopeSkipsUpgradeAndRecoveryPrompts(t *testing.T) {
+	for _, name := range []string{envNoUpdateCheck, envUpgradeInProgress, "CI", "AGNOSTIC_AI_TARGET"} {
+		t.Setenv(name, "")
+	}
+	for _, tc := range []struct {
+		args []string
+		want bool
+	}{
+		{nil, true},
+		{[]string{"--scope", "project"}, true},
+		{[]string{"--scope", "user"}, false},
+		{[]string{"--global"}, false},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			var user bool
+			cmd := &cobra.Command{Use: "sync"}
+			addScopeFlag(cmd, &user, "probe the user level")
+			if err := cmd.ParseFlags(tc.args); err != nil {
+				t.Fatal(err)
+			}
+			if got := automaticUpgradeAllowed(cmd, "0.81.0", true); got != tc.want {
+				t.Errorf("automaticUpgradeAllowed=%t, want %t", got, tc.want)
+			}
+			if got := errorRecoveryAllowed(cmd, true); got != tc.want {
+				t.Errorf("errorRecoveryAllowed=%t, want %t", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestScopeFlag_GlobalSwitchedOffPointsAtProject(t *testing.T) {
+	_, _, stderr, err := runScopeCmd(t, "--global=false")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stderr, "--scope project") || strings.Contains(stderr, "--scope user") {
+		t.Errorf("stderr=%q, want it to point at --scope project", stderr)
 	}
 }

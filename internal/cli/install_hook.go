@@ -66,24 +66,32 @@ var globalHook = hookBlock{
 	sentinel: "# agnostic-ai install-hook --global",
 	checks: `AGNOSTIC_AI_HOME="$(git rev-parse --show-toplevel)" || exit 1
 export AGNOSTIC_AI_HOME
-agnostic-ai lint --scope user --strict || exit 1
-agnostic-ai validate --scope user || exit 1
+` + globalHookScopeProbe + `
+agnostic-ai lint $scope --strict || exit 1
+agnostic-ai validate $scope || exit 1
 # A linked worktree holds a branch, not the specs sync --scope user deployed,
 # so only the main checkout compares them with the live files.
 git_dir="$(cd "$(git rev-parse --git-dir)" && pwd -P)" || exit 1
 common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)" || exit 1
 if [ "$git_dir" = "$common_dir" ]; then
-	agnostic-ai sync --scope user --check || exit 1
+	agnostic-ai sync $scope --check || exit 1
 fi`,
 	// Releases before --scope wrote these lines with --global, which
 	// still works and warns on every commit.
 	upgrades: map[string]string{
-		"agnostic-ai lint --global --strict || exit 1":                              "agnostic-ai lint --scope user --strict || exit 1",
-		"agnostic-ai validate --global || exit 1":                                   "agnostic-ai validate --scope user || exit 1",
+		"agnostic-ai lint --global --strict || exit 1":                              globalHookScopeProbe + "\nagnostic-ai lint $scope --strict || exit 1",
+		"agnostic-ai validate --global || exit 1":                                   "agnostic-ai validate $scope || exit 1",
 		"# A linked worktree holds a branch, not the specs sync --global deployed,": "# A linked worktree holds a branch, not the specs sync --scope user deployed,",
-		"agnostic-ai sync --global --check || exit 1":                               "agnostic-ai sync --scope user --check || exit 1",
+		"agnostic-ai sync --global --check || exit 1":                               "agnostic-ai sync $scope --check || exit 1",
 	},
 }
+
+// globalHookScopeProbe picks the flag the agnostic-ai on PATH takes. A
+// hook outlives the release that wrote it, and a commit must not stop
+// on "unknown flag" because an older agnostic-ai comes first on PATH.
+const globalHookScopeProbe = `# An agnostic-ai older than --scope takes --global instead.
+scope="--scope user"
+agnostic-ai validate --scope user --help >/dev/null 2>&1 || scope="--global"`
 
 const legacyProjectSyncHookChecks = `root="$(git rev-parse --show-toplevel)" || exit 0
 command -v agnostic-ai >/dev/null 2>&1 || exit 0
@@ -160,8 +168,8 @@ func newInstallHookCmd() *cobra.Command {
 		Long: "Writes .git/hooks/pre-commit (or appends to an existing file). " +
 			"With --shared, writes to .githooks/pre-commit and sets core.hooksPath so " +
 			"the hook is committed alongside the project. With --scope user, run in the " +
-			"global home kept in git, writes a hook that runs lint --scope user --strict, " +
-			"validate --scope user, and sync --scope user --check. With --post-checkout, writes " +
+			"global home kept in git, writes a hook that runs lint --strict, " +
+			"validate, and sync --check at user scope. With --post-checkout, writes " +
 			"post-checkout and post-merge in .git/hooks (or .githooks with --shared) instead: " +
 			"they run `agnostic-ai project` with the local binary from the worktree root after a branch or " +
 			"worktree checkout or a merge, including a pull, to restore the tool files.",

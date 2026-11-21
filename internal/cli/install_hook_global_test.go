@@ -71,7 +71,7 @@ func TestInstallHookGlobal_WritesTheGlobalGate(t *testing.T) {
 	if !strings.HasPrefix(got, existing) || !strings.HasSuffix(got, globalHook.text()) {
 		t.Errorf("want the checks appended once after the existing content, got:\n%s", got)
 	}
-	for _, line := range []string{"agnostic-ai lint --scope user --strict", "agnostic-ai validate --scope user", "\tagnostic-ai sync --scope user --check"} {
+	for _, line := range []string{"agnostic-ai lint $scope --strict", "agnostic-ai validate $scope", "\tagnostic-ai sync $scope --check"} {
 		if n := strings.Count(got, line); n != 1 {
 			t.Errorf("want %q once, got %d:\n%s", line, n, got)
 		}
@@ -151,7 +151,7 @@ func TestInstallHookGlobal_RefusesWhenCoreHooksPathSendsGitElsewhere(t *testing.
 
 			_, err := runInstallHook("--scope", "user")
 			want := "core.hooksPath is " + elsewhere + " (set in " + origin + ")"
-			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "agnostic-ai lint --scope user --strict") {
+			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "agnostic-ai lint $scope --strict") {
 				t.Fatalf("want %q with the lines to add, got %v", want, err)
 			}
 			for _, path := range []string{globalHookPath(source), filepath.Join(elsewhere, "pre-commit")} {
@@ -212,7 +212,10 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 
 	bin := t.TempDir()
 	log := filepath.Join(t.TempDir(), "calls.log")
+	// OLD makes the fake an agnostic-ai from before --scope: its help
+	// probe fails, as an unknown flag does.
 	fake := "#!/bin/sh\n" +
+		"case \"$*\" in *--help) [ -n \"$OLD\" ] && exit 1; exit 0 ;; esac\n" +
 		"echo \"$* home=$AGNOSTIC_AI_HOME\" >> \"$CALLS\"\n" +
 		"[ \"$1\" = \"$FAIL\" ] && exit 1\n" +
 		"exit 0\n"
@@ -221,19 +224,25 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 	}
 
 	all := []string{"lint --scope user --strict", "validate --scope user", "sync --scope user --check"}
+	older := []string{"lint --global --strict", "validate --global", "sync --global --check"}
 	for _, tc := range []struct {
 		name    string
 		dir     string
 		fail    string
+		old     string
 		wantErr bool
 		want    []string
 	}{
-		{"all pass", source, "", false, all},
-		{"lint fails", source, "lint", true, all[:1]},
-		{"validate fails", source, "validate", true, all[:2]},
-		{"sync fails", source, "sync", true, all},
-		{"linked worktree skips sync", worktree, "sync", false, all[:2]},
-		{"linked worktree still lints", worktree, "lint", true, all[:1]},
+		{"all pass", source, "", "", false, all},
+		{"lint fails", source, "lint", "", true, all[:1]},
+		{"validate fails", source, "validate", "", true, all[:2]},
+		{"sync fails", source, "sync", "", true, all},
+		{"linked worktree skips sync", worktree, "sync", "", false, all[:2]},
+		{"linked worktree still lints", worktree, "lint", "", true, all[:1]},
+		// A hook this release wrote must not block commits when an
+		// older agnostic-ai is first on PATH.
+		{"older agnostic-ai gets --global", source, "", "1", false, older},
+		{"older agnostic-ai still fails a check", source, "validate", "1", true, older[:2]},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_ = os.Remove(log)
@@ -244,6 +253,7 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 				"AGNOSTIC_AI_HOME="+t.TempDir(),
 				"CALLS="+log,
 				"FAIL="+tc.fail,
+				"OLD="+tc.old,
 			)
 			out, err := commit.CombinedOutput()
 			if (err != nil) != tc.wantErr {
@@ -286,7 +296,7 @@ func TestParseConfigOrigin_KeepsPlainPaths(t *testing.T) {
 // and keeps what the user added around them.
 func TestInstallHookGlobal_UpgradesTheDeprecatedFlagInAnInstalledHook(t *testing.T) {
 	source, _ := globalGitHome(t)
-	old := "#!/bin/sh\necho mine\n" + globalHook.sentinel + "\n" + strings.ReplaceAll(globalHook.checks, "--scope user", "--global") + "\n"
+	old := "#!/bin/sh\necho mine\n" + globalHook.sentinel + "\n" + globalHookChecksBeforeScope + "\n"
 	if !strings.Contains(old, "agnostic-ai lint --global --strict || exit 1") {
 		t.Fatalf("fixture does not hold the old lines:\n%s", old)
 	}
@@ -309,9 +319,6 @@ func TestInstallHookGlobal_UpgradesTheDeprecatedFlagInAnInstalledHook(t *testing
 	if want := "#!/bin/sh\necho mine\n" + globalHook.text(); got != want {
 		t.Errorf("hook after upgrade:\n%s\nwant:\n%s", got, want)
 	}
-	if strings.Contains(strings.ReplaceAll(got, globalHook.sentinel, ""), "--global") {
-		t.Errorf("hook still runs a deprecated flag:\n%s", got)
-	}
 }
 
 func TestInstallHookGlobal_ScopeUserRejectsProjectHookFlags(t *testing.T) {
@@ -323,3 +330,16 @@ func TestInstallHookGlobal_ScopeUserRejectsProjectHookFlags(t *testing.T) {
 		}
 	}
 }
+
+// globalHookChecksBeforeScope is the body releases up to v0.96.0 wrote.
+const globalHookChecksBeforeScope = `AGNOSTIC_AI_HOME="$(git rev-parse --show-toplevel)" || exit 1
+export AGNOSTIC_AI_HOME
+agnostic-ai lint --global --strict || exit 1
+agnostic-ai validate --global || exit 1
+# A linked worktree holds a branch, not the specs sync --global deployed,
+# so only the main checkout compares them with the live files.
+git_dir="$(cd "$(git rev-parse --git-dir)" && pwd -P)" || exit 1
+common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)" || exit 1
+if [ "$git_dir" = "$common_dir" ]; then
+	agnostic-ai sync --global --check || exit 1
+fi`

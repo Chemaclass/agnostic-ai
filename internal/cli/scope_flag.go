@@ -75,7 +75,8 @@ func addScopeFlag(cmd *cobra.Command, user *bool, userHelp string) {
 	// would corrupt --json output.
 	_ = flags.MarkHidden(legacyGlobalFlagName)
 	_ = cmd.RegisterFlagCompletionFunc(scopeFlagName, func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective) {
-		return []string{specScopeUser, specScopeProject, specScopeLocal}, cobra.ShellCompDirectiveNoFileComp
+		// No command runs at local scope yet, so it is not offered.
+		return []string{specScopeUser, specScopeProject}, cobra.ShellCompDirectiveNoFileComp
 	})
 
 	before := cmd.PreRunE
@@ -84,7 +85,11 @@ func addScopeFlag(cmd *cobra.Command, user *bool, userHelp string) {
 			return err
 		}
 		if flags.Changed(legacyGlobalFlagName) && verbosity >= levelDefault {
-			fmt.Fprintf(cmd.ErrOrStderr(), "warning: --global is deprecated; use --scope %s\n", specScopeUser)
+			instead := specScopeProject
+			if state.legacy {
+				instead = specScopeUser
+			}
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: --global is deprecated; use --scope %s\n", instead)
 		}
 		if before != nil {
 			return before(cmd, args)
@@ -104,4 +109,15 @@ func checkScopeFlag(command, scope string, explicit, legacy bool) error {
 		return fmt.Errorf("%s does not support --scope %s; use %s or %s", command, specScopeLocal, specScopeProject, specScopeUser)
 	}
 	return nil
+}
+
+// userScopeSet reports whether cmd was asked to run at user scope, with
+// either spelling. False for a command without the flag.
+func userScopeSet(cmd *cobra.Command) bool {
+	f := cmd.Flags().Lookup(scopeFlagName)
+	if f == nil {
+		return false
+	}
+	v, ok := f.Value.(scopeValue)
+	return ok && *v.flag.user
 }
