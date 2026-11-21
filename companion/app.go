@@ -179,6 +179,10 @@ type release struct {
 // from the terminal.
 var terminalCommand = findBinary
 
+// terminalOneClick says agnostic-ai upgrade can replace and restart the
+// companion here; elsewhere the panel shows the command to copy.
+var terminalOneClick = runtime.GOOS == "darwin"
+
 // updateStep is the last step the update log names.
 func updateStep(log string) string {
 	step := updateDownloading
@@ -301,7 +305,7 @@ func terminalRelease(ctx context.Context, command, current string) (release, err
 		return release{}, nil
 	}
 	next := release{Version: strings.TrimPrefix(status.Latest, "v")}
-	if !status.OneClick || runtime.GOOS != "darwin" {
+	if !status.OneClick || !terminalOneClick {
 		next.Command = upgradeCommand
 	}
 	return next, nil

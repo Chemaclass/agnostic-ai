@@ -223,17 +223,31 @@ func TestAppMenu_NoCommandMeansNoUpdateEntry(t *testing.T) {
 }
 
 func TestTerminalUpdate_OffersTheLatestReleaseTheCommandReports(t *testing.T) {
-	withVersion(t, "0.96.0")
-	calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
-	s, _, _, _ := menuShell(t)
+	for _, tc := range []struct {
+		name     string
+		oneClick bool
+		command  string
+	}{
+		{"macOS runs agnostic-ai upgrade", true, ""},
+		{"elsewhere shows the command", false, upgradeCommand},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withVersion(t, "0.96.0")
+			previous := terminalOneClick
+			t.Cleanup(func() { terminalOneClick = previous })
+			terminalOneClick = tc.oneClick
+			calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+			s, _, _, _ := menuShell(t)
 
-	s.appCommands.checkUpdates(t.Context())
+			s.appCommands.checkUpdates(t.Context())
 
-	if got := s.updateStatus(); got.State != updateAvailable || got.Version != "0.97.0" || got.Command != "" {
-		t.Errorf("status = %+v; want 0.97.0 in one click", got)
-	}
-	if raw, _ := os.ReadFile(calls); strings.TrimSpace(string(raw)) != "companion update-status --json" {
-		t.Errorf("calls = %q", raw)
+			if got := s.updateStatus(); got.State != updateAvailable || got.Version != "0.97.0" || got.Command != tc.command {
+				t.Errorf("status = %+v; want 0.97.0 with command %q", got, tc.command)
+			}
+			if raw, _ := os.ReadFile(calls); strings.TrimSpace(string(raw)) != "companion update-status --json" {
+				t.Errorf("calls = %q", raw)
+			}
+		})
 	}
 }
 
@@ -271,9 +285,9 @@ func TestTerminalUpdate_SaysWhenUpgradeLeftTheCompanionRunning(t *testing.T) {
 }
 
 func TestTerminalUpdate_RunsUpgradeAndNamesThePackageManagerDelay(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("one-click terminal updates run on macOS only")
-	}
+	previous := terminalOneClick
+	t.Cleanup(func() { terminalOneClick = previous })
+	terminalOneClick = true
 	withVersion(t, "0.96.0")
 	calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`,
 		"Error: the CLI is still 0.96.0: Homebrew does not serve 0.97.0 yet. Run agnostic-ai upgrade again later")
