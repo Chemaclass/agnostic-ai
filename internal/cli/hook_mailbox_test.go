@@ -201,7 +201,7 @@ func TestHookMailbox_EmptyMissingAndCorruptMailboxes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := runHookMailbox(t, "claude", prompt); !strings.Contains(got, good.Thread) {
-		t.Errorf("corrupt neighbour blocked delivery: %q", got)
+		t.Errorf("corrupt neighbor blocked delivery: %q", got)
 	}
 }
 

@@ -309,7 +309,7 @@ func TestDeliver_MissingEmptyCorruptAndBusyMailboxes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if d := reserve(t, s); !strings.Contains(d.Block, good.Thread) {
-		t.Errorf("corrupt neighbour blocked delivery: %q", d.Block)
+		t.Errorf("corrupt neighbor blocked delivery: %q", d.Block)
 	}
 
 	release, err := (Store{Dir: s.Dir}).lock(t.Context())

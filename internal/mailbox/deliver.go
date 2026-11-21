@@ -18,8 +18,8 @@ const (
 	DeliveryLockWait = 500 * time.Millisecond
 )
 
-// Delivery is what one hook run reserved. ReservedAt is the token that lets a
-// confirm leave alone a reservation that expired and was taken by a later run.
+// Delivery is what one hook run reserved. The reservation time is the token
+// that keeps a late confirm off a reservation a later run took over.
 type Delivery struct {
 	Block string
 	items []reservation
@@ -36,9 +36,7 @@ type candidate struct {
 	m      *Message
 }
 
-// Reserve marks the oldest waiting messages for one session as reserved, up
-// to the byte budget, and renders them as one block. An empty Block means
-// nothing to deliver. A missing mailbox is not created.
+// Reserve does not create a missing mailbox.
 func (s Store) Reserve(ctx context.Context, to conversations.Ref) (Delivery, error) {
 	if err := checkDir(s.Dir); err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -123,7 +121,6 @@ func (m Message) deliverable(now time.Time) bool {
 	return m.State == Waiting || m.State == Reserved && now.Sub(*m.ReservedAt) > reservationAge
 }
 
-// Confirm records that the whole block was printed.
 func (s Store) Confirm(ctx context.Context, d Delivery) error {
 	return s.settleDelivery(ctx, d, func(t *Thread, m *Message, at time.Time) {
 		m.State = Delivered
@@ -132,7 +129,6 @@ func (s Store) Confirm(ctx context.Context, d Delivery) error {
 	})
 }
 
-// PutBack returns the messages of a block that was not fully printed.
 func (s Store) PutBack(ctx context.Context, d Delivery) error {
 	return s.settleDelivery(ctx, d, func(_ *Thread, m *Message, _ time.Time) {
 		m.State = Waiting

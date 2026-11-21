@@ -333,7 +333,6 @@ func (t Thread) canStage(m *Message) *Refusal {
 	return nil
 }
 
-// Approve answers a held message. Approving rechecks the thread as a send would.
 func (s Store) Approve(ctx context.Context, id string, n int, action string) error {
 	if refused := checkStrings(id, action); refused != nil {
 		return refused
@@ -405,7 +404,6 @@ func (s Store) Approve(ctx context.Context, id string, n int, action string) err
 	return s.writeThread(thread)
 }
 
-// Queue hands a message I staged by hand back to the delivery hook.
 func (s Store) Queue(ctx context.Context, id string, n int) error {
 	if refused := checkStrings(id); refused != nil {
 		return refused

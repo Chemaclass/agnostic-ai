@@ -36,7 +36,6 @@ func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req
 	return s.send(ctx, from, req, sourceFolder, "human")
 }
 
-// SendFromAgent holds the message for my approval unless settings turn that off.
 func (s Store) SendFromAgent(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder string) (Receipt, error) {
 	return s.send(ctx, from, req, sourceFolder, "agent")
 }

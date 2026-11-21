@@ -19,6 +19,7 @@ func TestSettings_ApprovalStaysOnUnlessTheFileTurnsItOff(t *testing.T) {
 		{"wrong type", writeSettingsFile(`{"approveAgentSends":"no"}`), true},
 		{"unknown field", writeSettingsFile(`{"approveAgentSends":false,"other":1}`), true},
 		{"directory", func(t *testing.T, path string) {
+			t.Helper()
 			if err := os.Mkdir(path, 0o700); err != nil {
 				t.Fatal(err)
 			}
