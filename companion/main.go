@@ -131,8 +131,10 @@ type shell struct {
 	tell            func(appearance)
 	tellPreferences func(preferences)
 	tellUpdate      func(updateStatus)
-	end             func()
-	endOnce         sync.Once
+	// openPage opens a web page in the default browser.
+	openPage func(string) error
+	end      func()
+	endOnce  sync.Once
 	// placing keeps presence changes and opening the list from
 	// interleaving their window changes. It guards hiddenAt and
 	// waitingSeen. Take it before mu, never while holding mu.
@@ -689,6 +691,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("GET /api/update", s.getUpdate)
 	mux.HandleFunc("POST /api/update", s.checkNow)
 	mux.HandleFunc("POST /api/update/start", s.startUpdate)
+	mux.HandleFunc("POST /api/update/release-page", s.openReleasePage)
 	mux.HandleFunc("POST /api/dashboard", s.dashboard)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -831,6 +834,7 @@ func main() {
 	s.tellUpdate = func(status updateStatus) {
 		s.app.Event.Emit(eventUpdate, status)
 	}
+	s.openPage = s.app.Browser.OpenURL
 	if err := s.bubbleMenu(); err != nil {
 		log.Fatal(err)
 	}

@@ -140,6 +140,7 @@ test('a terminal install that cannot update itself names the command to copy', (
     retry: true,
     log: '/tmp/u.log',
     command: 'agnostic-ai upgrade',
+    releasePage: true,
   })
   assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0' }), {
     title: 'Update to v0.97.0 and restart?',
@@ -150,8 +151,9 @@ test('a terminal install that cannot update itself names the command to copy', (
   assert.match(updateConfirmOf({ state: 'available', version: '0.97.0', terminal: true }).body, /^Runs agnostic-ai upgrade/)
   assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0', command: 'agnostic-ai upgrade' }), {
     title: 'Update to v0.97.0',
-    body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',
+    body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together. The release page lists what changed.',
     go: 'Copy command',
     command: 'agnostic-ai upgrade',
+    releasePage: true,
   })
 })

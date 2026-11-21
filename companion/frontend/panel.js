@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
+import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
@@ -1951,6 +1951,8 @@ const updateGo = document.getElementById('update-go')
 const updateCommand = document.getElementById('update-command')
 const updateStatusCommand = document.getElementById('update-status-command')
 const updateCopy = document.getElementById('update-copy')
+const updateRelease = document.getElementById('update-release')
+const updateStatusRelease = document.getElementById('update-status-release')
 
 function openUpdateConfirm() {
   const question = updateConfirmOf(settings.update)
@@ -1959,6 +1961,7 @@ function openUpdateConfirm() {
   updateCommand.hidden = !question.command
   updateCommand.textContent = question.command ?? ''
   updateGo.textContent = question.go
+  updateRelease.hidden = !question.releasePage
   updateConfirm.hidden = false
   updateCancel.focus()
 }
@@ -1989,6 +1992,7 @@ function drawUpdateStatus() {
   updateRetry.hidden = !message.retry
   updateStatusCommand.hidden = updateCopy.hidden = !message.command
   updateStatusCommand.textContent = message.command ?? ''
+  updateStatusRelease.hidden = !message.releasePage
 }
 
 updateCancel.addEventListener('click', closeUpdateConfirm)
@@ -2000,6 +2004,11 @@ updateGo.addEventListener('click', () => {
 })
 updateCopy.addEventListener('click', () => copyUpdateCommand(updateMessageOf(settings.update).command))
 updateRetry.addEventListener('click', () => startUpdate().catch(sayFailure))
+updateRelease.addEventListener('click', () => {
+  closeUpdateConfirm()
+  openReleasePage().catch(sayFailure)
+})
+updateStatusRelease.addEventListener('click', () => openReleasePage().catch(sayFailure))
 document.getElementById('update-dismiss').addEventListener('click', () => {
   updateDismissed = JSON.stringify(settings.update)
   drawUpdateStatus()

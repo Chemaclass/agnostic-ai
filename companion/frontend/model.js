@@ -1071,7 +1071,7 @@ const UPDATE_STEPS = {
 }
 
 /**
- * What the panel says about the update: {text, retry?, log?, command?}, or undefined when there is nothing to say.
+ * What the panel says about the update: {text, retry?, log?, command?, releasePage?}, or undefined when there is nothing to say.
  * A check the companion made on its own says nothing once it ends.
  */
 export function updateMessageOf(update) {
@@ -1083,7 +1083,7 @@ export function updateMessageOf(update) {
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
   if (update.state === 'failed') {
     const failed = { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
-    return update.command ? { ...failed, command: update.command } : failed
+    return update.command ? { ...failed, command: update.command, releasePage: true } : failed
   }
   return note
 }
@@ -1095,14 +1095,15 @@ function olderCLINoteOf(update) {
   return { text: `The agnostic-ai command at ${path} is v${version}, older than this app (v${update.current}). Run this in a terminal to upgrade it.`, command }
 }
 
-/** The question before an update: {title, body, go, command?}; with a command, the person runs it in a terminal. */
+/** The question before an update: {title, body, go, command?, releasePage?}; with a command, the person runs it in a terminal; the release page says what changed. */
 export function updateConfirmOf(update) {
   if (update.command && update.state !== 'failed') {
     return {
       title: `Update to v${update.version}`,
-      body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',
+      body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together. The release page lists what changed.',
       go: 'Copy command',
       command: update.command,
+      releasePage: true,
     }
   }
   const body = update.terminal

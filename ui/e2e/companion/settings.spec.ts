@@ -580,3 +580,34 @@ test('an older separate command line tool shows both versions and its upgrade co
 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("'/opt/homebrew/bin/agnostic-ai' upgrade")
 })
+
+test('where the companion cannot update itself, the question and a failure open the release page', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-copy' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const opened = sent(page, '/api/update/release-page')
+
+  await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+  const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
+  await question.getByRole('button', { name: 'Release page' }).click()
+
+  await expect(question).toBeHidden()
+  await expect.poll(() => opened).toEqual(['/api/update/release-page'])
+
+  await page.request.post('/dev/fixture', { data: { name: 'update-failed-terminal' } })
+  await page.goto('/panel.html')
+  await page.getByRole('region', { name: 'Update' }).getByRole('button', { name: 'Release page' }).click()
+  await expect.poll(() => opened.length).toBe(2)
+})
+
+test('a disk image update question offers no release page', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-available' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+
+  await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+
+  await expect(page.getByRole('alertdialog').getByRole('button', { name: 'Release page' })).toBeHidden()
+})
