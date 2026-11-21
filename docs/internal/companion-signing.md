@@ -21,29 +21,35 @@ The companion needs Accessibility access to paste into a terminal. macOS stores 
 | Install path | Certificate | Where the key lives | Code |
 |---|---|---|---|
 | `agnostic-ai companion install` | One made on each Mac on the first install, named `agnostic-ai companion (this Mac)` | `signer.keychain-db` in the companion folder (`~/Library/Application Support/agnostic-ai/companion/`), with `signer.cer` beside it | `internal/cli/companion_sign_darwin.go` |
-| Release disk image (`.dmg`) | The project certificate, named `agnostic-ai companion release` | The GitHub secret `COMPANION_SIGNING_P12`, and private copies kept by maintainers | `scripts/companion-release.sh`, `.github/workflows/release.yml` |
+| Release disk image (`.dmg`) | The project certificate, named `agnostic-ai companion release` | The GitHub secret `COMPANION_SIGNING_P12`, and private copies kept by maintainers | `scripts/companion-sign.sh`, `.github/workflows/release.yml` |
 
 The two certificates differ, so a user who switches between the disk image and the terminal installer grants Accessibility once more. Uninstalling the companion deletes the per-Mac certificate; the next install makes a new one.
 
 ### Terminal installer
 
 1. On the first install, `companionSigner` makes an RSA 2048 certificate valid for 100 years, with the code signing usage.
-2. It creates `signer.keychain-db` with an empty password and imports the key (`-T /usr/bin/codesign`) and the certificate. The keychain is not added to the user's search list, and the login keychain is not touched.
-3. It writes `signer.cer` last. A keychain without `signer.cer`, or one that lacks the certificate `signer.cer` names, is deleted and made again.
-4. Each install unlocks the keychain, since it locks itself after five minutes and on sleep, then runs `codesign --force --keychain <path> --sign <sha1> --identifier dev.agnostic-ai.companion -r=<requirement>`.
+2. It creates `signer.keychain-db` with an empty password and imports the key (`-T /usr/bin/codesign`) and the certificate. The login keychain is not touched.
+3. It writes `signer.cer` last. A keychain without `signer.cer`, or one that lacks the certificate `signer.cer` names, is deleted and made again. An interrupted check keeps both files.
+4. Each install unlocks the keychain, since it locks itself after five minutes and on sleep, and sets the key's partition list so `codesign` uses it without a dialog.
+5. It adds the keychain to the user's keychain search list, runs `codesign --force --keychain <path> --sign <sha1> --identifier dev.agnostic-ai.companion -r=<requirement>`, and puts the list back. Older macOS versions find a signing identity only in a listed keychain, whatever `--keychain` says; a macOS 26.7 CI runner failed with `no identity found` without it.
 
 The keychain has no password because the installer must sign without a prompt. A program running as the same user can read the key and sign a copy that macOS accepts. A password stored on the same Mac would not change that.
 
 ### Release build
 
-The `macOS companion` job in `release.yml` passes `COMPANION_SIGNING_P12` and `COMPANION_SIGNING_REQUIRED=1` to `scripts/companion-release.sh`, which:
+Two jobs in `release.yml` handle the companion:
 
-1. Decodes the secret into a temporary keychain and reads the certificate's SHA-1 hash. It stops with an error when the secret is empty or holds no certificate with the expected name.
-2. Prints the hash and the certificate's end date in the job log.
-3. Signs the bundled CLI and then the app with that certificate, pins the hash in the app's requirement, and checks the app against it with `codesign --verify -R`.
-4. Deletes the temporary keychain on exit.
+1. `companion` builds the archives and disk images with `scripts/companion-release.sh`, signed ad hoc, and uploads them as `companion-built`. It fetches and runs dependency code, so it reads no secret.
+2. `companion-sign` downloads them and runs `scripts/companion-sign.sh` with `COMPANION_SIGNING_P12`. It sets up no toolchain and runs only this repository's scripts. It uploads the result as `companion-dist`, which GoReleaser attaches to the release.
 
-Without the secret, CI and local builds sign ad hoc. In a tag release the companion job fails, and the release publishes without the companion files.
+`scripts/companion-sign.sh`:
+
+1. Imports the secret into a temporary keychain and stops unless it holds the certificate whose hash is pinned at the top of the script (`companion_release_cert`). A lookup by name would also match a certificate whose name only contains the expected one.
+2. Adds that keychain to the search list, and prints the hash and the certificate's end date in the job log.
+3. For each disk image: copies the app out, signs the bundled CLI and then the app, pins the hash in the app's requirement, checks the app against it with `codesign --verify -R`, and writes the disk image again.
+4. Puts the search list back and deletes the keychain on exit.
+
+If either job fails, the release publishes without the companion files. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
 
 ## Make the release certificate
 
@@ -93,8 +99,9 @@ GitHub secrets cannot be read back. Losing every private copy means making a new
 Rotate only when the key may have leaked or the certificate nears its end date. A new certificate changes the pinned hash, so every disk image user grants Accessibility once more after updating.
 
 1. Make a new certificate as above.
-2. Replace the secret with the new `.p12`.
-3. Note the rotation in the changelog, so users expect the prompt.
+2. Set `companion_release_cert` in `scripts/companion-sign.sh` to the new `cert.sha1`, and merge that change.
+3. Replace the secret with the new `.p12`. Do it after the merge and before the next tag, since the script refuses any other certificate.
+4. Note the rotation in the changelog, so users expect the prompt.
 
 ## Check a released app
 
@@ -113,7 +120,7 @@ The hash must match `cert.sha1`. To check that the grant survives, grant Accessi
 | Message | Cause | Fix |
 |---|---|---|
 | `MAC verification failed during PKCS12 import (wrong password?)` | The `.p12` has another password, or none | Export it again with `-passout pass:agnostic-ai`. |
-| `COMPANION_SIGNING_P12 holds no certificate named agnostic-ai companion release` | Wrong name, broken base64, or a failed import | Check the name with `/usr/bin/openssl pkcs12 -in companion-release.p12 -passin pass:agnostic-ai -nokeys \| /usr/bin/openssl x509 -noout -subject`, then upload again. |
+| `COMPANION_SIGNING_P12 does not hold the certificate <sha1>` | The secret holds another certificate, broken base64, or a failed import | Compare `cert.sha1` with the hash pinned in `scripts/companion-sign.sh`, then upload the matching `.p12` again. |
 | `<sha1>: no identity found` | The keychain lacks that certificate or key, the certificate expired, or `--keychain` got a relative path | Check the end date; pass an absolute keychain path. |
 | A dialog: "codesign wants to use the "signer" keychain" | `codesign` reached a locked keychain | Cancel it. The code unlocks before each signature; a dialog means something ran `codesign` without that step. |
 | `CSSMERR_TP_NOT_TRUSTED` in `security find-identity` | The certificate is self-signed | Expected. `codesign` signs with it anyway. |

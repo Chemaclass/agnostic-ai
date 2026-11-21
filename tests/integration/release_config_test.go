@@ -699,19 +699,43 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 	data := readRepoFile(t, ".github/workflows/release.yml")
 	start := strings.Index(data, "\n  companion:\n")
 	end := strings.Index(data, "\n  goreleaser:\n")
-	if start < 0 || end < start {
-		t.Fatal("release.yml lists the companion job after goreleaser")
+	signStart := strings.Index(data, "\n  companion-sign:\n")
+	if start < 0 || signStart < start || end < signStart {
+		t.Fatal("release.yml does not list the companion, companion-sign and goreleaser jobs in that order")
 	}
-	if strings.Contains(data[start:end], "secrets.") {
+	if strings.Contains(data[start:signStart], "secrets.") {
 		t.Error("the companion job reads a secret")
+	}
+	// The signing job holds the project key, so it must run no dependency
+	// code: no toolchain setup, and no secret besides the key.
+	sign, ok := jobs["companion-sign"]
+	if !ok {
+		t.Fatal("release.yml has no companion-sign job")
+	}
+	if !needsJob(sign.Needs, "companion") || !strings.HasPrefix(sign.RunsOn, "macos-") {
+		t.Errorf("companion-sign needs %v and runs on %q, want companion and a Mac", sign.Needs, sign.RunsOn)
+	}
+	if len(sign.Permissions) != 1 || sign.Permissions["contents"] != "read" {
+		t.Errorf("the companion-sign job holds %v, want only contents: read", sign.Permissions)
+	}
+	for _, step := range sign.Steps {
+		if strings.Contains(step.Uses, "setup-") || strings.Contains(step.Run, "go ") || strings.Contains(step.Run, "npm") {
+			t.Errorf("the companion-sign job runs a toolchain in step %q", step.Name)
+		}
+	}
+	if secrets := strings.Count(data[signStart:end], "secrets."); secrets != 1 || !strings.Contains(data[signStart:end], "secrets.COMPANION_SIGNING_P12") {
+		t.Errorf("the companion-sign job reads %d secrets, want only COMPANION_SIGNING_P12", secrets)
+	}
+	if signRun := workflowRun(t, releaseWorkflowPath, "companion-sign", "Sign the disk images"); !strings.Contains(signRun, "scripts/companion-sign.sh") {
+		t.Errorf("the companion-sign job does not sign with scripts/companion-sign.sh:\n%s", signRun)
 	}
 	if build := workflowRun(t, releaseWorkflowPath, "companion", "Build the companion archives"); !strings.Contains(build, "scripts/companion-release.sh") {
 		t.Errorf("the companion job does not build with scripts/companion-release.sh:\n%s", build)
 	}
 
 	goreleaser := jobs["goreleaser"]
-	if !needsJob(goreleaser.Needs, "companion") {
-		t.Errorf("goreleaser needs %v, want it to wait for companion", goreleaser.Needs)
+	if !needsJob(goreleaser.Needs, "companion") || !needsJob(goreleaser.Needs, "companion-sign") {
+		t.Errorf("goreleaser needs %v, want it to wait for companion and companion-sign", goreleaser.Needs)
 	}
 	if !strings.Contains(goreleaser.If, "!cancelled()") || strings.Contains(goreleaser.If, "needs.companion") { //nolint:misspell // GitHub Actions names the function cancelled()
 		t.Errorf("goreleaser runs if %q; a failed companion build must not hold back the release", goreleaser.If)
@@ -727,7 +751,7 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 		}
 	}
 	download, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Download the companion archives")
-	if download.If != "needs.companion.result == 'success'" {
+	if download.If != "needs.companion-sign.result == 'success'" {
 		t.Errorf("the archives are downloaded if %q", download.If)
 	}
 	run, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
@@ -778,10 +802,15 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 			t.Errorf("the glob %q does not match %s", imageGlob, image)
 		}
 	}
-	upload, _ := workflowStepAt(t, releaseWorkflowPath, "companion", "Hand the archives to GoReleaser")
-	paths, ok := upload.With["path"].(string)
-	if !ok || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.dmg") {
-		t.Errorf("the companion job does not upload disk images: %v", upload.With["path"])
+	for _, job := range []struct{ name, step string }{
+		{"companion", "Hand the archives to the signing job"},
+		{"companion-sign", "Hand the archives to GoReleaser"},
+	} {
+		upload, _ := workflowStepAt(t, releaseWorkflowPath, job.name, job.step)
+		paths, ok := upload.With["path"].(string)
+		if !ok || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.dmg") || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.tar.gz") {
+			t.Errorf("the %s job does not upload the archives and disk images: %v", job.name, upload.With["path"])
+		}
 	}
 	guard := workflowRun(t, releaseWorkflowPath, "distribution", "Release ships the companion archives")
 	if !strings.Contains(guard, "dmg") {

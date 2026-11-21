@@ -470,6 +470,22 @@ jobs:
         if: runner.os == 'macOS'
         run: scripts/companion-release.sh 0.0.0-ci "$RUNNER_TEMP/companion-dist"
 
+      # The release signs with the project certificate, which pull requests
+      # cannot read; a throwaway one runs the same script on a runner with no screen.
+      - name: Sign the disk images with a throwaway certificate
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          cert="$RUNNER_TEMP/throwaway-cert"
+          mkdir -p "$cert"
+          printf '[req]\ndistinguished_name=dn\nx509_extensions=ext\nprompt=no\n[dn]\nCN=agnostic-ai companion release\n[ext]\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=critical,codeSigning\n' > "$cert/cert.cnf"
+          /usr/bin/openssl req -x509 -newkey rsa:2048 -nodes -keyout "$cert/key.pem" -out "$cert/cert.pem" -days 2 -config "$cert/cert.cnf"
+          /usr/bin/openssl pkcs12 -export -inkey "$cert/key.pem" -in "$cert/cert.pem" -out "$cert/id.p12" -passout pass:agnostic-ai
+          COMPANION_SIGNING_SHA1="$(/usr/bin/openssl x509 -in "$cert/cert.pem" -outform der | shasum -a 1 | cut -d' ' -f1 | tr '[:lower:]' '[:upper:]')"
+          COMPANION_SIGNING_P12="$(base64 -i "$cert/id.p12")"
+          export COMPANION_SIGNING_SHA1 COMPANION_SIGNING_P12
+          scripts/companion-sign.sh "$RUNNER_TEMP/companion-dist"
+
       # The tags `agnostic-ai companion install` builds with.
       - name: Build the companion
         if: runner.os != 'macOS'
@@ -755,7 +771,7 @@ jobs:
             exit 0
           fi
 
-          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh 'internal/cli/companion*' 'internal/cli/upgrade*' go.mod go.sum .golangci.yml .github/workflows/ci.yml; then
+          if git diff --quiet "$base" "$head" -- companion/ scripts/companion-release.sh scripts/companion-sign.sh 'internal/cli/companion*' 'internal/cli/upgrade*' go.mod go.sum .golangci.yml .github/workflows/ci.yml; then
             echo "companion=false" >> "$GITHUB_OUTPUT"
           else
             echo "companion=true" >> "$GITHUB_OUTPUT"

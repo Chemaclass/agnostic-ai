@@ -40,15 +40,48 @@ func signCompanion(ctx context.Context, folder, app string) error {
 		return fmt.Errorf("make this Mac's signing certificate: %w", err)
 	}
 	// The keychain has an empty password; it locks itself after a while.
-	if err := runSecurity(ctx, "unlock-keychain", "-p", "", keychain); err != nil {
-		return err
+	// The partition list lets codesign use the key without a dialog, which
+	// a session with no screen, such as CI, cannot answer.
+	for _, args := range [][]string{
+		{"unlock-keychain", "-p", "", keychain},
+		{"set-key-partition-list", "-S", "apple-tool:,apple:,codesign:", "-s", "-k", "", keychain},
+	} {
+		if err := runSecurity(ctx, args...); err != nil {
+			return err
+		}
 	}
 	requirement := "-r=designated => " + companionRequirement(hash)
-	out, err := exec.CommandContext(ctx, "codesign", "--force", "--keychain", keychain, "--sign", hash, "--identifier", companionBundleID, requirement, app).CombinedOutput()
+	return withKeychainSearched(ctx, keychain, func() error {
+		out, err := exec.CommandContext(ctx, "codesign", "--force", "--keychain", keychain, "--sign", hash, "--identifier", companionBundleID, requirement, app).CombinedOutput()
+		if err != nil {
+			return withWhatItSaid(err, out)
+		}
+		return nil
+	})
+}
+
+// withKeychainSearched runs sign with keychain on the user's keychain
+// search list, then puts the list back. Some macOS versions find a signing
+// identity only in a listed keychain, whatever codesign --keychain says.
+func withKeychainSearched(ctx context.Context, keychain string, sign func() error) error {
+	out, err := exec.CommandContext(ctx, "security", "list-keychains", "-d", "user").Output()
 	if err != nil {
-		return withWhatItSaid(err, out)
+		return fmt.Errorf("security list-keychains: %w", err)
 	}
-	return nil
+	var kept []string
+	for line := range strings.Lines(string(out)) {
+		if path := strings.Trim(strings.TrimSpace(line), `"`); path != "" && path != keychain {
+			kept = append(kept, path)
+		}
+	}
+	setList := func(ctx context.Context, paths ...string) error {
+		return runSecurity(ctx, append([]string{"list-keychains", "-d", "user", "-s"}, paths...)...)
+	}
+	if err := setList(ctx, append(kept, keychain)...); err != nil {
+		return err
+	}
+	signErr := sign()
+	return errors.Join(signErr, setList(context.WithoutCancel(ctx), kept...))
 }
 
 func companionRequirement(certHash string) string {
@@ -64,20 +97,17 @@ func companionSigner(ctx context.Context, folder string) (hash, keychain string,
 	if err != nil {
 		return "", "", err
 	}
-	// A key file left by an install that was killed while making the keychain.
-	scratches, err := filepath.Glob(filepath.Join(folder, companionSignerScratch+"*"))
-	if err != nil {
+	if err := removeSignerScratch(folder); err != nil {
 		return "", "", err
-	}
-	for _, scratch := range scratches {
-		if err := os.RemoveAll(scratch); err != nil {
-			return "", "", err
-		}
 	}
 	certFile := filepath.Join(folder, companionSignerCert)
 	if der, readErr := os.ReadFile(certFile); readErr == nil {
 		hash := certHash(der)
-		if keychainHolds(ctx, keychain, hash) {
+		holds, err := keychainHolds(ctx, keychain, hash)
+		if err != nil {
+			return "", "", err
+		}
+		if holds {
 			return hash, keychain, nil
 		}
 	}
@@ -145,12 +175,34 @@ func makeCompanionSigner(ctx context.Context, folder, keychain string) ([]byte, 
 	return der, nil
 }
 
-func keychainHolds(ctx context.Context, keychain, hash string) bool {
+// removeSignerScratch deletes the key folders an install that was killed
+// while making the keychain left behind.
+func removeSignerScratch(folder string) error {
+	entries, err := os.ReadDir(folder)
+	if err != nil {
+		return err
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), companionSignerScratch) {
+			if err := os.RemoveAll(filepath.Join(folder, entry.Name())); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// keychainHolds reports whether keychain holds the certificate with hash.
+// An interrupted check is an error, so the caller keeps a good keychain.
+func keychainHolds(ctx context.Context, keychain, hash string) (bool, error) {
 	if _, err := os.Stat(keychain); err != nil {
-		return false
+		return false, nil
 	}
 	out, err := exec.CommandContext(ctx, "security", "find-certificate", "-a", "-Z", keychain).Output()
-	return err == nil && strings.Contains(string(out), "SHA-1 hash: "+hash)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return false, ctxErr
+	}
+	return err == nil && strings.Contains(string(out), "SHA-1 hash: "+hash), nil
 }
 
 func runSecurity(ctx context.Context, args ...string) error {

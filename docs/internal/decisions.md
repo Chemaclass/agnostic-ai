@@ -324,7 +324,7 @@ Codex with `approvals_reviewer = "auto_review"` (set with `-c`):
 
 **Context:** Ad hoc signing made the app's designated requirement its code hash, so each update lost the Accessibility grant the companion needs to paste ([#3601](https://github.com/Chemaclass/agnostic-ai/issues/3601)). Apple ties privacy grants to the designated requirement, and the signer in it prevents impersonation ([TN3127](https://developer.apple.com/documentation/technotes/tn3127-inside-code-signing-requirements/)). The project has no Apple Developer ID.
 
-**Decision:** Sign with self-signed certificates and pin each one in the requirement: a certificate made on each Mac for `agnostic-ai companion install`, and one project certificate, kept in the `COMPANION_SIGNING_P12` secret, for the release disk image. [macOS companion signing](companion-signing.md) has the details and the manual steps.
+**Decision:** Sign with self-signed certificates and pin each one in the requirement: a certificate made on each Mac for `agnostic-ai companion install`, and one project certificate, kept in the `COMPANION_SIGNING_P12` secret, for the release disk image. A release job of its own signs the disk image, so the key never sits beside the build, which runs dependency code. [macOS companion signing](companion-signing.md) has the details and the manual steps.
 
 **Options not taken:**
 

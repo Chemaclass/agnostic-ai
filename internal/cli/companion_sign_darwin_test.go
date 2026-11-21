@@ -15,6 +15,7 @@ func TestSignCompanion_KeepsOneRequirementThatAnotherSignerFails(t *testing.T) {
 	folder := t.TempDir()
 	app := filepath.Join(t.TempDir(), companionAppName+".app")
 	writeTestApp(t, app, "/usr/bin/true")
+	searched := userKeychainList(t)
 	var requirements []string
 	for _, build := range []string{"/usr/bin/true", "/usr/bin/false"} {
 		writeTestApp(t, app, build)
@@ -26,6 +27,9 @@ func TestSignCompanion_KeepsOneRequirementThatAnotherSignerFails(t *testing.T) {
 			t.Fatalf("codesign -d: %v\n%s", err, out)
 		}
 		requirements = append(requirements, strings.TrimSpace(string(out)))
+	}
+	if after := userKeychainList(t); after != searched {
+		t.Errorf("the keychain search list changed:\nbefore %s\nafter  %s", searched, after)
 	}
 	if requirements[0] != requirements[1] {
 		t.Errorf("the requirement changed between builds:\n%s\n%s", requirements[0], requirements[1])
@@ -96,5 +100,52 @@ func TestSignCompanion_MakesTheCertificateAgainWhenTheKeychainLacksIt(t *testing
 	}
 	if left, _ := filepath.Glob(filepath.Join(folder, companionSignerScratch+"*")); len(left) != 0 {
 		t.Errorf("scratch folders left: %v", left)
+	}
+}
+
+func userKeychainList(t *testing.T) string {
+	t.Helper()
+	out, err := exec.Command("security", "list-keychains", "-d", "user").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+func TestCompanionSigner_KeepsTheKeychainWhenTheCheckIsInterrupted(t *testing.T) {
+	folder := t.TempDir()
+	hash, keychain, err := companionSigner(context.Background(), folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	if _, _, err := companionSigner(ctx, folder); err == nil {
+		t.Error("an interrupted check reported no error")
+	}
+
+	if _, err := os.Stat(keychain); err != nil {
+		t.Errorf("the keychain is gone after an interrupted check: %v", err)
+	}
+	if again, _, err := companionSigner(context.Background(), folder); err != nil || again != hash {
+		t.Errorf("the next install signs with %s (%v), want the same certificate %s", again, err, hash)
+	}
+}
+
+func TestSignCompanion_SignsInAFolderWhoseNameLooksLikeAPattern(t *testing.T) {
+	folder := filepath.Join(t.TempDir(), "profile[12")
+	if err := os.MkdirAll(filepath.Join(folder, companionSignerScratch+"left"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	app := filepath.Join(t.TempDir(), companionAppName+".app")
+	writeTestApp(t, app, "/usr/bin/true")
+
+	if err := signCompanion(context.Background(), folder, app); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(folder, companionSignerScratch+"left")); err == nil {
+		t.Error("the scratch folder from a killed install is still there")
 	}
 }
