@@ -61,3 +61,18 @@ test('keeps the server’s mailbox guard alongside its explanation', async () =>
   globalThis.fetch = async () => new Response(JSON.stringify({ error: 'Resume this thread first.', guard: 'paused' }), { status: 422 })
   await assert.rejects(sendMessage({}), { message: 'Resume this thread first.', guard: 'paused' })
 })
+
+test('reads the review refs with only the row identity and an optional base', async () => {
+  const { readRefs } = await import('../frontend/api.js')
+  const calls = []
+  globalThis.fetch = async (path, options) => {
+    calls.push([path, options.method, JSON.parse(options.body)])
+    return new Response('{}')
+  }
+  await readRefs({ tool: 'codex', id: 'source', folder: '/stale/folder' })
+  await readRefs({ tool: 'codex', id: 'source' }, 'origin/main')
+  assert.deepEqual(calls, [
+    ['/api/mailbox/refs', 'POST', { tool: 'codex', id: 'source' }],
+    ['/api/mailbox/refs', 'POST', { tool: 'codex', id: 'source', base: 'origin/main' }],
+  ])
+})

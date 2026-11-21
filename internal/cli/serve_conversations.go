@@ -34,7 +34,7 @@ const (
 var conversationPaths = []string{
 	conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath,
 	conversationDeletePath, conversationSendPath, conversationStopShellPath, conversationStopSessionPath,
-	mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath,
+	mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath, mailboxRefsPath,
 }
 
 // maxConversationOpenBytes bounds an open request: a tool, an id, an editor and a helper.
@@ -165,7 +165,7 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		h.stopShell(w, r)
 	case conversationStopSessionPath:
 		h.stopSession(w, r)
-	case mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath:
+	case mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath, mailboxRefsPath:
 		h.serveMailbox(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})

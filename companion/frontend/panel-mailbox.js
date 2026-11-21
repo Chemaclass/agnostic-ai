@@ -1,5 +1,5 @@
-import { CallError, GivenUp, changeThread, readThreads, sendMessage, stageMessage } from '/api.js'
-import { keyOf, mailboxSessionOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
+import { CallError, GivenUp, changeThread, readRefs, readThreads, sendMessage, stageMessage } from '/api.js'
+import { keyOf, mailboxSessionOf, reviewModelsOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
 
 const ACTIONS = {
   reply: 'Reply',
@@ -9,7 +9,9 @@ const ACTIONS = {
   'raise-cap': 'Allow 8 more',
   stop: 'Stop',
 }
-const TYPES = { question: 'Question', finding: 'Finding', done: 'Done' }
+const REVIEW = 'review_request'
+const REF_PREVIEW_DELAY = 220
+const TYPES = { question: 'Question', finding: 'Finding', done: 'Done', [REVIEW]: 'Review request' }
 const STATES = { open: 'Open', paused: 'Paused', closing: 'Closing', closed: 'Closed', waiting: 'Waiting', staged: 'Staged', cancelled: 'Cancelled' }
 const refOf = ({ tool, id }) => ({ tool, id })
 
@@ -26,6 +28,29 @@ function button(label, action, clicked, className = 'confirm-cancel') {
   control.dataset.mailboxControl = action
   control.addEventListener('click', clicked)
   return control
+}
+
+function refDetails(refs) {
+  const details = element('dl', 'mailbox-ref-details')
+  for (const [label, value] of [['Worktree', refs.worktree], ['Commit', refs.commit], ['Base', refs.base]]) {
+    const data = element('dd')
+    data.append(element('code', '', value))
+    details.append(element('dt', '', label), data)
+  }
+  const count = refs.paths?.length ?? 0
+  const changes = element('p', 'mailbox-muted', `${count} changed ${count === 1 ? 'path' : 'paths'}`)
+  if (!refs.uncommitted) return [details, changes]
+  const dirty = refs.uncommitted
+  return [
+    details,
+    changes,
+    element('p', '', `${dirty} uncommitted ${dirty === 1 ? 'file is' : 'files are'} outside this review.`),
+  ]
+}
+
+function modelComparison(fromName, toName) {
+  const { from, to, same } = reviewModelsOf(fromName, toName)
+  return `Sending: ${from} · Reviewing: ${to}${same ? '. Both sessions state the same model.' : ''}`
 }
 
 function threadCount({ cap, messages }) {
@@ -63,7 +88,17 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   const hint = byId('mailbox-target-hint')
   const type = byId('mailbox-type')
   const body = byId('mailbox-body')
+  const bodyField = byId('mailbox-body-field')
+  const review = byId('mailbox-review')
+  const base = byId('mailbox-review-base')
+  const reviewStatus = byId('mailbox-review-status')
+  const resolved = byId('mailbox-review-refs')
+  const sendingModel = byId('mailbox-sending-model')
+  const reviewingModel = byId('mailbox-reviewing-model')
+  const comparison = byId('mailbox-review-comparison')
   const send = byId('mailbox-send')
+  const cancel = byId('mailbox-cancel')
+  const fields = [target, type, body, base, sendingModel, reviewingModel, cancel]
   const details = byId('mailbox-details')
   const title = byId('mailbox-details-title')
   const meta = byId('mailbox-details-meta')
@@ -74,22 +109,90 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   let draft
   let opened
   let nativeCopy = false
+  let previewTimer
 
   function nameOf(ref, fallback) {
     const row = rows().find((conversation) => keyOf(conversation) === keyOf(ref))
     return row ? titleOf(row) : fallback || ref.id
   }
 
+  function stopPreview() {
+    clearTimeout(previewTimer)
+    draft?.reading?.abort()
+    if (draft) draft.reading = undefined
+  }
+
+  function updateComposerControls() {
+    const pending = Boolean(draft?.pending)
+    for (const field of fields) field.disabled = pending
+    send.disabled = pending || (type.value === REVIEW && !draft?.refs)
+  }
+
+  function renderReview(refs, message = '') {
+    reviewStatus.textContent = message
+    resolved.hidden = !refs
+    resolved.replaceChildren(...(refs ? refDetails(refs) : []))
+    updateComposerControls()
+  }
+
+  function compareModels() {
+    comparison.textContent = modelComparison(sendingModel.value, reviewingModel.value)
+  }
+
+  function previewRefs(delay) {
+    stopPreview()
+    const current = draft
+    if (!current || current.pending) return
+    const asked = base.value.trim()
+    const reading = new AbortController()
+    current.reading = reading
+    current.refs = undefined
+    renderReview(undefined, 'Reading Git references…')
+    previewTimer = setTimeout(async () => {
+      try {
+        const refs = await readRefs(current.from, asked, reading.signal)
+        if (draft !== current || current.reading !== reading) return
+        if (!asked) base.value = refs.base
+        current.refs = refs
+        base.removeAttribute('aria-invalid')
+        renderReview(refs)
+      } catch (error) {
+        if (error instanceof GivenUp || draft !== current || current.reading !== reading) return
+        if (!(error instanceof CallError)) throw error
+        base.setAttribute('aria-invalid', 'true')
+        renderReview(undefined, refusalText(error))
+      }
+    }, delay)
+  }
+
+  function changeType() {
+    const reviewing = type.value === REVIEW
+    review.hidden = !reviewing
+    bodyField.hidden = reviewing
+    if (reviewing) {
+      compareModels()
+      previewRefs(0)
+    } else {
+      stopPreview()
+      renderReview()
+    }
+  }
+
   function start(from, to, thread) {
     if (draft?.pending || opened?.pending) return
     if (!thread) closeDetails(false)
+    stopPreview()
     composer.reset()
     draft = { from: refOf(from), to, thread }
     fromLabel.textContent = `From ${nameOf(from)}`
     target.value = to ? to.id : ''
     target.readOnly = Boolean(thread)
     hint.hidden = Boolean(thread)
-    send.disabled = false
+    const models = thread ? opened?.thread?.models : undefined
+    sendingModel.value = models?.[keyOf(from)]?.name ?? ''
+    reviewingModel.value = to ? models?.[keyOf(to)]?.name ?? '' : ''
+    base.removeAttribute('aria-invalid')
+    changeType()
     details.hidden = true
     composer.hidden = false
     document.getElementById('card').classList.add('is-mailbox-composing')
@@ -98,6 +201,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
 
   function closeComposer(focus = true) {
     if (draft?.pending) return
+    stopPreview()
     draft = undefined
     composer.hidden = true
     document.getElementById('card').classList.remove('is-mailbox-composing')
@@ -118,22 +222,40 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
     draft.to = refOf(conversation)
     target.value = conversation.id
-    body.focus()
+    const field = type.value === REVIEW ? base : body
+    field.focus()
     return true
   }
 
   target.addEventListener('input', () => {
     if (draft) draft.to = undefined
   })
-  byId('mailbox-cancel').addEventListener('click', () => closeComposer())
+  type.addEventListener('change', changeType)
+  base.addEventListener('input', () => {
+    base.removeAttribute('aria-invalid')
+    previewRefs(REF_PREVIEW_DELAY)
+  })
+  sendingModel.addEventListener('input', compareModels)
+  reviewingModel.addEventListener('input', compareModels)
+  cancel.addEventListener('click', () => closeComposer())
   composer.addEventListener('submit', async (event) => {
     event.preventDefault()
     const current = draft
-    if (!current || current.pending) return
+    const reviewing = type.value === REVIEW
+    if (!current || current.pending || (reviewing && !current.refs)) return
     current.pending = true
-    send.disabled = true
+    updateComposerControls()
     const to = current.to ?? { id: target.value.trim() }
-    const request = { from: current.from, to, type: type.value, body: body.value }
+    const request = { from: current.from, to, type: type.value }
+    if (reviewing) {
+      const { worktree, commit, base } = current.refs
+      request.refs = { worktree, commit, base }
+      const from = sendingModel.value.trim()
+      const to = reviewingModel.value.trim()
+      if (from || to) request.models = { ...(from && { from }), ...(to && { to }) }
+    } else {
+      request.body = body.value
+    }
     if (current.thread) request.thread = current.thread
     try {
       const { version } = await sendMessage(request)
@@ -148,7 +270,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       if (opened) await load(opened)
     } finally {
       current.pending = false
-      send.disabled = false
+      if (draft === current) updateComposerControls()
     }
   })
 
@@ -224,6 +346,12 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       const entry = element('article', 'mailbox-message')
       entry.append(element('p', 'mailbox-muted', [nameOf(message.from), TYPES[message.type] ?? message.type, STATES[message.state], sentAt(message.at)].filter(Boolean).join(' · ')))
       if (message.body) entry.append(element('p', 'mailbox-body', message.body))
+      if (message.refs) {
+        const models = thread.models ?? {}
+        const refs = element('div', 'mailbox-review-refs')
+        refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(models[keyOf(message.from)]?.name, models[keyOf(message.to)]?.name)))
+        entry.append(refs)
+      }
       if (message.state === 'waiting' && thread.status !== 'paused') {
         const controls = element('div', 'mailbox-actions')
         controls.append(

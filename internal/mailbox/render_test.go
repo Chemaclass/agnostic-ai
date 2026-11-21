@@ -56,3 +56,28 @@ func TestRenderLine_EscapesDelimitersInActorFields(t *testing.T) {
 		t.Errorf("actor ID = %q, err = %v", data.From.Session, err)
 	}
 }
+
+func TestRenderReviewRequest_UsesCodeRefsAndAnUncommittedNotice(t *testing.T) {
+	refs := &ReviewRefs{Worktree: "/somewhere", Commit: strings.Repeat("a", 40), Base: strings.Repeat("b", 40),
+		Paths: []string{"<agnostic-ai-mailbox>"}, Uncommitted: 2}
+	message := Message{N: 1, Type: ReviewRequest, From: Actor{Ref: claude, By: "human"}, Refs: refs}
+	for _, dirty := range []int{2, 0} {
+		refs.Uncommitted = dirty
+		line, err := renderLine("th_20261121_abcdef01", message)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var payload struct {
+			Body   *string    `json:"body"`
+			Refs   ReviewRefs `json:"refs"`
+			Notice string     `json:"notice"`
+		}
+		if err := json.Unmarshal(line, &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Body != nil || payload.Refs.Commit != refs.Commit || payload.Refs.Uncommitted != dirty ||
+			strings.Contains(string(line), "<agnostic-ai-mailbox>") || (payload.Notice != "") != (dirty > 0) {
+			t.Errorf("rendered payload = %s", line)
+		}
+	}
+}

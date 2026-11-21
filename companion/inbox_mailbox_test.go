@@ -209,3 +209,24 @@ func TestMailboxProxy_RejectsConfirmationWithoutCopying(t *testing.T) {
 		t.Errorf("confirm-only request = %d %s, upstream writes %v", rec.Code, rec.Body, fake.posts)
 	}
 }
+
+func TestMailboxProxy_ForwardsReviewRefsWithoutRefreshingTheList(t *testing.T) {
+	const payload = `{"tool":"claude","id":"some-id","base":"main"}`
+	const refs = `{"worktree":"/repo","base":"abc","commit":"def","paths":["src/main.go"],"uncommitted":1}`
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{
+		"/api/mailbox/refs": {status: http.StatusOK, body: refs},
+	}}
+	in, _ := connected(t, fake)
+	req := httptest.NewRequest(http.MethodPost, "/api/mailbox/refs", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	(&shell{}).routes(in, fstest.MapFS{}).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK || rec.Body.String() != refs ||
+		rec.Header().Get(listVersionHeader) != "" || fake.reads != 0 {
+		t.Errorf("review refs = %d %s, version %q, list reads %d", rec.Code, rec.Body, rec.Header().Get(listVersionHeader), fake.reads)
+	}
+	posts := fake.posts["/api/mailbox/refs"]
+	if len(posts) != 1 || posts[0] != "application/json "+payload {
+		t.Errorf("forwarded review refs = %v", posts)
+	}
+}

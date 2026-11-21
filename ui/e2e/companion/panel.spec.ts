@@ -926,6 +926,177 @@ test('an unreadable mailbox thread leaves the rest of the list available', async
   await expect(row(page, 'Review the parser')).toBeVisible()
 })
 
+const reviewCommit = '1'.repeat(40)
+const reviewBase = '2'.repeat(40)
+const reviewWorktree = '/Users/you/Code/agnostic-ai'
+
+async function chooseReviewRequest(page: Page) {
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('review_request')
+  await expect(page.getByLabel('Base branch or commit')).toBeVisible()
+}
+
+test('a mailbox review request has no message field and carries only the previewed refs', async ({ page }) => {
+  await openPanel(page, 'mailbox-review')
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await page.getByLabel('Message', { exact: true }).fill('My earlier opinion must stay in the draft.')
+  await chooseReviewRequest(page)
+  await expect(page.getByLabel('Message', { exact: true })).toBeHidden()
+  await expect(page.getByLabel('Base branch or commit')).toHaveValue(reviewBase)
+
+  const preview = page.getByRole('group', { name: 'Resolved review' })
+  await expect(preview).toContainText(reviewWorktree)
+  await expect(preview).toContainText(reviewCommit)
+  await expect(preview).toContainText(reviewBase)
+  await expect(preview).toContainText('2 changed paths')
+  await expect(preview).toContainText('2 uncommitted files are outside this review.')
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await page.getByRole('button', { name: 'Send message' }).press('Enter')
+  const request = (await sent).postDataJSON()
+  expect(request).not.toHaveProperty('body')
+  expect(request.refs).toEqual({ worktree: reviewWorktree, commit: reviewCommit, base: reviewBase })
+  await expect(mailboxSummary(page)).toContainText('Review request')
+  await mailboxSummary(page).click()
+  await expect(mailboxThread(page)).toContainText(reviewCommit)
+  await expect(mailboxThread(page)).toContainText('2 changed paths')
+})
+
+test('a mailbox review compares models across tools and leaves missing models unknown', async ({ page }) => {
+  await openPanel(page, 'mailbox-review')
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseReviewRequest(page)
+  await page.getByLabel('Sending model (optional)').fill('Model A')
+  const comparison = page.getByRole('status').filter({ hasText: /Sending: Model A/ })
+  await expect(comparison).toContainText('Reviewing: model unknown')
+  await expect(comparison).not.toContainText('same model')
+  await page.getByLabel('Reviewing model (optional)').fill('model a')
+  await expect(comparison).toContainText('Both sessions state the same model.')
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await page.getByRole('button', { name: 'Send message' }).click()
+  expect((await sent).postDataJSON().models).toEqual({ from: 'Model A', to: 'model a' })
+  await mailboxSummary(page).click()
+  await expect(mailboxThread(page)).toContainText('Both sessions state the same model.')
+})
+
+test('a mailbox review without a default base asks for an explicit base before sending', async ({ page }) => {
+  await openPanel(page, 'mailbox-review-no-base')
+  await composeMailbox(page)
+  await chooseReviewRequest(page)
+  const base = page.getByLabel('Base branch or commit')
+  const send = page.getByRole('button', { name: 'Send message' })
+  await expect(base).toHaveValue('')
+  await expect(page.getByText(/guard: refs.*Name a base/)).toBeVisible()
+  await expect(send).toBeDisabled()
+  await base.fill('main')
+  await expect(page.getByRole('group', { name: 'Resolved review' })).toContainText(reviewBase)
+  await expect(send).toBeEnabled()
+})
+
+test('a mailbox review keeps its fields stable until a delayed send refusal returns', async ({ page }) => {
+  let refuse!: () => void
+  const refusal = new Promise<void>((resolve) => { refuse = resolve })
+  await page.route('**/api/mailbox/send', async (route) => {
+    await refusal
+    await route.fulfill({ status: 422, json: { guard: 'refs', error: 'The pinned references are unavailable.' } })
+  })
+  await openPanel(page, 'mailbox-review')
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseReviewRequest(page)
+  const base = page.getByLabel('Base branch or commit')
+  const send = page.getByRole('button', { name: 'Send message' })
+  await expect(base).toHaveValue(reviewBase)
+  const requested = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await send.click()
+  await requested
+  try {
+    await expect(base).toBeDisabled()
+    await expect(page.getByRole('combobox', { name: 'Type', exact: true })).toBeDisabled()
+    await expect(page.getByLabel('Reviewing model (optional)')).toBeDisabled()
+  } finally {
+    refuse()
+  }
+  await expect(page.getByText(/guard: refs.*The pinned references are unavailable/)).toBeVisible()
+  await expect(base).toBeEnabled()
+  await expect(base).toHaveValue(reviewBase)
+  await expect(send).toBeEnabled()
+})
+
+test('a previous mailbox send cannot enable a new draft before its refs resolve', async ({ page }) => {
+  await openPanel(page, 'mailbox-review')
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseReviewRequest(page)
+  await expect(page.getByLabel('Base branch or commit')).toHaveValue(reviewBase)
+
+  let releaseList!: () => void
+  const heldList = new Promise<void>((resolve) => { releaseList = resolve })
+  await page.route('**/api/inbox', async (route) => {
+    await heldList
+    await route.continue()
+  })
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(page.getByRole('form', { name: 'Send to session' })).toBeHidden()
+  await composeMailbox(page)
+
+  let releaseRefs!: () => void
+  const heldRefs = new Promise<void>((resolve) => { releaseRefs = resolve })
+  await page.route('**/api/mailbox/refs', async (route) => {
+    await heldRefs
+    await route.continue()
+  })
+  try {
+    await chooseReviewRequest(page)
+    await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    releaseList()
+    await expect(mailboxSummary(page)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled()
+  } finally {
+    releaseList()
+    releaseRefs()
+  }
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeEnabled()
+})
+
+test('a late mailbox refs response cannot replace a newer preview', async ({ page }) => {
+  let requestArrived!: () => void
+  const slowRequest = new Promise<void>((resolve) => { requestArrived = resolve })
+  let release!: () => void
+  const slowResponse = new Promise<void>((resolve) => { release = resolve })
+  await page.route('**/api/mailbox/refs', async (route) => {
+    const { base } = route.request().postDataJSON()
+    if (base === 'slow') {
+      requestArrived()
+      await slowResponse
+      await route.fulfill({ json: { worktree: '/old-worktree', commit: '4'.repeat(40), base: '5'.repeat(40), paths: [], uncommitted: 0 } })
+      return
+    }
+    if (base === 'fresh') {
+      await route.fulfill({ json: { worktree: '/new-worktree', commit: '6'.repeat(40), base: '7'.repeat(40), paths: [], uncommitted: 0 } })
+      return
+    }
+    await route.continue()
+  })
+  await openPanel(page, 'mailbox-review')
+  await composeMailbox(page)
+  await chooseReviewRequest(page)
+  const base = page.getByLabel('Base branch or commit')
+  await expect(base).toHaveValue(reviewBase)
+  const canceled = page.waitForEvent('requestfailed', (request) =>
+    request.url().endsWith('/api/mailbox/refs') && request.postDataJSON().base === 'slow',
+  )
+  await base.fill('slow')
+  await slowRequest
+  await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled()
+  await base.fill('fresh')
+  await canceled
+  const preview = page.getByRole('group', { name: 'Resolved review' })
+  await expect(preview).toContainText('/new-worktree')
+  release()
+  await expect(preview).not.toContainText('/old-worktree')
+})
+
 test('copy resume command writes the exact command and says so', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openFailing(page, 'resume-failure')

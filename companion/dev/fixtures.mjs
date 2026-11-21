@@ -245,6 +245,15 @@ function mailboxSessions(now) {
   ]
 }
 
+const reviewRefs = {
+  worktree: '/Users/you/Code/agnostic-ai',
+  commit: '1'.repeat(40),
+  base: '2'.repeat(40),
+  branch: 'feat/mailbox',
+  paths: ['internal/mailbox/store.go', 'internal/mailbox/store_test.go'],
+  uncommitted: 2,
+}
+
 function mailboxThread(now, { count, status, state, id }) {
   const at = new Date(now).toISOString()
   return {
@@ -258,6 +267,12 @@ function mailboxThread(now, { count, status, state, id }) {
 
 export const FIXTURES = {
   mailbox: { label: 'Mailbox sessions', conversations: mailboxSessions, mailboxTypingRefused: true },
+  'mailbox-review': {
+    label: 'Review request with a default base', conversations: mailboxSessions, reviewRefs,
+  },
+  'mailbox-review-no-base': {
+    label: 'Review request with no default base', conversations: mailboxSessions, reviewRefs, mailboxNoDefaultBase: true,
+  },
   'mailbox-cap': {
     label: 'A mailbox thread at its cap', conversations: mailboxSessions,
     mailbox: (now) => [mailboxThread(now, { count: 8, status: 'open', state: 'staged', id: 'th_20261107_00000001' })],

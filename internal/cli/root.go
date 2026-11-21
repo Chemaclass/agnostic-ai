@@ -122,6 +122,7 @@ func NewRootCmd(version string) *cobra.Command {
 		newMemoryCmd(),
 		newHandoffCmd(),
 		newConversationsCmd(),
+		newMailboxCmd(),
 		newApprovalsCmd(),
 	)
 	root.ValidArgsFunction = completeCommandAliases

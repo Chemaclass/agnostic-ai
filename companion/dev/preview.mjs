@@ -12,7 +12,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FIXTURES, arrival } from './fixtures.mjs'
-import { mailboxChange, mailboxRows, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
+import { mailboxChange, mailboxRefs, mailboxRows, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const FRONTEND = resolve(here, '../frontend')
@@ -447,6 +447,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       const reply = mailboxThreads(state, url)
       sendJSON(response, reply.status, reply.body)
     },
+    'POST /api/mailbox/refs': mailboxRoute('/api/mailbox/refs', mailboxRefs),
     'POST /api/mailbox/send': mailboxRoute('/api/mailbox/send', mailboxSend),
     'POST /api/mailbox/thread': mailboxRoute('/api/mailbox/thread', mailboxChange),
     'POST /api/mailbox/stage': mailboxRoute('/api/mailbox/stage', mailboxStage),

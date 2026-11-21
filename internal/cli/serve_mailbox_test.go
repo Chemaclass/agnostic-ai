@@ -145,7 +145,7 @@ func TestMailboxHTTP_RefusesUnlistedSessionsAndForgedFields(t *testing.T) {
 		{"queue time", `{"queuedAt":"2026-11-21T10:03:40Z",` + strings.TrimPrefix(valid, "{"), "format"},
 		{"cap", `{"cap":80,` + strings.TrimPrefix(valid, "{"), "format"},
 		{"events", `{"events":[],` + strings.TrimPrefix(valid, "{"), "format"},
-		{"review request", mailboxSendBody(inWorktree, "review_request", "", ""), "format"},
+		{"review request body", mailboxSendBody(inWorktree, "review_request", "", ""), "echo"},
 		{"handoff", mailboxSendBody(inWorktree, "handoff", "", ""), "format"},
 		{"credential", mailboxSendBody(inWorktree, "question", "API_KEY=fixture-sensitive-value-123456789", ""), "secret"},
 		{"too large", mailboxSendBody(inWorktree, "question", strings.Repeat("x", 4001), ""), "size"},

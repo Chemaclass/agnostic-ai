@@ -572,6 +572,16 @@ export function threadsOf(conversation) {
   return conversation.threads ?? []
 }
 
+export function reviewModelsOf(from, to) {
+  const sending = from?.trim()
+  const reviewing = to?.trim()
+  return {
+    from: sending || 'model unknown',
+    to: reviewing || 'model unknown',
+    same: Boolean(sending && reviewing && sending.toLowerCase() === reviewing.toLowerCase()),
+  }
+}
+
 export function threadLabelOf({ count, cap, waiting }) {
   return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}`
 }

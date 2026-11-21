@@ -2,6 +2,7 @@ package mailbox
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -33,7 +34,6 @@ func TestValidateSend_RefusesCredentialsInEveryField(t *testing.T) {
 
 func TestStore_RefusesUnshippedMessageTypesAndOversizeText(t *testing.T) {
 	for _, test := range []struct{ name, kind, body, guard string }{
-		{"review requests", "review_request", "", "format"},
 		{"handoffs", "handoff", "Do this next.", "format"},
 		{"a body on done", Done, "Goodbye.", "format"},
 		{"a body over 4000 characters", Finding, strings.Repeat("a", 4001), "size"},
@@ -86,4 +86,90 @@ func TestStore_RefusesAReplyFromOutsideTheThread(t *testing.T) {
 	if len(refusals) != 1 || refusals[0].Guard != "not-in-thread" || refusals[0].From != nil {
 		t.Errorf("thread should record the refusal without the unrelated session: %+v", refusals)
 	}
+}
+
+func TestStore_ReviewRequestAcceptsOnlyResolvedCodeRefs(t *testing.T) {
+	repo, base := newReviewRepo(t)
+	head := reviewCommit(t, repo, "changed.txt")
+	root := reviewGitFixture(t, repo, "rev-parse", "--show-toplevel")
+	s := Store{Dir: t.TempDir()}
+	request := SendRequest{To: codex, Type: ReviewRequest, Refs: &ReviewInput{
+		Worktree: root, Base: base, Commit: head,
+	}}
+	for _, example := range []struct {
+		name  string
+		guard string
+		edit  func(*SendRequest)
+	}{
+		{"body", "echo", func(r *SendRequest) { r.Body = "I already approve this." }},
+		{"another worktree", "refs", func(r *SendRequest) { r.Refs.Worktree = t.TempDir() }},
+		{"missing base", "refs", func(r *SendRequest) { r.Refs.Base = "" }},
+		{"missing refs", "refs", func(r *SendRequest) { r.Refs = nil }},
+		{"changed paths", "refs", func(r *SendRequest) { r.Refs.Paths = []string{"elsewhere.txt"} }},
+		{"explicit empty paths", "refs", func(r *SendRequest) { r.Refs.Paths = []string{} }},
+		{"credential in a path", "secret", func(r *SendRequest) { r.Refs.Paths = []string{"api_key=example-secret-sentinel"} }},
+		{"credential in model", "secret", func(r *SendRequest) { r.Models = &ModelInput{From: "api_key=example-secret-sentinel"} }},
+		{"oversized path", "size", func(r *SendRequest) { r.Refs.Paths = []string{strings.Repeat("x", 401)} }},
+		{"non-Unicode path", "refs", func(r *SendRequest) { r.Refs.Paths = []string{"invalid-\xff"} }},
+	} {
+		t.Run(example.name, func(t *testing.T) {
+			refs := *request.Refs
+			req := request
+			req.Refs = &refs
+			example.edit(&req)
+			_, err := s.SendFromWorktree(context.Background(), claude, req, repo)
+			requireGuard(t, err, example.guard)
+		})
+	}
+	request.Refs.Paths = []string{"changed.txt"}
+	request.Models = &ModelInput{From: "Model A", To: "Model B"}
+	receipt, err := s.SendFromWorktree(context.Background(), claude, request, repo)
+	if err != nil {
+		t.Fatalf("send resolved review = %v", err)
+	}
+	thread := onlyThread(t, s)
+	message := thread.Messages[0]
+	if receipt.State != Waiting || message.Type != ReviewRequest || message.Body != "" || message.Refs == nil ||
+		message.Refs.Commit != head || message.Refs.Base != base || !slices.Equal(message.Refs.Paths, []string{"changed.txt"}) {
+		t.Errorf("stored review = %+v, receipt = %+v", message, receipt)
+	}
+	if len(thread.Models) != 2 || thread.Models["claude:"+claude.ID] != (Model{Name: "Model A", StatedBy: "human"}) ||
+		thread.Models["codex:"+codex.ID] != (Model{Name: "Model B", StatedBy: "human"}) {
+		t.Errorf("stored model statements = %+v", thread.Models)
+	}
+}
+
+func TestStore_ReviewRequestCountsTowardCapAndObeysThreadState(t *testing.T) {
+	ctx := context.Background()
+	repo, base := newReviewRepo(t)
+	reviewCommit(t, repo, "changed.txt")
+	root := reviewGitFixture(t, repo, "rev-parse", "--show-toplevel")
+	s := Store{Dir: t.TempDir()}
+	request := SendRequest{
+		To: codex, Type: ReviewRequest,
+		Refs: &ReviewInput{Worktree: root, Base: base},
+	}
+	receipt, err := s.SendFromWorktree(ctx, claude, request, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Thread = receipt.Thread
+	if err := s.Change(ctx, receipt.Thread, "pause"); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.SendFromWorktree(ctx, claude, request, repo)
+	requireGuard(t, err, "paused")
+	if err := s.Change(ctx, receipt.Thread, "resume"); err != nil {
+		t.Fatal(err)
+	}
+	for range 7 {
+		sendQuestion(t, s, receipt.Thread)
+	}
+	_, err = s.SendFromWorktree(ctx, claude, request, repo)
+	requireGuard(t, err, "cap")
+	if _, err := s.Send(ctx, claude, SendRequest{To: codex, Type: Done, Thread: receipt.Thread}); err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.SendFromWorktree(ctx, claude, request, repo)
+	requireGuard(t, err, "closed")
 }
