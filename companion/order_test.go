@@ -104,6 +104,10 @@ func heldFirstList(s *server) (started, release chan struct{}, calls *atomic.Int
 	s.base = "http://companion.test"
 	s.client = &http.Client{Transport: answerFunc(func(r *http.Request) (*http.Response, error) {
 		answer := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Request: r, Body: http.NoBody}
+		if r.URL.Path == "/api/health" {
+			answer.Body = io.NopCloser(strings.NewReader(`{"ok":true}`))
+			return answer, nil
+		}
 		if calls.Add(1) == 1 {
 			close(started)
 			<-release

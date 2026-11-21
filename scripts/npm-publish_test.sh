@@ -19,26 +19,27 @@ export NPM_PUBLISH_RETRIES=2
 export NPM_PUBLISH_FIRST_DELAY=0
 export NPM_PROVENANCE_RETRIES=3
 export NPM_ATTESTATION_SETTLE=0
+unset GITHUB_OUTPUT
 
 # ---- fixtures ----------------------------------------------------------------
 
 # A parent and two platform packages on disk. Two is enough to prove ordering
 # and the wait; the real count is guarded in npm/lib/platforms_test.js.
 function fake_tree() {
-  local root="$1" name
+  local root="$1" version="${2:-1.2.3}" name
   mkdir -p "$root/npm/platforms/darwin-arm64" "$root/npm/platforms/linux-x64"
-  cat > "$root/npm/package.json" <<'JSON'
+  cat > "$root/npm/package.json" <<JSON
 {
   "name": "agnostic-ai",
-  "version": "1.2.3",
+  "version": "$version",
   "optionalDependencies": {
-    "@agnostic-ai/darwin-arm64": "1.2.3",
-    "@agnostic-ai/linux-x64": "1.2.3"
+    "@agnostic-ai/darwin-arm64": "$version",
+    "@agnostic-ai/linux-x64": "$version"
   }
 }
 JSON
   for name in darwin-arm64 linux-x64; do
-    printf '{"name":"@agnostic-ai/%s","version":"1.2.3"}\n' "$name" \
+    printf '{"name":"@agnostic-ai/%s","version":"%s"}\n' "$name" "$version" \
       > "$root/npm/platforms/$name/package.json"
   done
 }
@@ -49,6 +50,7 @@ JSON
 function stub_npm() {
   STUB_LOG="$1"
   STUB_PRESENT="$1.present"
+  STUB_TAGS="$1.tags"
   STUB_PUBLISH_FAILS="${3:-}"
   # shellcheck disable=SC2329
   function verify_npm_provenance() {
@@ -57,16 +59,41 @@ function stub_npm() {
   }
   : > "$STUB_LOG"
   printf '%s\n' "${2:-}" > "$STUB_PRESENT"
+  : > "$STUB_TAGS"
   # shellcheck disable=SC2317,SC2329
   function npm() {
     case "$1" in
+      root) command npm "$@" ;;
       view)
         printf 'view %s\n' "$2" >> "$STUB_LOG"
-        grep -qxF "${2%@*}" "$STUB_PRESENT"
+        if [[ "${STUB_METADATA_FAILS:-}" == "$2 $3" ]]; then
+          printf '{"error":{"code":"E503"}}\n'
+          return 1
+        fi
+        if [[ "$3" == dist-tags ]]; then
+          awk -v name="$2" '
+            $1 == name { tags[$2] = $3 }
+            END {
+              printf "{"
+              sep = ""
+              for (tag in tags) {
+                printf "%s\"%s\":\"%s\"", sep, tag, tags[tag]
+                sep = ","
+              }
+              print "}"
+            }
+          ' "$STUB_TAGS"
+        elif grep -qxF "${2%@*}" "$STUB_PRESENT"; then
+          printf '"%s"\n' "${2##*@}"
+        else
+          printf '{"error":{"code":"E404"}}\n'
+          return 1
+        fi
         ;;
       publish)
-        local name provenance="plain" tag="<none>" arg next=""
+        local name version provenance="plain" tag="<none>" arg next="" attempt
         name="$(node -p "require('./package.json').name")"
+        version="$(node -p "require('./package.json').version")"
         [[ "$*" == *--provenance* ]] && provenance="provenance"
         # An untagged publish writes `latest`, so the log records the tag the
         # script asked for, not just that it published.
@@ -78,8 +105,28 @@ function stub_npm() {
         if grep -qxF "$name $provenance" <<< "$STUB_PUBLISH_FAILS"; then
           return 1
         fi
+        if [[ "${STUB_OVERLAP:-}" == yes && "$name" == @agnostic-ai/* ]]; then
+          touch "$STUB_LOG.${name##*/}.started"
+          for ((attempt = 0; attempt < 200; attempt++)); do
+            if [[ -f "$STUB_LOG.darwin-arm64.started" && -f "$STUB_LOG.linux-x64.started" ]]; then
+              break
+            fi
+            sleep 0.05
+          done
+          [[ "$attempt" -lt 200 ]] || return 1
+        fi
         # A successful publish makes the package visible to later views.
         printf '%s\n' "$name" >> "$STUB_PRESENT"
+        if [[ "${STUB_STALE_TAG:-}" != "$name" ]]; then
+          if [[ "${STUB_SUPERSEDES:-}" == "$name" ]]; then
+            version=1.2.10
+          fi
+          printf '%s %s %s\n' "$name" "$tag" "$version" >> "$STUB_TAGS"
+        fi
+        ;;
+      dist-tag)
+        printf 'tag %s %s\n' "$3" "$4" >> "$STUB_LOG"
+        printf '%s %s %s\n' "${3%@*}" "$4" "${3##*@}" >> "$STUB_TAGS"
         ;;
     esac
   }
@@ -87,7 +134,7 @@ function stub_npm() {
 
 function unstub_npm() {
   unset -f npm verify_npm_provenance
-  unset STUB_LOG STUB_PRESENT STUB_PUBLISH_FAILS
+  unset STUB_LOG STUB_PRESENT STUB_PUBLISH_FAILS STUB_TAGS
 }
 
 # ---- ordering ----------------------------------------------------------------
@@ -102,9 +149,9 @@ function test_it_publishes_every_platform_package_before_the_parent() {
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "publish @agnostic-ai/darwin-arm64 provenance latest
-publish @agnostic-ai/linux-x64 provenance latest
-publish agnostic-ai provenance latest" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 provenance latest" "$log"
+  assert_contains "publish @agnostic-ai/linux-x64 provenance latest" "$log"
+  assert_same "publish agnostic-ai provenance latest" "$(tail -1 <<< "$log")"
 }
 
 function test_it_waits_for_every_platform_package_before_the_parent() {
@@ -131,9 +178,17 @@ function test_it_refuses_to_publish_the_parent_when_a_platform_package_never_lan
   # shellcheck disable=SC2317,SC2329
   function npm() {
     case "$1" in
+      root) command npm "$@" ;;
       view)
         printf 'view %s\n' "$2" >> "$STUB_LOG"
-        [[ "$2" != "@agnostic-ai/linux-x64@1.2.3" ]] && grep -qxF "${2%@*}" "$STUB_PRESENT"
+        if [[ "$3" == dist-tags ]]; then
+          printf '{}\n'
+        elif [[ "$2" != "@agnostic-ai/linux-x64@1.2.3" ]] && grep -qxF "${2%@*}" "$STUB_PRESENT"; then
+          printf '"%s"\n' "${2##*@}"
+        else
+          printf '{"error":{"code":"E404"}}\n'
+          return 1
+        fi
         ;;
       publish)
         local name
@@ -160,16 +215,16 @@ function test_it_verifies_only_after_every_platform_package_is_published() {
   fake_tree "$tmp"
   stub_npm "$tmp/log"
   main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
-  order="$(grep -E '^(publish|verify)' "$tmp/log" | cut -d' ' -f1-2)"
+  order="$(grep -E '^(publish|verify)' "$tmp/log" | cut -d' ' -f1)"
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "publish @agnostic-ai/darwin-arm64
-publish @agnostic-ai/linux-x64
-verify @agnostic-ai/darwin-arm64@1.2.3
-verify @agnostic-ai/linux-x64@1.2.3
-publish agnostic-ai
-verify agnostic-ai@1.2.3" "$order"
+  assert_same "publish
+publish
+verify
+verify
+publish
+verify" "$order"
 }
 
 function test_it_waits_for_signing_only_after_an_upload() {
@@ -241,11 +296,18 @@ function test_a_tarball_uploaded_without_attestation_fails() {
   # shellcheck disable=SC2317,SC2329
   function npm() {
     case "$1" in
+      root) command npm "$@" ;;
       view)
         # linux-x64 shows up only after its publish has been attempted: the
         # tarball landed, attaching the attestation is what failed.
-        [[ "$2" == "@agnostic-ai/linux-x64@1.2.3" && -f "$STUB_LOG.attempted" ]] && return 0
-        grep -qxF "${2%@*}" "$STUB_PRESENT"
+        if [[ "$3" == dist-tags ]]; then
+          printf '{}\n'
+        elif [[ "$2" == "@agnostic-ai/linux-x64@1.2.3" && -f "$STUB_LOG.attempted" ]] || grep -qxF "${2%@*}" "$STUB_PRESENT"; then
+          printf '"%s"\n' "${2##*@}"
+        else
+          printf '{"error":{"code":"E404"}}\n'
+          return 1
+        fi
         ;;
       publish)
         local name
@@ -342,23 +404,23 @@ function test_an_unrecognised_suffix_parks_on_next() {
 function test_it_publishes_a_prerelease_under_its_own_tag() {
   local tmp log
   tmp="$(mktemp -d)"
-  fake_tree "$tmp"
+  fake_tree "$tmp" 1.2.3-beta.1
   stub_npm "$tmp/log"
   main 1.2.3-beta.1 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
   log="$(grep '^publish' "$tmp/log")"
   unstub_npm
   rm -rf "$tmp"
 
-  assert_same "publish @agnostic-ai/darwin-arm64 provenance beta
-publish @agnostic-ai/linux-x64 provenance beta
-publish agnostic-ai provenance beta" "$log"
+  assert_contains "publish @agnostic-ai/darwin-arm64 provenance beta" "$log"
+  assert_contains "publish @agnostic-ai/linux-x64 provenance beta" "$log"
+  assert_same "publish agnostic-ai provenance beta" "$(tail -1 <<< "$log")"
 }
 
 # A failed prerelease must not trigger a second plain publish.
 function test_a_failed_prerelease_never_retries_plain() {
   local tmp log
   tmp="$(mktemp -d)"
-  fake_tree "$tmp"
+  fake_tree "$tmp" 1.2.3-rc.2
   stub_npm "$tmp/log" "" "@agnostic-ai/darwin-arm64 provenance"
   main 1.2.3-rc.2 "$tmp/npm/platforms" "$tmp/npm" > /dev/null 2>&1 || true
   log="$(cat "$tmp/log")"
@@ -423,6 +485,17 @@ function test_every_parent_and_platform_package_is_verified() {
     mkdir -p "$tmp/npm/platforms/$name"
     printf '{"name":"@agnostic-ai/%s","version":"1.2.3"}\n' "$name" > "$tmp/npm/platforms/$name/package.json"
   done
+  (
+    cd "$tmp/npm" || exit 1
+    node -e '
+      const fs = require("node:fs")
+      const parent = require("./package.json")
+      for (const platform of fs.readdirSync("platforms")) {
+        parent.optionalDependencies["@agnostic-ai/" + platform] = "1.2.3"
+      }
+      fs.writeFileSync("package.json", JSON.stringify(parent))
+    '
+  )
   stub_npm "$tmp/log"
   main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" >/dev/null
   log="$(cat "$tmp/log")"
@@ -450,4 +523,120 @@ function test_partial_publish_recovery_skips_verified_platforms() {
   assert_contains "verify @agnostic-ai/darwin-arm64@1.2.3" "$log"
   assert_contains "publish @agnostic-ai/linux-x64 provenance latest" "$log"
   assert_contains "verify agnostic-ai@1.2.3" "$log"
+}
+
+function test_platform_publishes_overlap_and_finish_before_the_parent() {
+  local tmp code out
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  code=0
+  out="$(STUB_OVERLAP=yes NPM_PUBLISH_WORKERS=2 main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" 2>&1)" || code=$?
+  unstub_npm
+  rm -rf "$tmp"
+
+  if [[ "$code" -ne 0 ]]; then printf '%s\n' "$out"; fi
+  assert_same "0" "$code"
+  assert_contains "publish @agnostic-ai/darwin-arm64@1.2.3 took" "$out"
+  assert_contains "visibility @agnostic-ai/linux-x64@1.2.3 took" "$out"
+  assert_contains "provenance agnostic-ai@1.2.3 took" "$out"
+}
+
+function test_recovery_of_a_superseded_release_keeps_the_newer_pointer() {
+  local tmp log tags status
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  printf '%s\n' "agnostic-ai latest 1.2.10" "@agnostic-ai/darwin-arm64 latest 1.2.10" > "$STUB_TAGS"
+  GITHUB_OUTPUT="$tmp/status" main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
+  log="$(cat "$tmp/log")"
+  tags="$(cat "$STUB_TAGS")"
+  status="$(cat "$tmp/status")"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_contains "publish agnostic-ai provenance recovery-v1.2.3" "$log"
+  assert_contains "verify agnostic-ai@1.2.3" "$log"
+  assert_contains "verify @agnostic-ai/linux-x64@1.2.3" "$log"
+  assert_contains "verify @agnostic-ai/darwin-arm64@1.2.3" "$log"
+  assert_contains "agnostic-ai latest 1.2.10" "$tags"
+  assert_not_contains "latest 1.2.3" "$tags"
+  assert_same "state=superseded" "$status"
+}
+
+function test_a_newer_prerelease_in_the_same_channel_supersedes_numeric_identifiers() {
+  local tmp state
+  tmp="$(mktemp -d)"
+  stub_npm "$tmp/log"
+  printf '%s\n' "agnostic-ai rc 1.2.3-rc.10" "agnostic-ai latest 1.2.2" > "$STUB_TAGS"
+  state="$(npm_dist_tag_state agnostic-ai 1.2.3-rc.2)"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_same "superseded" "$state"
+}
+
+function test_registry_failure_is_not_mistaken_for_a_missing_package() {
+  local tmp code=0 out log
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  out="$(STUB_METADATA_FAILS="agnostic-ai@1.2.3 version" main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" 2>&1)" || code=$?
+  log="$(cat "$tmp/log")"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_not_same "0" "$code"
+  assert_contains "cannot read version for agnostic-ai@1.2.3" "$out"
+  assert_not_contains "publish " "$log"
+}
+
+function test_parent_pins_have_to_match_the_release_version() {
+  local tmp output
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  (
+    cd "$tmp/npm" || exit 1
+    node -e '
+      const fs = require("node:fs")
+      const manifest = require("./package.json")
+      manifest.optionalDependencies["@agnostic-ai/darwin-arm64"] = "1.2.2"
+      fs.writeFileSync("package.json", JSON.stringify(manifest))
+    '
+  )
+  output="$(main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" 2>&1 || true)"
+  rm -rf "$tmp"
+
+  assert_contains "pins @agnostic-ai/darwin-arm64 to 1.2.2, expected 1.2.3" "$output"
+}
+
+function test_npm_publish_fails_when_a_pointer_stays_stale() {
+  local tmp out code=0
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  printf 'agnostic-ai latest 1.2.2\n' > "$STUB_TAGS"
+  out="$(STUB_STALE_TAG=agnostic-ai GITHUB_OUTPUT="$tmp/status" main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" 2>&1)" || code=$?
+  unstub_npm
+
+  assert_not_same "0" "$code"
+  assert_contains "agnostic-ai@latest did not point to 1.2.3" "$out"
+  assert_file_not_exists "$tmp/status"
+  rm -rf "$tmp"
+}
+
+function test_publisher_accepts_a_newer_pointer_after_publish() {
+  local tmp status tags
+  tmp="$(mktemp -d)"
+  fake_tree "$tmp"
+  stub_npm "$tmp/log"
+  STUB_SUPERSEDES=agnostic-ai GITHUB_OUTPUT="$tmp/status" main 1.2.3 "$tmp/npm/platforms" "$tmp/npm" > /dev/null
+  status="$(cat "$tmp/status")"
+  tags="$(cat "$STUB_TAGS")"
+  unstub_npm
+  rm -rf "$tmp"
+
+  assert_same "state=superseded" "$status"
+  assert_contains "agnostic-ai latest 1.2.10" "$tags"
+  assert_not_contains "agnostic-ai latest 1.2.3" "$tags"
 }

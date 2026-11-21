@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -50,6 +54,9 @@ func findBinary() (string, error) {
 		}
 		return named, nil
 	}
+	if _, command, ok := ownBundledCommand(); ok {
+		return command, nil
+	}
 	if recorded, ok := recordedBinary(); ok {
 		return recorded, nil
 	}
@@ -67,35 +74,86 @@ func findBinary() (string, error) {
 			return found, nil
 		}
 	}
-	if _, command, ok := ownBundledCommand(); ok {
-		return command, nil
-	}
 	return "", errNoBinary
 }
 
-// openDashboard opens the full web interface on the user-level
-// configuration, which lists every conversation as the companion does.
-// `agnostic-ai view` reuses a server that already serves that page or
-// starts one, apart from the companion's own, and that server keeps
-// running after the companion hides or quits.
-func openDashboard() error {
-	binary, err := findBinary()
-	if err != nil {
-		return err
-	}
-	view := exec.Command(binary, "view", "--global")
+// The dashboard outlives the companion. Only its startup is bounded by ctx.
+func openDashboard(ctx context.Context, view *exec.Cmd, open func(string) error) error {
 	withoutConsoleWindow(view)
-	if err := view.Start(); err != nil {
-		return fmt.Errorf("open the dashboard: %w", err)
+	output, err := view.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("read the dashboard address: %w", err)
 	}
-	// Collect the child when it ends, so it leaves no zombie behind.
-	go func() { _ = view.Wait() }()
+	problems := &tail{limit: maxProblemBytes}
+	view.Stderr = problems
+	if err := view.Start(); err != nil {
+		return fmt.Errorf("start the dashboard: %w", err)
+	}
+	address := make(chan string, 1)
+	ended := make(chan error, 1)
+	go func() {
+		lines := bufio.NewScanner(io.LimitReader(output, 4096))
+		if lines.Scan() {
+			address <- lines.Text()
+			_, _ = io.Copy(io.Discard, output)
+		}
+		_ = output.Close()
+		ended <- view.Wait()
+		close(address)
+	}()
+	select {
+	case raw, reported := <-address:
+		if !reported {
+			if exit := <-ended; exit != nil {
+				return fmt.Errorf("start the dashboard: %w. %s", exit, problems.String())
+			}
+			return errors.New("the command exited without a dashboard address. Try opening it again")
+		}
+		// Older CLI-managed launches open the browser themselves and print its address.
+		for _, prefix := range []string{servedLinePrefix, "Using agnostic-ai at "} {
+			if legacy, found := strings.CutPrefix(raw, prefix); found {
+				raw = legacy
+				open = func(string) error { return nil }
+				break
+			}
+		}
+		err = openReadyDashboard(ctx, raw, open)
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
+	if err != nil {
+		_ = view.Process.Kill()
+		return fmt.Errorf("open the dashboard: %w. Try opening it again", err)
+	}
 	return nil
 }
 
-// dashboard answers POST /api/dashboard.
-func dashboard(w http.ResponseWriter, _ *http.Request) {
-	if err := openDashboard(); err != nil {
+func openReadyDashboard(ctx context.Context, raw string, open func(string) error) error {
+	address, err := url.Parse(raw)
+	if err != nil || address.Scheme != "http" || address.Hostname() != "127.0.0.1" || address.Port() == "" || address.User != nil || address.Path != "/" || address.RawQuery != "" || address.Fragment != "" {
+		return fmt.Errorf("unexpected dashboard address %q", raw)
+	}
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	health, err := readServerHealth(ctx, client, strings.TrimSuffix(raw, "/"))
+	if err != nil {
+		return err
+	}
+	if !health.OK || !health.Global || !health.UI {
+		return fmt.Errorf("%s did not serve the global dashboard", raw)
+	}
+	return open(raw)
+}
+
+func (s *shell) dashboard(w http.ResponseWriter, r *http.Request) {
+	binary, err := findBinary()
+	if err == nil {
+		ctx, cancel := context.WithTimeout(r.Context(), serverStartWait)
+		defer cancel()
+		view := exec.Command(binary, "view", "--global")
+		view.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_VIEW=1")
+		err = openDashboard(ctx, view, s.app.Browser.OpenURL)
+	}
+	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
 		return
 	}

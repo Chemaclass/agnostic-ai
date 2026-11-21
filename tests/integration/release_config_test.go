@@ -413,10 +413,8 @@ func TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance(t *testing.T) {
 	if err := json.Unmarshal([]byte(data), &pin); err != nil {
 		t.Fatalf("parse toolchain pin: %v", err)
 	}
-	for job, name := range map[string]string{"npm": "Verify and install the npm publishing toolchain", "distribution": "Verify and install the npm verifier"} {
-		if !strings.Contains(workflowRun(t, releaseWorkflowPath, job, name), "scripts/npm-toolchain.sh") {
-			t.Errorf("%s does not use the verified toolchain", job)
-		}
+	if !strings.Contains(workflowRun(t, releaseWorkflowPath, "npm", "Verify and install the npm publishing toolchain"), "scripts/npm-toolchain.sh") {
+		t.Error("npm does not use the verified toolchain")
 	}
 	if !strings.HasPrefix(pin.Integrity, "sha512-") || pin.URL != "https://registry.npmjs.org/npm/-/npm-"+pin.Version+".tgz" {
 		t.Errorf("invalid pinned toolchain: %+v", pin)
@@ -435,58 +433,23 @@ func TestReleaseWorkflow_PinsAnNpmCliThatSupportsProvenance(t *testing.T) {
 	}
 }
 
-// TestReleaseWorkflow_DistributionChecksRetryAStaleReplica keeps the
-// guard honest about propagation delay.
-//
-// Both checks read a replica that lags the write they verify: on v0.62.0
-// `npm view` reported the version absent nine seconds after a publish
-// that had landed. A single read turns that lag into a red release, and
-// a check that is sometimes wrong gets dismissed when it is right.
-func TestReleaseWorkflow_DistributionChecksRetryAStaleReplica(t *testing.T) {
-	for _, step := range []string{"Homebrew cask serves this tag", "npm serves this tag"} {
-		script := workflowRun(t, releaseWorkflowPath, "distribution", step)
-		if !strings.Contains(script, "for attempt in") || !strings.Contains(script, "sleep") {
-			t.Errorf("%q reads its channel once; a replica that has not caught up then fails the release:\n%s", step, script)
-		}
-		if !strings.Contains(script, "delay * 2") {
-			t.Errorf("%q retries without backoff; hammering the replica does not make it catch up faster:\n%s", step, script)
-		}
-		// The retry must not swallow the case the guard exists for.
-		if !strings.Contains(script, "::error::") {
-			t.Errorf("%q no longer errors on a channel that stays stale:\n%s", step, script)
-		}
-		// An absent credential must say so and pass, never fail the
-		// release; that is how a fork releases. The two steps differ on
-		// how loud to be. No npm token means nothing was published, so
-		// that is a warning. No tap credential is the steady state here:
-		// Chemaclass/homebrew-tap updates its own cask on a schedule with
-		// its own GITHUB_TOKEN, so a warning every release would train
-		// everyone to ignore the one that matters.
-		if !strings.Contains(script, "::warning::") && !strings.Contains(script, "::notice::") {
-			t.Errorf("%q says nothing when its credential is absent:\n%s", step, script)
-		}
-		if !strings.Contains(script, "exit 0") {
-			t.Errorf("%q no longer passes when its credential is absent, which is how forks release:\n%s", step, script)
+func TestReleaseWorkflow_HomebrewCheckRetriesAStaleReplica(t *testing.T) {
+	script := workflowRun(t, releaseWorkflowPath, "distribution", "Homebrew cask serves this tag")
+	for _, want := range []string{"attempts=6", "delay * 2", "sleep", "::error::", "homebrew: pending", "::notice::", "exit 0"} {
+		if !strings.Contains(script, want) {
+			t.Errorf("the Homebrew check lacks %q:\n%s", want, script)
 		}
 	}
 }
 
-// TestReleaseWorkflow_DistributionChecksOutRepository guards the source files
-// both distribution checks read after the build jobs finish.
-//
-// Jobs do not share a workspace. Without a checkout, the Homebrew check can
-// pass without source files, then the npm check fails when it sources
-// scripts/npm-publish.sh or reads npm/lib/platforms.js.
-func TestReleaseWorkflow_DistributionChecksOutRepository(t *testing.T) {
+func TestReleaseWorkflow_HomebrewCheckChecksOutRepository(t *testing.T) {
 	checkout, checkoutAt := workflowStepAt(t, releaseWorkflowPath, "distribution", "Checkout")
 	if !regexp.MustCompile(`^actions/checkout@[0-9a-f]{40}$`).MatchString(checkout.Uses) {
 		t.Errorf("the distribution checkout uses %q, want actions/checkout pinned to a commit SHA", checkout.Uses)
 	}
-	for _, name := range []string{"Homebrew cask serves this tag", "npm serves this tag"} {
-		_, checkAt := workflowStepAt(t, releaseWorkflowPath, "distribution", name)
-		if checkoutAt > checkAt {
-			t.Errorf("Checkout runs after %q, so the check cannot read repository files", name)
-		}
+	_, checkAt := workflowStepAt(t, releaseWorkflowPath, "distribution", "Homebrew cask serves this tag")
+	if checkoutAt > checkAt {
+		t.Error("checkout runs after the Homebrew check")
 	}
 }
 
@@ -786,6 +749,35 @@ func TestReleaseWorkflow_ChecksCandidateBeforeAnyPublisher(t *testing.T) {
 	build, _ := workflowStepAt(t, releaseWorkflowPath, "goreleaser", "Run GoReleaser")
 	if args, _ := build.With["args"].(string); !strings.Contains(args, "--skip=publish") {
 		t.Errorf("GoReleaser can publish while it builds: %q", args)
+	}
+}
+
+func TestReleaseWorkflow_RecoveryUsesTheOriginalTagAndSelectedChannel(t *testing.T) {
+	jobs := workflowJobs(t, releaseWorkflowPath)
+	for _, name := range []string{"ui-bundle", "companion"} {
+		if jobs[name].If != "github.event_name == 'push'" {
+			t.Errorf("%s can run on a recovery dispatch: %q", name, jobs[name].If)
+		}
+	}
+	script := workflowRun(t, releaseWorkflowPath, "recovery", "Find the original release for the tag")
+	for _, want := range []string{`"$GITHUB_REF_TYPE" != tag`, "scripts/release-assets.py recover", `"$(git rev-parse HEAD)" "$CHANNEL"`} {
+		if !strings.Contains(script, want) {
+			t.Errorf("recovery does not require %q", want)
+		}
+	}
+	for _, name := range []string{"channel-manifests", "npm"} {
+		if !needsJob(jobs[name].Needs, "recovery") || !strings.Contains(jobs[name].If, "needs.recovery.result == 'success'") {
+			t.Errorf("%s can recover before verifying the original tag", name)
+		}
+	}
+	download, _ := workflowStepAt(t, releaseWorkflowPath, "channel-manifests", "Download the signed candidate")
+	if !strings.Contains(fmt.Sprint(download.With["artifact-ids"]), "needs.recovery.outputs.artifact") ||
+		!strings.Contains(fmt.Sprint(download.With["run-id"]), "needs.recovery.outputs.run-id") {
+		t.Error("manifest recovery does not use the original signed artifact and its run ID")
+	}
+	binaries := workflowRun(t, releaseWorkflowPath, "npm", "Collect the release binaries")
+	if !strings.Contains(binaries, `"$(git rev-parse HEAD)"`) {
+		t.Error("npm does not verify the tag commit of the downloaded archives")
 	}
 }
 

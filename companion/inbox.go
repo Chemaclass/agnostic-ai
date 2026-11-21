@@ -221,19 +221,19 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 // note from the companion itself when it has one, and the version of the
 // list held when it was asked, which the list event names too.
 type inboxReply struct {
-	View    json.RawMessage `json:"view"`
-	Note    string          `json:"note,omitempty"`
-	Version string          `json:"version,omitempty"`
+	View       json.RawMessage `json:"view"`
+	Note       string          `json:"note,omitempty"`
+	Version    string          `json:"version,omitempty"`
+	ConfigRoot string          `json:"configRoot,omitempty"`
 }
 
-// versionNote says that the companion and the installed agnostic-ai are
-// different releases; empty when they match or one does not say.
-func (in *inbox) versionNote() string {
-	serves := in.server.runningVersion()
-	if in.builtFor == "" || serves == "" || in.builtFor == serves {
-		return ""
+func (in *inbox) listReply(ctx context.Context, view json.RawMessage, version string) inboxReply {
+	health := in.server.runningHealth(ctx)
+	reply := inboxReply{View: view, Version: version, ConfigRoot: health.Root}
+	if in.builtFor != "" && health.Version != "" && in.builtFor != health.Version {
+		reply.Note = "This companion was built for agnostic-ai " + in.builtFor + " and " + health.Version + " is installed. Run: agnostic-ai companion install"
 	}
-	return "This companion was built for agnostic-ai " + in.builtFor + " and " + serves + " is installed. Run: agnostic-ai companion install"
+	return reply
 }
 
 // list answers GET /api/inbox?q=<words>&before=<time>. Without q it
@@ -256,7 +256,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, answer.status, apiError{Error: errorOf(answer)})
 			return
 		}
-		writeJSON(w, http.StatusOK, inboxReply{View: answer.body, Note: in.versionNote(), Version: version})
+		writeJSON(w, http.StatusOK, in.listReply(r.Context(), answer.body, version))
 		return
 	}
 	in.mu.Lock()
@@ -273,7 +273,7 @@ func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, apiError{Error: problem})
 		return
 	}
-	writeJSON(w, http.StatusOK, inboxReply{View: latest, Note: in.versionNote(), Version: tag})
+	writeJSON(w, http.StatusOK, in.listReply(r.Context(), latest, tag))
 }
 
 // stillOpening is the answer to an open the server did not answer in

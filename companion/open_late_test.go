@@ -148,7 +148,7 @@ func lateInbox(t *testing.T, fake http.Handler) (*inbox, chan struct{}) {
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
 	server := newServer()
-	server.base, server.version = srv.URL, "1.2.3"
+	server.base, server.health.Version = srv.URL, "1.2.3"
 	server.openWait, server.openLateWait = 50*time.Millisecond, 10*time.Second
 	changed := make(chan struct{}, 8)
 	return newInbox(server, "1.2.3", func() { changed <- struct{}{} }), changed

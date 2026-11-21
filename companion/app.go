@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -67,7 +68,17 @@ func stableReleaseVersion(named string) ([3]uint64, bool) {
 	return version, true
 }
 
-func latestCompanionRelease(ctx context.Context, client *http.Client, url, current string) (string, error) {
+func updateImageName() string {
+	return "agnostic-ai-companion_darwin_" + nativeUpdateArch() + ".dmg"
+}
+
+type releaseAsset struct {
+	Name  string `json:"name"`
+	State string `json:"state"`
+	Size  int64  `json:"size"`
+}
+
+func latestCompanionRelease(ctx context.Context, client *http.Client, url, current, image string) (string, error) {
 	installed, ok := stableReleaseVersion(current)
 	if !ok {
 		return "", nil
@@ -87,23 +98,21 @@ func latestCompanionRelease(ctx context.Context, client *http.Client, url, curre
 		return "", fmt.Errorf("check for companion updates: GitHub returned %s", response.Status)
 	}
 	var release struct {
-		Tag        string `json:"tag_name"`
-		Draft      bool   `json:"draft"`
-		Prerelease bool   `json:"prerelease"`
+		Tag        string         `json:"tag_name"`
+		Draft      bool           `json:"draft"`
+		Prerelease bool           `json:"prerelease"`
+		Assets     []releaseAsset `json:"assets"`
 	}
 	if err := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&release); err != nil {
 		return "", fmt.Errorf("read latest companion release: %w", err)
 	}
 	latest, ok := stableReleaseVersion(release.Tag)
-	if !ok || release.Draft || release.Prerelease {
+	if !ok || release.Draft || release.Prerelease || slices.Compare(latest[:], installed[:]) <= 0 {
 		return "", nil
 	}
-	for i := range installed {
-		if latest[i] > installed[i] {
+	for _, asset := range release.Assets {
+		if asset.Name == image && asset.State == "uploaded" && asset.Size > 0 {
 			return strings.TrimPrefix(release.Tag, "v"), nil
-		}
-		if latest[i] < installed[i] {
-			return "", nil
 		}
 	}
 	return "", nil
@@ -153,7 +162,7 @@ func (c *appCommands) checkUpdates(ctx context.Context, manual bool) {
 		return
 	}
 	defer c.busy.Unlock()
-	next, err := latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version)
+	next, err := latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version, updateImageName())
 	if ctx.Err() != nil {
 		return
 	}
@@ -167,7 +176,7 @@ func (c *appCommands) checkUpdates(ctx context.Context, manual bool) {
 	}
 	if next == "" {
 		if manual {
-			c.inform("Check for updates", "No newer stable release is available for this build.")
+			c.inform("Check for updates", "No newer stable disk image is available for this Mac. Check again later.")
 		}
 		return
 	}
@@ -202,7 +211,7 @@ func (c *appCommands) update(next string) {
 	}
 	if err := command.Wait(); err != nil {
 		out, readErr := os.ReadFile(path)
-		message := fmt.Sprintf("The update failed: %v. Details: %s", err, path)
+		message := fmt.Sprintf("The update failed: %v. Check for updates again to retry. Details: %s", err, path)
 		if readErr == nil {
 			message += "\n" + strings.TrimSpace(string(out))
 		}
