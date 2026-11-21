@@ -73,6 +73,7 @@ Returns `tools` and `conversations`:
 - `tools` is `{tool, label, found, count, shown, note?}`. `count` is every conversation the tool holds, `shown` is how many this page holds, and `note` says why a store was not read.
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, open}`.
 - `approvalsMode` is the loosest active mode for the project or global list, `review` or `yolo`. It is omitted when inactive.
+- Read [mailbox routes](@/docs/mailbox.md#mailbox-api) for `threads` and `mailboxWarning`.
 
 Conversation fields:
 
@@ -308,17 +309,3 @@ Accepted limits:
 
 `error` is always a complete sentence.
 {% </details> %}
-
-
-## Mailbox routes {#mailbox-routes}
-
-The global local server serves [mailbox](@/docs/mailbox.md) routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. `mailboxWarning` explains a partial read.
-
-| Method and path | Request and result |
-|---|---|
-| `POST /api/mailbox/send` | Send `{from, to, type, body?, thread?}`. Session references hold `tool` and `id`. A target identified by ID alone must match one local session. The reply gives `{thread, n, state}`. |
-| `GET /api/mailbox/threads?tool=&id=` | Read `{threads, warning?}` for one session. |
-| `POST /api/mailbox/thread` | Send `{thread, action}` for `pause`, `resume`, `stop` or `raise-cap`. |
-| `POST /api/mailbox/stage` | Send `{thread, n, how}` with `type` or `copy`. For copy, the reply supplies `text`. After writing it to the clipboard, send the same request with `confirm: true`. |
-
-A refused send answers HTTP 422 with `{error, guard}`. The error says what stopped it and what to do next.
