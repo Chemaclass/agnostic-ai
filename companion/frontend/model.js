@@ -1021,6 +1021,26 @@ export function updateLabelOf(label, update) {
   return label
 }
 
+/**
+ * Shows the newest update status. since() returns a show for a read started now,
+ * which drops the reply when an update event arrived while it was read.
+ */
+export function updateFeed(show) {
+  let events = 0
+  return {
+    event(update) {
+      events += 1
+      show(update)
+    },
+    since() {
+      const at = events
+      return (update) => {
+        if (events === at) show(update)
+      }
+    },
+  }
+}
+
 /** The settings button's name while an update is known, or undefined when there is none. */
 export function updateBadgeOf(update) {
   if (!update.version || update.state === 'updating') return undefined

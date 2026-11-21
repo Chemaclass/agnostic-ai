@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateLabelOf } from '../frontend/model.js'
+import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateFeed, updateLabelOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
@@ -76,4 +76,14 @@ test('a switch with no value in either reply is refused', () => {
 
 test('an unknown kind is refused', () => {
   assert.throws(() => menuRowsOf([{ id: 'animate', label: 'Animate', kind: 'slider' }], { preferences, appearance }), /unknown kind slider/)
+})
+
+test('an update read that an event overtook does not overwrite the event', () => {
+  const shown = []
+  const feed = updateFeed((update) => shown.push(update.state))
+  const showRead = feed.since()
+  feed.event({ state: 'available', version: '0.97.0' })
+  showRead({ state: 'checking' })
+  feed.since()({ state: 'idle' })
+  assert.deepEqual(shown, ['available', 'idle'])
 })

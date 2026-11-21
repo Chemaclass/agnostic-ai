@@ -2,7 +2,7 @@ import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateFeed, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -1894,6 +1894,7 @@ function closeMenu() {
 /** Opens the menu with the values in effect; `focus` names the row to focus. */
 async function openMenu(focus) {
   try {
+    const showRead = updates.since()
     const [items, preferences, appearance, update] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readUpdate()])
     if (!settings.items) {
       settings.items = items
@@ -1901,7 +1902,7 @@ async function openMenu(focus) {
     }
     settings.preferences = preferences
     settings.appearance = appearance
-    showUpdate(update)
+    showRead(update)
   } catch (error) {
     sayFailure(error)
     return
@@ -1923,6 +1924,8 @@ function showUpdate(update) {
   else delete menuButton.dataset.update
 }
 
+const updates = updateFeed(showUpdate)
+
 /** A change made in the right-click menu shows in an open menu at once. */
 function heard(key, value) {
   settings[key] = value
@@ -1937,13 +1940,11 @@ document.addEventListener('mousedown', (event) => {
 })
 Events.On('appearance', (event) => heard('appearance', event.data))
 Events.On('preferences', (event) => heard('preferences', event.data))
-let updateHeard = false
 Events.On('update', (event) => {
-  updateHeard = true
-  showUpdate(event.data)
+  updates.event(event.data)
   if (!menu.hidden && settings.items) drawSettings()
 })
-readUpdate().then((update) => updateHeard || showUpdate(update), sayFailure)
+readUpdate().then(updates.since(), sayFailure)
 approvalsAsk.addEventListener('click', askAgain)
 const dashboardButton = document.getElementById('dashboard')
 dashboardButton.addEventListener('click', async () => {
