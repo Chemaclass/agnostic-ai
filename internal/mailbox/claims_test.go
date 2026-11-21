@@ -19,7 +19,11 @@ var mailThird = conversations.Ref{Tool: conversations.ToolCodex, ID: "77998a87-7
 func claimRepo(t *testing.T) string {
 	t.Helper()
 	repo, _ := newReviewRepo(t)
-	return reviewGitFixture(t, repo, "rev-parse", "--show-toplevel")
+	root, err := filepath.EvalSymlinks(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
 }
 
 func claimAndOffer(t *testing.T, s Store, root string, paths ...string) Receipt {
