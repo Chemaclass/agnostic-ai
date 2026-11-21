@@ -356,7 +356,7 @@ func newCompanionCmdWith(tools companionTools) *cobra.Command {
 	}
 	cmd.AddCommand(newCompanionInstallCmd(tools), newCompanionStopCmd(tools), newCompanionUninstallCmd(tools))
 	cmd.AddCommand(companionAppCommands(tools)...)
-	cmd.AddCommand(companionUpdateStatusCommand(detectUpgrade))
+	cmd.AddCommand(companionUpdateStatusCommand(detectCompanionUpdate))
 	return cmd
 }
 

@@ -50,6 +50,23 @@ sign_companion_app() {
   codesign --verify "-R=$requirement" "$app"
 }
 
+# verify_companion_image <image> <mount>: fails unless the app in the written
+# disk image meets the pinned requirement, the check each update runs too.
+# An image signed ad hoc or with another certificate then stops the release.
+verify_companion_image() {
+  local image="$1" mount="$2" requirement status=0
+  requirement="identifier \"$companion_id\" and certificate leaf = H\"$companion_release_cert\""
+  mkdir -p "$mount"
+  hdiutil_retrying attach -nobrowse -readonly -mountpoint "$mount" "$image"
+  codesign --verify --deep --strict "-R=$requirement" "$mount/$companion_app_name.app" || status=$?
+  hdiutil_retrying detach "$mount"
+  rmdir "$mount"
+  if [ "$status" -ne 0 ]; then
+    echo "$image: the app does not meet $requirement" >&2
+  fi
+  return "$status"
+}
+
 # Sourced by scripts/companion-sign_test.sh for the functions above.
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
   return 0
@@ -107,5 +124,6 @@ for image in "${images[@]}"; do
   ln -s /Applications "$work/image/Applications"
   hdiutil_retrying create -ov -format UDZO -volname "$companion_app_name" -srcfolder "$work/image" "$image"
   hdiutil_retrying verify "$image"
+  verify_companion_image "$image" "$work/mount"
   echo "$image"
 done
