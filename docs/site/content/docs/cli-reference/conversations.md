@@ -61,6 +61,7 @@ It works from Claude Code, Codex, and Cursor's terminal agent (`cursor-agent`). 
 |---|---|
 | Ghostty | A new tab in the front window |
 | iTerm | A new tab in the front window |
+| WezTerm | A new tab in the window the command ran in |
 | Terminal, macOS 26 or later | A new tab |
 | Terminal, older macOS | A new window |
 | Warp, an editor's terminal, or another app | A new Terminal window |

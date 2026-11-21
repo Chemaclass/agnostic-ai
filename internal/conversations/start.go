@@ -202,6 +202,8 @@ func terminalAppOf(table []ProcessInfo, pid int, getenv func(string) string) str
 		return "Terminal"
 	case "iTerm.app":
 		return "iTerm"
+	case "WezTerm":
+		return "WezTerm"
 	}
 	return ""
 }
