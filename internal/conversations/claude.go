@@ -223,6 +223,24 @@ func (r *claudeReplies) answered(content json.RawMessage) {
 	}
 }
 
+// UnmarshalJSON reads a Windows session's start as the native process
+// table writes it.
+func (e *claudeLive) UnmarshalJSON(data []byte) error {
+	type plain claudeLive
+	var entry struct {
+		plain
+		ProcStartFt string `json:"procStartFt"`
+	}
+	if err := json.Unmarshal(data, &entry); err != nil {
+		return err
+	}
+	*e = claudeLive(entry.plain)
+	if nativeProcesses != nil {
+		e.ProcStart = windowsProcStart(e.ProcStart, entry.ProcStartFt, time.Local)
+	}
+	return nil
+}
+
 // claudeLive is a running Claude Code process, from sessions/<pid>.json.
 type claudeLive struct {
 	PID       int             `json:"pid"`
