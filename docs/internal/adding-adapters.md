@@ -167,6 +167,22 @@ For formats that differ from these schemas, write the format the target reads: C
 
 Emit alongside MCPs in the target's project configuration file (Codex: `.codex/hooks.json`; Gemini: `.gemini/settings.json`). Group by `Meta["event"]`; skip entries without one. Keep event names unchanged.
 
+### Mailbox delivery
+
+The `mailbox` built-in hands a session its waiting [mailbox](../site/content/docs/mailbox.md) messages through a hook. A tool can join when it has all three:
+
+- A session ID in the hook's stdin JSON (`session_id`) that matches the ID the companion lists for that session.
+- A prompt hook, and a session-start hook that names its source, whose output reaches the model.
+- A known limit on that output. The block stays under 6,000 bytes, so the limit must be higher.
+
+To add one:
+
+1. Add the target to `targets:` and an `x-<target>` command in `internal/builtins/data/mailbox/hooks/mailbox-user-prompt.yaml` and `mailbox-session-start.yaml`. Keep the session-start hook to the `startup` and `resume` sources.
+2. Teach `internal/cli/hook_mailbox.go` the target's reply shape in `mailboxHookReply` and its name in `mailboxHookRuns`, and accept its sessions in `internal/mailbox` (`supportedRef`).
+3. Add a row per event to `TestHookMailbox_Replies` in `internal/cli/hook_mailbox_test.go` with the exact bytes, and extend `tests/integration/builtin_mailbox_test.go` and its golden files.
+
+A tool with no such hook still gets messages by hand: the companion's **Type into session** and **Copy message** work for any session it can list.
+
 ## 10. Keeping the adapter true
 
 Vendors can move paths or rename keys, leaving sync writing files the tool no longer reads. Check both sources below:

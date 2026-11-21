@@ -185,6 +185,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Dim when idle** | Fades the circle while nothing needs you. |
 | **Small companion** | A 40px circle instead of 60px. |
 | **Start at login** | Starts it when you log in. |
+| **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. Only the list's ⋯ menu shows it. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
 | **Check for updates** | Disk-image app only. Checks for a newer release now. Reads **Update to vX.Y.Z** when one is known; choosing it asks, then updates and restarts. See [Install and start](#install). |
@@ -193,7 +194,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
 - The circle shows a solid orange count with a lock and a halo for chats waiting for permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
-- The circle and the list's ⋯ menu hold the same items in the same order.
+- The circle and the list's ⋯ menu hold the same items in the same order, except the mailbox approval switch, which only the ⋯ menu shows.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
 - Send copied text: the shortcut is Ctrl+Alt+V until you change it.

@@ -1002,6 +1002,8 @@ export interface ConversationThreadSummary {
   count: number
   cap: number
   waiting: number
+  /** Messages an agent sent that wait for your approval; absent when none. */
+  held?: number
   lastType?: string
   conflicts?: ConversationMailboxConflict[]
 }

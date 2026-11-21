@@ -346,7 +346,7 @@ test('the menu list is served with the pages', async (t) => {
   t.after(preview.close)
   const menu = await fetch(preview.url + '/menu.json')
   assert.equal(menu.status, 200)
-  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'shortcut', 'sendShortcut', 'update', 'hide', 'quit'])
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'approveAgentSends', 'shortcut', 'sendShortcut', 'update', 'hide', 'quit'])
 })
 
 test('the list menu turns animation, dimming and the small circle on and off and answers the appearance', async (t) => {
@@ -392,6 +392,23 @@ test('the forgotten shell fixture refuses stale identities and changes only the 
   assert.deepEqual(await stopped.json(), { stillRunning: [{ pid: first.pid + 1, procStart: first.procStart }] })
   const after = await inbox(preview.url)
   assert.deepEqual(after.body.view.conversations.find((row) => row.id === body.id).stuckShells, [other])
+})
+
+test('the preview approves, rejects and queues mailbox messages and keeps the approval switch', async (t) => {
+  const preview = await startPreview({ port: 0, fixture: 'mailbox-delivery' })
+  t.after(preview.close)
+  const post = (path, body) => fetch(preview.url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+  const thread = 'th_20261107_00000005'
+  assert.equal((await post('/api/mailbox/approve', { thread, n: 4, action: 'approve' })).status, 200)
+  assert.equal((await post('/api/mailbox/approve', { thread, n: 5, action: 'reject' })).status, 200)
+  assert.equal((await post('/api/mailbox/approve', { thread, n: 5, action: 'approve' })).status, 422)
+  assert.equal((await post('/api/mailbox/queue', { thread, n: 2 })).status, 200)
+  const reply = await (await fetch(preview.url + '/api/mailbox/threads?tool=codex&id=0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50')).json()
+  assert.deepEqual(reply.threads[0].messages.map(({ state }) => state), ['delivered', 'waiting', 'rejected', 'waiting', 'rejected'])
+  assert.deepEqual(await (await fetch(preview.url + '/api/mailbox/settings')).json(), { approveAgentSends: true })
+  assert.equal((await post('/api/mailbox/settings', { approveAgentSends: false })).status, 204)
+  assert.equal((await post('/api/mailbox/settings', {})).status, 422)
+  assert.deepEqual(await (await fetch(preview.url + '/api/mailbox/settings')).json(), { approveAgentSends: false })
 })
 
 test('the preview answers the update entry: none by default, a newer release in its fixture', async (t) => {

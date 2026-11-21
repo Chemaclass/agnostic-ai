@@ -65,6 +65,9 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 		if offered.Type != Handoff || offered.Gives == nil {
 			return NewRefusal("format")
 		}
+		if refused := awaitingApproval(offered); refused != nil {
+			return refused
+		}
 		if offered.Handoff == Offered {
 			scope, fold, err = normalizeClaimPaths(ctx, offered.Gives.Worktree, *offered.Gives)
 			if err != nil {
@@ -83,6 +86,9 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	}
 	if message.Type != Handoff || message.Gives == nil {
 		return NewRefusal("format")
+	}
+	if refused := awaitingApproval(message); refused != nil {
+		return refused
 	}
 	if action == "accept" && message.Handoff == Accepted || action == "decline" && message.Handoff == Declined {
 		return nil
@@ -121,6 +127,17 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	}
 	move := pendingTransfer{Thread: id, N: n, From: from, To: to, Gives: *message.Gives, IgnoreCase: fold, At: time.Now().UTC()}
 	return writeTransfer(state, thread, move, s.writeClaims, s.writeThread)
+}
+
+func awaitingApproval(m *Message) *Refusal {
+	switch m.State {
+	case Held:
+		return &Refusal{"format", "This handoff is waiting for approval.", "Approve the handoff in the companion first."}
+	case Rejected:
+		return NewRefusal("rejected")
+	default:
+		return nil
+	}
 }
 
 // resolvesUnchanged repeats the file checks under the lock, without Git, so a

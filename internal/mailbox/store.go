@@ -33,6 +33,14 @@ func (s Store) Send(ctx context.Context, from conversations.Ref, req SendRequest
 
 // SendFromWorktree uses the session folder discovered by the caller outside the request.
 func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder string) (Receipt, error) {
+	return s.send(ctx, from, req, sourceFolder, "human")
+}
+
+func (s Store) SendFromAgent(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder string) (Receipt, error) {
+	return s.send(ctx, from, req, sourceFolder, "agent")
+}
+
+func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder, by string) (Receipt, error) {
 	refused := ValidateSend(from, req)
 	if refused == nil && req.To.Tool == "" {
 		refused = NewRefusal("unknown-session")
@@ -79,9 +87,13 @@ func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req
 	}
 
 	message := Message{
-		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: "human"},
+		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: by},
 		To: req.To, Body: conversations.CleanSendText(req.Body), Refs: refs, Gives: gives,
 		State: Waiting, At: at, QueuedAt: at,
+	}
+	if by == "agent" && s.Settings().ApproveAgentSends {
+		message.State = Held
+		message.QueuedAt = time.Time{}
 	}
 
 	refused = thread.checkSend(from, req)
@@ -114,7 +126,7 @@ func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req
 		thread.recordModel(req.To, req.Models.To)
 	}
 	action := "send"
-	if message.Type == Done {
+	if message.Type == Done && message.State == Waiting {
 		thread.Status = Closing
 		action = "close"
 	}

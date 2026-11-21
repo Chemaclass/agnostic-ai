@@ -301,6 +301,7 @@ type ThreadSummary struct {
 	Count     int               `json:"count"`
 	Cap       int               `json:"cap"`
 	Waiting   int               `json:"waiting"`
+	Held      int               `json:"held,omitempty"`
 	LastType  string            `json:"lastType,omitempty"`
 	Conflicts []MailboxConflict `json:"conflicts,omitempty"`
 }

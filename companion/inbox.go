@@ -30,22 +30,25 @@ const maxRequestBytes = 4 << 10
 
 // The server's endpoints the companion uses.
 const (
-	serverListPath           = "/api/views/conversations"
-	serverOpenPath           = "/api/conversations/open"
-	serverMarkPath           = "/api/conversations/mark"
-	serverRenamePath         = "/api/conversations/rename"
-	serverDeletePath         = "/api/conversations/delete"
-	serverStopShellPath      = "/api/conversations/stop-shell"
-	serverStopSessionPath    = "/api/conversations/stop-session"
-	serverMailboxSendPath    = "/api/mailbox/send"
-	serverMailboxThreadsPath = "/api/mailbox/threads"
-	serverMailboxThreadPath  = "/api/mailbox/thread"
-	serverMailboxStagePath   = "/api/mailbox/stage"
-	serverMailboxRefsPath    = "/api/mailbox/refs"
-	serverMailboxClaimsPath  = "/api/mailbox/claims"
-	serverMailboxClaimPath   = "/api/mailbox/claim"
-	serverMailboxReleasePath = "/api/mailbox/release"
-	serverMailboxHandoffPath = "/api/mailbox/handoff"
+	serverListPath            = "/api/views/conversations"
+	serverOpenPath            = "/api/conversations/open"
+	serverMarkPath            = "/api/conversations/mark"
+	serverRenamePath          = "/api/conversations/rename"
+	serverDeletePath          = "/api/conversations/delete"
+	serverStopShellPath       = "/api/conversations/stop-shell"
+	serverStopSessionPath     = "/api/conversations/stop-session"
+	serverMailboxSendPath     = "/api/mailbox/send"
+	serverMailboxThreadsPath  = "/api/mailbox/threads"
+	serverMailboxThreadPath   = "/api/mailbox/thread"
+	serverMailboxStagePath    = "/api/mailbox/stage"
+	serverMailboxRefsPath     = "/api/mailbox/refs"
+	serverMailboxClaimsPath   = "/api/mailbox/claims"
+	serverMailboxClaimPath    = "/api/mailbox/claim"
+	serverMailboxReleasePath  = "/api/mailbox/release"
+	serverMailboxHandoffPath  = "/api/mailbox/handoff"
+	serverMailboxApprovePath  = "/api/mailbox/approve"
+	serverMailboxQueuePath    = "/api/mailbox/queue"
+	serverMailboxSettingsPath = "/api/mailbox/settings"
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"
@@ -306,7 +309,8 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch path {
 		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath, serverMailboxRefsPath,
-			serverMailboxClaimPath, serverMailboxReleasePath, serverMailboxHandoffPath:
+			serverMailboxClaimPath, serverMailboxReleasePath, serverMailboxHandoffPath,
+			serverMailboxApprovePath, serverMailboxQueuePath, serverMailboxSettingsPath:
 			if !mailboxPageAllowed(w, r) {
 				return
 			}
@@ -339,7 +343,7 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 		}
 		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
 		switch {
-		case err != nil || path == serverMailboxRefsPath:
+		case err != nil || path == serverMailboxRefsPath || path == serverMailboxSettingsPath:
 		case (path == serverMailboxClaimPath || path == serverMailboxHandoffPath) && mailboxOwnershipRefusal(answer):
 			in.noteListChange(w, r)
 		case answer.status >= 300:
