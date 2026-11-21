@@ -213,7 +213,7 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 - **N approved for you** folds out the latest approved requests under the row, newest first. It opens nothing.
 - The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
 - The header names the loosest active mode when it is `review` or `yolo`.
-- **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --global` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
+- **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --scope user` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
 
 {% <details summary="Details: the brief Claude Code prompt, counts, limits"> %}
 - With the `yolo` hook active, Claude Code can show its prompt while the hook runs. The companion lists the permission wait when the log says `asked` or after 10 seconds with no decision. Until then the row shows as working.
@@ -228,7 +228,7 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 
 ## How it reads conversations {#how-it-reads}
 
-The companion reads no chat itself. It starts its own `agnostic-ai serve --global --api-only --cloud-sessions` on a free loopback port. Every 5 seconds it asks that server whether the list changed.
+The companion reads no chat itself. It starts its own `agnostic-ai serve --scope user --api-only --cloud-sessions` on a free loopback port. Every 5 seconds it asks that server whether the list changed.
 
 {% <details summary="Details: polling"> %}
 - The request sends the list's `ETag`.
@@ -257,7 +257,7 @@ The companion installed from the terminal offers the same update in its menus. I
 
 Add the sessions that run in the cloud to the list.
 
-1. Run `agnostic-ai serve --global --cloud-sessions`. The companion starts its server with this flag already.
+1. Run `agnostic-ai serve --scope user --cloud-sessions`. The companion starts its server with this flag already.
 2. Claude Code sessions from claude.ai/code and Codex cloud threads join the conversations, with `app` `cloud`.
 3. They take the same states and marks as the others.
 

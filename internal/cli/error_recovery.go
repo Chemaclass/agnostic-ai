@@ -99,6 +99,9 @@ func errorRecoveryAllowed(cmd *cobra.Command, interactive bool) bool {
 			return false
 		}
 	}
+	if userScopeSet(cmd) {
+		return false
+	}
 	if f := cmd.Flags().Lookup("format"); f != nil && f.Value.String() == "json" {
 		return false
 	}

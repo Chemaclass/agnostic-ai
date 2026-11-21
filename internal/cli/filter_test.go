@@ -101,7 +101,7 @@ func TestSyncGlobal_MistypedTargetSuggestsClosestName(t *testing.T) {
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	silence(t)
 
-	err := runSync(t, "--global", "-t", "claud")
+	err := runSync(t, "--scope", "user", "-t", "claud")
 
 	if err == nil || !strings.Contains(err.Error(), "did you mean claude?") {
 		t.Errorf("got %v", err)

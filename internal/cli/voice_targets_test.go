@@ -209,7 +209,7 @@ func TestVoiceTargets_NativeParentOverridesPortableValues(t *testing.T) {
 func TestVoiceTargets_ExplainListsAllWrittenKeys(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-	out, err := runRoot(t, "explain", "--global", "settings/voice.yaml")
+	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}

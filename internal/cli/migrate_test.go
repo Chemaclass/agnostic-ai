@@ -92,15 +92,15 @@ func TestMigrate_EveryGlobalMigrationKeepsSyncedOutputAndIsIdempotent(t *testing
 			}
 			silence(t)
 			captureLogOut(t)
-			if out, err := runCLI(t, "sync", "--global"); err != nil {
+			if out, err := runCLI(t, "sync", "--scope", "user"); err != nil {
 				t.Fatalf("sync --global: %v\n%s", err, out)
 			}
 
-			out, err := runCLI(t, "migrate", "--global", "--only", m.Group)
+			out, err := runCLI(t, "migrate", "--scope", "user", "--only", m.Group)
 			if err != nil || !strings.Contains(out, m.ID+": ") {
 				t.Fatalf("migrate --global: %v\n%s", err, out)
 			}
-			if out, err := runCLI(t, "sync", "--global", "--check"); err != nil {
+			if out, err := runCLI(t, "sync", "--scope", "user", "--check"); err != nil {
 				t.Errorf("sync --global --check after migrate: %v\n%s", err, out)
 			}
 			for _, p := range planMigrations(migrationScope{root: source, global: true}, []specMigration{m}) {
@@ -131,18 +131,18 @@ func globalMigrationFixture(t *testing.T, id string) string {
 func TestMigrate_GlobalSecretsDryRunRedactsAndTheRunKeepsSyncedOutput(t *testing.T) {
 	source := globalMigrationFixture(t, "secrets-mcp-literals")
 	captureLogOut(t)
-	if out, err := runCLI(t, "sync", "--global"); err != nil {
+	if out, err := runCLI(t, "sync", "--scope", "user"); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, out)
 	}
 
-	out, err := runCLI(t, "migrate", "--global", "--only", "secrets", "--dry-run")
+	out, err := runCLI(t, "migrate", "--scope", "user", "--only", "secrets", "--dry-run")
 	if err != nil || !strings.Contains(out, "would rewrite "+filepath.ToSlash(filepath.Join(source, "mcps", "app.yaml"))) || !strings.Contains(out, "+  NODE_ENV: !literal <redacted>") {
 		t.Fatalf("dry run: %v\n%s", err, out)
 	}
 	if strings.Contains(out, "production") || strings.Contains(out, "eu-west-1") {
 		t.Errorf("the dry run must not print a value:\n%s", out)
 	}
-	if out, err := runCLI(t, "migrate", "--global", "--only", "secrets"); err != nil {
+	if out, err := runCLI(t, "migrate", "--scope", "user", "--only", "secrets"); err != nil {
 		t.Fatalf("migrate --global: %v\n%s", err, out)
 	}
 	got, err := os.ReadFile(filepath.Join(source, "mcps", "app.yaml"))
@@ -152,7 +152,7 @@ func TestMigrate_GlobalSecretsDryRunRedactsAndTheRunKeepsSyncedOutput(t *testing
 	if local, _ := os.ReadFile(filepath.Join(source, "local", "mcps", "app.yaml")); !strings.Contains(string(local), "DEBUG: !literal \"1\"") {
 		t.Errorf("the local/ layer must be rewritten on its own:\n%s", local)
 	}
-	if out, err := runCLI(t, "sync", "--global", "--check"); err != nil {
+	if out, err := runCLI(t, "sync", "--scope", "user", "--check"); err != nil {
 		t.Errorf("sync --global --check: %v\n%s", err, out)
 	}
 }
@@ -160,17 +160,17 @@ func TestMigrate_GlobalSecretsDryRunRedactsAndTheRunKeepsSyncedOutput(t *testing
 func TestMigrate_GlobalCapabilitiesRewritesToolsAsCan(t *testing.T) {
 	source := globalMigrationFixture(t, "capabilities-agent-tools")
 	captureLogOut(t)
-	if out, err := runCLI(t, "sync", "--global"); err != nil {
+	if out, err := runCLI(t, "sync", "--scope", "user"); err != nil {
 		t.Fatalf("sync --global: %v\n%s", err, out)
 	}
-	if out, err := runCLI(t, "migrate", "--global", "--only", "capabilities"); err != nil {
+	if out, err := runCLI(t, "migrate", "--scope", "user", "--only", "capabilities"); err != nil {
 		t.Fatalf("migrate --global: %v\n%s", err, out)
 	}
 	got, err := os.ReadFile(filepath.Join(source, "agents", "reviewer.md"))
 	if err != nil || !strings.Contains(string(got), "\ncan: [") || strings.Contains(string(got), "\ntools:") {
 		t.Errorf("reviewer.md must use can:: %v\n%s", err, got)
 	}
-	if out, err := runCLI(t, "sync", "--global", "--check"); err != nil {
+	if out, err := runCLI(t, "sync", "--scope", "user", "--check"); err != nil {
 		t.Errorf("sync --global --check: %v\n%s", err, out)
 	}
 }
@@ -196,7 +196,7 @@ func TestMigrate_GlobalLeavesPackSpecsAndNamesThePack(t *testing.T) {
 		}
 	}
 
-	out, err := runCLI(t, "migrate", "--global", "--only", "secrets,capabilities")
+	out, err := runCLI(t, "migrate", "--scope", "user", "--only", "secrets,capabilities")
 	if err != nil {
 		t.Fatalf("migrate --global: %v\n%s", err, out)
 	}
@@ -225,11 +225,11 @@ func TestMigrate_GlobalRewritesTheHomeAndLocalLayerAndKeepsModes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := runCLI(t, "migrate", "--global", "--list")
+	out, err := runCLI(t, "migrate", "--scope", "user", "--list")
 	if err != nil || strings.Contains(out, "config-file-name") || !strings.Contains(out, "hooks-portable-events (0.79.0): rewrite a hook's event: and matcher: as the portable on: and match:: 2 to rewrite, 0 skipped") {
 		t.Fatalf("--global --list must leave out project-only migrations: %v\n%s", err, out)
 	}
-	if out, err := runCLI(t, "migrate", "--global"); err != nil || !strings.Contains(out, "rewrote "+filepath.ToSlash(local)) {
+	if out, err := runCLI(t, "migrate", "--scope", "user"); err != nil || !strings.Contains(out, "rewrote "+filepath.ToSlash(local)) {
 		t.Fatalf("migrate --global: %v\n%s", err, out)
 	}
 	got, err := os.ReadFile(filepath.Join(source, "hooks", "guard-shell.yaml"))
@@ -299,7 +299,7 @@ func TestMigrate_GlobalSkipsASymlinkIntoAPack(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	out, err := runCLI(t, "migrate", "--global")
+	out, err := runCLI(t, "migrate", "--scope", "user")
 	if err != nil || !strings.Contains(out, "is in pack acme, which migrate never rewrites") {
 		t.Fatalf("a global symlink into a pack must be a skip: %v\n%s", err, out)
 	}

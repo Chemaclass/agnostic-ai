@@ -149,7 +149,7 @@ func TestSyncUntrack_RejectsModesThatDoNotWrite(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	for _, flag := range []string{"--check", "--plan", "--dry-run", "--watch", "--global"} {
+	for _, flag := range []string{"--check", "--plan", "--dry-run", "--watch", "--scope=user"} {
 		err := runSyncArgs(t, "--untrack", flag)
 		if err == nil || !strings.Contains(err.Error(), "--untrack") {
 			t.Errorf("--untrack %s: err = %v, want a flag conflict naming --untrack", flag, err)

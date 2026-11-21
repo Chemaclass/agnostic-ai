@@ -291,7 +291,7 @@ func TestGlobalOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 	writeNativeMCPProject(t, home, dir)
 	writeFile(t, filepath.Join(home, "source", "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
 
-	out, err := runCLI(t, "view", "--global", "--json")
+	out, err := runCLI(t, "view", "--scope", "user", "--json")
 	if err != nil {
 		t.Fatalf("view --global: %v\n%s", err, out)
 	}

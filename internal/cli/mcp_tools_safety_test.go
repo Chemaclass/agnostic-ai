@@ -278,11 +278,11 @@ func TestMCPTools_RedactsResolvedCredentialsBeforeCachingOrDisplaying(t *testing
 	t.Setenv("AGNOSTIC_AI_HOME", root)
 	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "targets: [claude]\n")
 	writeFile(t, filepath.Join(root, "mcps", "private.yaml"), "type: http\nurl: "+url+"\n")
-	text, err := runCLI(t, "mcp", "tools", "--global", "--timeout", "1s")
+	text, err := runCLI(t, "mcp", "tools", "--scope", "user", "--timeout", "1s")
 	if err != nil {
 		t.Fatal(err)
 	}
-	structured, err := runCLI(t, "mcp", "tools", "--global", "--timeout", "1s", "--json")
+	structured, err := runCLI(t, "mcp", "tools", "--scope", "user", "--timeout", "1s", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}

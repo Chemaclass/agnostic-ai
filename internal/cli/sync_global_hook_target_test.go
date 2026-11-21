@@ -48,7 +48,7 @@ func TestSyncGlobal_HooksCarryTheTarget(t *testing.T) {
 	cursorHook := filepath.Join(home, "source", "hooks", "cursor-guard.yaml")
 	writeFile(t, shared, "name: guard\nevent: SessionStart\ncommand: guard.sh\ntargets: [claude, codex, gemini, qoder]\n")
 	writeFile(t, cursorHook, "name: cursor-guard\nevent: beforeShellExecution\ncommand: guard.sh\ntarget: cursor\n")
-	only := []string{"sync", "--global", "--only", "claude,codex,cursor,gemini,qoder"}
+	only := []string{"sync", "--scope", "user", "--only", "claude,codex,cursor,gemini,qoder"}
 
 	root := NewRootCmd("test")
 	root.SetArgs(only)

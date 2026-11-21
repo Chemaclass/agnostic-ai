@@ -81,7 +81,7 @@ func TestInstallHookPostCheckout_RejectsGlobal(t *testing.T) {
 	dir := setupGitRepo(t)
 	testutil.Chdir(t, dir)
 
-	if _, err := runInstallHook("--post-checkout", "--global"); err == nil {
+	if _, err := runInstallHook("--post-checkout", "--scope", "user"); err == nil {
 		t.Error("--post-checkout with --global must be rejected")
 	}
 }

@@ -58,7 +58,7 @@ func TestServe_UsesHomeShellSettingsInBothScopes(t *testing.T) {
 				writeFile(t, settings, "version: 1\nconversations:\n  stuckShellAfter: "+value+"\n")
 				args := []string{"--api-only", "--addr", "127.0.0.1:0", "--stop-with-stdin"}
 				if scope == "global" {
-					args = append(args, "--global")
+					args = append(args, "--scope", "user")
 				} else {
 					args = append(args, "--dir", t.TempDir())
 				}

@@ -53,7 +53,7 @@ func TestMCPTools_ListsAndCachesToolsTheOverviewThenReadsOffline(t *testing.T) {
 	writeFile(t, filepath.Join(source, "mcps", "mail.yaml"), fmt.Sprintf("name: mail\ntype: http\nurl: %s\nheaders:\n  Authorization: Bearer ${FAKE_MCP_TOKEN}\n", srv.URL))
 	writeFile(t, filepath.Join(source, "mcps", "unset.yaml"), fmt.Sprintf("name: unset\ntype: http\nurl: %s\nheaders:\n  Authorization: Bearer ${NOT_SET_ANYWHERE_TOKEN}\n", srv.URL))
 
-	out, err := runCLI(t, "mcp", "tools", "--global")
+	out, err := runCLI(t, "mcp", "tools", "--scope", "user")
 	if err != nil {
 		t.Fatalf("mcp tools: %v\n%s", err, out)
 	}

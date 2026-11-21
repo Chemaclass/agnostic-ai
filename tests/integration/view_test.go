@@ -37,7 +37,7 @@ func TestView_BinaryResolvesProjectGlobalAndLinkedWorktree(t *testing.T) {
 		{name: "outside", cwd: outside, targets: []string{"claude", "codex"}},
 		{name: "project", cwd: project, targets: []string{"cursor", "opencode"}},
 		{name: "linked nested", cwd: nested, targets: []string{"cursor", "opencode"}},
-		{name: "explicit global", cwd: nested, args: []string{"--global"}, targets: []string{"claude", "codex"}},
+		{name: "explicit global", cwd: nested, args: []string{"--scope", "user"}, targets: []string{"claude", "codex"}},
 		{name: "explicit directory", cwd: outside, args: []string{"--dir", linked}, targets: []string{"cursor", "opencode"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

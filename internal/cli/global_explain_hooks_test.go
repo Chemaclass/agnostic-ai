@@ -27,7 +27,7 @@ func TestExplainGlobal_DirectoryHookFilesMatchSync(t *testing.T) {
 				}
 				path := filepath.Join(root, "hooks", name)
 				writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: "+event+"\ncommand: echo guard\n")
-				out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml", "--json")
+				out, err := runRoot(t, "explain", "--scope", "user", "hooks/guard.yaml", "--json")
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -41,7 +41,7 @@ func TestExplainGlobal_DirectoryHookFilesMatchSync(t *testing.T) {
 				if _, err := os.Stat(path); !os.IsNotExist(err) {
 					t.Fatalf("explain wrote native hook: %v", err)
 				}
-				text, err := runRoot(t, "explain", "--global", "hooks/guard.yaml")
+				text, err := runRoot(t, "explain", "--scope", "user", "hooks/guard.yaml")
 				if err != nil || !strings.Contains(text, filepath.ToSlash(path)+" (full file)") {
 					t.Errorf("explain text: %v\n%s", err, text)
 				}
@@ -82,7 +82,7 @@ func TestExplainGlobal_DirectoryHooksWithNoNativeOutput(t *testing.T) {
 			home, source := globalAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
 			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
-			out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml", "--json")
+			out, err := runRoot(t, "explain", "--scope", "user", "hooks/guard.yaml", "--json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -117,7 +117,7 @@ func TestExplainGlobal_DirectoryHookNativeActions(t *testing.T) {
 			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
 			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
 			path := filepath.Join(home, "."+tc.target, "hooks", "guard.json")
-			out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml")
+			out, err := runRoot(t, "explain", "--scope", "user", "hooks/guard.yaml")
 			if err != nil || !strings.Contains(out, filepath.ToSlash(path)) {
 				t.Errorf("explain omits native action: %v\n%s", err, out)
 			}
@@ -139,7 +139,7 @@ func TestExplainGlobal_DirectoryHookScriptsMatchSync(t *testing.T) {
 			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\nevent: PreToolUse\ncommand: [.agnostic-ai/scripts/guard.ps1, .agnostic-ai/scripts/guard.ps1]\n")
 			body := "exit 97\n"
 			writeFile(t, filepath.Join(source, "scripts", "guard.ps1"), body)
-			out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml", "--json")
+			out, err := runRoot(t, "explain", "--scope", "user", "hooks/guard.yaml", "--json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -190,7 +190,7 @@ func TestExplainGlobal_DirectoryHookValidationMatchesSync(t *testing.T) {
 			_, source := globalAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: ["+tc.target+"]\n")
 			writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\n"+tc.hook)
-			if out, err := runRoot(t, "explain", "--global", "hooks/guard.yaml"); err == nil || !strings.Contains(err.Error(), tc.want) {
+			if out, err := runRoot(t, "explain", "--scope", "user", "hooks/guard.yaml"); err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Errorf("explain error = %v, want %q\n%s", err, tc.want, out)
 			}
 			if out, _, err := runGlobalAgentTest("--only", tc.target); err == nil || !strings.Contains(err.Error(), tc.want) {

@@ -55,7 +55,7 @@ func TestGlobalOverview_LaterClaudeModelMatchesWhatSyncWritesForCodex(t *testing
 	root := NewRootCmd("test")
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
-	root.SetArgs([]string{"sync", "--global", "--only", "codex"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "codex"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("sync --global: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 	root := NewRootCmd("test")
 	root.SetOut(io.Discard)
 	root.SetErr(io.Discard)
-	root.SetArgs([]string{"sync", "--global"})
+	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("sync --global: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestServeMux_GlobalServesTheOverview(t *testing.T) {
 
 func TestView_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
 	globalOverviewHome(t)
-	out, err := runCLI(t, "view", "--global", "--json")
+	out, err := runCLI(t, "view", "--scope", "user", "--json")
 	if err != nil {
 		t.Fatalf("view --global: %v\n%s", err, out)
 	}
@@ -206,7 +206,7 @@ func TestView_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
 		t.Errorf("snapshot = %+v", view.Snapshot)
 	}
 
-	if _, err := runCLI(t, "view", "--global", "--dir", "."); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
+	if _, err := runCLI(t, "view", "--scope", "user", "--dir", "."); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
 		t.Errorf("--global --dir error = %v, want a flag conflict", err)
 	}
 }

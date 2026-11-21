@@ -74,7 +74,7 @@ func TestProfile_NoEmptyFileWhenFlagChecksFail(t *testing.T) {
 
 	prof := filepath.Join(t.TempDir(), "cpu.prof")
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"install-hook", "--shared", "--global", "--profile", prof})
+	root.SetArgs([]string{"install-hook", "--shared", "--scope", "user", "--profile", prof})
 	if err := root.Execute(); err == nil {
 		t.Fatal("install-hook accepted --shared with --global")
 	}

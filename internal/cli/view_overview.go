@@ -94,7 +94,7 @@ func serveView(cmd *cobra.Command, browser func(string) error, addr, root string
 	serve.SilenceUsage = true
 	args := []string{"--open", "--addr", addr}
 	if global {
-		args = append(args, "--global")
+		args = append(args, "--scope", specScopeUser)
 	} else {
 		args = append(args, "--dir", root)
 	}
@@ -123,7 +123,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
   agnostic-ai view --dir ../service --json
 
   # Open the user-level configuration
-  agnostic-ai view --global`,
+  agnostic-ai view --scope user`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			open := browser
@@ -139,7 +139,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 				}
 			}
 			if global && cmd.Flags().Changed("dir") {
-				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
+				return errs.Coded(errs.CodeFlagConflict, "--scope user and --dir cannot be combined")
 			}
 			root, useGlobal, err := resolveViewSource(dir, global, cmd.Flags().Changed("dir"))
 			if err != nil {
@@ -249,7 +249,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
 	cmd.Flags().StringVar(&addr, "addr", defaultServeAddr, "Loopback address to listen on; when set, view never moves to another port.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the overview as JSON without opening the web interface.")
-	cmd.Flags().BoolVar(&global, "global", false, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	addScopeFlag(cmd, &global, "Read the user-level configuration in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	return cmd
 }
 

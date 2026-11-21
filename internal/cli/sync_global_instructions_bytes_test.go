@@ -64,7 +64,7 @@ func TestSyncGlobal_AddThenRemoveRestoresTheInstructionsFileBytes(t *testing.T) 
 func syncGlobalOnly(t *testing.T, target string) {
 	t.Helper()
 	root := NewRootCmd("test")
-	root.SetArgs([]string{"sync", "--global", "--only", target})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", target})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}

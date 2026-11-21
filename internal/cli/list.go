@@ -17,7 +17,7 @@ func newListCmd() *cobra.Command {
   agnostic-ai list
 
   # Print effective global specs and their layers
-  agnostic-ai list --global`,
+  agnostic-ai list --scope user`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// list reads no home targets, so a home config that does not
 			// parse only warns.
@@ -61,7 +61,7 @@ func newListCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&global, "global", false, "List effective global specs and their layers")
+	addScopeFlag(cmd, &global, "List effective global specs and their layers")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output specs and their provenance as JSON")
 	return cmd
 }

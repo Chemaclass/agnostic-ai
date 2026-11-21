@@ -18,7 +18,7 @@ nav_after = "configuration"
 agnostic-ai [command] [flags]
 ```
 
-Run project commands from the folder with `agnostic-ai.yaml`, unless the command documents subdirectories or `--global`. `agnostic-ai <command> --help` lists the options of your release. To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) or see [troubleshooting](@/docs/troubleshooting.md).
+Run project commands from the folder with `agnostic-ai.yaml`, unless the command documents subdirectories or `--scope user`. `agnostic-ai <command> --help` lists the options of your release. To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) or see [troubleshooting](@/docs/troubleshooting.md).
 
 ## Find a command
 
@@ -89,12 +89,12 @@ The lock file, `.agnostic-ai/.command-lock`, stays on disk. Do not delete it. Th
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source folder for the `--global` commands. See [global configuration](@/docs/configuration-reference.md#global-configuration). |
+| `AGNOSTIC_AI_HOME` | `~/.agnostic-ai` | Source folder for the `--scope user` commands. See [global configuration](@/docs/configuration-reference.md#global-configuration). |
 
 <details>
 <summary>Which commands read AGNOSTIC_AI_HOME</summary>
 
-`sync --global`, `list --global`, `lint --global`, `validate --global`, and `migrate --global` read it, including its `local/` override layer. Project sync does not load it.
+`sync --scope user`, `list --scope user`, `lint --scope user`, `validate --scope user`, and `migrate --scope user` read it, including its `local/` override layer. Project sync does not load it.
 
 </details>
 

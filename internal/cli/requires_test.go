@@ -285,12 +285,12 @@ func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 	writeFile(t, config, "requires: \">=0.70.0\"\ntargets: [claude]\n")
 
 	for _, args := range [][]string{{"sync"}, {"sync", "--check"}, {"sync", "-t", "claude"}, {"lint"}, {"validate"}, {"list"}} {
-		_, _, err := runAsVersion(t, "v0.69.0", append(args, "--global")...)
+		_, _, err := runAsVersion(t, "v0.69.0", append(args, "--scope", "user")...)
 		assertUnmetRequires(t, err, config, ">=0.70.0", "0.69.0")
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": false})
 
-	_, errOut, err := runAsVersion(t, "v0.70.0", "sync", "--global")
+	_, errOut, err := runAsVersion(t, "v0.70.0", "sync", "--scope", "user")
 	if err != nil {
 		t.Fatalf("sync --global on 0.70.0: %v", err)
 	}
@@ -306,7 +306,7 @@ func TestGlobalSync_LocalHomeConfigRequiresReplacesShared(t *testing.T) {
 	local := filepath.Join(source, "local", "agnostic-ai.yaml")
 	writeFile(t, local, "requires: \">=0.70.0\"\n")
 
-	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--global")
+	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--scope", "user")
 	assertUnmetRequires(t, err, local, ">=0.70.0", "0.69.0")
 }
 
@@ -315,7 +315,7 @@ func TestGlobalSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
 	path := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, path, "requires: \"0.76.0\"\n")
 
-	_, _, err := runAsVersion(t, "v0.77.0", "sync", "--global")
+	_, _, err := runAsVersion(t, "v0.77.0", "sync", "--scope", "user")
 	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
 		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
 	}
@@ -334,7 +334,7 @@ func TestGlobalSync_NullLocalRequiresClearsShared(t *testing.T) {
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "requires: \">=0.70.0\"\ntargets: [claude]\n")
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "requires:\n")
 
-	if _, _, err := runAsVersion(t, "v0.69.0", "sync", "--global"); err != nil {
+	if _, _, err := runAsVersion(t, "v0.69.0", "sync", "--scope", "user"); err != nil {
 		t.Fatalf("a null local requires must clear the shared one, as in a project: %v", err)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
@@ -345,7 +345,7 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "targets: [claude\n")
 
-	_, errOut, err := runAsVersion(t, "v0.69.0", "sync", "--global", "-t", "claude")
+	_, errOut, err := runAsVersion(t, "v0.69.0", "sync", "--scope", "user", "-t", "claude")
 	if err != nil {
 		t.Fatalf("-t must not be blocked by a home config it bypasses: %v", err)
 	}
@@ -356,7 +356,7 @@ func TestGlobalSync_TargetFlagWarnsOnUnparsableHomeConfig(t *testing.T) {
 
 	writeFile(t, config, "requires: \">=0.70.0\"\n")
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [claude\n")
-	_, _, err = runAsVersion(t, "v0.69.0", "sync", "--global", "-t", "claude")
+	_, _, err = runAsVersion(t, "v0.69.0", "sync", "--scope", "user", "-t", "claude")
 	assertUnmetRequires(t, err, config, ">=0.70.0", "0.69.0")
 }
 
@@ -365,7 +365,7 @@ func TestGlobalSync_InvalidRequiresNamesFileAndKey(t *testing.T) {
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "requires: [\">=0.70.0\"]\n")
 
-	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--global")
+	_, _, err := runAsVersion(t, "v0.69.0", "sync", "--scope", "user")
 	if errs.CodeOf(err) != errs.CodeConfigDecode || !strings.Contains(err.Error(), config+": requires:") {
 		t.Errorf("want AAI-004 naming %s and requires, got %v", config, err)
 	}
@@ -396,7 +396,7 @@ func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
 	writeFile(t, config, "targets: [claude\n")
 	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
-	out, errOut, err := runAsVersion(t, "v0.69.0", "list", "--global")
+	out, errOut, err := runAsVersion(t, "v0.69.0", "list", "--scope", "user")
 	if err != nil {
 		t.Fatalf("list --global reads no targets, so a broken home config must not stop it: %v", err)
 	}
@@ -601,7 +601,7 @@ func TestGlobalCommands_ExactPinHintsAtMinimum(t *testing.T) {
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "requires: \"0.88.0\"\ntargets: [claude]\n")
 
-	_, _, err := runAsVersion(t, "v0.89.0", "sync", "--global")
+	_, _, err := runAsVersion(t, "v0.89.0", "sync", "--scope", "user")
 	if errs.CodeOf(err) != errs.CodeRequiresUnmet {
 		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
 	}

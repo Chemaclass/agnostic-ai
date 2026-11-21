@@ -203,7 +203,7 @@ func TestSyncKeepEdits_RejectsModesThatDoNotWrite(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)
-	for _, flag := range []string{"--check", "--watch", "--global"} {
+	for _, flag := range []string{"--check", "--watch", "--scope=user"} {
 		err := runSyncArgs(t, "--keep-edits", flag)
 		if err == nil || !strings.Contains(err.Error(), "--keep-edits") {
 			t.Errorf("--keep-edits %s: err = %v, want a flag conflict naming --keep-edits", flag, err)

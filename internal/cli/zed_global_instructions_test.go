@@ -90,11 +90,11 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 			if _, notes, err := runGlobalAgentTest("--only", "zed", "--check"); err != nil {
 				t.Fatalf("check: %v\n%s", err, notes)
 			}
-			explained, err := runRoot(t, "explain", "--global", "rules/personal.md")
+			explained, err := runRoot(t, "explain", "--scope", "user", "rules/personal.md")
 			if err != nil || !strings.Contains(explained, filepath.ToSlash(path)) {
 				t.Errorf("explain native path: %v\n%s", err, explained)
 			}
-			raw, err := runRoot(t, "explain", "--global", "rules/personal.md", "--json")
+			raw, err := runRoot(t, "explain", "--scope", "user", "rules/personal.md", "--json")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -107,7 +107,7 @@ func TestZedGlobalInstructions_WriteExplainCheckAndRestore(t *testing.T) {
 			}) {
 				t.Errorf("JSON contribution misses canonical native path: %s", raw)
 			}
-			if _, err := runRoot(t, "import", "--global", "zed"); err == nil || !strings.Contains(err.Error(), "has no user settings, MCP file, or hook directory") {
+			if _, err := runRoot(t, "import", "--scope", "user", "zed"); err == nil || !strings.Contains(err.Error(), "has no user settings, MCP file, or hook directory") {
 				t.Errorf("global instruction import contract changed: %v", err)
 			}
 			if got := readFile(t, path); got != added {

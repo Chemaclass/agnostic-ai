@@ -116,7 +116,7 @@ func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
 	globalOverviewHome(t)
 	testutil.Chdir(t, t.TempDir())
 
-	skipped := serveAndFetchEvidence(t, "--global", "--no-installed")
+	skipped := serveAndFetchEvidence(t, "--scope", "user", "--no-installed")
 	if got := skipped.overview.Snapshot.Evidence.Installed; got != "not-checked" {
 		t.Errorf("overview installed evidence = %q, want not-checked", got)
 	}
@@ -128,7 +128,7 @@ func TestServe_NoInstalledSkipsTheGlobalOverviewComparison(t *testing.T) {
 			t.Errorf("target %s sync = %+v, want not-checked with no files", target.Target, target.Sync)
 		}
 	}
-	if got := serveAndFetchEvidence(t, "--global").overview.Snapshot.Evidence.Installed; got != "checked" {
+	if got := serveAndFetchEvidence(t, "--scope", "user").overview.Snapshot.Evidence.Installed; got != "checked" {
 		t.Errorf("overview installed evidence = %q, want checked without the flag", got)
 	}
 }
@@ -141,7 +141,7 @@ func TestServe_NoInstalledKeepsTheGlobalNoteForSettingsSyncDoesNotWrite(t *testi
 	testutil.Chdir(t, t.TempDir())
 
 	const reason = "sync --global does not write this target's user settings yet"
-	for _, args := range [][]string{{"--global"}, {"--global", "--no-installed"}} {
+	for _, args := range [][]string{{"--scope", "user"}, {"--scope", "user", "--no-installed"}} {
 		served := serveAndFetchEvidence(t, args...)
 		rows := resolvedByTarget(t, &served.overview)
 		for _, field := range []string{"model", "effort"} {

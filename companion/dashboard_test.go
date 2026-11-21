@@ -16,7 +16,7 @@ import (
 
 func TestOpenDashboard_ReportsStartupFailureAndAllowsRetry(t *testing.T) {
 	fakeCommand(t, "echo 'could not read the configuration' >&2; exit 1")
-	view := func() *exec.Cmd { return exec.Command(os.Getenv("AGNOSTIC_AI_BIN"), "view", "--global") }
+	view := func() *exec.Cmd { return exec.Command(os.Getenv("AGNOSTIC_AI_BIN"), "view", "--scope", "user") }
 	opened := ""
 	open := func(url string) error { opened = url; return nil }
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)

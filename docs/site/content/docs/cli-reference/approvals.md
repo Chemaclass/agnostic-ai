@@ -22,9 +22,9 @@ agnostic-ai approvals log --since 1h  # what the hook decided in the last hour
 
 ## approvals status
 
-Prints one line per tool that `sync --global` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line gives the reason. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --global` turns on. Claude Code, Codex, Kiro, Qwen Code and Qoder have a route for `yolo`: a hook. For `yolo` it also checks that the hook is installed and, for Codex, trusted in `/hooks`, and, for Kiro, Qwen Code and Qoder, that no rule of theirs asks; until then the tool falls back to `ask`. On Windows `yolo` falls back to `ask`. [Approvals per tool](@/docs/approvals.md#per-tool) lists the routes.
+Prints one line per tool that `sync --scope user` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line gives the reason. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --scope user` turns on. Claude Code, Codex, Kiro, Qwen Code and Qoder have a route for `yolo`: a hook. For `yolo` it also checks that the hook is installed and, for Codex, trusted in `/hooks`, and, for Kiro, Qwen Code and Qoder, that no rule of theirs asks; until then the tool falls back to `ask`. On Windows `yolo` falls back to `ask`. [Approvals per tool](@/docs/approvals.md#per-tool) lists the routes.
 
-A `note:` line under a tool says what keeps its reviewer from matching the mode: the key is missing or set to another value in the user settings file (then `effective` is `ask`), Codex `approval_policy = "never"` stops Auto-review from running, or the reviewer stays on where the mode is not `review`, because `sync --global` wrote the key or, for Codex, it was set by hand. For Claude Code in `yolo`, a note says that ask rules passed with `--settings` or `--allowedTools` are not read.
+A `note:` line under a tool says what keeps its reviewer from matching the mode: the key is missing or set to another value in the user settings file (then `effective` is `ask`), Codex `approval_policy = "never"` stops Auto-review from running, or the reviewer stays on where the mode is not `review`, because `sync --scope user` wrote the key or, for Codex, it was set by hand. For Claude Code in `yolo`, a note says that ask rules passed with `--settings` or `--allowedTools` are not read.
 
 `--json` prints `dir` and a `tools` list. Each item has `tool`, `mode` (what the settings ask for), `effective` (what the tool does), `from`, `yolo` and `review` (the tool's route for each mode, or `ask`), `reason` when the mode falls back to `ask`, `route` when one carries the mode, `min_version` when the route needs a release, and `notes` when there are any.
 
@@ -32,7 +32,7 @@ A `note:` line under a tool says what keeps its reviewer from matching the mode:
 
 Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`. That block replaces the shared one, so no tool or project keeps `review` or `yolo`. Its `always-ask` patterns stay, and so do the file's other keys and comments. It refuses a file with more than one YAML document, or an `approvals` block that carries a YAML anchor. The next request reads it; no sync or restart is needed.
 
-A reviewer key that `sync --global` wrote, such as Claude Code auto mode, stays in the tool's user settings until the next `sync --global` removes it, and the command says so. A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code).
+A reviewer key that `sync --scope user` wrote, such as Claude Code auto mode, stays in the tool's user settings until the next `sync --scope user` removes it, and the command says so. A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code).
 
 ## approvals log
 

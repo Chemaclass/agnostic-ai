@@ -82,7 +82,7 @@ func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing
 	root := NewRootCmd("test")
 	root.SetOut(&output)
 	root.SetErr(&notes)
-	root.SetArgs([]string{"sync", "--global", "--only", "codex"})
+	root.SetArgs([]string{"sync", "--scope", "user", "--only", "codex"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}

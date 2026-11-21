@@ -135,7 +135,7 @@ func TestSyncGlobal_LeavesTheGeminiMemoryRuleOut(t *testing.T) {
 	if strings.Contains(got, "gemini-memory-tiers") || !strings.Contains(got, "shared-memory-policy") {
 		t.Errorf("~/.gemini/GEMINI.md should carry the shared memory rule alone:\n%s", got)
 	}
-	if out, err := runCLI(t, "validate", "--global"); err != nil {
+	if out, err := runCLI(t, "validate", "--scope", "user"); err != nil {
 		t.Errorf("validate --global: %v\n%s", err, out)
 	}
 }

@@ -84,8 +84,8 @@ func newExplainCmd() *cobra.Command {
   # Which sources replace or extend a spec
   agnostic-ai explain rules/conventional-commits.md --layers
 
-  # Where sync --global places a global spec, per target
-  agnostic-ai explain --global settings/defaults.yaml
+  # Where sync --scope user places a global spec, per target
+  agnostic-ai explain --scope user settings/defaults.yaml
 
   # Look up an error code
   agnostic-ai explain AAI-001
@@ -111,7 +111,7 @@ func newExplainCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if layers {
 				if len(args) != 1 || global || file != "" || target != "" || inputs || context {
-					return errs.Coded(errs.CodeFlagConflict, "--layers requires one spec and cannot be combined with --global, --file, --target, --inputs, or --context")
+					return errs.Coded(errs.CodeFlagConflict, "--layers requires one spec and cannot be combined with --scope user, --file, --target, --inputs, or --context")
 				}
 				if errs.IsCode(args[0]) || isLintCode(args[0]) {
 					return errs.Coded(errs.CodeFlagConflict, "--layers requires a spec path or builtin reference, not an error or lint code")
@@ -120,13 +120,13 @@ func newExplainCmd() *cobra.Command {
 			}
 			if context {
 				if len(args) > 0 || global || inputs || target == "" {
-					return errs.Coded(errs.CodeFlagConflict, "--context requires --target and cannot be combined with a spec, --global, or --inputs")
+					return errs.Coded(errs.CodeFlagConflict, "--context requires --target and cannot be combined with a spec, --scope user, or --inputs")
 				}
 				return runExplainContext(cmd, target, file, jsonOut)
 			}
 			if inputs {
 				if len(args) > 0 || file != "" || target != "" || global {
-					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file, --target, or --global")
+					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file, --target, or --scope user")
 				}
 				return runExplainInputs(cmd, jsonOut)
 			}
@@ -134,7 +134,7 @@ func newExplainCmd() *cobra.Command {
 				return err
 			}
 			if global && file != "" {
-				return errors.New("--global cannot be combined with --file")
+				return errors.New("--scope user cannot be combined with --file")
 			}
 			if file != "" {
 				return runExplainForFile(cmd, file, target, jsonOut)
@@ -203,7 +203,7 @@ func newExplainCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&layers, "layers", false, "Show the project source layers that replace or extend this spec.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
-	cmd.Flags().BoolVar(&global, "global", false, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --global writes for each target.")
+	addScopeFlag(cmd, &global, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --scope user writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
 	cmd.Flags().StringVar(&target, "target", "", "Configured target for --context, or instructions --file reports ("+strings.Join(fileContextTargets, ", ")+").")
 	cmd.Flags().BoolVar(&inputs, "inputs", false, "List every file and directory whose change can change a generated output, one per line, for a git hook's trigger list.")

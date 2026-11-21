@@ -69,7 +69,7 @@ func TestVoiceKiro_ExplainLanguage(t *testing.T) {
 	root := filepath.Join(home, "kiro-profile")
 	t.Setenv("KIRO_HOME", root)
 	writeFile(t, filepath.Join(source, "settings", "voice.yaml"), targetVoiceSpec)
-	out, err := runRoot(t, "explain", "--global", "settings/voice.yaml")
+	out, err := runRoot(t, "explain", "--scope", "user", "settings/voice.yaml")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -79,7 +79,7 @@ func TestLintGlobal_FlagsSettingsEffortATargetRejects(t *testing.T) {
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs([]string{"lint", "--global"})
+	cmd.SetArgs([]string{"lint", "--scope", "user"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatalf("lint must fail:\n%s", out.String())
 	}
@@ -101,7 +101,7 @@ func TestExplainGlobal_NamesFileAndKeyPerTarget(t *testing.T) {
 	cmd := NewRootCmd("test")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
-	cmd.SetArgs([]string{"explain", "--global", "settings/defaults.yaml"})
+	cmd.SetArgs([]string{"explain", "--scope", "user", "settings/defaults.yaml"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatalf("explain: %v\n%s", err, out.String())
 	}
@@ -196,7 +196,7 @@ func TestExplainGlobal_NamesEveryKindsUserPath(t *testing.T) {
 		cmd := NewRootCmd("test")
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
-		cmd.SetArgs([]string{"explain", "--global", arg})
+		cmd.SetArgs([]string{"explain", "--scope", "user", arg})
 		if err := cmd.Execute(); err != nil {
 			t.Fatalf("explain %s: %v\n%s", arg, err, out.String())
 		}
@@ -373,7 +373,7 @@ func TestExplainGlobal_PermissionModeNamesWinningSource(t *testing.T) {
 		cmd := NewRootCmd("test")
 		cmd.SetOut(&out)
 		cmd.SetErr(&out)
-		cmd.SetArgs([]string{"explain", "--global", file})
+		cmd.SetArgs([]string{"explain", "--scope", "user", file})
 		if err := cmd.Execute(); err != nil {
 			t.Fatalf("explain: %v\n%s", err, out.String())
 		}
