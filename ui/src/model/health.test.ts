@@ -10,7 +10,7 @@ const hookError: ItemFinding = { source: 'lint', code: 'LINT001', severity: 'err
 const hookWarning: ItemFinding = { source: 'lint', code: 'LINT002', severity: 'warning', message: 'The hook has no timeout.', path: '.agnostic-ai/hooks/prepare.yaml' }
 const skillWarning = (name: string): ItemFinding => ({ source: 'doctor', severity: 'warn', message: `Skill ${name} is not synced.`, path: `.agnostic-ai/skills/${name}/SKILL.md` })
 const sectionError: ItemFinding = { source: 'doctor', severity: 'error', message: 'The configuration file cannot be read.' }
-const globalWarning: ItemFinding = { source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'global' }
+const globalWarning: ItemFinding = { source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'user' }
 
 const item = (kind: string, name: string, findings: ItemFinding[]): SectionItem => ({ kind, name, label: name, description: '', path: `.agnostic-ai/${kind}s/${name}`, layer: 'project', values: [], findings })
 const section = (id: Section['id'], order: number, items: SectionItem[], findings: ItemFinding[] = []): Section => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1), question: '', order, kinds: [], items, support: [], findings })

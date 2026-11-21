@@ -161,10 +161,10 @@ Lists what to fix. **Setup health** in the rail shows the counts in the page's w
 - Snapshots cannot recheck.
 - With warnings only, a line under the page title counts them and **Review** opens the folded list at the end of the page. Errors stay visible above the tabs.
 - In a project, the counts and **Setup health** include what `lint --scope user` reports for the global setup (`~/.agnostic-ai`), which reaches every project.
-  - Each such finding is labelled **global** and sits under Settings as **Global setup**. Its fix prompt names the file in the global setup.
+  - Each such finding is labelled **user** and sits under Settings as **Global setup**. Its fix prompt names the file in the global setup.
   - Doctor checks read project files, so the global setup has none.
   - Without a global setup there are none.
-  - The JSON overview marks them `"layer": "global"`, with `path` relative to the global source.
+  - The JSON overview marks them `"layer": "user"`, with `path` relative to the global source.
 - **You could add** lists unused features your enabled tools support: a context kind with no project spec, a hook stage with no matching hook (built-in hooks count), or the disabled `handoff` built-in.
 - Each suggestion shows its tool count and **Copy prompt**.
 - A row of bars shows supported features and which are in use, such as **7 of 9 features your tools support are in use**. When all are in use, no suggestions appear.

@@ -7,7 +7,8 @@ const item = (kind: string, layer: string): SectionItem => ({ kind, name: 'revie
 describe('spec move', () => {
   it.each(['rule', 'agent', 'skill', 'hook', 'mcp'])('offers a shared %s of the served level', (kind) => {
     expect(canMoveSpec(item(kind, 'project'), 'project')).toBe(true)
-    expect(canMoveSpec(item(kind, 'global'), 'global')).toBe(true)
+    expect(canMoveSpec(item(kind, 'user'), 'global')).toBe(true)
+    expect(canMoveSpec(item(kind, 'user'), 'project')).toBe(false)
   })
 
   it.each([
@@ -16,8 +17,9 @@ describe('spec move', () => {
     ['instructions', 'project'],
     ['skill', 'builtin'],
     ['skill', 'pack:team'],
-    ['skill', 'project-user'],
-    ['skill', 'global-local'],
+    ['skill', 'local'],
+    ['skill', 'user-local'],
+    ['skill', 'global'],
   ])('leaves a %s from layer %s alone', (kind, layer) => {
     expect(canMoveSpec(item(kind, layer), 'project')).toBe(false)
     expect(canMoveSpec(item(kind, layer), 'global')).toBe(false)

@@ -438,7 +438,7 @@ func (d fieldDef) values(all []Value) []Value {
 
 // LocalLayer reports whether e comes from a personal, git-ignored layer.
 func LocalLayer(e spec.Entry) bool {
-	return e.Layer == "project-user" || e.Layer == "global-local"
+	return e.Layer == "local" || e.Layer == "user-local"
 }
 
 // LocalSets reports whether a personal file itself sets the dotted key

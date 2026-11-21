@@ -68,7 +68,7 @@ test('shows the effective configuration once beside its source file links', asyn
   const settings = await overview(page)
   const config = settings.items.find((item: { kind: string }) => item.kind === 'config')
   config.values = [{ key: 'requires', type: 'text', value: '>=0.80.0' }]
-  settings.items.push({ ...config, name: 'agnostic-ai.local.yaml', label: 'agnostic-ai.local.yaml', path: 'agnostic-ai.local.yaml', openPath: '/work/project/agnostic-ai.local.yaml', layer: 'project-user' })
+  settings.items.push({ ...config, name: 'agnostic-ai.local.yaml', label: 'agnostic-ai.local.yaml', path: 'agnostic-ai.local.yaml', openPath: '/work/project/agnostic-ai.local.yaml', layer: 'local' })
   await page.goto('/?view=settings&tab=configuration')
   const panel = page.getByRole('tabpanel', { name: /^Config files/ })
   await expect(panel.locator('.item-row')).toHaveCount(2)

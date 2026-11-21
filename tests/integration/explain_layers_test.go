@@ -53,7 +53,7 @@ func TestExplainLayers_BuiltBinaryShowsResolutionWithoutChangingFiles(t *testing
 	wantSources := []explainLayersSource{
 		{Source: explainLayersRef{Kind: "rule", Name: "conventional-commits", Path: paths[0], Layer: "pack:team"}, Operation: "base", Role: "replaced"},
 		{Source: explainLayersRef{Kind: "rule", Name: "conventional-commits", Path: paths[1], Layer: "project"}, Operation: "replace", Role: "contributor"},
-		{Source: explainLayersRef{Kind: "rule", Name: "conventional-commits", Path: paths[2], Layer: "project-user"}, Operation: "extend", Role: "contributor"},
+		{Source: explainLayersRef{Kind: "rule", Name: "conventional-commits", Path: paths[2], Layer: "local"}, Operation: "extend", Role: "contributor"},
 	}
 	var firstText, firstJSON string
 	for _, path := range paths {

@@ -112,7 +112,7 @@ func TestSettingsFields_WholePersonalVoiceClearShowsSourcesAndBlocksEdits(t *tes
 	cfg := &config.Config{Targets: []string{"claude"}}
 	shared := entry(spec.KindSettings, "voice", "settings/voice.yaml", map[string]any{"voice": map[string]any{"enabled": true, "mode": "hold", "language": "es"}})
 	overlay := localOverlay(shared, "local/settings/voice.yaml", map[string]any{"voice": nil})
-	overlay.Layer = "global-local"
+	overlay.Layer = "user-local"
 	delete(overlay.Meta, "voice")
 	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}, Global: true}), SectionSettings)
 	for _, field := range section.Fields {
@@ -138,7 +138,7 @@ func TestSettingsFields_IndependentVoiceSourceRemainsEditable(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}}
 	shared := entry(spec.KindSettings, "a", "settings/a.yaml", map[string]any{"voice": map[string]any{"enabled": true, "mode": "hold"}})
 	cleared := localOverlay(shared, "local/settings/a.yaml", map[string]any{"voice": nil})
-	cleared.Layer = "global-local"
+	cleared.Layer = "user-local"
 	delete(cleared.Meta, "voice")
 	active := entry(spec.KindSettings, "z", "settings/z.yaml", map[string]any{"voice": map[string]any{"enabled": false, "mode": "tap", "language": "es"}})
 	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{cleared, active}}, Global: true}), SectionSettings)

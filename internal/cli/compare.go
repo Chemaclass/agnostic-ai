@@ -143,6 +143,7 @@ func newCompareCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for scripts.")
+	addProjectOnlyScopeFlag(cmd, "`agnostic-ai sync --scope user --dry-run` previews user-level output")
 	return cmd
 }
 

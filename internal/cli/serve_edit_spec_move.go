@@ -110,6 +110,15 @@ func newSpecMoveHandler(root string, global bool, peer *switchPeer) http.Handler
 
 func (h *specMoveHandler) level() string { return levelOf(h.global) }
 
+// layerOfLevel is the spec layer a level's own specs load in. The level
+// keeps its name in the API; the layer is what list prints.
+func layerOfLevel(global bool) string {
+	if global {
+		return layerNameUser
+	}
+	return layerNameProject
+}
+
 func levelOf(global bool) string {
 	if global {
 		return "global"
@@ -231,7 +240,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is a built-in; switch it on in the other level instead", req.Name)
 	case strings.HasPrefix(entry.Layer, layerNamePackPrefix):
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s comes from %s; copy it from the pack instead", req.Name, entry.Layer)
-	case entry.Layer != h.level():
+	case entry.Layer != layerOfLevel(h.global):
 		return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s is a local spec; local specs stay where they are", req.Name)
 	}
 	if kind == spec.KindRule && !h.global {
@@ -371,7 +380,7 @@ func (h *specMoveHandler) destination() (string, config.Sources, error) {
 // refuseOtherDestinationSpec stops a copy that would leave two specs of one
 // name in the destination: one at another path would still win or clash.
 func (h *specMoveHandler) refuseOtherDestinationSpec(root string, sources config.Sources, kind spec.Kind, name, dst string, folder bool) error {
-	b, err := spec.LoadLayered([]spec.Layer{{Name: levelOf(!h.global), Root: root, Sources: sources}})
+	b, err := spec.LoadLayered([]spec.Layer{{Name: layerOfLevel(!h.global), Root: root, Sources: sources}})
 	if err != nil {
 		return err
 	}

@@ -31,8 +31,8 @@ func globalLayers(source string, names []string) ([]spec.Layer, error) {
 		return nil, err
 	}
 	return append(layers, []spec.Layer{
-		{Name: "global", Root: source, Sources: globalSources},
-		{Name: "global-local", Root: filepath.Join(source, "local"), Sources: globalSources, Extends: true},
+		{Name: layerNameUser, Root: source, Sources: globalSources},
+		{Name: layerNameUserLocal, Root: filepath.Join(source, "local"), Sources: globalSources, Extends: true},
 	}...), nil
 }
 
@@ -100,7 +100,7 @@ func (s checkScope) migrationScope() migrationScope {
 }
 
 // loadCheckScope loads the project in the working directory, or the
-// global and global-local layers sync --scope user reads. The global scope
+// global and user-local layers sync --scope user reads. The global scope
 // checks against the targets a default sync --scope user writes, from the
 // home config or else every supported one, and against what each writes
 // at user level.

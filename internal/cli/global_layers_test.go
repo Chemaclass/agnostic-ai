@@ -101,7 +101,7 @@ func TestListGlobal_ReportsEffectiveLayersWithoutProjectConfig(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			for _, want := range []string{"agent\treviewer\tglobal\n", "skill\treviewer\tglobal-local\n", "rule\tpersonal\tglobal-local\n"} {
+			for _, want := range []string{"agent\treviewer\tuser\n", "skill\treviewer\tuser-local\toverrides:user\n", "rule\tpersonal\tuser-local\n"} {
 				if !strings.Contains(out.String(), want) {
 					t.Errorf("missing %q in %s", want, out.String())
 				}

@@ -26,7 +26,7 @@ func TestResolveTargets_TierClearAndUnset(t *testing.T) {
 	tiers := map[string]config.ModelTier{"fast": {Models: map[string]string{"claude": "haiku"}, Effort: "low"}}
 	team := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"model": "opus"})
 	cleared := entry(spec.KindSettings, "team", ".agnostic-ai/local/settings/team.yaml", map[string]any{})
-	cleared.Layer, cleared.Base, cleared.LocalMeta = "project-user", &team, map[string]any{"model": nil}
+	cleared.Layer, cleared.Base, cleared.LocalMeta = "local", &team, map[string]any{"model": nil}
 	tiered := entry(spec.KindSettings, "tiered", ".agnostic-ai/settings/tiered.yaml", map[string]any{"model": "fast"})
 	b := spec.Bundle{Settings: []spec.Entry{cleared, tiered}}
 	b.ApplyModelTiers(tiers)
@@ -76,7 +76,7 @@ func TestResolveTargets_ConfigReplacesTheSettingsValueAndNotesExplainDrops(t *te
 func TestResolveTargets_PersonalMapKeepsTheTeamSourceForKeysItLeaves(t *testing.T) {
 	team := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}, "x-claude": map[string]any{"model": "opus"}})
 	merged := entry(spec.KindSettings, "team", ".agnostic-ai/local/settings/team.yaml", map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5", "claude": "opus"}, "x-claude": map[string]any{"model": "opus"}})
-	merged.Layer, merged.Base, merged.LocalMeta = "project-user", &team, map[string]any{"model": map[string]any{"claude": "opus"}}
+	merged.Layer, merged.Base, merged.LocalMeta = "local", &team, map[string]any{"model": map[string]any{"claude": "opus"}}
 	in := Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}, Bundle: spec.Bundle{Settings: []spec.Entry{merged}}}
 
 	model := resolvedField(t, in, "model")
@@ -107,7 +107,7 @@ func TestResolveTargets_MarksAValueFromTheToolsOwnEntry(t *testing.T) {
 
 	shared := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"model": "sonnet"})
 	merged := entry(spec.KindSettings, "team", ".agnostic-ai/local/settings/team.yaml", map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}})
-	merged.Layer, merged.Base, merged.LocalMeta = "project-user", &shared, map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}}
+	merged.Layer, merged.Base, merged.LocalMeta = "local", &shared, map[string]any{"model": map[string]any{"default": "sonnet", "codex": "gpt-5"}}
 	model = resolvedField(t, Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}, Bundle: spec.Bundle{Settings: []spec.Entry{merged}}}, "model")
 	if codex := model["codex"]; codex.From == nil || !codex.From.Local || !codex.From.PerTool {
 		t.Errorf("personal codex = %+v, want personal and per tool", codex.From)

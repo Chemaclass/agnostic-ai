@@ -735,7 +735,7 @@ func TestBuild_KeepsAGlobalFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
 	in := Inputs{
 		Cfg:      &config.Config{Targets: []string{"claude"}},
 		Bundle:   spec.Bundle{MCPs: []spec.Entry{entry(spec.KindMCP, "db", "mcps/db.yaml", map[string]any{"command": "db-mcp"})}},
-		Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "mcps/db.yaml", Layer: LayerGlobal}},
+		Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "mcps/db.yaml", Layer: LayerUser}},
 	}
 	v := Build(in)
 	for _, s := range v.Sections {
@@ -746,7 +746,7 @@ func TestBuild_KeepsAGlobalFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
 		}
 	}
 	got := sectionByID(t, v, SectionSettings).Findings
-	if len(got) != 1 || got[0].Layer != LayerGlobal {
+	if len(got) != 1 || got[0].Layer != LayerUser {
 		t.Errorf("settings findings = %+v, want the global finding with its layer", got)
 	}
 }

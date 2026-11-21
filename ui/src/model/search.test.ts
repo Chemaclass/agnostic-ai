@@ -52,7 +52,7 @@ describe('overview search', () => {
   it('tells apart entries with the same name by section and path', () => {
     const data = structuredClone(fixture)
     const context = data.sections.find((section) => section.id === 'context')!
-    context.items.push({ ...context.items[0], path: '~/.agnostic-ai/rules/testing.md', layer: 'global' })
+    context.items.push({ ...context.items[0], path: '~/.agnostic-ai/rules/testing.md', layer: 'user' })
     const twins = search(data, context.items[0].name).filter((result) => result.title === context.items[0].label)
     expect(new Set(twins.map((result) => result.entry)).size).toBe(twins.length)
     expect(new Set(twins.map((result) => `${result.context} ${result.detail}`)).size).toBe(twins.length)

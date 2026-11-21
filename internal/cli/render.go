@@ -91,6 +91,7 @@ func newRenderCmd() *cobra.Command {
 	}
 	cmd.Flags().StringSliceVarP(&targetFlags, "target", "t", nil, "Target(s) to render (default: all in config). Repeat or comma-separate.")
 	registerTargetCompletion(cmd)
+	addProjectOnlyScopeFlag(cmd, "`agnostic-ai sync --scope user --dry-run` previews user-level output")
 	return cmd
 }
 

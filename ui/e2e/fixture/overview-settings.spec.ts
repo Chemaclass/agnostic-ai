@@ -441,7 +441,7 @@ test.describe('overview', () => {
     const field = (key: string) => settings.fields.find((f: { key: string }) => f.key === key)
     const nativeLocal = '.agnostic-ai/local/settings/native.yaml'
     Object.assign(field('x-'), { set: [{ spec: 'native', path: nativeLocal, local: true, values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }, { key: 'x-claude.theme', type: 'text', value: 'dark' }] }] })
-    settings.items.push({ kind: 'settings', name: 'native', label: 'native', path: nativeLocal, layer: 'project-user', localKeys: ['x-claude.verbose'], values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }], findings: [] })
+    settings.items.push({ kind: 'settings', name: 'native', label: 'native', path: nativeLocal, layer: 'local', localKeys: ['x-claude.verbose'], values: [{ key: 'x-claude.verbose', type: 'bool', value: 'true' }], findings: [] })
     const [a, b, localB] = ['.agnostic-ai/settings/a.yaml', '.agnostic-ai/settings/b.yaml', '.agnostic-ai/local/settings/b.yaml']
     Object.assign(field('model'), {
       set: [

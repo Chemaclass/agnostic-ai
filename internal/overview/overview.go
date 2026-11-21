@@ -305,7 +305,7 @@ func placeFindings(sections []Section, findings []Finding) {
 		// A global finding's path is relative to the global source, so it
 		// never names a project item.
 		for si := range sections {
-			if f.Layer == LayerGlobal {
+			if f.Layer == LayerUser {
 				break
 			}
 			for ii := range sections[si].Items {

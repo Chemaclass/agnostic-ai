@@ -2,12 +2,15 @@ package cli
 
 import (
 	"io"
+	"slices"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func newListCmd() *cobra.Command {
-	var global bool
+	var global, local bool
 	var jsonOut bool
 	cmd := &cobra.Command{
 		Use:   "list",
@@ -17,7 +20,10 @@ func newListCmd() *cobra.Command {
   agnostic-ai list
 
   # Print effective global specs and their layers
-  agnostic-ai list --scope user`,
+  agnostic-ai list --scope user
+
+  # Print only your personal specs in this project, and what each changes
+  agnostic-ai list --scope local`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// list reads no home targets, so a home config that does not
 			// parse only warns.
@@ -30,21 +36,28 @@ func newListCmd() *cobra.Command {
 				return err
 			}
 			entries := scope.bundle.All()
+			if local {
+				entries = slices.DeleteFunc(slices.Clone(entries), func(e spec.Entry) bool { return e.Layer != layerNameProjectUser })
+			}
 			if len(entries) == 0 {
 				if !jsonOut {
-					cmd.PrintErrln(scope.emptyHint())
+					hint := scope.emptyHint()
+					if local {
+						hint = "no local specs in " + defaultProjectUser + "/. add one with `agnostic-ai new <kind> <name> --scope local`."
+					}
+					cmd.PrintErrln(hint)
 					return nil
 				}
 			}
 			if jsonOut {
-				refs := make([]specSourceRef, 0, len(entries))
+				refs := make([]listedSpec, 0, len(entries))
 				for _, e := range entries {
-					refs = append(refs, entrySourceRef(e))
+					refs = append(refs, listedSpec{entrySourceRef(e), entryOverrides(e)})
 				}
 				return writeIndentedJSON(cmd, struct {
-					Version string          `json:"version"`
-					Command string          `json:"command"`
-					Entries []specSourceRef `json:"entries"`
+					Version string       `json:"version"`
+					Command string       `json:"command"`
+					Entries []listedSpec `json:"entries"`
 				}{"1", "list", refs})
 			}
 			for _, e := range entries {
@@ -52,16 +65,19 @@ func newListCmd() *cobra.Command {
 				if layer == "" {
 					layer = layerNameProject
 				}
-				if origin := builtinForEntry(e); origin != nil {
+				switch origin, base := builtinForEntry(e), entryOverrides(e); {
+				case origin != nil:
 					cmd.Printf("%s\t%s\t%s\t%s\n", e.Kind, e.Name, layer, origin.String())
-				} else {
+				case base != nil:
+					cmd.Printf("%s\t%s\t%s\toverrides:%s\n", e.Kind, e.Name, layer, base.Layer)
+				default:
 					cmd.Printf("%s\t%s\t%s\n", e.Kind, e.Name, layer)
 				}
 			}
 			return nil
 		},
 	}
-	addScopeFlag(cmd, &global, "List effective global specs and their layers")
+	addScopeFlagWithLocal(cmd, &global, &local, "local lists only your personal specs in this project; user lists the specs of $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and their layers.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output specs and their provenance as JSON")
 	return cmd
 }

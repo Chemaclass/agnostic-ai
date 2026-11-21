@@ -18,7 +18,7 @@ func TestLoadLayeredWithHistory_TracksReplacementAndExtension(t *testing.T) {
 	layers := []Layer{
 		historyLayer(t, "pack:team", "pack\n", false),
 		historyLayer(t, "project", "project\n", false),
-		historyLayer(t, "project-user", "::parent\npersonal\n", true),
+		historyLayer(t, "local", "::parent\npersonal\n", true),
 	}
 	bundle, history, err := LoadLayeredWithHistory(layers)
 	if err != nil {
@@ -106,7 +106,7 @@ func TestLoadLayeredWithHistory_ScopesNamesByKind(t *testing.T) {
 
 func TestLoadLayeredWithHistory_NewNameInExtendingLayerIsABase(t *testing.T) {
 	t.Parallel()
-	layer := historyLayer(t, "project-user", "::parent\nnew\n", true)
+	layer := historyLayer(t, "local", "::parent\nnew\n", true)
 	bundle, history, err := LoadLayeredWithHistory([]Layer{layer})
 	if err != nil {
 		t.Fatal(err)
