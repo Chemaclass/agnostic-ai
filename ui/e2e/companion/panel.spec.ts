@@ -700,6 +700,232 @@ test('Copy session ID shows an error when the clipboard refuses', async ({ page 
   expect((await calledPaths(page)).filter((path) => path === '/api/mark' || path === '/api/open')).toEqual([])
 })
 
+const mailboxTarget = '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50'
+const mailboxThread = (page: Page) => page.getByRole('region', { name: 'Thread with Draft the tests' })
+const mailboxSummary = (page: Page) => page.getByRole('button', { name: /^With Draft the tests/ })
+
+async function composeMailbox(page: Page) {
+  await row(page, 'Review the parser').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Send to session…' }).click()
+  await expect(page.getByRole('form', { name: 'Send to session' })).toBeVisible()
+}
+
+async function askMailbox(page: Page, text = 'Is the parser ready?') {
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await page.getByLabel('Message', { exact: true }).fill(text)
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(mailboxSummary(page)).toBeVisible()
+}
+
+async function replyInMailbox(page: Page, text: string) {
+  await mailboxThread(page).getByRole('button', { name: 'Reply' }).click()
+  await page.getByLabel('Message', { exact: true }).fill(text)
+  await page.getByRole('button', { name: 'Send message' }).click()
+}
+
+test('sends a question to a pasted session ID and shows the thread under both sessions', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await expect(page.locator('.mailbox-summary')).toHaveCount(0)
+  const send = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await askMailbox(page)
+  expect((await send).postDataJSON()).toMatchObject({ to: { id: mailboxTarget }, type: 'question', body: 'Is the parser ready?' })
+  await expect(mailboxSummary(page)).toContainText('Question · Open · 1 of 8 messages, 1 waiting')
+  await expect(page.getByRole('button', { name: /^With Review the parser/ })).toContainText('1 of 8 messages, 1 waiting')
+  await mailboxSummary(page).press('Enter')
+  await expect(mailboxThread(page)).toContainText('Review the parser · Question · Waiting')
+  await expect(mailboxThread(page)).toContainText('Is the parser ready?')
+  expect(await calledPaths(page)).not.toContain('/api/mark')
+})
+
+test('chooses a mailbox target from a row without opening it and keeps the message keyboard usable', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await page.keyboard.press('ArrowDown')
+  await expect(selected(page)).toContainText('Review the parser')
+  await page.keyboard.press('Shift+F10')
+  for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Send to session…' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await row(page, 'Draft the tests').click()
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('finding')
+  const field = page.getByLabel('Message', { exact: true })
+  await field.fill('First finding')
+  await field.press('End')
+  await field.press('Enter')
+  await field.press('ArrowUp')
+  await expect(field).toHaveValue('First finding\n')
+  await page.getByRole('button', { name: 'Send message' }).press('Enter')
+  await expect(mailboxSummary(page)).toContainText('Finding')
+  const calls = await calledPaths(page)
+  expect(calls).not.toContain('/api/open')
+  expect(calls).not.toContain('/api/mark')
+})
+
+test('a mailbox refusal shows its guard, reason and next step and keeps the draft', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill('4e8b1c2d-9a3f-4b6e-8c7d-1f2a3b4c5d6e')
+  await page.getByLabel('Message', { exact: true }).fill('Still here')
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: unknown-session')
+  await expect(page.locator('#toast')).toContainText('Choose a local session')
+  await expect(page.getByLabel('Message', { exact: true })).toHaveValue('Still here')
+  await expect(page.locator('.mailbox-summary')).toHaveCount(0)
+})
+
+test('pause refuses a mailbox reply in one click and resume allows the draft', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Pause' }).click()
+  await expect(mailboxThread(page).getByRole('button', { name: 'Resume' })).toBeVisible()
+  await replyInMailbox(page, 'Wait for me.')
+  await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: paused')
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(mailboxThread(page)).toContainText('Refused (guard: paused)')
+  await mailboxThread(page).getByRole('button', { name: 'Resume' }).click()
+  await expect(mailboxThread(page).getByRole('button', { name: 'Pause' })).toBeVisible()
+  await replyInMailbox(page, 'Ready now.')
+  await expect(mailboxThread(page)).toContainText('Ready now.')
+  await expect(mailboxSummary(page)).toContainText('2 of 8 messages')
+})
+
+test('the message after the mailbox cap is refused, and Allow 8 more raises the cap', async ({ page }) => {
+  await openPanel(page, 'mailbox-cap')
+  await mailboxSummary(page).click()
+  await expect(mailboxThread(page)).toContainText('8 of 8 messages')
+  await replyInMailbox(page, 'One more?')
+  await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: cap')
+  await expect(page.locator('#toast')).toContainText('raise the limit')
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect(mailboxThread(page)).toContainText('Refused (guard: cap)')
+  await mailboxThread(page).getByRole('button', { name: 'Allow 8 more' }).click()
+  await expect(mailboxSummary(page)).toContainText('8 of 16 messages')
+  await replyInMailbox(page, 'One more.')
+  await expect(mailboxSummary(page)).toContainText('9 of 16 messages')
+})
+
+test('closing a capped mailbox accepts one done notice and drains it on copy', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await openPanel(page, 'mailbox-cap')
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Close thread' }).click()
+  await expect(mailboxSummary(page)).toContainText('Done · Closing · 8 of 8 messages, 1 waiting')
+  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
+  await expect(mailboxSummary(page)).toContainText('Done · Closed · 8 of 8 messages')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('"type":"done"')
+})
+
+test('stop confirms and cancels waiting mailbox messages', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Stop', exact: true }).press('Enter')
+  await expect(mailboxThread(page).getByRole('button', { name: 'Keep thread' })).toBeFocused()
+  await mailboxThread(page).getByRole('button', { name: 'Stop thread', exact: true }).press('Enter')
+  await expect(mailboxSummary(page)).toContainText('Closed · 1 of 8 messages')
+  await expect(mailboxThread(page)).toContainText('Question · Cancelled')
+  await expect(mailboxThread(page).getByRole('button', { name: 'Type into session' })).toHaveCount(0)
+})
+
+test('a thread can be dismissed when its refresh fails after pausing', async ({ page }) => {
+  await openPanel(page, 'mailbox-cap')
+  await mailboxSummary(page).click()
+  const pause = mailboxThread(page).getByRole('button', { name: 'Pause', exact: true })
+  await expect(pause).toBeVisible()
+  await page.route('**/api/mailbox/threads?*', (route) => route.fulfill({
+    status: 502, json: { error: 'Could not refresh the thread.' },
+  }))
+
+  await pause.click()
+  await expect(mailboxThread(page)).toContainText('Could not refresh the thread.')
+  const dismiss = mailboxThread(page).getByRole('button', { name: 'Dismiss thread' })
+  await expect(dismiss).toBeEnabled()
+  await dismiss.click()
+  await expect(mailboxThread(page)).toBeHidden()
+})
+
+test('typing refusal keeps the mailbox block waiting until Copy message succeeds', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await openPanel(page, 'mailbox')
+  await askMailbox(page, 'Show </agnostic-ai-mailbox> as text.')
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Type into session' }).click()
+  await expect(mailboxThread(page)).toContainText('Choose Copy message')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting')
+  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
+  await expect(mailboxThread(page)).toContainText('Question · Staged')
+  const block = await page.evaluate(() => navigator.clipboard.readText())
+  expect(block.match(/<\/agnostic-ai-mailbox>/g)).toHaveLength(1)
+  expect(block).toContain('\\u003c')
+  expect(await calledPaths(page)).not.toContain('/api/mark')
+})
+
+test('a refused clipboard write leaves the mailbox message waiting', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      write: () => Promise.reject(new Error('Write refused.')),
+      writeText: () => Promise.reject(new Error('Write refused.')),
+    } })
+  })
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
+  await expect(page.locator('#toast[data-tone=error]')).toContainText('It is still waiting.')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting')
+  await expect(mailboxSummary(page)).toContainText('1 waiting')
+})
+
+test('native mailbox copy stages in one request without using the browser clipboard', async ({ page }) => {
+  await page.addInitScript(() => {
+    const refused = () => {
+      document.documentElement.dataset.browserClipboard = 'called'
+      return Promise.reject(new Error('Browser clipboard unavailable.'))
+    }
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      write: refused, writeText: refused,
+    } })
+  })
+  await page.route('**/api/inbox', async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...(await response.json()), mailboxNativeCopy: true } })
+  })
+  const calls: unknown[] = []
+  await page.route('**/api/mailbox/stage', async (route) => {
+    const body = route.request().postDataJSON()
+    calls.push(body)
+    const response = await route.fetch({ postData: { ...body, confirm: true } })
+    await route.fulfill({ response })
+  })
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
+  await expect(mailboxThread(page)).toContainText('Question · Staged')
+  await expect(page.locator('html')).not.toHaveAttribute('data-browser-clipboard', 'called')
+  expect(calls).toEqual([{ thread: expect.any(String), n: 1, how: 'copy' }])
+})
+
+test('a mailbox typing receipt failure warns that text was already typed', async ({ page }) => {
+  await page.route('**/api/mailbox/stage', (route) => route.fulfill({ json: {
+    staged: false, typed: true, message: 'The text was typed. Check that session before trying again.',
+  } }))
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Type into session' }).click()
+  await expect(mailboxThread(page)).toContainText('The text was typed. Check that session before trying again.')
+  await expect(mailboxThread(page)).not.toContainText('Choose Copy message')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting')
+})
+
+test('an unreadable mailbox thread leaves the rest of the list available', async ({ page }) => {
+  await openPanel(page, 'mailbox-warning')
+  await expect(page.getByText('One mailbox thread could not be read.')).toBeVisible()
+  await expect(row(page, 'Review the parser')).toBeVisible()
+})
+
 test('copy resume command writes the exact command and says so', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openFailing(page, 'resume-failure')
@@ -2076,7 +2302,7 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  for (const name of ['Copy session ID', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+  for (const name of ['Copy session ID', 'Send to session…', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
     await page.keyboard.press('ArrowDown')
     await expect(page.getByRole('menuitem', { name })).toBeFocused()
   }
@@ -2093,7 +2319,8 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   const stop = page.getByRole('menuitem', { name: 'Stop chat…' })
   await expect(read).toBeFocused()
   const copy = page.getByRole('menuitem', { name: 'Copy session ID' })
-  for (const item of [rename, copy, complete, stop, read]) {
+  const mailbox = page.getByRole('menuitem', { name: 'Send to session…' })
+  for (const item of [rename, copy, mailbox, complete, stop, read]) {
     await page.keyboard.press('ArrowDown')
     await expect(item).toBeFocused()
   }

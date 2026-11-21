@@ -369,6 +369,43 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 	return s.find(ctx, tool, id, opts, false)
 }
 
+func (s *Scanner) FindRefs(ctx context.Context, opts ScanOptions, refs ...Ref) map[Ref]Conversation {
+	s.lock()
+	defer s.unlock()
+	results, _ := s.readAll(ctx, opts)
+	return rowsByRef(results, refs)
+}
+
+// RecentRefs uses the last completed scan without rereading the stores.
+func (s *Scanner) RecentRefs(opts ScanOptions, refs ...Ref) map[Ref]Conversation {
+	results, ok := s.readSince(opts, busyReuseSpan)
+	if !ok {
+		return nil
+	}
+	return rowsByRef(results, refs)
+}
+
+func rowsByRef(results []sourceResult, refs []Ref) map[Ref]Conversation {
+	want := make(map[Ref]struct{}, len(refs))
+	for _, ref := range refs {
+		want[ref] = struct{}{}
+	}
+	found := make(map[Ref]Conversation, len(want))
+	for _, result := range results {
+		for _, row := range result.conversations {
+			ref := Ref{Tool: row.Tool, ID: row.ID}
+			if _, ok := want[ref]; ok {
+				found[ref] = row
+				delete(want, ref)
+				if len(want) == 0 {
+					return found
+				}
+			}
+		}
+	}
+	return found
+}
+
 func (s *Scanner) find(ctx context.Context, tool Tool, id string, opts ScanOptions, opening bool) (Conversation, bool) {
 	s.lock()
 	defer s.unlock()

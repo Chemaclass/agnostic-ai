@@ -97,7 +97,7 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, searching }) {
+export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, mailboxOpen, searching }) {
   if (quitConfirmOpen) return 'quit-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (stopShellOpen) return 'stop-shell'
@@ -106,6 +106,7 @@ export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen
   if (renaming) return 'rename'
   if (settingsOpen) return 'settings'
   if (picking) return 'pick'
+  if (mailboxOpen) return 'mailbox'
   if (searching) return 'search'
   return 'panel'
 }
@@ -551,6 +552,7 @@ export function rowActionOf(conversation) {
  */
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename', 'copy-session-id'] : ['rename', 'copy-session-id']
+  if (!conversation.parent && mailboxSessionOf(conversation)) offered.push('send-to')
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')
   if (conversation.completedAt) offered.push('reopen')
@@ -560,6 +562,31 @@ export function rowMenuOf(conversation) {
   if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')
   if (conversation.live && conversation.stoppable) offered.push('stop-session')
   return offered
+}
+
+export function mailboxSessionOf(conversation) {
+  return (conversation.tool === 'claude' || conversation.tool === 'codex') && !['cloud', 'chat', 'cowork'].includes(conversation.app)
+}
+
+export function threadsOf(conversation) {
+  return conversation.threads ?? []
+}
+
+export function threadLabelOf({ count, cap, waiting }) {
+  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}`
+}
+
+export function threadActionsOf({ status, count, cap }) {
+  switch (status) {
+    case 'open':
+      return ['reply', 'pause', 'close', ...(count >= cap ? ['raise-cap'] : []), 'stop']
+    case 'paused':
+      return ['reply', 'resume', 'stop']
+    case 'closing':
+      return ['stop']
+    default:
+      return []
+  }
 }
 
 /** The question before Stop chat ends a running chat's process. */

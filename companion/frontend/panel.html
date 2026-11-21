@@ -34,6 +34,31 @@
       </button>
       <p class="pick-preview" id="pick-preview"></p>
     </section>
+    <p class="note" id="mailbox-warning" role="status" hidden></p>
+    <form class="mailbox-card" id="mailbox-compose" aria-labelledby="mailbox-compose-title" hidden>
+      <strong id="mailbox-compose-title">Send to session</strong>
+      <output class="mailbox-muted" id="mailbox-from"></output>
+      <label>Session ID <input id="mailbox-target" autocomplete="off" spellcheck="false" aria-describedby="mailbox-target-hint"></label>
+      <p class="mailbox-muted" id="mailbox-target-hint">Click a session in the list or paste its ID here.</p>
+      <label>Type <select id="mailbox-type"><option value="question">Question</option><option value="finding">Finding</option></select></label>
+      <label>Message <textarea id="mailbox-body" rows="2"></textarea></label>
+      <div class="mailbox-actions">
+        <button class="confirm-cancel" id="mailbox-cancel" type="button">Cancel</button>
+        <button class="mailbox-send" id="mailbox-send" type="submit">Send message</button>
+      </div>
+    </form>
+    <section class="mailbox-card mailbox-details" id="mailbox-details" aria-labelledby="mailbox-details-title" hidden>
+      <header class="mailbox-header">
+        <strong id="mailbox-details-title"></strong>
+        <button class="icon-button" id="mailbox-dismiss" type="button" aria-label="Dismiss thread" title="Dismiss thread">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <p class="mailbox-muted" id="mailbox-details-meta"></p>
+      <div class="mailbox-messages" id="mailbox-messages"></div>
+      <p id="mailbox-result" role="status" hidden></p>
+      <div class="mailbox-actions" id="mailbox-thread-actions"></div>
+    </section>
     <p class="note" id="note" role="status" hidden></p>
     <section class="notice" id="notice" aria-label="Why it did not open" data-tone="info" hidden>
       <svg class="tone-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2.6L14 13H2zM8 6.7v3.1M8 11.3v.1"/></svg>
@@ -100,6 +125,7 @@
       <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes it out of Needs you without opening it, until something new is written">Mark as read</button>
       <button class="menu-item" id="rename" type="button" role="menuitem">Rename…</button>
       <button class="menu-item" id="copy-session-id" type="button" role="menuitem">Copy session ID</button>
+      <button class="menu-item" id="send-to" type="button" role="menuitem" aria-controls="mailbox-compose">Send to session…</button>
       <button class="menu-item" id="complete" type="button" role="menuitem" title="Marks it complete until something new is written or it starts working">Mark complete</button>
       <button class="menu-item" id="reopen" type="button" role="menuitem" title="Clears the completion mark you set">Undo complete</button>
       <button class="menu-item" id="hide" type="button" role="menuitem" title="Takes it out of every list and search, until something new is written or it starts working. The tool keeps the chat.">Hide from agnostic-ai</button>

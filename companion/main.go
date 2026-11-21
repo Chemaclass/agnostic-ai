@@ -639,6 +639,10 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/approvals/ask", in.pass(serverApprovalsAskPath))
 	mux.HandleFunc("GET /api/clipboard", in.clipboard)
 	mux.HandleFunc("POST /api/send", in.send)
+	mux.HandleFunc("POST "+serverMailboxSendPath, in.pass(serverMailboxSendPath))
+	mux.HandleFunc("GET "+serverMailboxThreadsPath, in.mailboxThreads)
+	mux.HandleFunc("POST "+serverMailboxThreadPath, in.pass(serverMailboxThreadPath))
+	mux.HandleFunc("POST "+serverMailboxStagePath, in.pass(serverMailboxStagePath))
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)
@@ -743,11 +747,24 @@ func main() {
 		s.app.Event.Emit(eventAppearance, looks)
 	}
 	in := s.inbox
+	// Lock before dispatch because a GTK clipboard read can run a nested event loop.
+	var clipboard sync.Mutex
 	in.readClipboard = func() string {
-		text, _ := s.app.Clipboard.Text()
-		return text
+		clipboard.Lock()
+		defer clipboard.Unlock()
+		return application.InvokeSyncWithResult(func() string {
+			text, _ := s.app.Clipboard.Text()
+			return text
+		})
 	}
 	in.readClipboardHTML = clipboardHTML
+	in.writeClipboard = func(ctx context.Context, text string) bool {
+		clipboard.Lock()
+		defer clipboard.Unlock()
+		return application.InvokeSyncWithResult(func() bool {
+			return ctx.Err() == nil && s.app.Clipboard.SetText(text)
+		})
+	}
 	s.app = application.New(application.Options{
 		Name:        "agnostic-ai companion",
 		Description: "The AI conversations that need you, floating over every app.",

@@ -22,6 +22,11 @@ var linkIDs = map[Tool]*regexp.Regexp{
 	ToolCursor: cursorIDPattern,
 }
 
+func ValidSessionRef(ref Ref) bool {
+	pattern := linkIDs[ref.Tool]
+	return pattern != nil && pattern.MatchString(ref.ID)
+}
+
 // linkLine is the line that names ref as the conversation continued.
 func linkLine(ref Ref) string {
 	return linkWord + string(ref.Tool) + ":" + ref.ID
@@ -34,11 +39,11 @@ func readLink(line string) (Ref, bool) {
 		return Ref{}, false
 	}
 	tool, id, ok := strings.Cut(rest, ":")
-	pattern, known := linkIDs[Tool(tool)]
-	if !ok || !known || !pattern.MatchString(id) {
+	ref := Ref{Tool: Tool(tool), ID: id}
+	if !ok || !ValidSessionRef(ref) {
 		return Ref{}, false
 	}
-	return Ref{Tool: Tool(tool), ID: id}, true
+	return ref, true
 }
 
 // Wrappers a tool puts around what the person typed: the opening one is

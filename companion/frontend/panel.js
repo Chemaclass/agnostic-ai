@@ -1,4 +1,5 @@
 import { Events, System } from '/wails/runtime.js'
+import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
@@ -85,6 +86,15 @@ const state = {
   /** Pick mode: the copied text as the banner shows it, {preview, words, chars, hash}; undefined outside it. */
   pick: undefined,
 }
+
+const mailbox = mailboxPanel({
+  rows: () => state.view?.conversations ?? [],
+  focusRows: () => queryInput.focus(),
+  afterChange,
+  say,
+  hideForTyping: () => hidePanel(),
+  showAfterRefusal: () => showPanel().catch(sayFailure),
+})
 
 /** Pick mode shows only this machine's conversations: those are the ones text can be typed into. */
 function shownPlace() {
@@ -304,6 +314,7 @@ function rowOf(conversation, order, folderNames, under) {
   row.addEventListener('contextmenu', (event) => {
     // Right-clicking only offers the menu: the chat stays closed and unread.
     event.preventDefault()
+    if (mailbox.composing) return
     setActive(key)
     openRowMenu(conversation, event)
   })
@@ -446,7 +457,12 @@ function helperList(conversation, key, now) {
     if (state.pick) row.title = 'Paste the copied text into the chat it runs in'
     else row.title = helperTooltipOf(helper)
     row.append(helperMark(), text)
-    row.addEventListener('click', () => (state.pick ? chooseRow(conversation) : openRow(helperOpenOf(conversation, helper))))
+    row.addEventListener('click', () => {
+      if (!mailbox.composing) {
+        if (state.pick) chooseRow(conversation)
+        else openRow(helperOpenOf(conversation, helper))
+      }
+    })
     box.append(row)
   }
   if (more > 0) {
@@ -629,6 +645,8 @@ function draw({ force } = { force: false }) {
     for (const conversation of group.rows) {
       list.append(rowOf(conversation, order, folderNames, group.under.get(keyOf(conversation))))
       order += 1
+      const threads = !state.pick && mailbox.rowsOf(conversation)
+      if (threads) list.append(threads)
       if (workingHelpersOf(conversation).length > 0 && state.helpersOpen.has(keyOf(conversation))) {
         list.append(helperList(conversation, keyOf(conversation), now))
       }
@@ -791,6 +809,7 @@ function show(reply, problem) {
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
+  mailbox.viewChanged(state.view, reply?.version, reply?.mailboxNativeCopy)
   if (reply?.configRoot) {
     const location = document.getElementById('config-location')
     location.textContent = 'Configuration folder: ' + reply.configRoot
@@ -908,6 +927,7 @@ function moves() {
 
 /** A click or Enter on a row: in pick mode it sends the copied text there, otherwise it opens the row. */
 function chooseRow(conversation) {
+  if (mailbox.choose(conversation)) return
   if (!state.pick) {
     openRow(conversation)
     return
@@ -936,6 +956,10 @@ function pickKey(active) {
 
 /** Enters pick mode on the copied text, and reports whether it did. */
 async function enterPick() {
+  if (mailbox.composing) {
+    say('Finish or cancel the mailbox message first.', 'error')
+    return false
+  }
   let clip
   try {
     clip = pickableClip(await readClipboard())
@@ -949,6 +973,7 @@ async function enterPick() {
     return false
   }
   if (!state.openFailure?.late) showOpenFailure(undefined)
+  mailbox.closeDetails(false)
   showPick(clip)
   state.activeKey = shownView() ? pickKey(undefined) : undefined
   drawPlaces()
@@ -1200,6 +1225,7 @@ const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
   'copy-session-id': document.getElementById('copy-session-id'),
+  'send-to': document.getElementById('send-to'),
   complete: document.getElementById('complete'),
   reopen: document.getElementById('reopen'),
   hide: document.getElementById('hide'),
@@ -1333,6 +1359,13 @@ menuItems['copy-session-id'].addEventListener('click', async () => {
   } catch {
     say('Could not copy the session ID.', 'error')
   }
+})
+menuItems['send-to'].addEventListener('click', () => {
+  const conversation = rowMenuTarget('send-to')
+  closeRowMenu()
+  if (!conversation) return
+  leavePick()
+  mailbox.start(conversation)
 })
 menuItems.read.addEventListener('click', () => {
   const conversation = rowMenuTarget('read')
@@ -1905,12 +1938,14 @@ document.addEventListener('keydown', (event) => {
         leavePick()
         queryInput.focus()
       },
+      mailbox: mailbox.escape,
       search: clearSearch,
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined, searching: queryInput.value !== '' })]()
+    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined, mailboxOpen: mailbox.open, searching: queryInput.value !== '' })]()
     return
   }
+  if (event.target.closest('.mailbox-card') || event.target.closest('.mailbox-threads')) return
   // Menus and confirmations handle Enter and Space on their own controls.
   if (!rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !stopSessionConfirm.hidden || !quitConfirm.hidden || state.renaming) return
   if (togglesPick(event, isMac) && settings.recording === undefined) {
@@ -1936,6 +1971,14 @@ document.addEventListener('keydown', (event) => {
   }
   // The list hides behind the open settings menu, so it takes no keys.
   if (!menu.hidden) return
+  if (!mailbox.composing && (event.key === 'ContextMenu' || (event.key === 'F10' && event.shiftKey))) {
+    const conversation = activeConversation()
+    if (!conversation) return
+    const bounds = document.getElementById(rowId(keyOf(conversation))).getBoundingClientRect()
+    event.preventDefault()
+    openRowMenu(conversation, { clientX: bounds.left, clientY: bounds.bottom })
+    return
+  }
   const step = KEY_STEPS[event.key]
   if (step !== undefined) {
     event.preventDefault()
@@ -1949,7 +1992,7 @@ document.addEventListener('keydown', (event) => {
     if (state.pick && state.searching) return
     const conversation = activeConversation()
     if (conversation) chooseRow(conversation)
-  } else if (startsRename(event)) {
+  } else if (!mailbox.composing && startsRename(event)) {
     const conversation = activeConversation()
     if (!conversation) return
     event.preventDefault()

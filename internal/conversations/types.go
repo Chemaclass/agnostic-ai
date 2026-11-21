@@ -129,7 +129,8 @@ type View struct {
 	MarksNote string `json:"marksNote,omitempty"`
 	// CloudNote says why a tool's cloud conversations are missing from
 	// the list, on a server that reads them; rows then hold none of them.
-	CloudNote string `json:"cloudNote,omitempty"`
+	CloudNote      string `json:"cloudNote,omitempty"`
+	MailboxWarning string `json:"mailboxWarning,omitempty"`
 	// ApprovalsMode is the loosest active approvals mode for the list.
 	// It is empty when no approvals route is active.
 	ApprovalsMode string         `json:"approvalsMode,omitempty"`
@@ -220,8 +221,9 @@ type Conversation struct {
 	Cloud *CloudRef `json:"cloud,omitempty"`
 	// Approvals is what the approvals hook decided for this session; nil
 	// when it decided nothing and has nothing to say about a wait.
-	Approvals *ApprovalsNote `json:"approvals,omitempty"`
-	Open      Route          `json:"open"`
+	Approvals *ApprovalsNote  `json:"approvals,omitempty"`
+	Open      Route           `json:"open"`
+	Threads   []ThreadSummary `json:"threads,omitempty"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess
@@ -285,6 +287,17 @@ type StuckShell struct {
 	HelperID     string `json:"helperId,omitempty"`
 	HelperName   string `json:"helperName,omitempty"`
 	ProcessCount int    `json:"processCount"`
+}
+
+type ThreadSummary struct {
+	ID        string `json:"id"`
+	With      Ref    `json:"with"`
+	WithTitle string `json:"withTitle,omitempty"`
+	Status    string `json:"status"`
+	Count     int    `json:"count"`
+	Cap       int    `json:"cap"`
+	Waiting   int    `json:"waiting"`
+	LastType  string `json:"lastType,omitempty"`
 }
 
 // Ref names one conversation of any tool.

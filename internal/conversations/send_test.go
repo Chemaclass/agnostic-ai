@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -404,7 +405,7 @@ func TestSendMarkdown_SaysTheMarkdownWentInAndWhereTheClipboardHoldsIt(t *testin
 	}
 }
 
-func TestTypeInTabLines_TerminalSetsTheClipboardOnlyForMarkdownOnceTheTabIsInFront(t *testing.T) {
+func TestTypeInTabLines_TerminalSetsTheClipboardOnlyOnceTheTabIsInFront(t *testing.T) {
 	lines := strings.Join(typeInTabLines["Terminal"], "\n")
 	behind := strings.LastIndex(lines, `return "behind"`)
 	set := strings.Index(lines, "set the clipboard to (item 2 of argv)")
@@ -427,5 +428,45 @@ func TestTypeInTabArgs_SayWhetherToSetTheClipboard(t *testing.T) {
 	}
 	if args := typeInTabArgs("Terminal", "/dev/ttys018", "hi", false); args[len(args)-1] != "check" {
 		t.Errorf("args end %q, want check", args[len(args)-1])
+	}
+}
+
+func TestSendComposed_TypesWithoutSubmittingAndSetsTheTerminalClipboard(t *testing.T) {
+	const tty = "/dev/ttys018"
+	c := Conversation{
+		Tool: ToolClaude, Activity: ActivityIdle, Open: Route{Kind: RouteFocus},
+		process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: "Terminal", TTY: tty}},
+	}
+	processes := fakeProcesses{alive: map[int]bool{42: true}, table: []ProcessInfo{{PID: 42, Stat: "S+", TTY: tty}}}
+	launcher := fakeLauncher{focusOK: true}
+	reply := SendComposed(context.Background(), c, "Message\x1b[201~\n", processes, &launcher)
+	if !reply.Sent || !strings.Contains(reply.Message, "The clipboard now holds the message.") {
+		t.Errorf("reply = %+v", reply)
+	}
+	if got := strings.Join(launcher.calls, "; "); got != "type and set the clipboard Terminal "+tty+" Message" {
+		t.Errorf("launcher calls = %q", got)
+	}
+}
+
+func TestSendComposed_OffersCopyWithoutOpeningOrResumingAConversation(t *testing.T) {
+	launcher := fakeLauncher{focusOK: true}
+	c := Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}}
+	reply := SendComposed(context.Background(), c, "Message", fakeProcesses{}, &launcher)
+	if reply.Sent || !strings.Contains(reply.Message, "Use Copy message") || len(launcher.calls) != 0 {
+		t.Errorf("reply = %+v, launcher calls = %q", reply, launcher.calls)
+	}
+}
+
+func TestSendComposed_ClipboardFailureLeavesCopyAvailable(t *testing.T) {
+	const tty = "/dev/ttys018"
+	c := Conversation{
+		Tool: ToolClaude, Activity: ActivityIdle, Open: Route{Kind: RouteFocus},
+		process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: "Terminal", TTY: tty}},
+	}
+	processes := fakeProcesses{alive: map[int]bool{42: true}, table: []ProcessInfo{{PID: 42, Stat: "S+", TTY: tty}}}
+	launcher := fakeLauncher{err: errors.New("clipboard refused")}
+	reply := SendComposed(context.Background(), c, "Message", processes, &launcher)
+	if reply.Sent || !strings.Contains(reply.Message, "clipboard refused") || !strings.Contains(reply.Message, "Use Copy message") {
+		t.Errorf("reply = %+v", reply)
 	}
 }

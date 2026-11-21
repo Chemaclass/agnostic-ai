@@ -235,7 +235,47 @@ function stuckShells(now) {
  * clipboard (the copied text; three lines when unset) and clipboardMarkdown (it came as HTML that goes as Markdown),
  * approvalsMode (the loosest approvals mode the home config sets, until Ask me).
  */
+const MAILBOX_SOURCE = { tool: 'claude', id: '84fc6d21-820c-4c88-9729-ff8ee40de1f3' }
+const MAILBOX_TARGET = { tool: 'codex', id: '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50' }
+
+function mailboxSessions(now) {
+  return [
+    conversation(now, MAILBOX_SOURCE.tool, MAILBOX_SOURCE.id, 'Review the parser', 'unread'),
+    conversation(now, MAILBOX_TARGET.tool, MAILBOX_TARGET.id, 'Draft the tests', 'working'),
+  ]
+}
+
+function mailboxThread(now, { count, status, state, id }) {
+  const at = new Date(now).toISOString()
+  return {
+    schemaVersion: 'mailbox/v1', id, status, cap: 8, between: [MAILBOX_SOURCE, MAILBOX_TARGET], refusals: [], events: [],
+    messages: Array.from({ length: count }, (_, i) => ({
+      n: i + 1, type: 'question', from: { ...MAILBOX_SOURCE, by: 'human' }, to: MAILBOX_TARGET,
+      body: 'Parser question ' + (i + 1), state, at, queuedAt: at,
+    })),
+  }
+}
+
 export const FIXTURES = {
+  mailbox: { label: 'Mailbox sessions', conversations: mailboxSessions, mailboxTypingRefused: true },
+  'mailbox-cap': {
+    label: 'A mailbox thread at its cap', conversations: mailboxSessions,
+    mailbox: (now) => [mailboxThread(now, { count: 8, status: 'open', state: 'staged', id: 'th_20261107_00000001' })],
+  },
+  'mailbox-statuses': {
+    label: 'Mailbox thread states', conversations: mailboxSessions,
+    mailbox: (now) => [
+      mailboxThread(now, { count: 1, status: 'open', state: 'waiting', id: 'th_20261107_00000001' }),
+      mailboxThread(now, { count: 1, status: 'paused', state: 'waiting', id: 'th_20261107_00000002' }),
+      mailboxThread(now, { count: 1, status: 'closing', state: 'waiting', id: 'th_20261107_00000003' }),
+      mailboxThread(now, { count: 1, status: 'closed', state: 'cancelled', id: 'th_20261107_00000004' }),
+    ],
+  },
+  'mailbox-warning': {
+    label: 'An unreadable mailbox thread', conversations: mailboxSessions,
+    mailboxWarning: 'One mailbox thread could not be read.',
+  },
+
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
   empty: { label: 'Empty inbox', conversations: () => [] },
   many: { label: 'Many sessions', conversations: many },

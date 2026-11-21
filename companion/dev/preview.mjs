@@ -12,6 +12,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FIXTURES, arrival } from './fixtures.mjs'
+import { mailboxChange, mailboxRows, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const FRONTEND = resolve(here, '../frontend')
@@ -40,6 +41,7 @@ function fixtureState(name, now) {
     name,
     fixture,
     conversations,
+    mailbox: fixture.mailbox?.(now) ?? [],
     knownClosed: new Set(fixture.knownClosed),
     /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */
     polled: structuredClone(conversations),
@@ -91,10 +93,11 @@ function waitingIn(conversations) {
 
 /** A page of the list; like the server, needsYou counts every chat, not only the search's matches. */
 function viewOf(state, conversations, query, all = conversations) {
-  const view = { conversations, needsYou: all.filter((row) => NEEDS_PERSON[row.state]).length }
+  const view = { conversations: mailboxRows(state, conversations), needsYou: all.filter((row) => NEEDS_PERSON[row.state]).length }
   if (query !== undefined) view.matches = conversations.length
   if (state.fixture.cloudNote) view.cloudNote = state.fixture.cloudNote
   if (state.fixture.marksNote) view.marksNote = state.fixture.marksNote
+  if (state.fixture.mailboxWarning) view.mailboxWarning = state.fixture.mailboxWarning
   if (state.approvalsMode) view.approvalsMode = state.approvalsMode
   return view
 }
@@ -426,8 +429,27 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     response.end(content)
   }
 
+  function mailboxRoute(path, operation) {
+    return async (request, response) => {
+      logCall(path)
+      const reply = operation(state, await bodyOf(request), new Date(timeOf()))
+      if (reply.changed) {
+        listChanged()
+        response.setHeader('List-Version', state.version)
+      }
+      sendJSON(response, reply.status, reply.body)
+    }
+  }
+
   const routes = {
     'GET /api/inbox': inbox,
+    'GET /api/mailbox/threads': (_request, response, url) => {
+      const reply = mailboxThreads(state, url)
+      sendJSON(response, reply.status, reply.body)
+    },
+    'POST /api/mailbox/send': mailboxRoute('/api/mailbox/send', mailboxSend),
+    'POST /api/mailbox/thread': mailboxRoute('/api/mailbox/thread', mailboxChange),
+    'POST /api/mailbox/stage': mailboxRoute('/api/mailbox/stage', mailboxStage),
     'POST /api/open': open,
     'GET /api/open/late': (request, response) => {
       logCall('/api/open/late')

@@ -989,7 +989,19 @@ export interface Conversation {
   cloud?: { id: string; link: string }
   /** What the approvals hook decided for this session. Absent when it decided nothing and has nothing to say about a wait. */
   approvals?: ConversationApprovals
+  threads?: ConversationThreadSummary[]
   open: ConversationRoute
+}
+
+export interface ConversationThreadSummary {
+  id: string
+  with: { tool: ConversationTool; id: string }
+  withTitle?: string
+  status: 'open' | 'paused' | 'closing' | 'closed'
+  count: number
+  cap: number
+  waiting: number
+  lastType?: string
 }
 
 /** One request the approvals hook approved. `detail` is absent when it may hold a credential. */
@@ -1023,6 +1035,7 @@ export interface ConversationsView {
   marksNote?: string
   /** Why a tool's cloud conversations are missing, on a server started with --cloud-sessions; rows then hold none of them. */
   cloudNote?: string
+  mailboxWarning?: string
   /** The loosest approvals mode the home config sets, `review` or `yolo`; absent when every prompt reaches the person. */
   approvalsMode?: 'review' | 'yolo'
   /** count is every conversation the tool holds; shown is how many this page holds. */

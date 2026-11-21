@@ -30,7 +30,7 @@ const (
 
 // injectedBlocks are wrappers a tool adds around or beside what the
 // person typed: editor context, reminders, command output.
-const injectedNames = `system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions|system_notification`
+const injectedNames = `system-reminder|ide_opened_file|ide_selection|ide_diagnostics|environment_context|user_info|local-command-stdout|local-command-stderr|local-command-caveat|command-message|attached_files|git_status|open_and_recently_viewed_files|rules|user_instructions|system_notification|agnostic-ai-mailbox`
 
 var injectedTag = regexp.MustCompile(`</?(` + injectedNames + `)(?:[\s/][^>]*)?>`)
 
@@ -137,16 +137,35 @@ func openingOf(prompt string) []string {
 	return lines
 }
 
+const mailboxOpening, mailboxClosing = "<agnostic-ai-mailbox>", "</agnostic-ai-mailbox>"
+
+func withoutMailbox(text string) string {
+	var kept strings.Builder
+	for {
+		before, after, opened := strings.Cut(text, mailboxOpening)
+		_, rest, closed := strings.Cut(after, mailboxClosing)
+		if !opened || !closed {
+			if kept.Len() == 0 {
+				return text
+			}
+			kept.WriteString(text)
+			return kept.String()
+		}
+		kept.WriteString(before)
+		text = rest
+	}
+}
+
 // agentSaid cuts an agent message to what a row keeps of it: its start
 // and, when it asks one, its question. start and ending are the
 // message's first and last part, the whole message when the reader has
 // it; asked is a question the store marks.
 func agentSaid(start, ending, asked string) (reply, question string) {
-	reply = keptStart(strings.TrimSpace(start))
-	if asked = strings.TrimSpace(asked); asked != "" {
+	reply = keptStart(strings.TrimSpace(withoutMailbox(start)))
+	if asked = strings.TrimSpace(withoutMailbox(asked)); asked != "" {
 		return reply, keptStart(asked)
 	}
-	return reply, closingQuestion(ending)
+	return reply, closingQuestion(withoutMailbox(ending))
 }
 
 // replyEnds is an agent message as a query reads it: at most the first
@@ -169,7 +188,33 @@ func replyEndsColumns(text string) string {
 // said is what a row keeps of the message: agentSaid of its start and
 // its whole last lines.
 func (ends replyEnds) said(asked string) (reply, question string) {
-	return agentSaid(ends.Start, ends.wholeLines(), asked)
+	start, ending := ends.Start, ends.wholeLines()
+	if utf8.RuneCountInString(start) < ends.Length {
+		start = withoutMailbox(start)
+		ending = withoutMailbox(ending)
+		if before, _, partial := strings.Cut(start, mailboxOpening+"\nMessages from other agent sessions."); partial {
+			start = before
+			// The suffix can still reach visible text beyond a long block.
+			if strings.TrimSpace(start) == "" {
+				start = afterMailboxFragment(ending)
+			}
+		}
+		ending = afterMailboxFragment(ending)
+	}
+	return agentSaid(start, ending, asked)
+}
+
+func afterMailboxFragment(text string) string {
+	if rest, ok := strings.CutPrefix(text, mailboxClosing+"\n"); ok {
+		return rest
+	}
+	if _, rest, ok := strings.Cut(text, "\n"+mailboxClosing+"\n"); ok {
+		return rest
+	}
+	if text == mailboxClosing || strings.HasSuffix(text, "\n"+mailboxClosing) {
+		return ""
+	}
+	return text
 }
 
 // wholeLines is the ending without the line it may start inside: a
@@ -264,7 +309,7 @@ func showTextsOf(t texts, readLinks bool) shownTexts {
 	var shown shownTexts
 	first := typedText(t.firstPrompt)
 	last := typedText(t.lastPrompt)
-	title := oneLine(t.title)
+	title := oneLine(withoutMailbox(t.title))
 	opening := first
 	// An id that may be a credential is no parent: the API would serve
 	// it while the texts that hold it are withheld.
@@ -299,11 +344,12 @@ func showTextsOf(t texts, readLinks bool) shownTexts {
 			shown.prompt = truncate(oneLine(last), promptRunes)
 		}
 	}
-	if t.reply != "" || t.question != "" {
-		if replyMayHoldCredential(t.reply) || replyMayHoldCredential(t.question) {
+	reply, question := withoutMailbox(t.reply), withoutMailbox(t.question)
+	if reply != "" || question != "" {
+		if replyMayHoldCredential(reply) || replyMayHoldCredential(question) {
 			shown.withheld = append(shown.withheld, FieldReply)
 		} else {
-			shown.reply = truncate(replyLine(firstNonEmpty(t.question, t.reply)), replyRunes)
+			shown.reply = truncate(replyLine(firstNonEmpty(question, reply)), replyRunes)
 		}
 	}
 	return shown
