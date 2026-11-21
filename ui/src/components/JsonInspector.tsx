@@ -66,7 +66,7 @@ function sizeLabel(bytes: number): string {
   return bytes < 1024 ? `${bytes} bytes` : `${(bytes / 1024).toFixed(1)} KB`
 }
 
-export function JsonInspector({ onClose, overview, global }: { onClose: () => void; overview: Remote<OverviewView>; global: boolean }) {
+export function JsonInspector({ onClose, overview, userLevel }: { onClose: () => void; overview: Remote<OverviewView>; userLevel: boolean }) {
   const closeRef = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLElement>(null)
   const sheet = useSheet()
@@ -119,7 +119,7 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
             <div>
               <dt>Command</dt>
               <dd>
-                <code className="code">{global ? 'agnostic-ai view --scope user --json' : 'agnostic-ai view --json'}</code>
+                <code className="code">{userLevel ? 'agnostic-ai view --scope user --json' : 'agnostic-ai view --json'}</code>
               </dd>
             </div>
             <div>

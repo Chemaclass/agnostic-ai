@@ -15,11 +15,11 @@ describe('serving release', () => {
 
 describe('required release', () => {
   it('stays away when the config sets no requires', () => {
-    expect(requiredRelease({ global: false, version: '0.80.0' })).toBeUndefined()
+    expect(requiredRelease({ userLevel: false, version: '0.80.0' })).toBeUndefined()
   })
 
   it('warns when the serving release is outside requires', () => {
-    expect(requiredRelease({ global: false, version: '0.80.0', requires: '>=0.81.0', requiresMet: false })).toEqual({
+    expect(requiredRelease({ userLevel: false, version: '0.80.0', requires: '>=0.81.0', requiresMet: false })).toEqual({
       label: 'requires >=0.81.0',
       state: 'unmet',
       title: 'This project needs agnostic-ai >=0.81.0, and v0.80.0 is outside it. Run agnostic-ai sync to see the fix.',
@@ -27,7 +27,7 @@ describe('required release', () => {
   })
 
   it('shows requires quietly when the serving release meets it', () => {
-    expect(requiredRelease({ global: true, version: '0.81.0', requires: '>=0.81.0', requiresMet: true })).toEqual({
+    expect(requiredRelease({ userLevel: true, version: '0.81.0', requires: '>=0.81.0', requiresMet: true })).toEqual({
       label: 'requires >=0.81.0',
       state: 'met',
       title: 'The global setup needs agnostic-ai >=0.81.0; v0.81.0 meets it.',
@@ -35,7 +35,7 @@ describe('required release', () => {
   })
 
   it('says a source build is not checked without naming the release it reports', () => {
-    expect(requiredRelease({ global: false, version: '0.91.0', requires: '>=0.81.0', requiresMet: null })).toEqual({
+    expect(requiredRelease({ userLevel: false, version: '0.91.0', requires: '>=0.81.0', requiresMet: null })).toEqual({
       label: 'requires >=0.81.0',
       state: 'unchecked',
       title: 'This project needs agnostic-ai >=0.81.0. This build is not a release, so it is not checked.',

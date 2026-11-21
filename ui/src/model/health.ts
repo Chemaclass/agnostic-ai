@@ -22,7 +22,7 @@ export interface FindingPlace {
   item?: SectionItem
   owner?: string
   /** Section findings on the global setup, listed apart from the project's. */
-  global?: boolean
+  userLevel?: boolean
   findings: ItemFinding[]
   ids: string[]
 }
@@ -52,9 +52,9 @@ export function countFindings(overview: OverviewView): FindingCount {
     }
     // Ids come from the whole list, as the section page gives them.
     const ids = findingEntryIds(section.findings)
-    for (const global of [false, true]) {
-      const picked = section.findings.map((finding, i) => ({ finding, id: ids[i] })).filter(({ finding }) => (finding.layer === 'user') === global)
-      add({ section, global: global || undefined, findings: picked.map(({ finding }) => finding), ids: picked.map(({ id }) => id) })
+    for (const userLevel of [false, true]) {
+      const picked = section.findings.map((finding, i) => ({ finding, id: ids[i] })).filter(({ finding }) => (finding.layer === 'user') === userLevel)
+      add({ section, userLevel: userLevel || undefined, findings: picked.map(({ finding }) => finding), ids: picked.map(({ id }) => id) })
     }
   }
   return { errors, warnings, byPlace }
@@ -66,8 +66,8 @@ export function healthSummary(count: Pick<FindingCount, 'errors' | 'warnings'>):
 }
 
 /** The recheck place for one owner's findings of one severity in the health view. */
-export function healthPlace(severity: HealthSeverity, place: Pick<FindingPlace, 'section' | 'owner' | 'global'>): string {
-  return `health:${severity}:${place.owner ?? `${place.global ? 'global:' : ''}section:${place.section.id}`}`
+export function healthPlace(severity: HealthSeverity, place: Pick<FindingPlace, 'section' | 'owner' | 'userLevel'>): string {
+  return `health:${severity}:${place.owner ?? `${place.userLevel ? 'global:' : ''}section:${place.section.id}`}`
 }
 
 /** One owner's findings of one severity. */
@@ -109,7 +109,7 @@ export function healthGroups(overview: OverviewView, keep?: KeptPlace): HealthGr
       const section = sections.find((s) => s.id === earlier.section.id) ?? earlier.section
       const item = earlier.owner ? section.items.find((it) => itemEntryId(it) === earlier.owner) ?? earlier.item : undefined
       const group = groups.find((g) => g.severity === severity)!
-      group.entries.push({ section, item, owner: earlier.owner, global: earlier.global, findings: [], ids: [], place: keep.place, entry: item ? earlier.owner : undefined })
+      group.entries.push({ section, item, owner: earlier.owner, userLevel: earlier.userLevel, findings: [], ids: [], place: keep.place, entry: item ? earlier.owner : undefined })
       break
     }
   }
@@ -127,9 +127,9 @@ export function healthGroups(overview: OverviewView, keep?: KeptPlace): HealthGr
     })
 }
 
-export function placeLabel(place: Pick<FindingPlace, 'item' | 'global'>): string {
+export function placeLabel(place: Pick<FindingPlace, 'item' | 'userLevel'>): string {
   if (place.item) return place.item.label || place.item.name
-  return place.global ? 'Global setup' : 'Other findings'
+  return place.userLevel ? 'Global setup' : 'Other findings'
 }
 
 /** The findings and suggestions picked on Setup health, by finding entry id and gap id. */

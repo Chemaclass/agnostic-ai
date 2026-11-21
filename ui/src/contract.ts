@@ -1196,7 +1196,7 @@ export interface SourceView {
 }
 
 /** The global setup folder the page just created. */
-export interface GlobalCreateReply {
+export interface UserCreateReply {
   root: string
   created: string[]
   git: string

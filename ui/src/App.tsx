@@ -227,7 +227,7 @@ export default function App() {
           </main>
           <MenuSheet {...rail} open={menuOpen} onClose={closeMenu} />
           {searchOpen && <GlobalSearch overview={overview.loaded?.data} onClose={closeSearch} />}
-          {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} global={served?.global === true} />}
+          {inspectorOpen && <JsonInspector onClose={() => setInspectorOpen(false)} overview={overview} userLevel={served?.userLevel === true} />}
         </div>
       </RecheckProvider>
     </AppContext.Provider>

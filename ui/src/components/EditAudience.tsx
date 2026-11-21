@@ -51,13 +51,13 @@ export function useViewAudience(): EditAudience | undefined {
 }
 
 /** Whether the page serves the global setup rather than a project. */
-export function useGlobalLevel(): boolean {
+export function useUserLevel(): boolean {
   return useApp().overview?.global === true
 }
 
 /** The level name for copy: `project` or `global`. */
 export function useLevelName(): 'project' | 'global' {
-  return levelName(useGlobalLevel())
+  return levelName(useUserLevel())
 }
 
 export function ViewPersonalButton() {
@@ -72,14 +72,14 @@ export function EditAudienceSwitch() {
   const hintId = useId()
   if (!state || app.source.kind !== 'api') return null
   const viewing = app.state.view === 'settings' || app.state.view === 'authority'
-  const global = app.overview?.global === true
-  const localFolder = global ? '~/.agnostic-ai/local' : '.agnostic-ai/local'
+  const userLevel = app.overview?.global === true
+  const localFolder = userLevel ? '~/.agnostic-ai/local' : '.agnostic-ai/local'
   const hint = state.audience === 'shared'
-    ? `${global ? 'Global files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
+    ? `${userLevel ? 'Global files in ~/.agnostic-ai, used by every project.' : 'Project files, tracked by Git.'}${viewing ? ' Local values win for you.' : ''}`
     : `Local files in ${localFolder}, ignored by Git.${viewing ? ' Local values win.' : ''}`
   const option = (value: EditAudience) => (
-    <button type="button" aria-label={audienceDescription(value, global)} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
-      {audienceLabel(value, global)}
+    <button type="button" aria-label={audienceDescription(value, userLevel)} aria-pressed={state.audience === value} onClick={() => state.setAudience(value)}>
+      {audienceLabel(value, userLevel)}
     </button>
   )
   // The hint is the switch's tooltip; screen readers hear it as a status when the choice changes.

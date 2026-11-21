@@ -3,7 +3,7 @@ import { importMCPSpec } from '../api'
 import type { MCPSpecPreview, NativeHolder, NativeServer } from '../contract'
 import { useApp } from './app-context'
 import { Notice } from './Banner'
-import { useEditAudience, useGlobalLevel } from './EditAudience'
+import { useEditAudience, useUserLevel } from './EditAudience'
 import { Code, ToolAvatar } from './ui'
 
 export type MCPSpecSaved = Pick<MCPSpecPreview, 'file' | 'syncCommand'>
@@ -70,14 +70,14 @@ export function MCPSpecImportButton({ server, flow }: { server: NativeServer; fl
 /** The import's error or its preview, under the row. */
 export function MCPSpecPreviewPanel({ server, flow }: { server: NativeServer; flow: MCPSpecImport }) {
   const audience = useEditAudience()
-  const global = useGlobalLevel()
+  const userLevel = useUserLevel()
   const { preview, pending, error } = flow
   if (!error && !preview) return null
   return <div className="mcp-spec">
     {error && <Notice tone="error" title={error} />}
     {preview && <section className="mcp-spec-preview" aria-label={`${server.name} preview`} aria-busy={!!pending}>
       <h3>Add {server.name} to your setup</h3>
-      <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
+      <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : userLevel ? 'for every project' : 'for everyone'}.</p>
       <div className="mcp-spec-files"><pre tabIndex={0} aria-label={`File for ${server.name}`}>{preview.spec}</pre></div>
       {preview.variables.length > 0 && <p>Set these environment variables before syncing: {preview.variables.map((variable, index) => <span key={variable}>{index > 0 && ', '}<Code>{variable}</Code></span>)}.</p>}
       <p>{preview.targets.length > 0 ? <>After sync, this server reaches <span className="tool-list">{preview.targets.map((target) => <ToolAvatar key={target} target={target} />)}</span>.</> : 'No configured tool accepts this server.'}</p>

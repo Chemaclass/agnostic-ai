@@ -1,9 +1,9 @@
-import { API, type GlobalCreateReply, type SwitchReply } from '../contract'
+import { API, type UserCreateReply, type SwitchReply } from '../contract'
 
 /** What `/api/health` says this server reads. */
 export interface ServedConfig {
   root: string
-  global: boolean
+  userLevel: boolean
   /** The project a global server started in. */
   projectRoot?: string
   /** The agnostic-ai version that serves the page, as `--version` prints it. */
@@ -25,8 +25,8 @@ export function parseServedConfig(value: unknown): ServedConfig | undefined {
   if (!value || typeof value !== 'object') return undefined
   const health = value as Record<string, unknown>
   if (typeof health.root !== 'string') return undefined
-  const served: ServedConfig = { root: health.root, global: health.global === true }
-  if (served.global && typeof health.projectRoot === 'string' && health.projectRoot) served.projectRoot = health.projectRoot
+  const served: ServedConfig = { root: health.root, userLevel: health.global === true }
+  if (served.userLevel && typeof health.projectRoot === 'string' && health.projectRoot) served.projectRoot = health.projectRoot
   if (typeof health.version === 'string' && health.version) served.version = health.version
   if (typeof health.requires === 'string' && health.requires) {
     served.requires = health.requires
@@ -44,7 +44,7 @@ export function baseName(path: string): string {
 }
 
 export function switchOffer(served: ServedConfig): SwitchOffer | undefined {
-  if (!served.global) {
+  if (!served.userLevel) {
     return {
       label: 'Open global settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
@@ -75,16 +75,16 @@ export function parseSwitchReply(value: unknown): SwitchReply {
   return { url: url.toString(), root: reply.root, global: reply.global === true, started: reply.started === true }
 }
 
-export const GLOBAL_SETUP_TITLE = 'No global setup yet'
-export const GLOBAL_SETUP_BODY =
+export const USER_SETUP_TITLE = 'No global setup yet'
+export const USER_SETUP_BODY =
   'One folder for your own rules, skills, agents, hooks, settings and MCP servers. Run "agnostic-ai sync --scope user" and every project gets them. Project specs never merge with it, so team defaults stay in the project. Put private files in "local/", which git ignores. Keep the folder in its own git repo and push it to a remote to back it up.'
 
-export function globalSetupCreated(root: string): string {
+export function userSetupCreated(root: string): string {
   return `Created ${root}. Add files, then run "agnostic-ai sync --scope user".`
 }
 
 /** The switch found no global setup; the page offers to create it. */
-export class GlobalSetupError extends Error {
+export class UserSetupError extends Error {
   readonly root: string
   constructor(root: string, message: string) {
     super(message)
@@ -117,14 +117,14 @@ export async function requestSwitch(fetcher: typeof fetch = fetch): Promise<Swit
   if (!res.ok) {
     const missing = body as { missing?: unknown; root?: unknown } | undefined
     if (res.status === 409 && missing?.missing === true && typeof missing.root === 'string') {
-      throw new GlobalSetupError(missing.root, errorText(body, res.status))
+      throw new UserSetupError(missing.root, errorText(body, res.status))
     }
     throw new Error(errorText(body, res.status))
   }
   return parseSwitchReply(body)
 }
 
-export async function createGlobalSetup(git: boolean, fetcher: typeof fetch = fetch): Promise<GlobalCreateReply> {
+export async function createUserSetup(git: boolean, fetcher: typeof fetch = fetch): Promise<UserCreateReply> {
   let res: Response
   try {
     res = await fetcher(API.globalCreate, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ git }) })
