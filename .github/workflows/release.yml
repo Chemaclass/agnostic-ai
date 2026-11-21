@@ -4,18 +4,22 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Distribution channel to resume for the selected release tag
+        type: choice
+        required: true
+        options: [npm, homebrew, scoop, winget]
 
 # Read-only by default; each job that writes asks for it.
 permissions:
   contents: read
 
 jobs:
-  # The UI dependencies run in their own job, which holds no token beyond
-  # read access. GoReleaser hooks and every step of its job share the
-  # publish tokens and the OIDC request token, so a bad dependency bump
-  # must not run there.
   ui-bundle:
     name: Bundled client
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,6 +41,7 @@ jobs:
 
   companion:
     name: macOS companion
+    if: github.event_name == 'push'
     runs-on: macos-latest
     timeout-minutes: 20
     permissions:
@@ -240,18 +245,50 @@ jobs:
           scripts/release-notes.sh "$GITHUB_REF_NAME" CHANGELOG.md "$GITHUB_REPOSITORY" "$RUNNER_TEMP/assets.txt" > "$RUNNER_TEMP/NOTES.md"
           python3 scripts/release-assets.py publish "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate" "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)" "$RUNNER_TEMP/NOTES.md"
 
-  channel-manifests:
-    name: Publish ${{ matrix.channel }} manifest
-    needs: publish
-    if: github.repository == 'Chemaclass/agnostic-ai'
+  recovery:
+    name: Verify recovery inputs
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     permissions:
+      actions: read
+      contents: read
+    outputs:
+      artifact: ${{ steps.candidate.outputs.artifact }}
+      run-id: ${{ steps.candidate.outputs.run-id }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Find the original release for the tag
+        id: candidate
+        env:
+          CHANNEL: ${{ inputs.channel }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "::error::Select the published version tag, for example gh workflow run release.yml --ref vX.Y.Z -f channel=npm"
+            exit 1
+          fi
+          python3 scripts/release-assets.py recover "$GITHUB_REF_NAME" "$GITHUB_REPOSITORY" "$(git rev-parse HEAD)" "$CHANNEL" >> "$GITHUB_OUTPUT"
+
+  channel-manifests:
+    name: Publish ${{ matrix.channel }} manifest
+    needs: [publish, recovery]
+    if: >-
+      ${{ !cancelled() && github.repository == 'Chemaclass/agnostic-ai' &&
+          (needs.publish.result == 'success' ||
+           (needs.recovery.result == 'success' && inputs.channel != 'npm')) }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
       contents: read
       attestations: read
     strategy:
       fail-fast: false
       matrix:
-        channel: [homebrew, scoop, winget]
+        channel: ${{ fromJSON(github.event_name == 'push' && '["homebrew","scoop","winget"]' || format('["{0}"]', inputs.channel)) }}
     env:
       HOMEBREW_TAP_APP_CONFIGURED: ${{ secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '' }}
     steps:
@@ -263,8 +300,10 @@ jobs:
       - name: Download the signed candidate
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          artifact-ids: ${{ needs.publish.outputs.artifact }}
+          artifact-ids: ${{ needs.publish.outputs.artifact || needs.recovery.outputs.artifact }}
           path: ${{ runner.temp }}/candidate
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.recovery.outputs.run-id || github.run_id }}
 
       - name: Mint the Homebrew tap token from the GitHub App
         id: tap_token
@@ -289,15 +328,20 @@ jobs:
           CHANNEL: ${{ matrix.channel }}
           GH_TOKEN: ${{ (matrix.channel == 'homebrew' && (steps.tap_token.outputs.token || secrets.HOMEBREW_TAP_TOKEN)) || (matrix.channel == 'scoop' && secrets.SCOOP_BUCKET_TOKEN) || (matrix.channel == 'winget' && secrets.WINGET_TOKEN) || '' }}
         run: |
+          set -o pipefail
           if [ -z "$GH_TOKEN" ]; then
-            echo "::notice::$CHANNEL skipped because its token is unconfigured"
+            echo "$CHANNEL: skipped. Configure its credential to publish directly." | tee -a "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          python3 scripts/release-channel.py "$CHANNEL" "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate/channels"
+          python3 scripts/release-channel.py "$CHANNEL" "$GITHUB_REF_NAME" "$RUNNER_TEMP/candidate/channels" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
 
   npm:
     name: npm
-    needs: publish
+    needs: [publish, recovery]
+    if: ${{ !cancelled() && (needs.publish.result == 'success' || (needs.recovery.result == 'success' && inputs.channel == 'npm')) }}
+    concurrency:
+      group: npm-release-${{ github.repository }}
+      queue: max
     runs-on: ubuntu-latest
     # id-token lets npm mint the short-lived OIDC token that a provenance
     # attestation is signed against. It works alongside the existing token
@@ -335,8 +379,8 @@ jobs:
       # here.
       - name: Collect the release binaries
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: scripts/npm-binaries.sh "${GITHUB_REF_NAME}" "${RUNNER_TEMP}/npm-binaries"
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/npm-binaries.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/npm-binaries" "$(git rev-parse HEAD)"
 
       - name: Build the platform packages
         run: |
@@ -347,6 +391,7 @@ jobs:
           cat npm/package.json
 
       - name: Publish
+        id: publish
         # Skipped until NPM_TOKEN exists, so a release never fails over it.
         # setup-node replaces an empty NODE_AUTH_TOKEN with a placeholder, so
         # test the secret-presence flag captured before setup instead.
@@ -355,148 +400,64 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: scripts/npm-publish.sh "${GITHUB_REF_NAME#v}"
 
-      - name: Report skipped publish
-        if: env.NPM_TOKEN_CONFIGURED != 'true'
-        run: echo "::notice::NPM_TOKEN is not configured; skipping npm publish"
+      - name: Report npm status
+        if: ${{ !cancelled() }}
+        env:
+          PUBLISH_STATE: ${{ steps.publish.outputs.state }}
+        run: |
+          case "$NPM_TOKEN_CONFIGURED:$PUBLISH_STATE" in
+            false:*) message="skipped. Configure NPM_TOKEN to publish." ;;
+            true:verified) message="verified. All seven packages and their provenance are available." ;;
+            true:superseded) message="verified for $GITHUB_REF_NAME. A newer version keeps its distribution tag." ;;
+            *) message="failed. Inspect the job and resume npm for $GITHUB_REF_NAME." ;;
+          esac
+          echo "npm: $message" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$NPM_TOKEN_CONFIGURED" = true ]; then
+            [ "$PUBLISH_STATE" = verified ] || [ "$PUBLISH_STATE" = superseded ]
+          fi
 
   distribution:
-    name: Distribution channels
-    needs: [publish, npm, channel-manifests]
-    if: ${{ !cancelled() && github.repository == 'Chemaclass/agnostic-ai' && needs.publish.result == 'success' }}
+    name: Homebrew availability
+    needs: [publish, recovery, channel-manifests]
+    if: >-
+      ${{ !cancelled() && github.repository == 'Chemaclass/agnostic-ai' &&
+          (needs.publish.result == 'success' ||
+           (needs.recovery.result == 'success' && inputs.channel == 'homebrew')) }}
     runs-on: ubuntu-latest
-    env:
-      NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
 
-      - name: Set up Node for npm provenance verification
-        if: env.NPM_TOKEN_CONFIGURED == 'true'
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '26'
-
-      - name: Verify and install the npm verifier
-        if: env.NPM_TOKEN_CONFIGURED == 'true'
-        run: bash scripts/npm-toolchain.sh
-
-      # Both checks below read a replica that can lag the write they verify.
-      # A red check that is sometimes wrong trains you to dismiss it, so each
-      # check retries with bounded exponential backoff. Homebrew keeps its
-      # short replica-lag window. npm gets about 20 minutes because publish-time
-      # malware scanning commonly takes five minutes and can exceed 15.
       - name: Homebrew cask serves this tag
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Either credential pushes the cask: the App mints a token per run
-          # and the PAT is the fallback until the App exists (#943). Only
-          # when both are absent was there no push to verify.
+          GH_TOKEN: ${{ github.token }}
           TAP_CONFIGURED: ${{ (secrets.HOMEBREW_TAP_APP_ID != '' && secrets.HOMEBREW_TAP_APP_PRIVATE_KEY != '') || secrets.HOMEBREW_TAP_TOKEN != '' }}
         run: |
           set -euo pipefail
-          want="${GITHUB_REF_NAME#v}"
-          if [[ "${want%%+*}" == *-* ]]; then
-            echo "::notice::Homebrew checks the stable cask only"
-            exit 0
-          fi
-          if [ "$TAP_CONFIGURED" != "true" ]; then
-            echo "::notice::no tap credential here, which is expected. Chemaclass/homebrew-tap updates its own cask on a half-hourly schedule with its own GITHUB_TOKEN, so brew catches up within the hour and this repository holds no secret for it. Run that repository's 'Update agnostic-ai cask' workflow to pull it forward."
-            exit 0
-          fi
+          attempts=1
+          if [ "$TAP_CONFIGURED" = true ]; then attempts=6; fi
           delay=5
-          for attempt in 1 2 3 4 5 6; do
-            # no-cache because the contents API is served through a cache
-            # that can still hold the pre-push tree.
-            cask=$(gh api repos/Chemaclass/homebrew-tap/contents/Casks/agnostic-ai.rb \
-              -H 'Cache-Control: no-cache' --jq '.content' 2>/dev/null | base64 -d || true)
-            got=$(grep -m1 -oE 'version "[^"]+"' <<<"$cask" | cut -d'"' -f2 || true)
-            echo "attempt $attempt: tag=$want cask=${got:-<absent>}"
-            if [ "$got" = "$want" ]; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 6 ]; then
+          for ((attempt = 1; attempt <= attempts; attempt++)); do
+            result=$(python3 scripts/release-channel.py homebrew "$GITHUB_REF_NAME" --check 2>&1) || true
+            echo "$result"
+            case "$result" in
+              "homebrew: verified."*|"homebrew: superseded."*|"homebrew: skipped."*)
+                echo "$result" >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+                ;;
+            esac
+            if [ "$attempt" -lt "$attempts" ]; then
               sleep "$delay"
               delay=$((delay * 2))
             fi
           done
-          echo "::error::the tap serves agnostic-ai ${got:-<absent>} but this release is $want; the cask push did not land"
-          exit 1
-
-      # Seven packages now, not one. The parent pins exact versions of the six
-      # platform packages, so a parent that published while one of them did
-      # not leaves `npm install` broken on that platform until the next
-      # release, with the registry reporting the release as fine.
-      #
-      # Each package is checked twice: the version exists, and the dist-tag
-      # this version was meant to publish under resolves to it. Version
-      # alone is not enough. An untagged `npm publish` writes `latest`, so a
-      # prerelease could land correctly at its version while silently
-      # replacing the stable release every unpinned `npm install agnostic-ai`
-      # resolves, and a version-only guard would report that as a success.
-      - name: npm serves this tag
-        env:
-          NPM_TOKEN_CONFIGURED: ${{ secrets.NPM_TOKEN != '' }}
-        run: |
-          set -euo pipefail
-          want="${GITHUB_REF_NAME#v}"
-          if [ "$NPM_TOKEN_CONFIGURED" != "true" ]; then
-            echo "::warning::NPM_TOKEN is empty, so nothing was published to npm. Set the secret and re-run."
+          if [ "$TAP_CONFIGURED" != true ]; then
+            echo "::notice::Homebrew availability is pending. The tap updates on its own schedule."
+            echo "homebrew: pending. Dispatch the tap's Update agnostic-ai cask workflow to check sooner." >> "$GITHUB_STEP_SUMMARY"
             exit 0
           fi
-          # Sourced, not restated: the publish step derives the tag from the
-          # same helper, so the guard cannot assert a tag nobody published.
-          # shellcheck source=scripts/npm-publish.sh
-          . scripts/npm-publish.sh
-          dist_tag="$(npm_dist_tag "$want")"
-          echo "expecting dist-tag $dist_tag to resolve to $want"
-          missing=0
-          # Read the names from the table the packages are generated from,
-          # rather than repeating them here. A list that drifts from
-          # npm/lib/platforms.js checks six packages nobody publishes and
-          # passes while the six that exist go unverified.
-          # Unquoted on purpose: split the newline-separated list into words.
-          # No package name contains a space. mapfile would be tidier and is
-          # bash 4, which macOS does not ship, so this stays runnable anywhere.
-          pkgs=$(cd npm && node -p "
-            const t = require('./lib/platforms.js')
-            t.PLATFORMS.map(t.packageName).join('\n')
-          ")
-          # shellcheck disable=SC2086
-          for pkg in agnostic-ai $pkgs; do
-            delay=5
-            max_delay=60
-            found=""
-            for attempt in $(seq 24); do
-              got=$(npm view "${pkg}@${want}" version 2>/dev/null || true)
-              tagged=$(npm view "${pkg}@${dist_tag}" version 2>/dev/null || true)
-              echo "attempt $attempt: $pkg tag=$want npm=${got:-<absent>} ${dist_tag}=${tagged:-<absent>}"
-              if [ "$got" = "$want" ] && [ "$tagged" = "$want" ]; then
-                found=yes
-                break
-              fi
-              if [ "$attempt" -lt 24 ]; then
-                sleep "$delay"
-                delay=$((delay * 2))
-                [ "$delay" -le "$max_delay" ] || delay="$max_delay"
-              fi
-            done
-            if [ -n "$found" ]; then
-              if ! verify_npm_provenance "$pkg" "$want"; then
-                missing=1
-              fi
-            fi
-            if [ -z "$found" ]; then
-              if [ "$got" = "$want" ]; then
-                echo "::error::npm serves ${pkg}@${want} but its ${dist_tag} dist-tag points at ${tagged:-<absent>}"
-              else
-                echo "::error::npm does not serve ${pkg}@${want}"
-              fi
-              missing=1
-            fi
-          done
-          if [ "$missing" -ne 0 ]; then
-            echo "::error::the npm release is incomplete; installs break on any platform whose package is missing, and an unpinned install resolves whatever ${dist_tag} still points at"
-            exit 1
-          fi
+          echo "::error::Homebrew did not verify after $attempts attempts"
+          echo "homebrew: failed. Inspect the tap and resume homebrew for $GITHUB_REF_NAME." >> "$GITHUB_STEP_SUMMARY"
+          exit 1

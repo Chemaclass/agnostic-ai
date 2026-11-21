@@ -123,6 +123,13 @@ class PointerTests(Fixture):
             channels.publish_pointer("homebrew", "v0.97.0", "0.97.0", self.directory)
         self.api.assert_not_called()
 
+    def test_homebrew_availability_distinguishes_current_older_and_newer_versions(self):
+        for version, expected in [("0.96.0", "verified"), ("0.95.0", "pending"), ("0.100.0", "superseded")]:
+            with self.subTest(version=version):
+                self.cask(f'  version "{version}"\n'.encode())
+                self.assertEqual(channels.pointer_status("homebrew", "v0.96.0", "0.96.0")[0], expected)
+        self.assertEqual(self.writes, [])
+
 
 class WingetTests(Fixture):
     def setUp(self):

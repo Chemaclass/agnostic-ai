@@ -3,11 +3,11 @@
 # npm-binaries.sh - collect the release binaries the npm platform packages ship.
 #
 # Usage:
-#   scripts/npm-binaries.sh <tag> <destdir>
+#   scripts/npm-binaries.sh <tag> <destdir> [release-commit]
 #
 # Downloads the six release archives and checksums.txt, verifies every archive
 # against the published digest and against the build provenance this
-# repository's release workflow signed for the same tag, and unpacks each
+# repository's release workflow signed for the same tag and commit, and unpacks each
 # binary into
 # <destdir>/<goos>_<goarch>/. That is the layout
 # npm/scripts/build-platform-packages.js reads.
@@ -86,13 +86,17 @@ verify_checksums() {
 # can replace one can replace both. The attestation is signed by the release
 # workflow's own identity and cannot be uploaded in its place.
 verify_provenance() {
-  local dir="$1" tag="$2" target archive
+  local dir="$1" tag="$2" commit="${3:-}" target archive
+  local source=(--source-ref "refs/tags/$tag")
+  if [[ -n "$commit" ]]; then
+    source+=(--source-digest "$commit")
+  fi
   for target in "${TARGETS[@]}"; do
     archive="$(archive_name "$target")"
     gh attestation verify "$dir/$archive" --repo "$REPO" \
       --signer-workflow "$REPO/.github/workflows/release.yml" \
-      --source-ref "refs/tags/$tag" --deny-self-hosted-runners >/dev/null || {
-      err "$archive has no build provenance from $REPO release.yml at $tag"
+      "${source[@]}" --deny-self-hosted-runners >/dev/null || {
+      err "$archive has no build provenance from $REPO release.yml at $tag${commit:+ ($commit)}"
       return 1
     }
   done
@@ -131,9 +135,13 @@ require_every_binary() {
 }
 
 main() {
-  local tag="${1:-}" dest="${2:-}"
+  local tag="${1:-}" dest="${2:-}" commit="${3:-${GITHUB_SHA:-}}"
   if [[ -z "$tag" || -z "$dest" ]]; then
-    err "usage: scripts/npm-binaries.sh <tag> <destdir>"
+    err "usage: scripts/npm-binaries.sh <tag> <destdir> [release-commit]"
+    return 2
+  fi
+  if [[ -n "$commit" && ! "$commit" =~ ^[a-f0-9]{40}$ ]]; then
+    err "release-commit must be a full commit SHA"
     return 2
   fi
 
@@ -150,7 +158,7 @@ main() {
   {
     fetch_release "$tag" "$work" \
       && verify_checksums "$work" \
-      && verify_provenance "$work" "$tag" \
+      && verify_provenance "$work" "$tag" "$commit" \
       && unpack "$work" "$dest" \
       && require_every_binary "$dest"
   } || status=$?

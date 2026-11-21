@@ -213,50 +213,16 @@ func TestReleaseWorkflow_NpmJobCanReadBuildProvenance(t *testing.T) {
 	}
 }
 
-// TestReleaseWorkflow_PublishesPlatformPackagesBeforeTheParent guards
-// the ordering that makes a partial publish survivable.
-//
-// The parent pins exact versions of all six. Publish it first and every
-// install between the two publishes resolves a platform package that is
-// not on the registry yet.
-func TestReleaseWorkflow_PublishesPlatformPackagesBeforeTheParent(t *testing.T) {
+func TestReleaseWorkflow_VerifiesPlatformPackagesBeforeTheParent(t *testing.T) {
 	script := readRepoFile(t, npmPublishScript)
-	platforms := strings.Index(script, `for dir in "${dirs[@]}"`)
 	parent := strings.Index(script, `publish_package "$parent"`)
-	if platforms < 0 || parent < 0 {
-		t.Fatalf("%s no longer publishes the platform packages and the parent as two steps", npmPublishScript)
+	if parent < 0 {
+		t.Fatalf("%s no longer publishes the parent separately", npmPublishScript)
 	}
-	if platforms > parent {
-		t.Errorf("%s publishes the parent before the platform packages", npmPublishScript)
-	}
-	if !strings.Contains(script, "wait_for") {
-		t.Errorf("%s does not wait for the platform packages to be served before publishing the parent", npmPublishScript)
-	}
-}
-
-// TestReleaseWorkflow_DistributionChecksEveryNpmPackage widens the guard
-// that used to check one package.
-//
-// Six of the seven can be missing while `npm view agnostic-ai@x` answers
-// correctly. That is the new way a release looks green and installs
-// nothing on some platform.
-func TestReleaseWorkflow_DistributionChecksEveryNpmPackage(t *testing.T) {
-	step := workflowRun(t, releaseWorkflowPath, "distribution", "npm serves this tag")
-
-	// Two ways to cover all six, and the derived one is stronger: a literal
-	// list in the workflow drifts from the table the packages are generated
-	// from, and then checks six names nobody publishes while the six that
-	// exist go unverified. Accept either, insist on one.
-	derived := strings.Contains(step, "lib/platforms.js") && strings.Contains(step, "packageName")
-	if !derived {
-		for _, p := range npmPlatforms(t) {
-			if !strings.Contains(step, p.pkg()) {
-				t.Errorf("the distribution guard neither reads lib/platforms.js nor names %s:\n%s", p.pkg(), step)
-			}
+	for _, step := range []string{"run_workers verify_existing_package", "run_workers wait_for", "run_workers verify_with_timing"} {
+		if barrier := strings.Index(script, step); barrier < 0 || barrier > parent {
+			t.Errorf("%s does not finish %q before publishing the parent", npmPublishScript, step)
 		}
-	}
-	if !strings.Contains(step, "agnostic-ai ") && !strings.Contains(step, "agnostic-ai\\") {
-		t.Errorf("the distribution guard no longer checks the parent package:\n%s", step)
 	}
 }
 
@@ -284,34 +250,6 @@ func TestNpmPublish_TagsEveryPublishAttempt(t *testing.T) {
 	}
 }
 
-// TestReleaseWorkflow_DistributionChecksTheDistTag guards the other half of
-// the npm check.
-//
-// Asking whether the version exists is not enough: a prerelease published
-// without `--tag` is on the registry at its own version and has also taken
-// over `latest`, so a version-only guard reports that release as good. The
-// guard derives the tag from the publish script rather than restating it,
-// because a second copy is how the guard ends up asserting a tag nobody
-// published.
-func TestReleaseWorkflow_DistributionChecksTheDistTag(t *testing.T) {
-	step := workflowRun(t, releaseWorkflowPath, "distribution", "npm serves this tag")
-	if !strings.Contains(step, ". "+npmPublishScript) {
-		t.Errorf("the guard does not source %s, so its dist-tag can drift from the published one:\n%s",
-			npmPublishScript, step)
-	}
-	if !strings.Contains(step, "npm_dist_tag") {
-		t.Errorf("the guard never derives a dist-tag:\n%s", step)
-	}
-	if !strings.Contains(step, `npm view "${pkg}@${dist_tag}" version`) {
-		t.Errorf("the guard never asks the registry what the dist-tag resolves to:\n%s", step)
-	}
-	// One loop over all seven names does both reads, so the tag is checked
-	// for every package rather than for the parent alone.
-	if !strings.Contains(step, `[ "$got" = "$want" ] && [ "$tagged" = "$want" ]`) {
-		t.Errorf("the guard accepts a package whose dist-tag points elsewhere:\n%s", step)
-	}
-}
-
 // TestNpmReleaseWaitsForPublishTimeScanning guards npm's availability delay.
 //
 // Since July 2026, npm scans a publish before serving it. npm documents a
@@ -324,17 +262,8 @@ func TestNpmReleaseWaitsForPublishTimeScanning(t *testing.T) {
 		t.Errorf("%s does not allow about 20 minutes for npm publish-time scanning", npmPublishScript)
 	}
 
-	for _, tc := range []struct {
-		path string
-		job  string
-		step string
-	}{
-		{releaseWorkflowPath, "distribution", "npm serves this tag"},
-		{installWorkflowPath, "published", "Wait for the registry to serve the latest release"},
-	} {
-		script := workflowRun(t, tc.path, tc.job, tc.step)
-		if !strings.Contains(script, "$(seq 24)") || !strings.Contains(script, "max_delay=60") {
-			t.Errorf("%s %q does not allow about 20 minutes for npm publish-time scanning:\n%s", tc.path, tc.step, script)
-		}
+	script := workflowRun(t, installWorkflowPath, "published", "Wait for the registry to serve the latest release")
+	if !strings.Contains(script, "$(seq 24)") || !strings.Contains(script, "max_delay=60") {
+		t.Errorf("the published install check does not allow about 20 minutes for npm publish-time scanning:\n%s", script)
 	}
 }

@@ -78,14 +78,18 @@ def read_checksums(path):
     return digests
 
 
-def validate(tag, directory, sealed=False):
+def asset_inventory(tag, sealed):
     required = CLI_ASSETS | {CHECKSUMS}
     if sealed:
         required.add(BUNDLE)
     if not prerelease(tag):
         required.update(COMPANION)
+    return required
+
+
+def validate(tag, directory, sealed=False):
     assets = files(directory / "assets")
-    check_inventory(set(assets), required, COMPANION)
+    check_inventory(set(assets), asset_inventory(tag, sealed), COMPANION)
     channels = files(directory / "channels")
     check_inventory(set(channels), MANIFESTS)
     digests = read_checksums(assets[CHECKSUMS])
@@ -169,6 +173,68 @@ def missing_uploads(release, expected):
     return sorted(set(expected) - set(uploaded))
 
 
+def expected_uploads(assets):
+    return {name: f"sha256:{sha256(path)}" for name, path in assets.items()}
+
+
+def require_exact_tag(tag, repo, commit):
+    if gh("api", f"repos/{repo}/commits/{tag}", "--jq", ".sha").strip() != commit:
+        raise ValueError(f"{tag} no longer resolves to {commit}")
+
+
+def published_release(tag, repo, commit):
+    require_exact_tag(tag, repo, commit)
+    release = release_info(tag, repo)
+    if release is None or release["isDraft"] or release["tagName"] != tag:
+        raise ValueError(f"publish the verified release for {tag} before recovering a channel")
+    if release["isPrerelease"] != prerelease(tag):
+        raise ValueError(f"unexpected release classification for {tag}")
+    names = [asset["name"] for asset in release["assets"]]
+    if len(names) != len(set(names)):
+        raise ValueError(f"duplicate assets on {tag}")
+    check_inventory(set(names), asset_inventory(tag, sealed=True), COMPANION)
+    for asset in release["assets"]:
+        digest = asset["digest"] or ""
+        if asset["state"] != "uploaded" or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+            raise ValueError(f"{asset['name']} on {tag} has no verified upload digest")
+    return release
+
+
+def recovery_artifact(tag, repo, commit, bundle_digest):
+    runs = json.loads(gh(
+        "run", "list", "--repo", repo, "--workflow", "release.yml",
+        "--event", "push", "--commit", commit, "--limit", "30",
+        "--json", "databaseId,headBranch,headSha",
+    ))
+    prefix = f"signed-release-candidate-{bundle_digest.removeprefix('sha256:')}-"
+    for run in runs:
+        if run["headBranch"] != tag or run["headSha"] != commit:
+            continue
+        run_id = int(run["databaseId"])
+        pages = json.loads(gh(
+            "api", f"repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100",
+            "--paginate", "--slurp",
+        ))
+        for page in pages:
+            for artifact in page["artifacts"]:
+                if artifact["expired"] or not artifact["name"].startswith(prefix):
+                    continue
+                print(f"run-id={run_id}")
+                print(f"artifact={int(artifact['id'])}")
+                return
+    raise ValueError(
+        f"{tag}: the original signed candidate is unavailable. Use the channel's "
+        "documented recovery path or prepare a new verified release."
+    )
+
+
+def recover(tag, repo, commit, channel):
+    release = published_release(tag, repo, commit)
+    if channel != "npm":
+        digests = {asset["name"]: asset["digest"] for asset in release["assets"]}
+        recovery_artifact(tag, repo, commit, digests[BUNDLE])
+
+
 def publish(tag, directory, repo, commit, notes):
     assets, _ = validate(tag, directory, sealed=True)
     bundle = assets[BUNDLE]
@@ -176,9 +242,8 @@ def publish(tag, directory, repo, commit, notes):
         {name: path for name, path in assets.items() if name != BUNDLE},
         bundle, tag, repo, commit,
     )
-    if gh("api", f"repos/{repo}/commits/{tag}", "--jq", ".sha").strip() != commit:
-        raise ValueError(f"{tag} no longer resolves to {commit}")
-    expected = {name: f"sha256:{sha256(path)}" for name, path in assets.items()}
+    require_exact_tag(tag, repo, commit)
+    expected = expected_uploads(assets)
     release = release_info(tag, repo)
     if release is None:
         extra = ["--prerelease", "--latest=false"] if prerelease(tag) else []
@@ -212,6 +277,11 @@ def main():
     staging.add_argument("dist", type=Path)
     staging.add_argument("companion", type=Path)
     staging.add_argument("directory", type=Path)
+    recovery = commands.add_parser("recover")
+    recovery.add_argument("tag")
+    recovery.add_argument("repo")
+    recovery.add_argument("commit")
+    recovery.add_argument("channel", choices=("npm", *CHANNELS))
     for name in ("subjects", "inventory", "publish", "verify-channel"):
         command = commands.add_parser(name)
         command.add_argument("tag")
@@ -228,10 +298,15 @@ def main():
         parser.error(f"invalid release tag {args.tag!r}")
     if args.command == "stage":
         stage(args.tag, args.dist, args.companion, args.directory)
+    elif args.command == "recover":
+        recover(args.tag, args.repo, args.commit, args.channel)
     elif args.command == "publish":
         publish(args.tag, args.directory, args.repo, args.commit, args.notes)
     elif args.command == "verify-channel":
         assets, channels = validate(args.tag, args.directory, sealed=True)
+        release = published_release(args.tag, args.repo, args.commit)
+        if missing_uploads(release, expected_uploads(assets)):
+            raise ValueError(f"{args.tag}: the retained candidate does not match the published assets")
         requested = {name: channels[name] for name in CHANNELS[args.channel]}
         verify_provenance(requested, assets[BUNDLE], args.tag, args.repo, args.commit)
     else:
