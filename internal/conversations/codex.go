@@ -98,7 +98,7 @@ func (s *Scanner) scanCodex(ctx context.Context, opts ScanOptions) sourceResult 
 	}
 	threads, err := queryRows[codexThread](ctx, s.SQLite, statePath, codexThreadsQuery)
 	if errors.Is(err, errNoSQLite) {
-		return missing(ToolCodex, "Reading Codex threads needs the sqlite3 command")
+		return needsSQLite(ToolCodex, "Reading Codex threads needs the sqlite3 command")
 	}
 	if err != nil {
 		return missing(ToolCodex, "Could not read Codex's thread index "+filepath.Base(statePath))

@@ -118,7 +118,7 @@ func (s *Scanner) scanCursor(ctx context.Context, opts ScanOptions) sourceResult
 	headers, note, err := s.cursorHeaders(ctx)
 	if err != nil {
 		s.setCursorLiveTranscripts(nil)
-		return missing(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
+		return needsSQLite(ToolCursor, "Reading Cursor chats needs the sqlite3 command")
 	}
 
 	open := s.cursorOpenChats(ctx, headers)

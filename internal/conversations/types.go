@@ -149,6 +149,9 @@ type Source struct {
 	Count int    `json:"count"`
 	Shown int    `json:"shown"`
 	Note  string `json:"note,omitempty"`
+	// Needs names the command the store cannot be read without, such as
+	// sqlite3, which Windows does not ship.
+	Needs string `json:"needs,omitempty"`
 }
 
 // Route says how to reopen a conversation.

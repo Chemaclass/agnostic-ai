@@ -1,7 +1,7 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
-import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
+import { currentShellOf, missingToolsNoteOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
@@ -562,6 +562,12 @@ function cloudAside(view) {
   return shownPlace() === 'local' ? undefined : view.cloudNote
 }
 
+/** The quiet lines under the rows: tools a missing command keeps out, then a missing cloud. */
+function asidesOf(view) {
+  const local = shownPlace() === 'cloud' ? undefined : missingToolsNoteOf(state.view ?? view)
+  return [local, cloudAside(view)].filter(Boolean).map((text) => element('p', 'aside', text))
+}
+
 /** The active approvals mode and the Ask me button above the list. */
 function drawApprovals(view) {
   const header = approvalsHeaderOf(view)
@@ -621,7 +627,7 @@ function draw({ force } = { force: false }) {
   const reasons = view.conversations.map((conversation) => quietNoteOf(conversation, now))
   const shellAges = view.conversations.flatMap((conversation) => stuckShellsOf(conversation).map((shell) => ago(shell.since, now)))
   const stillSearching = state.query !== '' && state.readingOlder === state.query
-  const signature = JSON.stringify([view.conversations, reasons, shellAges, view.needsYou, view.matches, said, view.cloudNote, state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
+  const signature = JSON.stringify([view.conversations, reasons, shellAges, view.needsYou, view.matches, said, view.cloudNote, missingToolsNoteOf(state.view ?? view), state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
@@ -632,8 +638,7 @@ function draw({ force } = { force: false }) {
   const scroll = list.scrollTop
   list.replaceChildren()
   if (groups.length === 0) {
-    list.append(emptyMessage())
-    if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
+    list.append(emptyMessage(), ...asidesOf(view))
     announceActive()
     return
   }
@@ -652,7 +657,7 @@ function draw({ force } = { force: false }) {
       }
     }
   }
-  if (cloudAside(view)) list.append(element('p', 'aside', cloudAside(view)))
+  list.append(...asidesOf(view))
   list.scrollTop = scroll
   holdWorkPhase(list)
   announceActive()

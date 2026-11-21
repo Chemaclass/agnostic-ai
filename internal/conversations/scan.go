@@ -706,6 +706,13 @@ func missing(tool Tool, note string) sourceResult {
 	return sourceResult{source: Source{Tool: tool, Label: toolLabels[tool], Note: note}}
 }
 
+// needsSQLite is the result for a store only the sqlite3 command reads.
+func needsSQLite(tool Tool, note string) sourceResult {
+	result := missing(tool, note)
+	result.source.Needs = "sqlite3"
+	return result
+}
+
 func found(tool Tool, conversations []Conversation) sourceResult {
 	return sourceResult{source: Source{Tool: tool, Label: toolLabels[tool], Found: true}, conversations: conversations}
 }

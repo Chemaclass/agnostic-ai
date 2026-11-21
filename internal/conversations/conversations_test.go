@@ -493,6 +493,9 @@ func TestScan_SaysWhenSQLiteIsMissing(t *testing.T) {
 	if view.Tools[1].Note != "Reading Codex threads needs the sqlite3 command" || view.Tools[2].Note != "Reading Cursor chats needs the sqlite3 command" {
 		t.Errorf("tools = %s", asJSON(t, view.Tools))
 	}
+	if view.Tools[1].Needs != "sqlite3" || view.Tools[2].Needs != "sqlite3" || view.Tools[0].Needs != "" {
+		t.Errorf("the tools do not name the command they need: %s", asJSON(t, view.Tools))
+	}
 }
 
 type fakeLauncher struct {
