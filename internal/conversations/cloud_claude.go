@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"slices"
@@ -96,20 +98,31 @@ type CloudCredentials interface {
 }
 
 // KeychainCredentials reads the token Claude Code keeps in the macOS
-// keychain. Claude Code renews it there; this reads it on each call
-// and never touches the refresh token.
+// keychain, or in its credentials file on Linux. Claude Code renews it
+// there; this reads it on each call and never touches the refresh token.
 type KeychainCredentials struct {
-	// GOOS is the running system; only darwin has a keychain to read.
+	// GOOS is the running system; only darwin and linux have a store to read.
 	GOOS string
-	// Read returns the keychain entry's JSON.
+	// Read returns the stored sign-in's JSON.
 	Read func(ctx context.Context) ([]byte, error)
 }
 
-// NewKeychainCredentials reads the running user's keychain with the
-// security command.
+// NewKeychainCredentials reads the running user's sign-in store.
 func NewKeychainCredentials() KeychainCredentials {
-	return KeychainCredentials{GOOS: runtime.GOOS, Read: readClaudeKeychain}
+	return newKeychainCredentials(runtime.GOOS)
 }
+
+func newKeychainCredentials(goos string) KeychainCredentials {
+	if goos == "linux" {
+		path := filepath.Join(DefaultStores().ClaudeDir, claudeCredentialsFile)
+		return KeychainCredentials{GOOS: goos, Read: func(context.Context) ([]byte, error) { return os.ReadFile(path) }}
+	}
+	return KeychainCredentials{GOOS: goos, Read: readClaudeKeychain}
+}
+
+// claudeCredentialsFile is where Claude Code keeps its sign-in, in its
+// config folder, on systems without a keychain it uses.
+const claudeCredentialsFile = ".credentials.json"
 
 // claudeKeychainService is the keychain entry Claude Code keeps its sign-in in.
 const claudeKeychainService = "Claude Code-credentials"
@@ -138,7 +151,12 @@ type claudeKeychainEntry struct {
 }
 
 func (k KeychainCredentials) AccessToken(ctx context.Context) (string, error) {
-	if k.GOOS != "darwin" {
+	store := fmt.Sprintf("keychain entry %q", claudeKeychainService)
+	switch k.GOOS {
+	case "darwin":
+	case "linux":
+		store = "Claude Code's " + claudeCredentialsFile
+	default:
 		return "", &CloudError{Tool: ToolClaude, Reason: CloudUnsupported, Cause: fmt.Errorf("no Claude sign-in store known on %s", k.GOOS)}
 	}
 	raw, err := k.Read(ctx)
@@ -148,11 +166,11 @@ func (k KeychainCredentials) AccessToken(ctx context.Context) (string, error) {
 	var entry claudeKeychainEntry
 	if err := json.Unmarshal(raw, &entry); err != nil {
 		// The JSON error names a position and a type, never the text.
-		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("keychain entry %q is not the JSON Claude Code writes: %w", claudeKeychainService, err)}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("%s is not the JSON Claude Code writes: %w", store, err)}
 	}
 	oauth := entry.ClaudeAiOauth
 	if oauth == nil || oauth.AccessToken == "" {
-		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("keychain entry %q holds no claude.ai sign-in", claudeKeychainService)}
+		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("%s holds no claude.ai sign-in", store)}
 	}
 	if !slices.Contains(oauth.Scopes, claudeCloudScope) {
 		return "", &CloudError{Tool: ToolClaude, Reason: CloudNoCredential, Cause: fmt.Errorf("the claude.ai sign-in lacks the %s scope", claudeCloudScope)}

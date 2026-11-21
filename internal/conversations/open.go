@@ -164,7 +164,7 @@ func SystemLauncher() Launcher {
 	case "darwin":
 		return macLauncher{}
 	case "linux":
-		return linuxLauncher{}
+		return linuxLauncher{getenv: os.Getenv, start: startApart}
 	default:
 		return unsupportedLauncher{}
 	}
@@ -857,7 +857,27 @@ func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 	return err
 }
 
-type linuxLauncher struct{}
+// linuxTerminal is the terminal Debian and Ubuntu let the person choose.
+const linuxTerminal = "x-terminal-emulator"
+
+type linuxLauncher struct {
+	getenv func(string) string
+	// start starts a program and returns without waiting for it.
+	start func(name string, args ...string) error
+}
+
+// startApart starts a program in its own session: a terminal window
+// stays open after the request that opened it ends, and after the
+// server's own terminal closes.
+func startApart(name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	detach(cmd)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
+}
 
 func (linuxLauncher) OpenLink(ctx context.Context, link string) error {
 	if err := checkedLink(link); err != nil {
@@ -871,7 +891,24 @@ func (linuxLauncher) OpenFolder(context.Context, string, string) error { return 
 
 func (linuxLauncher) ActivateApp(context.Context, string) error { return errNotHere }
 
-func (linuxLauncher) RunInNewTerminal(context.Context, string) error { return errNotHere }
+// RunInNewTerminal runs command in the person's interactive shell, so
+// a tool found only through their shell startup files is found, then
+// keeps a shell open, as a macOS Terminal window does. A server with no
+// display, such as one reached over SSH, would show no window.
+func (l linuxLauncher) RunInNewTerminal(_ context.Context, command string) error {
+	if l.getenv("DISPLAY") == "" && l.getenv("WAYLAND_DISPLAY") == "" {
+		return errNotHere
+	}
+	shell := l.getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
+	}
+	err := l.start(linuxTerminal, "-e", shell, "-ic", command+"; exec "+shellQuote(shell))
+	if errors.Is(err, exec.ErrNotFound) {
+		return errNotHere
+	}
+	return err
+}
 
 func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
 	return false, errNotHere
