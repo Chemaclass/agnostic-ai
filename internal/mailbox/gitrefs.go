@@ -17,7 +17,7 @@ import (
 
 const (
 	defaultReviewBase = "refs/remotes/origin/HEAD"
-	reviewTimeout     = 10 * time.Second
+	mailboxGitTimeout = 10 * time.Second
 )
 
 var (
@@ -35,20 +35,12 @@ func ResolveReviewRefs(ctx context.Context, folder, base, commit string) (Review
 	if folder == "" {
 		return ReviewRefs{}, notWorktree()
 	}
-	ctx, cancel := context.WithTimeout(ctx, reviewTimeout)
+	ctx, cancel := context.WithTimeout(ctx, mailboxGitTimeout)
 	defer cancel()
-	out, err := reviewGit(ctx, folder, "rev-parse", "--path-format=absolute", "--show-toplevel")
+	root, err := gitWorktreeRoot(ctx, folder)
 	if err != nil {
 		return ReviewRefs{}, reviewGitFailure(ctx, notWorktree())
 	}
-	root := strings.TrimSuffix(string(out), "\n")
-	if runtime.GOOS == "windows" {
-		root = strings.TrimSuffix(root, "\r")
-	}
-	if !filepath.IsAbs(root) {
-		return ReviewRefs{}, notWorktree()
-	}
-	root = filepath.Clean(root)
 	if refused := checkReviewStrings(root); refused != nil {
 		return ReviewRefs{}, refused
 	}
@@ -86,6 +78,21 @@ func ResolveReviewRefs(ctx context.Context, folder, base, commit string) (Review
 		return ReviewRefs{}, err
 	}
 	return ReviewRefs{Worktree: root, Commit: headID, Base: baseID, Branch: branch, Paths: paths, Uncommitted: dirty}, nil
+}
+
+func gitWorktreeRoot(ctx context.Context, folder string) (string, error) {
+	out, err := reviewGit(ctx, folder, "rev-parse", "--path-format=absolute", "--show-toplevel")
+	if err != nil {
+		return "", err
+	}
+	root := strings.TrimSuffix(string(out), "\n")
+	if runtime.GOOS == "windows" {
+		root = strings.TrimSuffix(root, "\r")
+	}
+	if !filepath.IsAbs(root) {
+		return "", notWorktree()
+	}
+	return filepath.Clean(root), nil
 }
 
 func resolveReviewSend(ctx context.Context, folder string, input ReviewInput) (ReviewRefs, error) {

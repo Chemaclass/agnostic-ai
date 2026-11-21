@@ -1097,6 +1097,160 @@ test('a late mailbox refs response cannot replace a newer preview', async ({ pag
   await expect(preview).not.toContainText('/old-worktree')
 })
 
+const handoffWorktree = '/Users/you/Code/agnostic-ai'
+const handoffPath = 'internal/mailbox/handoff.go'
+const mailboxSource = '84fc6d21-820c-4c88-9729-ff8ee40de1f3'
+const mailboxThird = 'e50eac57-0dcd-4089-bd24-6c95d4171790'
+
+const fileClaims = (page: Page) => page.getByRole('region', { name: 'File claims' })
+const receiverThread = (page: Page) => page.getByRole('region', { name: 'Thread with Review the parser' })
+
+async function offerHandoff(page: Page) {
+  await composeMailbox(page)
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('handoff')
+  const composer = page.getByRole('form', { name: 'Send to session' })
+  await composer.getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
+  await composer.getByLabel('Paths, one per line').fill(handoffPath)
+  await page.getByLabel('Message', { exact: true }).fill('Please finish the handoff implementation.')
+  await page.getByRole('button', { name: 'Claim these paths' }).click()
+  await expect(page.locator('#toast')).toContainText('Paths claimed.')
+  await page.getByRole('button', { name: 'Send message' }).click()
+  await expect(mailboxSummary(page)).toContainText('Handoff')
+}
+
+test('a mailbox handoff uses the Git root when the sending session is in a subdirectory', async ({ page }) => {
+  await page.route('**/api/inbox', async (route) => {
+    const response = await route.fetch()
+    const envelope = await response.json()
+    const source = envelope.view.conversations.find(({ id }: { id: string }) => id === mailboxSource)
+    source.folder = `${handoffWorktree}/internal/mailbox`
+    await route.fulfill({ response, json: envelope })
+  })
+  await page.route(`**/api/mailbox/claims?tool=claude&id=${mailboxSource}`, (route) =>
+    route.fulfill({ json: { worktree: handoffWorktree, claims: [], conflicts: [] } }))
+  await openPanel(page, 'mailbox-handoff')
+  await composeMailbox(page)
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('handoff')
+  const composer = page.getByRole('form', { name: 'Send to session' })
+  await expect(composer.getByLabel('Worktree', { exact: true })).toHaveValue(handoffWorktree)
+  await composer.getByLabel('Paths, one per line').fill(handoffPath)
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/claim'))
+  await composer.getByRole('button', { name: 'Claim these paths' }).click()
+  expect((await sent).postDataJSON()).toMatchObject({ worktree: handoffWorktree, paths: [handoffPath] })
+})
+
+test('an explicit mailbox handoff worktree wins over a pending lookup', async ({ page }) => {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  const endpoint = `**/api/mailbox/claims?tool=claude&id=${mailboxSource}`
+  await page.route(endpoint, async (route) => {
+    await held
+    await route.fulfill({ json: { worktree: '/late-worktree', claims: [], conflicts: [] } })
+  })
+  await openPanel(page, 'mailbox-handoff')
+  await composeMailbox(page)
+  const started = page.waitForRequest((request) => request.url().includes('/api/mailbox/claims?'))
+  const type = page.getByRole('combobox', { name: 'Type', exact: true })
+  await type.selectOption('handoff')
+  await started
+  const composer = page.getByRole('form', { name: 'Send to session' })
+  await expect(composer.getByRole('button', { name: 'Claim these paths' })).toBeDisabled()
+  await expect(composer.getByRole('button', { name: 'Send message' })).toBeDisabled()
+  const worktree = composer.getByLabel('Worktree', { exact: true })
+  const canceled = page.waitForEvent('requestfailed', (request) => request.url().includes('/api/mailbox/claims?'))
+  await worktree.fill('/chosen-worktree')
+  await canceled
+  release()
+  await type.selectOption('question')
+  await type.selectOption('handoff')
+  await expect(worktree).toHaveValue('/chosen-worktree')
+  await expect(composer.getByRole('button', { name: 'Claim these paths' })).toBeEnabled()
+})
+
+test('a mailbox handoff moves no claim until the receiver accepts', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await offerHandoff(page)
+  const claims = await page.request.get('/api/mailbox/claims')
+  expect((await claims.json()).claims).toMatchObject([{ owner: { id: mailboxSource }, paths: [handoffPath] }])
+  await mailboxSummary(page).click()
+  await expect(mailboxThread(page)).toContainText('Handoff · Waiting · Offered')
+  await expect(mailboxThread(page).getByRole('button', { name: 'Accept', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: /^With Review the parser/ }).click()
+  await receiverThread(page).getByRole('button', { name: 'Accept', exact: true }).click()
+  await expect(receiverThread(page)).toContainText('Accepted')
+  const moved = await page.request.get('/api/mailbox/claims')
+  expect((await moved.json()).claims).toMatchObject([{ owner: { id: mailboxTarget }, paths: [handoffPath] }])
+})
+
+test('declining a mailbox handoff leaves ownership with the sender', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await offerHandoff(page)
+  await page.getByRole('button', { name: /^With Review the parser/ }).click()
+  await receiverThread(page).getByRole('button', { name: 'Decline', exact: true }).click()
+  await expect(receiverThread(page)).toContainText('Declined')
+  const retained = await page.request.get('/api/mailbox/claims')
+  expect((await retained.json()).claims).toMatchObject([{ owner: { id: mailboxSource }, paths: [handoffPath] }])
+})
+
+test('a mailbox handoff conflict names the holder on both sessions', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await offerHandoff(page)
+  expect((await page.request.post('/api/mailbox/release', { data: {
+    tool: 'claude', id: mailboxSource, worktree: handoffWorktree, paths: [handoffPath],
+  } })).ok()).toBe(true)
+  expect((await page.request.post('/api/mailbox/claim', { data: {
+    tool: 'codex', id: mailboxThird, worktree: handoffWorktree, paths: [handoffPath],
+  } })).ok()).toBe(true)
+  const recipient = page.getByRole('button', { name: /^With Review the parser/ })
+  await recipient.click()
+  await receiverThread(page).getByRole('button', { name: 'Accept', exact: true }).click()
+  await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: ownership')
+  for (const summary of [mailboxSummary(page), recipient]) {
+    await expect(summary).toContainText('Path conflict')
+    await expect(summary).toContainText(handoffPath)
+    await expect(summary).toContainText('Handle the conflict')
+  }
+  const retained = await page.request.get('/api/mailbox/claims')
+  expect((await retained.json()).claims).toMatchObject([{ owner: { id: mailboxThird }, paths: [handoffPath] }])
+})
+
+test('closing a mailbox thread keeps its file claim until Release', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await offerHandoff(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Close thread' }).click()
+  await expect(mailboxSummary(page)).toContainText('Closing')
+  await page.getByRole('button', { name: 'File claims', exact: true }).click()
+  await expect(fileClaims(page)).toContainText(handoffPath)
+  await fileClaims(page).getByRole('button', { name: 'Release', exact: true }).click()
+  await expect(fileClaims(page)).not.toContainText(handoffPath)
+  const released = await page.request.get('/api/mailbox/claims')
+  expect((await released.json()).claims).toEqual([])
+})
+
+test('the global mailbox claims card releases a stale owner with no conversation row', async ({ page }) => {
+  await openPanel(page, 'mailbox-stale-claim')
+  await expect(row(page, 'Handle the conflict')).toHaveCount(0)
+  await page.getByRole('button', { name: 'File claims', exact: true }).click()
+  await expect(fileClaims(page)).toContainText('Stale claim')
+  await expect(fileClaims(page)).toContainText(handoffPath)
+  await fileClaims(page).getByRole('button', { name: 'Release', exact: true }).press('Enter')
+  await expect(fileClaims(page)).toContainText('No file claims.')
+  await expect(fileClaims(page).getByRole('button', { name: 'Dismiss file claims' })).toBeFocused()
+})
+
+test('Claim files records paths from a conversation row', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await row(page, 'Review the parser').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Claim files…' }).click()
+  await fileClaims(page).getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
+  await fileClaims(page).getByLabel('Paths, one per line').fill(handoffPath)
+  await fileClaims(page).getByRole('button', { name: 'Claim paths', exact: true }).click()
+  await expect(fileClaims(page)).toContainText(handoffPath)
+  await expect(page.getByRole('button', { name: '1 claim for Review the parser' })).toBeVisible()
+})
+
 test('copy resume command writes the exact command and says so', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openFailing(page, 'resume-failure')
@@ -2473,7 +2627,7 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  for (const name of ['Copy session ID', 'Send to session…', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+  for (const name of ['Copy session ID', 'Send to session…', 'Claim files…', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
     await page.keyboard.press('ArrowDown')
     await expect(page.getByRole('menuitem', { name })).toBeFocused()
   }
@@ -2491,7 +2645,8 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   await expect(read).toBeFocused()
   const copy = page.getByRole('menuitem', { name: 'Copy session ID' })
   const mailbox = page.getByRole('menuitem', { name: 'Send to session…' })
-  for (const item of [rename, copy, mailbox, complete, stop, read]) {
+  const claim = page.getByRole('menuitem', { name: 'Claim files…' })
+  for (const item of [rename, copy, mailbox, claim, complete, stop, read]) {
     await page.keyboard.press('ArrowDown')
     await expect(item).toBeFocused()
   }

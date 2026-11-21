@@ -101,6 +101,8 @@ Right-click a chat and choose **Copy session ID**. The clipboard gets the exact 
 
 Right-click a local Claude Code or Codex chat and choose **Send to session…**. Pick a chat from the list or paste its session ID. The [mailbox](@/docs/mailbox.md) shows the thread under both chats and gives you controls to pause, close or stop it.
 
+Choose **Claim files…** to show which files a session owns. A [file handoff](@/docs/mailbox.md#hand-off-files) moves that claim when the other session accepts it.
+
 ## Rename a chat {#rename-a-chat}
 
 Give a chat your own name. The web interface shows the same name.

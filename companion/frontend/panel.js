@@ -974,6 +974,7 @@ async function enterPick() {
   }
   if (!state.openFailure?.late) showOpenFailure(undefined)
   mailbox.closeDetails(false)
+  mailbox.closeClaims(false)
   showPick(clip)
   state.activeKey = shownView() ? pickKey(undefined) : undefined
   drawPlaces()
@@ -1226,6 +1227,7 @@ const menuItems = {
   rename: renameItem,
   'copy-session-id': document.getElementById('copy-session-id'),
   'send-to': document.getElementById('send-to'),
+  'claim-files': document.getElementById('claim-files'),
   complete: document.getElementById('complete'),
   reopen: document.getElementById('reopen'),
   hide: document.getElementById('hide'),
@@ -1366,6 +1368,17 @@ menuItems['send-to'].addEventListener('click', () => {
   if (!conversation) return
   leavePick()
   mailbox.start(conversation)
+})
+menuItems['claim-files'].addEventListener('click', () => {
+  const conversation = rowMenuTarget('claim-files')
+  closeRowMenu()
+  if (!conversation) return
+  leavePick()
+  mailbox.openClaims(conversation)
+})
+document.getElementById('mailbox-open-claims').addEventListener('click', () => {
+  leavePick()
+  mailbox.openClaims()
 })
 menuItems.read.addEventListener('click', () => {
   const conversation = rowMenuTarget('read')

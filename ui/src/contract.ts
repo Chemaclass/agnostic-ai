@@ -990,6 +990,7 @@ export interface Conversation {
   /** What the approvals hook decided for this session. Absent when it decided nothing and has nothing to say about a wait. */
   approvals?: ConversationApprovals
   threads?: ConversationThreadSummary[]
+  claimCount?: number
   open: ConversationRoute
 }
 
@@ -1002,6 +1003,17 @@ export interface ConversationThreadSummary {
   cap: number
   waiting: number
   lastType?: string
+  conflicts?: ConversationMailboxConflict[]
+}
+
+export interface ConversationMailboxConflict {
+  worktree: string
+  path: string
+  requester: { tool: ConversationTool; id: string }
+  holder?: { tool: ConversationTool; id: string }
+  sender?: { tool: ConversationTool; id: string }
+  thread?: string
+  n?: number
 }
 
 /** One request the approvals hook approved. `detail` is absent when it may hold a credential. */

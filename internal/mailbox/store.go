@@ -41,7 +41,9 @@ func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req
 		return Receipt{}, errors.Join(refused, s.RecordRefusal(ctx, from, req, refused))
 	}
 	var refs *ReviewRefs
-	if req.Type == ReviewRequest {
+	var gives *Gives
+	switch req.Type {
+	case ReviewRequest:
 		resolved, err := resolveReviewSend(ctx, sourceFolder, *req.Refs)
 		if err != nil {
 			if refused, ok := errors.AsType[*Refusal](err); ok {
@@ -50,6 +52,15 @@ func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req
 			return Receipt{}, err
 		}
 		refs = &resolved
+	case Handoff:
+		resolved, _, err := normalizeClaimPaths(ctx, sourceFolder, *req.Gives)
+		if err != nil {
+			if refused, ok := errors.AsType[*Refusal](err); ok {
+				err = errors.Join(refused, s.RecordRefusal(ctx, from, req, refused))
+			}
+			return Receipt{}, err
+		}
+		gives = &resolved
 	}
 
 	release, err := s.lock(ctx)
@@ -69,11 +80,20 @@ func (s Store) SendFromWorktree(ctx context.Context, from conversations.Ref, req
 
 	message := Message{
 		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: "human"},
-		To: req.To, Body: conversations.CleanSendText(req.Body), Refs: refs,
+		To: req.To, Body: conversations.CleanSendText(req.Body), Refs: refs, Gives: gives,
 		State: Waiting, At: at, QueuedAt: at,
 	}
 
 	refused = thread.checkSend(from, req)
+	if gives != nil {
+		message.Handoff = Offered
+		if refused == nil {
+			refused, err = s.handoffRefusal(from, *gives)
+			if err != nil {
+				return Receipt{}, err
+			}
+		}
+	}
 	if refused == nil {
 		_, err = renderBlock(thread.ID, message)
 		if err != nil {
@@ -201,9 +221,35 @@ func (s Store) ThreadsOf(ctx context.Context, ref conversations.Ref) (ThreadList
 }
 
 func (s Store) list(ctx context.Context, keep func(Thread) bool) (ThreadList, error) {
-	if err := ctx.Err(); err != nil {
+	release, present, err := s.lockForRead(ctx)
+	if err != nil {
 		return ThreadList{}, err
 	}
+	if !present {
+		return ThreadList{Threads: []Thread{}}, nil
+	}
+	defer release()
+	return s.readThreadList(ctx, keep)
+}
+
+func (s Store) Snapshot(ctx context.Context) (ThreadList, ClaimView, error) {
+	release, present, err := s.lockForRead(ctx)
+	if err != nil {
+		return ThreadList{}, ClaimView{}, err
+	}
+	if !present {
+		return ThreadList{Threads: []Thread{}}, emptyClaimView(), nil
+	}
+	defer release()
+	threads, err := s.readThreadList(ctx, func(Thread) bool { return true })
+	if err != nil {
+		return ThreadList{}, ClaimView{}, err
+	}
+	claims, err := s.readClaimView()
+	return threads, claims, err
+}
+
+func (s Store) readThreadList(ctx context.Context, keep func(Thread) bool) (ThreadList, error) {
 	list := ThreadList{Threads: []Thread{}}
 	entries, err := s.threadEntries()
 	if err != nil {
@@ -237,10 +283,16 @@ func (s Store) Stamp() string {
 	if err != nil {
 		return "unavailable"
 	}
-	if len(entries) == 0 {
+	claimInfo, claimErr := os.Lstat(s.claimsPath())
+	if len(entries) == 0 && errors.Is(claimErr, fs.ErrNotExist) {
 		return ""
 	}
 	h := fnv.New64a()
+	if claimErr == nil {
+		_, _ = fmt.Fprintf(h, "claims.json %d %d\n", claimInfo.ModTime().UnixNano(), claimInfo.Size())
+	} else if !errors.Is(claimErr, fs.ErrNotExist) {
+		_, _ = fmt.Fprintln(h, "claims.json unavailable")
+	}
 	for _, entry := range entries {
 		if info, err := entry.Info(); err == nil {
 			_, _ = fmt.Fprintf(h, "%s %d %d\n", entry.Name(), info.ModTime().UnixNano(), info.Size())

@@ -19,6 +19,10 @@ const (
 	mailboxThreadPath  = "/api/mailbox/thread"
 	mailboxStagePath   = "/api/mailbox/stage"
 	mailboxRefsPath    = "/api/mailbox/refs"
+	mailboxClaimsPath  = "/api/mailbox/claims"
+	mailboxClaimPath   = "/api/mailbox/claim"
+	mailboxReleasePath = "/api/mailbox/release"
+	mailboxHandoffPath = "/api/mailbox/handoff"
 	// JSON escaping can grow a message well past the limit on its text.
 	maxMailboxRequestBytes = 64 << 10
 )
@@ -45,8 +49,12 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		writeEditJSON(w, status, editError{Error: "The mailbox is available from the local server origin only."})
 		return
 	}
-	if r.URL.Path == mailboxThreadsPath {
+	switch r.URL.Path {
+	case mailboxThreadsPath:
 		h.readMailboxThreads(w, r, store)
+		return
+	case mailboxClaimsPath:
+		h.readMailboxClaims(w, r, store)
 		return
 	}
 	if status, message := editRequestGuard(r); status != 0 {
@@ -62,6 +70,10 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		h.stageMailboxMessage(w, r, store)
 	case mailboxRefsPath:
 		h.readMailboxRefs(w, r)
+	case mailboxClaimPath, mailboxReleasePath:
+		h.changeMailboxClaim(w, r, store)
+	case mailboxHandoffPath:
+		h.answerMailboxHandoff(w, r, store)
 	}
 }
 
@@ -107,7 +119,8 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		refuse(mailboxSendRequest{}, mailboxBodyRefusal(err))
 		return
 	}
-	if mailboxReviewEcho(raw) {
+	fields := mailboxFields(raw)
+	if mailboxReviewEcho(fields) {
 		var audit struct {
 			From   conversations.Ref `json:"from"`
 			To     conversations.Ref `json:"to"`
@@ -121,7 +134,7 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		return
 	}
 	var req mailboxSendRequest
-	if err := decodeStrictJSON(bytes.NewReader(raw), &req); err != nil {
+	if err := decodeStrictJSON(bytes.NewReader(raw), &req); err != nil || malformedMailboxHandoff(fields) {
 		refuse(mailboxSendRequest{}, mailboxBodyRefusal(err))
 		return
 	}
@@ -287,19 +300,27 @@ func (h *conversationsHandler) confirmMailboxStage(w http.ResponseWriter, ctx co
 }
 
 func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store mailbox.Store, view *conversations.View, opts conversations.ScanOptions) {
-	list, err := store.Threads(ctx)
+	list, claims, err := store.Snapshot(ctx)
 	if err != nil {
 		view.MailboxWarning = "The mailbox could not be read. Try again."
-		return
-	}
-	view.MailboxWarning = list.Warning
-	if len(list.Threads) == 0 || len(view.Conversations) == 0 {
-		return
+	} else {
+		view.MailboxWarning = list.Warning
 	}
 	page := make(map[conversations.Ref]int, len(view.Conversations))
 	for i, row := range view.Conversations {
 		if canUseMailbox(row) {
 			page[conversations.Ref{Tool: row.Tool, ID: row.ID}] = i
+		}
+	}
+	for _, claim := range claims.Claims {
+		if at, visible := page[claim.Owner]; visible {
+			view.Conversations[at].ClaimCount++
+		}
+	}
+	conflicts := make(map[string][]conversations.MailboxConflict)
+	for _, conflict := range claims.Conflicts {
+		if conflict.Thread != "" {
+			conflicts[conflict.Thread] = append(conflicts[conflict.Thread], conversations.MailboxConflict(conflict))
 		}
 	}
 	var missing []conversations.Ref
@@ -310,6 +331,7 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 				continue
 			}
 			summary := mailboxSummary(thread, thread.Between[1-i])
+			summary.Conflicts = conflicts[thread.ID]
 			if peer, visible := page[summary.With]; visible {
 				summary.WithTitle = view.Conversations[peer].Title
 			} else {

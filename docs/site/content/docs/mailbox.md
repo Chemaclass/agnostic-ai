@@ -1,6 +1,6 @@
 +++
 title = "Session mailbox"
-description = "Send questions, findings and code review requests between local Claude Code and Codex sessions."
+description = "Send questions, findings, code reviews and file handoffs between local Claude Code and Codex sessions."
 weight = 80
 
 [extra]
@@ -38,6 +38,22 @@ The base must be an ancestor of the commit. The companion uses the commit checke
 The preview skips external Git filters and changes inside nested submodule worktrees. Git can count a filtered file differently when run directly.
 
 Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path is limited to 400 bytes. The same credential check applies to Git references. For a read-only preview in a terminal, use [`agnostic-ai mailbox refs`](@/docs/cli-reference/mailbox.md#mailbox-refs).
+
+{% </details> %}
+
+## Hand off files
+
+1. Choose **Claim files…** on the source chat and enter paths relative to its Git worktree. A directory claims its contents. Use `.` to claim the whole worktree.
+2. Open **Send to session…** and choose **Handoff**. Enter the paths to give and a short message pointing to your [handoff note](@/docs/handoff.md).
+3. Open the thread from the receiving chat and choose **Accept**. The files move to its claim when the offer is accepted. **Decline** leaves ownership with the sender.
+
+If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends. A claim coordinates who is working on a path. It does not block edits.
+
+{% <details summary="Path matching and stale claims"> %}
+
+Claims use the real worktree and resolve symlinks to the same path. New files can be claimed before they exist. A file overlaps a claimed parent folder, and a claim respects the worktree’s letter-case rules. Giving one file from a folder leaves the other files with the sender.
+
+Closing or stopping a thread keeps its claims. Open **File claims** to find and release a stale claim whose session left the list.
 
 {% </details> %}
 
@@ -79,8 +95,13 @@ The local global server provides these routes to the companion. The conversation
 | `GET /api/mailbox/threads?tool=&id=` | Read `{threads, warning?}` for one session. |
 | `POST /api/mailbox/thread` | Send `{thread, action}` for `pause`, `resume`, `stop` or `raise-cap`. |
 | `POST /api/mailbox/stage` | Send `{thread, n, how}` with `type` or `copy`. For copy, the command-line server replies with `text`. After writing it to the clipboard, send the same request with `confirm: true`. The companion performs both steps with the system clipboard. |
+| `GET /api/mailbox/claims?tool=&id=` | Read `{claims, conflicts, worktree?}` for a session. Omit the query to see all claims, including stale owners. |
+| `POST /api/mailbox/claim` and `/api/mailbox/release` | Send `{tool, id, worktree, paths}` for the owner. |
+| `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
 
 Questions and findings take `body`. A `review_request` takes `refs: {worktree, base, commit?, paths?}` and optional `models: {from?, to?}`. Pass the preview’s commit, base and paths to keep the selection pinned. The server checks the worktree against the source chat and verifies any supplied paths against Git. A review request with a `body`, verdict or unknown field is refused with `echo`. An invalid base, commit or path selection is refused with `refs`.
+
+A `handoff` takes `body` and `gives: {worktree, paths}`. Sending creates an offer. Acceptance checks the same paths again before moving them. An overlap or missing claim is refused with `ownership`.
 
 A refused send or review preview answers HTTP 422 with `{error, guard}`. The error says what stopped it and what to do next.
 

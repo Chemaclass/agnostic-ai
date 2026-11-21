@@ -40,7 +40,7 @@
       <output class="mailbox-muted" id="mailbox-from"></output>
       <label>Session ID <input id="mailbox-target" autocomplete="off" spellcheck="false" aria-describedby="mailbox-target-hint"></label>
       <p class="mailbox-muted" id="mailbox-target-hint">Click a session in the list or paste its ID here.</p>
-      <label>Type <select id="mailbox-type"><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option></select></label>
+      <label>Type <select id="mailbox-type"><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option><option value="handoff">Handoff</option></select></label>
       <label id="mailbox-body-field">Message <textarea id="mailbox-body" rows="2"></textarea></label>
       <div class="mailbox-review" id="mailbox-review" hidden>
         <label>Base branch or commit <input id="mailbox-review-base" autocomplete="off" spellcheck="false" aria-describedby="mailbox-review-status"></label>
@@ -52,11 +52,34 @@
         </div>
         <p id="mailbox-review-comparison" class="mailbox-muted" role="status"></p>
       </div>
+      <div class="mailbox-path-fields" id="mailbox-handoff" hidden>
+        <label>Worktree <input id="mailbox-handoff-worktree" autocomplete="off" spellcheck="false" aria-describedby="mailbox-handoff-status"></label>
+        <p class="mailbox-muted" id="mailbox-handoff-status" role="status"></p>
+        <label>Paths, one per line <textarea id="mailbox-handoff-paths" rows="2" spellcheck="false" aria-describedby="mailbox-handoff-hint"></textarea></label>
+        <p class="mailbox-muted" id="mailbox-handoff-hint">Use paths relative to the Git worktree root. Use <code>.</code> for the whole worktree.</p>
+        <button class="confirm-cancel" id="mailbox-claim-offer" type="button">Claim these paths</button>
+      </div>
       <div class="mailbox-actions">
         <button class="confirm-cancel" id="mailbox-cancel" type="button">Cancel</button>
         <button class="mailbox-send" id="mailbox-send" type="submit">Send message</button>
       </div>
     </form>
+    <section class="mailbox-card" id="mailbox-claims" aria-labelledby="mailbox-claims-title" hidden>
+      <header class="mailbox-header">
+        <strong id="mailbox-claims-title">File claims</strong>
+        <button class="icon-button" id="mailbox-claims-dismiss" type="button" aria-label="Dismiss file claims" title="Dismiss file claims">
+          <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-linecap="round"/></svg>
+        </button>
+      </header>
+      <p id="mailbox-claims-owner" class="mailbox-muted" hidden></p>
+      <form class="mailbox-path-fields" id="mailbox-claim-form" aria-label="Claim files" hidden>
+        <label>Worktree <input id="mailbox-claim-worktree" autocomplete="off" spellcheck="false"></label>
+        <label>Paths, one per line <textarea id="mailbox-claim-paths" rows="2" spellcheck="false" aria-describedby="mailbox-claim-hint"></textarea></label>
+        <p class="mailbox-muted" id="mailbox-claim-hint">Use paths relative to the Git worktree root. Use <code>.</code> for the whole worktree.</p>
+        <button class="mailbox-send" type="submit">Claim paths</button>
+      </form>
+      <div id="mailbox-claims-list" class="mailbox-claims-list"></div>
+    </section>
     <section class="mailbox-card mailbox-details" id="mailbox-details" aria-labelledby="mailbox-details-title" hidden>
       <header class="mailbox-header">
         <strong id="mailbox-details-title"></strong>
@@ -122,6 +145,7 @@
     <footer class="foot">
       <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
       <span class="summary" id="summary" role="status"></span>
+      <button class="confirm-cancel mailbox-global-claims" id="mailbox-open-claims" type="button" aria-controls="mailbox-claims">File claims</button>
       <button class="icon-button" id="menu-button" type="button" aria-label="Settings" title="Settings" aria-haspopup="true" aria-expanded="false">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
       </button>
@@ -136,6 +160,7 @@
       <button class="menu-item" id="rename" type="button" role="menuitem">Rename…</button>
       <button class="menu-item" id="copy-session-id" type="button" role="menuitem">Copy session ID</button>
       <button class="menu-item" id="send-to" type="button" role="menuitem" aria-controls="mailbox-compose">Send to session…</button>
+      <button class="menu-item" id="claim-files" type="button" role="menuitem" aria-controls="mailbox-claims">Claim files…</button>
       <button class="menu-item" id="complete" type="button" role="menuitem" title="Marks it complete until something new is written or it starts working">Mark complete</button>
       <button class="menu-item" id="reopen" type="button" role="menuitem" title="Clears the completion mark you set">Undo complete</button>
       <button class="menu-item" id="hide" type="button" role="menuitem" title="Takes it out of every list and search, until something new is written or it starts working. The tool keeps the chat.">Hide from agnostic-ai</button>

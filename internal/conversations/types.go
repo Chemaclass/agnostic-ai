@@ -221,9 +221,10 @@ type Conversation struct {
 	Cloud *CloudRef `json:"cloud,omitempty"`
 	// Approvals is what the approvals hook decided for this session; nil
 	// when it decided nothing and has nothing to say about a wait.
-	Approvals *ApprovalsNote  `json:"approvals,omitempty"`
-	Open      Route           `json:"open"`
-	Threads   []ThreadSummary `json:"threads,omitempty"`
+	Approvals  *ApprovalsNote  `json:"approvals,omitempty"`
+	Open       Route           `json:"open"`
+	Threads    []ThreadSummary `json:"threads,omitempty"`
+	ClaimCount int             `json:"claimCount,omitempty"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess
@@ -290,14 +291,25 @@ type StuckShell struct {
 }
 
 type ThreadSummary struct {
-	ID        string `json:"id"`
-	With      Ref    `json:"with"`
-	WithTitle string `json:"withTitle,omitempty"`
-	Status    string `json:"status"`
-	Count     int    `json:"count"`
-	Cap       int    `json:"cap"`
-	Waiting   int    `json:"waiting"`
-	LastType  string `json:"lastType,omitempty"`
+	ID        string            `json:"id"`
+	With      Ref               `json:"with"`
+	WithTitle string            `json:"withTitle,omitempty"`
+	Status    string            `json:"status"`
+	Count     int               `json:"count"`
+	Cap       int               `json:"cap"`
+	Waiting   int               `json:"waiting"`
+	LastType  string            `json:"lastType,omitempty"`
+	Conflicts []MailboxConflict `json:"conflicts,omitempty"`
+}
+
+type MailboxConflict struct {
+	Worktree  string `json:"worktree"`
+	Path      string `json:"path"`
+	Requester Ref    `json:"requester"`
+	Holder    *Ref   `json:"holder,omitempty"`
+	Sender    *Ref   `json:"sender,omitempty"`
+	Thread    string `json:"thread,omitempty"`
+	N         int    `json:"n,omitempty"`
 }
 
 // Ref names one conversation of any tool.

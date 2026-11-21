@@ -26,12 +26,13 @@ type renderedMessage struct {
 	From   renderedActor `json:"from"`
 	Body   string        `json:"body,omitempty"`
 	Refs   *ReviewRefs   `json:"refs,omitempty"`
+	Gives  *Gives        `json:"gives,omitempty"`
 	Notice string        `json:"notice,omitempty"`
 }
 
 func renderLine(thread string, m Message) ([]byte, error) {
 	line := renderedMessage{
-		Thread: thread, N: m.N, Type: m.Type, Body: m.Body, Refs: m.Refs,
+		Thread: thread, N: m.N, Type: m.Type, Body: m.Body, Refs: m.Refs, Gives: m.Gives,
 		From: renderedActor{Tool: string(m.From.Tool), Session: m.From.ID, By: m.From.By},
 	}
 	if m.Type == ReviewRequest && m.Refs != nil {
@@ -42,6 +43,9 @@ func renderLine(thread string, m Message) ([]byte, error) {
 		default:
 			line.Notice = fmt.Sprintf("%d uncommitted files are outside this review.", m.Refs.Uncommitted)
 		}
+	}
+	if m.Type == Handoff {
+		line.Notice = "Paths move only after the receiving session accepts this handoff."
 	}
 	return json.Marshal(line)
 }

@@ -76,3 +76,26 @@ test('reads the review refs with only the row identity and an optional base', as
     ['/api/mailbox/refs', 'POST', { tool: 'codex', id: 'source', base: 'origin/main' }],
   ])
 })
+
+test('uses the claim owner key for both claim and release and scopes reads when asked', async () => {
+  const { answerHandoff, claimPaths, readClaims, releasePaths } = await import('../frontend/api.js')
+  const owner = { tool: 'claude', id: 'a' }
+  const claim = { ...owner, worktree: '/work', paths: ['internal/mailbox'] }
+  const calls = []
+  globalThis.fetch = async (url, options) => {
+    calls.push([url, options.method, options.body && JSON.parse(options.body)])
+    return new Response('{}')
+  }
+  await readClaims()
+  await readClaims(owner)
+  await claimPaths(claim)
+  await releasePaths(claim)
+  await answerHandoff('thread', 1, 'accept')
+  assert.deepEqual(calls, [
+    ['/api/mailbox/claims', undefined, undefined],
+    ['/api/mailbox/claims?tool=claude&id=a', undefined, undefined],
+    ['/api/mailbox/claim', 'POST', claim],
+    ['/api/mailbox/release', 'POST', claim],
+    ['/api/mailbox/handoff', 'POST', { thread: 'thread', n: 1, action: 'accept' }],
+  ])
+})

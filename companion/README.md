@@ -105,6 +105,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - Choose **Send to session…** on a local Claude Code or Codex chat to start
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). The thread appears under both chats.
   Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
+- Choose **Claim files…** to record which paths a session is working on. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
 - On a chat in Needs you, the same menu offers **Mark as read**. It takes the
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.

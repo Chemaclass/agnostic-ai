@@ -230,3 +230,68 @@ func TestMailboxProxy_ForwardsReviewRefsWithoutRefreshingTheList(t *testing.T) {
 		t.Errorf("forwarded review refs = %v", posts)
 	}
 }
+
+func TestMailboxProxy_ForwardsClaimsAndRefreshesAnOwnershipConflict(t *testing.T) {
+	const refusal = `{"guard":"ownership","error":"The path is held by another session."}`
+	var claimsReads, listReads atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/mailbox/claims":
+			count := claimsReads.Add(1)
+			if r.Method != http.MethodGet || count == 1 && r.URL.RawQuery != "" ||
+				count == 2 && (r.URL.Query().Get("tool") != "claude" || r.URL.Query().Get("id") != "some-id") {
+				t.Errorf("claims read = %s %s", r.Method, r.URL)
+			}
+			_, _ = w.Write([]byte(`{"claims":[],"conflicts":[]}`))
+		case "/api/mailbox/claim", "/api/mailbox/release", "/api/mailbox/handoff":
+			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("mutation = %s %s", r.Method, r.URL)
+			}
+			if r.URL.Path == "/api/mailbox/claim" {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				_, _ = w.Write([]byte(refusal))
+			} else {
+				w.WriteHeader(http.StatusNoContent)
+			}
+		case serverListPath:
+			listReads.Add(1)
+			w.Header().Set("ETag", `"after-claim"`)
+			writeJSON(w, http.StatusOK, map[string]any{"needsYou": 0})
+		default:
+			t.Errorf("unexpected upstream path %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer upstream.Close()
+	server := newServer()
+	server.base, server.health.Version = upstream.URL, "1.2.3"
+	in := newInbox(server, "1.2.3", func() {})
+	routes := (&shell{}).routes(in, fstest.MapFS{})
+
+	for _, path := range []string{"/api/mailbox/claims", "/api/mailbox/claims?tool=claude&id=some-id"} {
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+		if rec.Code != http.StatusOK || rec.Body.String() != `{"claims":[],"conflicts":[]}` {
+			t.Errorf("%s = %d %s", path, rec.Code, rec.Body)
+		}
+	}
+	for _, action := range []string{"claim", "release", "handoff"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/mailbox/"+action, strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+		if action == "claim" {
+			if rec.Code != http.StatusUnprocessableEntity || rec.Body.String() != refusal {
+				t.Errorf("claim refusal = %d %s", rec.Code, rec.Body)
+			}
+		} else if rec.Code != http.StatusNoContent {
+			t.Errorf("%s = %d %s", action, rec.Code, rec.Body)
+		}
+		if rec.Header().Get(listVersionHeader) != `"after-claim"` {
+			t.Errorf("%s did not refresh the list: version %q", action, rec.Header().Get(listVersionHeader))
+		}
+	}
+	if claimsReads.Load() != 2 || listReads.Load() != 3 {
+		t.Errorf("claims and list reads = %d and %d", claimsReads.Load(), listReads.Load())
+	}
+}

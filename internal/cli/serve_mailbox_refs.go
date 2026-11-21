@@ -13,18 +13,12 @@ import (
 )
 
 func (h *conversationsHandler) readMailboxRefs(w http.ResponseWriter, r *http.Request) {
-	var raw json.RawMessage
-	if err := decodeOneJSON(w, r, maxMailboxRequestBytes, &raw); err != nil {
-		writeMailboxError(w, mailboxBodyRefusal(err))
-		return
-	}
 	var req struct {
 		conversations.Ref
 		Base string `json:"base"`
 	}
-	if !mailboxKeysAllowed(mailboxFields(raw), "tool", "id", "base") ||
-		decodeStrictJSON(bytes.NewReader(raw), &req) != nil {
-		writeMailboxError(w, mailbox.NewRefusal("format"))
+	if refusal := readMailboxFields(w, r, &req, "tool", "id", "base"); refusal != nil {
+		writeMailboxError(w, refusal)
 		return
 	}
 	if refusal := mailbox.ValidateRef(req.Ref); refusal != nil {
@@ -93,14 +87,15 @@ func mailboxKeysAllowed(fields []mailboxField, allowed ...string) bool {
 	return true
 }
 
-func mailboxReviewEcho(raw json.RawMessage) bool {
-	fields := mailboxFields(raw)
-	review := slices.ContainsFunc(fields, func(field mailboxField) bool {
-		var kind string
-		return strings.EqualFold(field.key, "type") &&
-			json.Unmarshal(field.raw, &kind) == nil && kind == mailbox.ReviewRequest
+func hasMailboxKind(fields []mailboxField, kind string) bool {
+	return slices.ContainsFunc(fields, func(field mailboxField) bool {
+		var value string
+		return strings.EqualFold(field.key, "type") && json.Unmarshal(field.raw, &value) == nil && value == kind
 	})
-	if !review {
+}
+
+func mailboxReviewEcho(fields []mailboxField) bool {
+	if !hasMailboxKind(fields, mailbox.ReviewRequest) {
 		return false
 	}
 	if !mailboxKeysAllowed(fields, "from", "to", "type", "thread", "refs", "models") {

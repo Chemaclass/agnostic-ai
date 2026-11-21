@@ -1731,3 +1731,29 @@ button:focus-visible {
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+.mailbox-path-fields {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mailbox-path-fields button {
+  justify-self: start;
+}
+
+.mailbox-claims-list {
+  max-height: 170px;
+  overflow-y: auto;
+}
+
+.mailbox-claim-paths {
+  margin: 4px 0;
+  padding-left: 18px;
+  overflow-wrap: anywhere;
+}
+
+.mailbox-global-claims {
+  flex: none;
+  white-space: nowrap;
+}
