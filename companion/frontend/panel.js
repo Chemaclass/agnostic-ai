@@ -2,7 +2,7 @@ import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -1941,10 +1941,31 @@ const updateRetry = document.getElementById('update-retry')
 /** The status whose message was dismissed; a new status shows again. */
 let updateDismissed
 
+const updateGo = document.getElementById('update-go')
+const updateCommand = document.getElementById('update-command')
+const updateStatusCommand = document.getElementById('update-status-command')
+const updateCopy = document.getElementById('update-copy')
+
 function openUpdateConfirm() {
-  document.getElementById('update-title').textContent = `Update to v${settings.update.version} and restart?`
+  const question = updateConfirmOf(settings.update)
+  document.getElementById('update-title').textContent = question.title
+  document.getElementById('update-body').textContent = question.body
+  updateCommand.hidden = !question.command
+  updateCommand.textContent = question.command ?? ''
+  updateGo.textContent = question.go
   updateConfirm.hidden = false
   updateCancel.focus()
+}
+
+/** Copies command for a terminal and says whether it worked. */
+async function copyUpdateCommand(command) {
+  try {
+    await navigator.clipboard.writeText(command)
+  } catch {
+    say(`Could not copy it. Run ${command} in a terminal.`, 'error')
+    return
+  }
+  say(`Copied ${command}. Paste it in a terminal.`)
 }
 
 function closeUpdateConfirm() {
@@ -1960,13 +1981,18 @@ function drawUpdateStatus() {
   updateLog.hidden = !message.log
   updateLog.textContent = message.log ? `Details: ${message.log}` : ''
   updateRetry.hidden = !message.retry
+  updateStatusCommand.hidden = updateCopy.hidden = !message.command
+  updateStatusCommand.textContent = message.command ?? ''
 }
 
 updateCancel.addEventListener('click', closeUpdateConfirm)
-document.getElementById('update-go').addEventListener('click', () => {
+updateGo.addEventListener('click', () => {
+  const { command } = updateConfirmOf(settings.update)
   closeUpdateConfirm()
-  startUpdate().catch(sayFailure)
+  if (command) copyUpdateCommand(command)
+  else startUpdate().catch(sayFailure)
 })
+updateCopy.addEventListener('click', () => copyUpdateCommand(settings.update.command))
 updateRetry.addEventListener('click', () => startUpdate().catch(sayFailure))
 document.getElementById('update-dismiss').addEventListener('click', () => {
   updateDismissed = JSON.stringify(settings.update)

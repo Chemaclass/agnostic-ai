@@ -331,6 +331,16 @@ export const FIXTURES = {
 
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
   'update-available': { label: 'A newer release for the disk image app', conversations: mixed, update: { state: 'available', version: '0.97.0', current: '0.96.0' } },
+  'update-copy': {
+    label: 'A newer release a terminal install updates with a command',
+    conversations: mixed,
+    update: { state: 'available', version: '0.97.0', current: '0.96.0', command: 'agnostic-ai upgrade' },
+  },
+  'update-failed-terminal': {
+    label: 'A terminal install whose package manager could not run',
+    conversations: mixed,
+    update: { state: 'failed', version: '0.97.0', current: '0.96.0', reason: 'the package manager could not run from the companion', log: '/Users/you/Library/Application Support/agnostic-ai/companion-update.log', command: 'agnostic-ai upgrade' },
+  },
   'update-failed': {
     label: 'An update that failed its checksum',
     conversations: mixed,

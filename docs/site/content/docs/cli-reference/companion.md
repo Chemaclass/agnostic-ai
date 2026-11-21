@@ -132,6 +132,7 @@ Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/
 | `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
 | `companion install-command --app /Applications/agnostic-ai\ companion.app` | Links the app's bundled CLI into a command folder on macOS. |
 | `companion update-app --app /Applications/agnostic-ai\ companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
+| `companion update-status --json` | Prints the installed and latest stable release, the install method, its upgrade command, and whether `agnostic-ai upgrade` can run it (`oneClick`). The terminal-installed companion reads it to offer an update. |
 
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` when nothing runs: it succeeds and says so.
@@ -147,7 +148,7 @@ Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/
 
 ## The circle and its menus {#menus}
 
-Right-click the circle, or open the list's ⋯ menu. A settings change in one shows in the other. The disk-image app also offers the update entry in both menus, and **Install command line tool** under it in the circle's right-click menu.
+Right-click the circle, or open the list's ⋯ menu. A settings change in one shows in the other. Both menus also hold the update entry. The disk-image app adds **Install command line tool** under it in the circle's right-click menu.
 
 | Menu item | What it does |
 |-----------|--------------|
@@ -158,7 +159,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. Only the list's ⋯ menu shows it. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
-| **Check for updates** | Disk-image app only. Checks for a newer release now. Reads **Update to vX.Y.Z** when one is known; choosing it asks, then updates and restarts. See [Install and start](#install). |
+| **Check for updates** | Checks for a newer release now. Reads **Update to vX.Y.Z** when one is known; choosing it asks, then updates and restarts. See [Install and start](#install) for the disk-image app and [Upgrade the companion](#upgrade-the-companion) for a terminal install. |
 | **Hide Agnostic AI companion** | Takes the circle and the list off the screen. It keeps running. |
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 
@@ -237,6 +238,8 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --globa
 ## Upgrade the companion
 
 `agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. When the CLI is already current, as after a direct Homebrew or npm upgrade, it still replaces a companion built for another release.
+
+The companion installed from the terminal offers the same update in its menus. It asks its CLI for the latest stable release on start and every 24 hours, without opening a window. On macOS, **Update to vX.Y.Z** then **Update and restart** runs `agnostic-ai upgrade` for you, which upgrades the CLI by its install method and then replaces and restarts the companion. When it cannot run from the app, such as an unknown install method or a package manager the app cannot find, and on other systems, the list shows `agnostic-ai upgrade` with **Copy command** to run in a terminal. When Homebrew or npm does not serve the new release yet, the list says so; choose **Retry** later.
 
 {% <details summary="Details: failures and version mismatch"> %}
 - The companion is downloaded or built as `companion install` does, and progress is printed.
