@@ -170,3 +170,11 @@ func TestProgramOf_KeepsATmuxPathWithASpace(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+func TestPasteKey_IsTheTerminalShortcutOfEachSystem(t *testing.T) {
+	for goos, want := range map[string]string{"darwin": "Cmd+V", "linux": "Ctrl+Shift+V", "windows": "Ctrl+V"} {
+		if got := pasteKeyOn(goos); got != want {
+			t.Errorf("%s: got %q, want %q", goos, got, want)
+		}
+	}
+}
