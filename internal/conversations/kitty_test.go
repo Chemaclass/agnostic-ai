@@ -162,3 +162,19 @@ func TestKitty_TypesALargeTextInPartsThatFitOneArgument(t *testing.T) {
 		t.Errorf("joined parts differ from the pasted text")
 	}
 }
+
+func TestKitty_ClosesThePasteWhenALaterPartFails(t *testing.T) {
+	to := "kitty @ --to unix:/tmp/kitty-900 "
+	text := strings.Repeat("a", sendPart/2) + "second part"
+	commands := &fakeCommands{
+		out:  map[string]string{to + "ls": kittyLs},
+		errs: map[string]error{to + "send-text --match id:3 -- second part": errors.New("broken pipe")},
+	}
+
+	if ok, err := testKitty(commands).typeIn(context.Background(), "/dev/ttys041", text); ok || err == nil {
+		t.Fatalf("ok %v err %v", ok, err)
+	}
+	if last := commands.calls[len(commands.calls)-1]; last != to+`send-text --match id:3 -- \e[201~` {
+		t.Errorf("last call = %q, want the paste closed", last)
+	}
+}

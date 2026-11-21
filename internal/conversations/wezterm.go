@@ -38,8 +38,12 @@ func weztermTitleArgs(pane uint64, title string) []string {
 
 // weztermSendArgs send text as a paste, which WezTerm brackets when the
 // program asks for it, or as typed keys.
-func weztermSendArgs(pane uint64, text string) []string {
-	return weztermCLI("send-text", "--pane-id", strconv.FormatUint(pane, 10), "--no-paste", "--", text)
+func weztermSendArgs(pane uint64, text string, paste bool) []string {
+	args := []string{"send-text", "--pane-id", strconv.FormatUint(pane, 10)}
+	if !paste {
+		args = append(args, "--no-paste")
+	}
+	return weztermCLI(append(args, "--", text)...)
 }
 
 func (w weztermTab) cli(ctx context.Context, args ...string) (string, error) {
@@ -113,9 +117,9 @@ func (w weztermTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err := w.activate(ctx, pane); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
-	// The paste markers go around the whole text, so its parts arrive as one paste.
-	for _, part := range textParts("\x1b[200~"+text+"\x1b[201~", sendPart) {
-		if _, err := w.cli(ctx, weztermSendArgs(pane, part)...); err != nil {
+	// Each part goes as a paste of its own, which WezTerm closes itself.
+	for _, part := range textParts(text, sendPart) {
+		if _, err := w.cli(ctx, weztermSendArgs(pane, part, true)...); err != nil {
 			return false, err
 		}
 	}
@@ -134,7 +138,7 @@ func (w weztermTab) newTab(ctx context.Context, command string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := w.cli(ctx, weztermSendArgs(pane, command+"\r")...); err != nil {
+	if _, err := w.cli(ctx, weztermSendArgs(pane, command+"\r", false)...); err != nil {
 		return err
 	}
 	if err := w.raise(ctx); !errors.Is(err, errNotInFront) {
