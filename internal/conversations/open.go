@@ -180,6 +180,12 @@ func SystemLauncher() Launcher {
 // Open reopens a conversation along its route. The conversation comes
 // from the server's own scan, never from the request.
 func Open(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
+	reply := openRoute(ctx, c, processes, launcher)
+	reply.Command = commandHere(runtime.GOOS, reply.Command)
+	return reply
+}
+
+func openRoute(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
 	if c.App == AppCloud || c.Tool == ToolChatGPT {
 		return openCloud(ctx, c, launcher)
 	}

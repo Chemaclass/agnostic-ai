@@ -25,6 +25,14 @@ func TestPowerShellLine_TurnsAResumeLineIntoPowerShell(t *testing.T) {
 			`Set-Location -LiteralPath 'C:\app' -ErrorAction Stop; & 'C:\Program Files\agnostic-ai\agnostic-ai.exe' conversations run b1`,
 		},
 		"no folder": {`claude --resume x`, `claude --resume x`},
+		"a folder with a curly quote": {
+			"cd 'C:\\x’;calc;‘' && claude --resume x",
+			"Set-Location -LiteralPath 'C:\\x’’;calc;‘‘' -ErrorAction Stop; claude --resume x",
+		},
+		"a line already for PowerShell": {
+			`Set-Location -LiteralPath 'C:\app' -ErrorAction Stop; claude --resume x`,
+			`Set-Location -LiteralPath 'C:\app' -ErrorAction Stop; claude --resume x`,
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := powerShellLine(tc.line); got != tc.want {
@@ -45,10 +53,10 @@ func TestWindowsLauncher_RunsANewPowerShellWindowThatStaysOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if len(got) != 5 || !slices.Equal(got[:4], []string{"powershell.exe", "-NoExit", "-NoLogo", "-EncodedCommand"}) {
+	if len(got) != 7 || !slices.Equal(got[:6], []string{"powershell.exe", "-NoExit", "-NoLogo", "-ExecutionPolicy", "RemoteSigned", "-EncodedCommand"}) {
 		t.Fatalf("started %q", got)
 	}
-	raw, err := base64.StdEncoding.DecodeString(got[4])
+	raw, err := base64.StdEncoding.DecodeString(got[6])
 	if err != nil || len(raw)%2 != 0 {
 		t.Fatalf("encoded command %q: %v", got[4], err)
 	}
@@ -91,5 +99,18 @@ func TestMayStillRun_OnlyARecentSessionOnWindowsSystemProcesses(t *testing.T) {
 	}
 	if got := mayStillRun(recent, SystemProcesses{}, now); got != (runtime.GOOS == "windows") {
 		t.Errorf("a recent session may still run = %v on %s", got, runtime.GOOS)
+	}
+}
+
+func TestCommandHere_GivesWindowsALineForPowerShell(t *testing.T) {
+	line := `cd 'C:\app' && claude --resume x`
+	if got := commandHere("darwin", line); got != line {
+		t.Errorf("macOS got %q", got)
+	}
+	if got := commandHere("windows", line); got != `Set-Location -LiteralPath 'C:\app' -ErrorAction Stop; claude --resume x` {
+		t.Errorf("Windows got %q", got)
+	}
+	if got := commandHere("windows", ""); got != "" {
+		t.Errorf("no command became %q", got)
 	}
 }

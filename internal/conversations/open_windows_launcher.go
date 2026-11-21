@@ -38,7 +38,9 @@ func (l windowsLauncher) RunInNewTerminal(_ context.Context, command string) err
 	for _, unit := range units {
 		raw = append(raw, byte(unit), byte(unit>>8))
 	}
-	return l.start("powershell.exe", "-NoExit", "-NoLogo", "-EncodedCommand", base64.StdEncoding.EncodeToString(raw))
+	// An npm install puts a .ps1 shim first, which the default Restricted
+	// policy of Windows 11 refuses to run.
+	return l.start("powershell.exe", "-NoExit", "-NoLogo", "-ExecutionPolicy", "RemoteSigned", "-EncodedCommand", base64.StdEncoding.EncodeToString(raw))
 }
 
 func (windowsLauncher) FocusTab(context.Context, string, string) (bool, error) {
@@ -97,6 +99,18 @@ func cutShellQuoted(s string) (word, rest string, ok bool) {
 	}
 }
 
+// powerShellQuotes end a single-quoted string in PowerShell; each is
+// doubled inside one.
+var powerShellQuotes = strings.NewReplacer("'", "''", "\u2018", "\u2018\u2018", "\u2019", "\u2019\u2019", "\u201a", "\u201a\u201a", "\u201b", "\u201b\u201b")
+
 func powerShellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
+	return "'" + powerShellQuotes.Replace(s) + "'"
+}
+
+// commandHere is a resume line as a person on goos runs it by hand.
+func commandHere(goos, line string) string {
+	if goos != "windows" || line == "" {
+		return line
+	}
+	return powerShellLine(line)
 }
