@@ -29,17 +29,21 @@ func filetimeText(filetime uint64) string {
 }
 
 // windowsProcStart is the start a Windows Claude Code session file
-// records, written as filetimeText. The native claude.exe writes
-// procStartFt, a file time. A Claude Code run by Node writes procStart,
-// the .NET ticks of PowerShell's creation time in local time. Any other
+// records, written as filetimeText. The native claude.exe writes a file
+// time, in procStart or procStartFt. A Claude Code run by Node writes
+// procStart as the .NET ticks of PowerShell's creation time in local
+// time, which are larger than any file time of this era. Any other
 // value is kept.
 func windowsProcStart(procStart, procStartFt string, local *time.Location) string {
-	if filetime, err := strconv.ParseUint(strings.TrimSpace(procStartFt), 10, 64); err == nil && procStart == "" {
-		return filetimeText(filetime)
+	if procStart == "" {
+		procStart = procStartFt
 	}
 	ticks, err := strconv.ParseUint(strings.TrimSpace(procStart), 10, 64)
-	if err != nil || ticks < filetimeEpochTicks {
+	switch {
+	case err != nil || ticks < unixEpochFiletime:
 		return procStart
+	case ticks < filetimeEpochTicks:
+		return filetimeText(ticks)
 	}
 	wall := time.Unix(0, 0).UTC().Add(time.Duration(ticks-filetimeEpochTicks-unixEpochFiletime) * 100)
 	at := time.Date(wall.Year(), wall.Month(), wall.Day(), wall.Hour(), wall.Minute(), wall.Second(), wall.Nanosecond(), local)

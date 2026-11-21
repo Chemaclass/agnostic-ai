@@ -148,3 +148,10 @@ func (f fakeNative) holders(paths []string) (map[string]int, error) {
 	}
 	return held, nil
 }
+
+func TestWindowsProcStart_ReadsAFileTimeInProcStart(t *testing.T) {
+	// claude.exe 2.1.330 on Windows Server 2025 wrote this procStart.
+	if got := windowsProcStart("134397694254382773", "", time.UTC); got != "134397694254382770" {
+		t.Errorf("got %q", got)
+	}
+}
