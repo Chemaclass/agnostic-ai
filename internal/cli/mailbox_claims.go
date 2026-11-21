@@ -25,7 +25,7 @@ func newMailboxClaimCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				if err := agent.store.Claim(ctx, agent.me, gives, agent.folder); err != nil {
+				if err := agent.store.Claim(ctx, agent.me, gives, agent.folder, "agent"); err != nil {
 					return err
 				}
 				_, err = fmt.Fprintf(cmd.OutOrStdout(), "Claimed %d path%s in %s.\n", len(paths), pluralS(len(paths)), gives.Worktree)

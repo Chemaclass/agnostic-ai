@@ -78,7 +78,12 @@ func (t *Thread) recordModel(ref conversations.Ref, name, statedBy string) {
 	if t.Models == nil {
 		t.Models = map[string]Model{}
 	}
-	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: statedBy}
+	key := string(ref.Tool) + ":" + ref.ID
+	// The same-model warning rests on the person's label; each agent message still carries its own model.
+	if statedBy == "agent" && t.Models[key].StatedBy == "human" {
+		return
+	}
+	t.Models[key] = Model{Name: name, StatedBy: statedBy}
 }
 
 func (t Thread) checkSend(from conversations.Ref, req SendRequest, by string) *Refusal {

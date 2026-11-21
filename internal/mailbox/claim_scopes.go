@@ -76,7 +76,7 @@ func removeScope(claims []Claim, owner conversations.Ref, root, path string) ([]
 	return retained, changed
 }
 
-func addScopes(claims []Claim, owner conversations.Ref, scope Gives, fold bool, at time.Time) []Claim {
+func addScopes(claims []Claim, owner conversations.Ref, scope Gives, fold bool, at time.Time, by string) []Claim {
 	for _, path := range scope.Paths {
 		if ownerCovers(claims, owner, scope.Worktree, path) {
 			continue
@@ -84,7 +84,7 @@ func addScopes(claims []Claim, owner conversations.Ref, scope Gives, fold bool, 
 		claims, _ = removeScope(claims, owner, scope.Worktree, path)
 		claims = append(claims, Claim{
 			Owner: owner, Worktree: scope.Worktree, Paths: []string{path},
-			Since: at, By: "human", IgnoreCase: fold,
+			Since: at, By: by, IgnoreCase: fold,
 		})
 	}
 	return claims

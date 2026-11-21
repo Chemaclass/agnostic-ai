@@ -73,8 +73,12 @@ func (s Store) readClaims() (claimsFile, error) {
 	return state, nil
 }
 
+func knownActor(by string) bool {
+	return by == "human" || by == "agent"
+}
+
 func (c Claim) valid() bool {
-	if len(c.Paths) != 1 || c.By != "human" || !supportedRef(c.Owner) || c.Since.IsZero() ||
+	if len(c.Paths) != 1 || !knownActor(c.By) || !supportedRef(c.Owner) || c.Since.IsZero() ||
 		validateClaimPaths(Gives{Worktree: c.Worktree, Paths: c.Paths}) != nil {
 		return false
 	}
@@ -91,9 +95,12 @@ func (s Store) writeClaims(state claimsFile) error {
 	return writeJSON(s.claimsPath(), state)
 }
 
-func (s Store) Claim(ctx context.Context, owner conversations.Ref, gives Gives, sourceFolder string) error {
+func (s Store) Claim(ctx context.Context, owner conversations.Ref, gives Gives, sourceFolder, by string) error {
 	if refused := ValidateRef(owner); refused != nil {
 		return refused
+	}
+	if !knownActor(by) {
+		return NewRefusal("format")
 	}
 	scope, fold, err := normalizeClaimPaths(ctx, sourceFolder, gives)
 	if err != nil {
@@ -114,7 +121,7 @@ func (s Store) Claim(ctx context.Context, owner conversations.Ref, gives Gives, 
 			return s.recordClaimConflict(state, conflict)
 		}
 	}
-	state.Claims = addScopes(state.Claims, owner, scope, fold, time.Now().UTC())
+	state.Claims = addScopes(state.Claims, owner, scope, fold, time.Now().UTC(), by)
 	return s.writeClaims(state)
 }
 
