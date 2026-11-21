@@ -74,7 +74,7 @@ test('Quit asks first, says how to start again, and focuses Cancel', async ({ pa
   await askQuit(page)
 
   await expect(quitQuestion(page)).toContainText('the shortcut will not bring it back')
-  await expect(quitQuestion(page)).toContainText('run agnostic-ai companion, or ask your AI tool to run it')
+  await expect(quitQuestion(page)).toContainText('Open the app again, or run agnostic-ai companion to restart it.')
   await expect(quitQuestion(page)).toContainText('The shortcut works only after Hide.')
   await expect(quitQuestion(page).getByRole('button', { name: 'Cancel' })).toBeFocused()
   await expect(page.getByRole('region', { name: 'Settings', exact: true })).toBeHidden()

@@ -596,6 +596,7 @@ function draw({ force } = { force: false }) {
     state.drawn = undefined
     summary.textContent = ''
     list.replaceChildren()
+    if (!said) list.append(element('p', 'loading-conversations', 'Loading conversations…'))
     announceActive()
     return
   }
@@ -790,6 +791,11 @@ function show(reply, problem) {
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
+  if (reply?.configRoot) {
+    const location = document.getElementById('config-location')
+    location.textContent = 'Configuration folder: ' + reply.configRoot
+    location.hidden = false
+  }
   // A search's answer may leave out the selected row; the picker then selects one it offers, so Enter sends.
   if (state.pick && state.view) state.activeKey = pickKey(state.activeKey)
   draw()
@@ -1854,12 +1860,16 @@ document.addEventListener('mousedown', (event) => {
 Events.On('appearance', (event) => heard('appearance', event.data))
 Events.On('preferences', (event) => heard('preferences', event.data))
 approvalsAsk.addEventListener('click', askAgain)
-document.getElementById('dashboard').addEventListener('click', async () => {
+const dashboardButton = document.getElementById('dashboard')
+dashboardButton.addEventListener('click', async () => {
+  dashboardButton.disabled = true
   try {
     await openDashboard()
   } catch (error) {
     sayFailure(error)
     return
+  } finally {
+    dashboardButton.disabled = false
   }
   await hidePanel()
 })
@@ -2000,4 +2010,21 @@ Events.On('send-settings-shown', (event) => {
   opened(event.data)
   openMenu('sendShortcut')
 })
+async function showFirstAppPanel() {
+  if (!new URLSearchParams(location.search).has('packaged')) return
+  const key = 'packaged-panel-shown'
+  try {
+    if (localStorage.getItem(key)) return
+  } catch {
+    // A webview without storage still shows the panel.
+  }
+  await showPanel()
+  try {
+    localStorage.setItem(key, '1')
+  } catch {
+    // The next launch will show it again.
+  }
+}
+
+showFirstAppPanel().catch(sayFailure)
 refresh()

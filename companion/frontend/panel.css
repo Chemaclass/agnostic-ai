@@ -1071,7 +1071,8 @@ body {
   line-height: 1.4;
 }
 
-.empty {
+.empty,
+.loading-conversations {
   padding: 56px 24px;
   text-align: center;
   color: var(--paper-faint);
@@ -1115,9 +1116,10 @@ body {
 
 .dashboard {
   flex: none;
-  display: grid;
-  place-items: center;
-  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 9px;
   height: 36px;
   border-radius: 10px;
   background: rgba(242, 237, 229, 0.04);
@@ -1272,6 +1274,14 @@ kbd {
   font: inherit;
   font-size: 11px;
   color: var(--paper);
+}
+
+.config-location {
+  margin: 4px 8px;
+  color: var(--paper-dim);
+  overflow-wrap: anywhere;
+  font-size: 11.5px;
+  user-select: text;
 }
 
 .menu-problem {
