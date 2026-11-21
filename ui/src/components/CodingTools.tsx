@@ -15,7 +15,7 @@ const emptyCatalog: ToolCatalog = { source: 'default', items: [] }
 export function CodingTools() {
   const app = useApp()
   const catalog = app.overview?.tools ?? emptyCatalog
-  const global = app.overview?.global === true
+  const userLevel = app.overview?.global === true
   const level = useLevelName()
   const audience = useViewAudience() ?? 'shared'
   const query = app.state.q ?? ''
@@ -33,7 +33,7 @@ export function CodingTools() {
       </SectionHeading>
       <p className="muted">Each tool you turn on gets its own files from sync. Turn one off and the next sync stops writing for it.</p>
       {live && sharedBlocked && <div className="audience-notice"><p>These are the {level} defaults. Your local list of coding tools replaces them for you. Reset that list before changing the {level} one.</p><ViewPersonalButton /></div>}
-      {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, global)}</p>}
+      {live && !sharedBlocked && <p className="muted coding-tools-hint">{saveHint(catalog, audience, userLevel)}</p>}
       {live && audience === 'personal' && catalog.source !== 'personal' && <p className="muted">Inherited from {level}. Changing a tool creates your local list.</p>}
       {live && audience === 'personal' && catalog.source === 'personal' && <ResetTools expected={catalog.items.filter((tool) => tool.enabled).map((tool) => tool.target)} onSaved={setSaved} />}
       {/* The status shares the checkbox row, so a save never moves the list. */}
@@ -45,14 +45,14 @@ export function CodingTools() {
       </div>
       {catalog.items.length === 0 ? <p className="muted">No coding tools listed.</p> : visible.length === 0 ? <p className="muted">No tool matches.</p> : (
         <ul className="coding-tools-list">
-          {visible.map((tool) => <ToolRow key={tool.target} tool={tool} on={toolOn(tool, audience)} audience={audience} global={global} live={live && !sharedBlocked} onSaved={setSaved} />)}
+          {visible.map((tool) => <ToolRow key={tool.target} tool={tool} on={toolOn(tool, audience)} audience={audience} userLevel={userLevel} live={live && !sharedBlocked} onSaved={setSaved} />)}
         </ul>
       )}
     </section>
   )
 }
 
-function ToolRow({ tool, on, audience, global, live, onSaved }: { tool: ToolChoice; on: boolean; audience: EditAudience; global: boolean; live: boolean; onSaved: (saved: Saved) => void }) {
+function ToolRow({ tool, on, audience, userLevel, live, onSaved }: { tool: ToolChoice; on: boolean; audience: EditAudience; userLevel: boolean; live: boolean; onSaved: (saved: Saved) => void }) {
   const docs = documentationUrl(targetDocPath(tool.target))
   return (
     <li className="coding-tool" data-target={tool.target}>
@@ -65,13 +65,13 @@ function ToolRow({ tool, on, audience, global, live, onSaved }: { tool: ToolChoi
           {tool.local && audience === 'personal' && <Badge tone="accent" muted title="Your local list decides this tool">local</Badge>}
         </span>
       </div>
-      {live ? <ToolSwitch tool={tool} on={on} audience={audience} global={global} onSaved={onSaved} /> : <Switch on={on} />}
+      {live ? <ToolSwitch tool={tool} on={on} audience={audience} userLevel={userLevel} onSaved={onSaved} /> : <Switch on={on} />}
     </li>
   )
 }
 
 /** Saves one switch through /api/edit/targets; turning a tool off asks first and names what the next sync does. */
-function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice; on: boolean; audience: EditAudience; global: boolean; onSaved: (saved: Saved) => void }) {
+function ToolSwitch({ tool, on, audience, userLevel, onSaved }: { tool: ToolChoice; on: boolean; audience: EditAudience; userLevel: boolean; onSaved: (saved: Saved) => void }) {
   const app = useApp()
   const [pending, setPending] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -137,7 +137,7 @@ function ToolSwitch({ tool, on, audience, global, onSaved }: { tool: ToolChoice;
       <Toggle ref={toggleButton} on={choice ?? on} label={`${tool.label} coding tool`} pending={pending} disabled={choice !== undefined || confirming} onToggle={toggle} />
       {confirming && (
         <span className="coding-tool-confirm" role="group" aria-label={`Turn off ${tool.label}`} onKeyDown={(event: KeyboardEvent) => { if (event.key === 'Escape') cancel() }}>
-          <span>{offConsequence(tool.label, global)}</span>
+          <span>{offConsequence(tool.label, userLevel)}</span>
           <button ref={confirmButton} type="button" className="button button-quiet" onClick={() => { void save(false) }}>Turn off</button>
           <button type="button" className="button button-quiet" onClick={cancel}>Cancel</button>
         </span>

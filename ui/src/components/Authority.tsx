@@ -5,7 +5,7 @@ import { sourcesForAudience } from '../model/audience-view'
 import { fieldEntryId } from '../model/identity'
 import { fieldSearchText, matchesSearch } from '../model/search'
 import { useApp } from './app-context'
-import { useEditAudience, useGlobalLevel, useViewAudience } from './EditAudience'
+import { useEditAudience, useUserLevel, useViewAudience } from './EditAudience'
 import { FieldEditor, FieldResolution, SettingsFields } from './Fields'
 import { ItemList } from './Items'
 import { AddRule, PermissionEditor } from './PermissionEditor'
@@ -58,8 +58,8 @@ export function AuthorityFields({ title, fields, files, query, headingEntry }: {
 
 function EmptyRules({ entry, filtering, fields }: { entry: string; filtering: boolean; fields: SettingField[] }) {
   const audience = useEditAudience()
-  const global = useGlobalLevel()
-  const where = audience === 'personal' ? 'Saved in your local files, ignored by Git' : global ? 'Saved in your global files' : 'Saved in the project, shared through Git'
+  const userLevel = useUserLevel()
+  const where = audience === 'personal' ? 'Saved in your local files, ignored by Git' : userLevel ? 'Saved in your global files' : 'Saved in the project, shared through Git'
   return <div className="authority-empty">
     <h2 id="authority-rules-title" className="empty-state-title" tabIndex={-1} data-entry={entry}>{filtering ? 'No matching rules.' : 'No rules yet.'}</h2>
     {!filtering && <p className="empty-state-text">A rule lets a command run without asking, asks before a risky one, or blocks what must never run. Sync writes the same rules to each tool that supports them.</p>}

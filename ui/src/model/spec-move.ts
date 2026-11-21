@@ -59,4 +59,4 @@ export function parseSpecMoved(value: unknown): SpecMoved | undefined {
   return moved
 }
 
-export const GLOBAL_SETUP_MISSING = 'The global setup does not exist yet. Create it with Open global settings at the foot of the sidebar, then copy again.'
+export const USER_SETUP_MISSING = 'The global setup does not exist yet. Create it with Open global settings at the foot of the sidebar, then copy again.'

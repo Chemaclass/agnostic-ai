@@ -114,7 +114,7 @@ function HealthBadge({ overview }: { overview: OverviewView | undefined }) {
 function apiProjectName(snapshot: { project: { name?: string } } | undefined, served: ServedConfig | undefined): string | undefined {
   if (!snapshot) return undefined
   if (snapshot.project.name) return snapshot.project.name
-  if (!served || served.global) return undefined
+  if (!served || served.userLevel) return undefined
   const folder = baseName(served.root)
   return folder === '' || /^[\\/]+$/.test(folder) ? undefined : folder
 }
@@ -136,11 +136,11 @@ function ProjectName({ overview, served, servedPending }: { overview: Remote<Ove
   const projectName = app.source.kind === 'api' ? apiProjectName(snapshot, served) : snapshot?.project.name === PRODUCT_NAME ? undefined : snapshot?.project.name
   if (!projectName) return null
   return (
-    <span className="project-name" title={root ? `${served?.global ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
-      <span className="sr-only">{served?.global ? 'User configuration ' : 'Project '}</span>
+    <span className="project-name" title={root ? `${served?.userLevel ? 'User configuration' : 'Project root'}: ${root}` : undefined}>
+      <span className="sr-only">{served?.userLevel ? 'User configuration ' : 'Project '}</span>
       <span className="project-title">
         <span className="project-label">{projectName}</span>
-        {served && <span className="chip chip-source" aria-hidden="true">{served.global ? 'Global' : 'Project'}</span>}
+        {served && <span className="chip chip-source" aria-hidden="true">{served.userLevel ? 'Global' : 'Project'}</span>}
         {repository && (
           <a className="project-repo" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
             <Icon name="github" />

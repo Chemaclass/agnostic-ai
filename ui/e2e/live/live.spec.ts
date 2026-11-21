@@ -70,13 +70,13 @@ async function availablePort() {
   })
 }
 
-async function fixture(global = false, allowedOrigins: string[] = [], gitRepository = false) {
+async function fixture(userLevel = false, allowedOrigins: string[] = [], gitRepository = false) {
   const temporary = await mkdtemp(join(tmpdir(), 'agnostic-ui-live-'))
   const project = join(temporary, 'project')
   const home = join(temporary, 'global')
   const userHome = join(temporary, 'user')
-  const root = global ? home : project
-  const sources = global ? home : join(project, '.agnostic-ai')
+  const root = userLevel ? home : project
+  const sources = userLevel ? home : join(project, '.agnostic-ai')
   const config = join(root, 'agnostic-ai.yaml')
   const settings = join(sources, 'settings', 'native.yaml')
   const localSettings = join(sources, 'local', 'settings', 'native.yaml')
@@ -109,7 +109,7 @@ async function fixture(global = false, allowedOrigins: string[] = [], gitReposit
     await put(settings, sharedBytes)
     await put(localSettings, localBytes)
     await put(join(sources, 'agents', 'reviewer.md'), '---\nname: reviewer\ndescription: Review changes.\ntools: [Read]\n---\nReview one change.\n')
-    if (global) {
+    if (userLevel) {
       await put(config, configBytes.replace('builtins: []', 'builtins: [memory]'))
       await put(join(home, 'local', 'agnostic-ai.yaml'), 'builtins: [memory]\n')
     } else {
@@ -130,7 +130,7 @@ createInterface({input:process.stdin}).on('line',line=>{
       if (gitRepository) await run('git', ['init', '--quiet'], { cwd: project, env })
       await run(binary, ['sync'], { cwd: project, env })
     }
-    const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(global ? ['--scope', 'user'] : ['--dir', project])]
+    const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(userLevel ? ['--scope', 'user'] : ['--dir', project])]
     child = spawn(binary, args, { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const url = await serverURL(child)
     return { root, userHome, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, close }

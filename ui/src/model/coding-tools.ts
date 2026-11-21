@@ -16,16 +16,16 @@ export function toolCount(items: ToolChoice[], audience: EditAudience): { on: nu
 }
 
 /** What the next sync does to a tool that is turned off, in the words the panel shows. */
-export function offConsequence(label: string, global: boolean): string {
-  if (global) return `The next sync --scope user stops writing files for ${label}. Files it wrote before stay until you remove them by hand.`
+export function offConsequence(label: string, userLevel: boolean): string {
+  if (userLevel) return `The next sync --scope user stops writing files for ${label}. Files it wrote before stay until you remove them by hand.`
   return `The next sync removes the files it wrote for ${label}. A file you edited is kept as a .bak copy, and a shared settings file keeps its other keys.`
 }
 
 /** Where the switch saves, and the sync command that applies it. */
-export function saveHint(catalog: ToolCatalog, audience: EditAudience, global: boolean): string {
-  const command = global ? 'agnostic-ai sync --scope user' : 'agnostic-ai sync'
+export function saveHint(catalog: ToolCatalog, audience: EditAudience, userLevel: boolean): string {
+  const command = userLevel ? 'agnostic-ai sync --scope user' : 'agnostic-ai sync'
   const personal = audience === 'personal'
-  const file = global ? (personal ? 'local/agnostic-ai.yaml' : 'agnostic-ai.yaml') : personal ? 'agnostic-ai.local.yaml' : 'agnostic-ai.yaml'
+  const file = userLevel ? (personal ? 'local/agnostic-ai.yaml' : 'agnostic-ai.yaml') : personal ? 'agnostic-ai.local.yaml' : 'agnostic-ai.yaml'
   const start = catalog.source === 'default' && !personal ? `No config file lists coding tools yet, so the default list applies. The first change writes the whole list to ${file}.` : `Changes save to ${file}.`
-  return `${start} Run ${command} to apply them to your tools.${global ? '' : ' A running sync --watch applies them on its own, unless it was started with --target, --only or --except.'}`
+  return `${start} Run ${command} to apply them to your tools.${userLevel ? '' : ' A running sync --watch applies them on its own, unless it was started with --target, --only or --except.'}`
 }

@@ -12,7 +12,7 @@ import { filterConversations, isConversationProcessRef } from './model/conversat
 import { normalizeContextView, normalizeConversationsView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
-import { GLOBAL_SETUP_MISSING } from './model/spec-move'
+import { USER_SETUP_MISSING } from './model/spec-move'
 import { staticOverviewUrl, type DataSource } from './model/url'
 
 export interface Loaded<T> {
@@ -340,7 +340,7 @@ export async function moveSpec(request: SpecMoveRequest): Promise<SpecMovePrevie
     } catch {
       // Not JSON; fall back to the status.
     }
-    throw new EditError(reply.missing === true ? GLOBAL_SETUP_MISSING : reply.error ?? `The server answered ${res.status}.`, [], res.status)
+    throw new EditError(reply.missing === true ? USER_SETUP_MISSING : reply.error ?? `The server answered ${res.status}.`, [], res.status)
   }
   return await res.json() as SpecMovePreview
 }
