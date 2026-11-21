@@ -79,7 +79,7 @@ If a release ships without the companion archive, the installer builds the compa
 - A build uses the same commit as the `agnostic-ai` you run, and prints each step.
 - Build needs on macOS: Go and the Xcode Command Line Tools.
 - Build needs on Windows: Go.
-- Build needs on Linux: Go, a C compiler, `pkg-config`, and the GTK 4, WebKitGTK 6.0 and X11 development packages. The command names every missing one at once, with one install line for `apt`, `dnf` or `pacman`, whichever the machine has.
+- Build needs on Linux: Go, a C compiler, `pkg-config`, and the GTK 4, WebKitGTK 6.0 and X11 development packages. The command names every missing one at once, with one install line for `apt`, `dnf` or `pacman`, whichever the machine has. Without `pkg-config` it names that first, since the libraries are checked with it.
 - When something is missing, the command names it, says how to get it, and builds nothing.
 - A build that fails leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
@@ -268,7 +268,7 @@ A project server lists none, because a cloud session names no folder. To send th
 
 {% <details summary="Details: endpoints, privacy, refresh, failures, status"> %}
 - Claude Code reads `GET https://api.anthropic.com/v1/code/sessions?limit=100`. Codex reads `GET https://codex-cloud-backend.chatgpt.com/v1/threads?limit=100`, the list the Codex app reads.
-- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). On Linux it is `.credentials.json` in `$CLAUDE_CONFIG_DIR` (default `~/.claude`), where Claude Code writes it. The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
+- The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). On Linux it is `.credentials.json` in `$CLAUDE_CONFIG_DIR` (default `~/.claude`), where Claude Code 2.1.330 for Linux writes it. No real Linux sign-in was tried yet. The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
 - Claude Code sessions open `https://claude.ai/code/session_<id>` in the browser. Codex threads open `codex://threads/<id>?hostId=durable`, handled by the Codex app.
 - Claude Code `working` shows only while the worker runs. Codex waits on an approval or on your input.
 - Limit: at most 100 sessions or threads. It does not page past them yet.

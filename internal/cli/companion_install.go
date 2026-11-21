@@ -267,6 +267,10 @@ func buildCompanion(ctx context.Context, out io.Writer, live bool, tools compani
 	_, _ = fmt.Fprintf(out, "Building the companion for agnostic-ai %s on this machine.\n", build.version)
 	var missing []companionNeed
 	for _, need := range companionNeeds[build.goos] {
+		// Without its check program a need cannot be told apart from met.
+		if checkerMissing(missing, need.check[0]) {
+			continue
+		}
 		if !tools.succeeds(ctx, need.check[0], need.check[1:]...) {
 			missing = append(missing, need)
 			continue
@@ -293,6 +297,16 @@ func buildCompanion(ctx context.Context, out io.Writer, live bool, tools compani
 		return "", fmt.Errorf("the build failed (%w):\n%s", buildErr, strings.Join(progress.last, "\n"))
 	}
 	return builtCompanion(build)
+}
+
+// checkerMissing reports whether one of missing is program itself.
+func checkerMissing(missing []companionNeed, program string) bool {
+	for _, need := range missing {
+		if need.what == program {
+			return true
+		}
+	}
+	return false
 }
 
 // missingNeedsError names every need the machine lacks and how to meet

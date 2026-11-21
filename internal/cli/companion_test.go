@@ -193,6 +193,20 @@ func TestInstallCompanion_NamesEveryMissingLinuxPackageForThisPackageManager(t *
 	}
 }
 
+func TestInstallCompanion_WithoutPkgConfigNamesOnlyPkgConfig(t *testing.T) {
+	tools := builtTools(t)
+	tools.succeeds = func(_ context.Context, program string, args ...string) bool {
+		return program != "pkg-config" && program != "dnf" && program != "pacman"
+	}
+
+	err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, t.TempDir(), companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+	want := "the companion needs pkg-config to build. Run: sudo apt install pkg-config, then run this again"
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v\nwant  %s", err, want)
+	}
+}
+
 func TestInstallCompanion_KeepsTheInstalledCompanionWhenTheBuildFails(t *testing.T) {
 	dir := t.TempDir()
 	installed := filepath.Join(dir, "companion", "agnostic-ai-companion")

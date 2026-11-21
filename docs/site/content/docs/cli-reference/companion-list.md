@@ -49,7 +49,7 @@ If a chat does not open, the reason stays above the list.
 - The first time, macOS asks to let the companion control each terminal app.
 - The reason a chat did not open stays above the list until you dismiss it or open another chat.
 - An ended terminal chat resumes in a new tab of the app it last ran in.
-- On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window, the terminal Debian and Ubuntu let you choose. Without that command the list offers **Copy resume command**. A running terminal chat cannot be selected on Linux; the list says where it runs.
+- On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window, the terminal Debian and Ubuntu let you choose. It runs in your shell, so its startup files set `PATH`. Without that command, or with no display, the list offers **Copy resume command**. A running terminal chat cannot be selected on Linux; the list says where it runs.
 - When only the app can come forward, the list stays open and says where the chat runs.
 - `claude --bg` runs in Claude's own background service, not in a terminal app.
 - The tab is found by its short id, such as `e3469759`, or its exact full name. A tab attached with the start of an id or part of a name is not recognized, since it may be another session.

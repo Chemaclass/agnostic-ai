@@ -164,7 +164,7 @@ func SystemLauncher() Launcher {
 	case "darwin":
 		return macLauncher{}
 	case "linux":
-		return linuxLauncher{start: startApart}
+		return linuxLauncher{getenv: os.Getenv, start: startApart}
 	default:
 		return unsupportedLauncher{}
 	}
@@ -845,14 +845,17 @@ func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 const linuxTerminal = "x-terminal-emulator"
 
 type linuxLauncher struct {
+	getenv func(string) string
 	// start starts a program and returns without waiting for it.
 	start func(name string, args ...string) error
 }
 
-// startApart starts a program that outlives this call: a terminal
-// window stays open after the request that opened it ends.
+// startApart starts a program in its own session: a terminal window
+// stays open after the request that opened it ends, and after the
+// server's own terminal closes.
 func startApart(name string, args ...string) error {
 	cmd := exec.Command(name, args...)
+	detach(cmd)
 	if err := cmd.Start(); err != nil {
 		return err
 	}
@@ -872,10 +875,19 @@ func (linuxLauncher) OpenFolder(context.Context, string, string) error { return 
 
 func (linuxLauncher) ActivateApp(context.Context, string) error { return errNotHere }
 
-// RunInNewTerminal keeps a shell open after command, as a macOS
-// Terminal window does.
+// RunInNewTerminal runs command in the person's interactive shell, so
+// a tool found only through their shell startup files is found, then
+// keeps a shell open, as a macOS Terminal window does. A server with no
+// display, such as one reached over SSH, would show no window.
 func (l linuxLauncher) RunInNewTerminal(_ context.Context, command string) error {
-	err := l.start(linuxTerminal, "-e", "sh", "-c", command+`; exec "${SHELL:-sh}"`)
+	if l.getenv("DISPLAY") == "" && l.getenv("WAYLAND_DISPLAY") == "" {
+		return errNotHere
+	}
+	shell := l.getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
+	}
+	err := l.start(linuxTerminal, "-e", shell, "-ic", command+"; exec "+shellQuote(shell))
 	if errors.Is(err, exec.ErrNotFound) {
 		return errNotHere
 	}

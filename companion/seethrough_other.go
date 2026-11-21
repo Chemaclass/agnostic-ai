@@ -1,7 +1,6 @@
-//go:build !linux || !cgo
+//go:build !linux || !cgo || gtk3 || android || server || purego
 
 package main
 
-// seeThrough does nothing here: the window library makes the windows
-// see-through by itself.
+// seeThrough leaves the windows to the window library here.
 func seeThrough() {}
