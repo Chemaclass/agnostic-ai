@@ -49,6 +49,8 @@ func NewRefusal(guard string) *Refusal {
 		return &Refusal{guard, "The review's Git refs could not be verified.", "Refresh the review details and choose an existing base and commit."}
 	case "cap":
 		return &Refusal{guard, "This thread reached its message limit.", "Close the thread or allow 8 more messages in the companion."}
+	case "ownership":
+		return &Refusal{guard, "The sender needs to hold the offered paths.", "Choose a worktree and claim its paths before offering them."}
 	case "paused":
 		return &Refusal{guard, "This thread is paused.", "Resume the thread in the companion before trying again."}
 	case "closed":
@@ -93,14 +95,22 @@ func ValidateSend(from conversations.Ref, req SendRequest) *Refusal {
 	if utf8.RuneCountInString(req.Body) > maxBodyRunes {
 		return NewRefusal("size")
 	}
-	if req.Type != ReviewRequest && (req.Refs != nil || req.Models != nil) {
+	if req.Type != ReviewRequest && (req.Refs != nil || req.Models != nil) || req.Type != Handoff && req.Gives != nil {
 		return NewRefusal("format")
 	}
 	switch req.Type {
-	case Question, Finding:
+	case Question, Finding, Handoff:
+		if req.Type == Handoff {
+			if req.Gives == nil {
+				return NewRefusal("ownership")
+			}
+			if refused := validateClaimPaths(*req.Gives); refused != nil {
+				return refused
+			}
+		}
 		body := conversations.CleanSendText(req.Body)
 		if strings.TrimSpace(body) == "" {
-			return &Refusal{"format", "A question or finding needs a message.", "Write a message and try again."}
+			return &Refusal{"format", "This message type needs a body.", "Write a message and try again."}
 		}
 		if body != req.Body && preview.ProseSensitive(body) {
 			return NewRefusal("secret")
@@ -112,7 +122,7 @@ func ValidateSend(from conversations.Ref, req SendRequest) *Refusal {
 	case ReviewRequest:
 		return validateReviewInput(req.Refs, req.Models)
 	default:
-		return &Refusal{"format", "This mailbox accepts questions, findings, review requests and done messages.", "Choose a supported message type."}
+		return &Refusal{"format", "This mailbox accepts questions, findings, review requests, handoffs and done messages.", "Choose a supported message type."}
 	}
 	return nil
 }
@@ -206,7 +216,7 @@ func knownTool(tool conversations.Tool) conversations.Tool {
 
 func knownType(kind string) string {
 	switch kind {
-	case Question, Finding, Done, ReviewRequest, "handoff":
+	case Question, Finding, Done, ReviewRequest, Handoff:
 		return kind
 	default:
 		return ""

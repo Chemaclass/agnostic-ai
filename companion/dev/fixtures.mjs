@@ -237,6 +237,7 @@ function stuckShells(now) {
  */
 const MAILBOX_SOURCE = { tool: 'claude', id: '84fc6d21-820c-4c88-9729-ff8ee40de1f3' }
 const MAILBOX_TARGET = { tool: 'codex', id: '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50' }
+const MAILBOX_THIRD = { tool: 'codex', id: 'e50eac57-0dcd-4089-bd24-6c95d4171790' }
 
 function mailboxSessions(now) {
   return [
@@ -267,6 +268,21 @@ function mailboxThread(now, { count, status, state, id }) {
 
 export const FIXTURES = {
   mailbox: { label: 'Mailbox sessions', conversations: mailboxSessions, mailboxTypingRefused: true },
+  'mailbox-handoff': {
+    label: 'Sessions for a handoff',
+    conversations: (now) => [
+      ...mailboxSessions(now),
+      conversation(now, MAILBOX_THIRD.tool, MAILBOX_THIRD.id, 'Handle the conflict', 'active'),
+    ],
+  },
+  'mailbox-stale-claim': {
+    label: 'File claim with a missing session',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => [{
+      owner: MAILBOX_THIRD, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/handoff.go'],
+      since: new Date(now).toISOString(), by: 'human',
+    }],
+  },
   'mailbox-review': {
     label: 'Review request with a default base', conversations: mailboxSessions, reviewRefs,
   },

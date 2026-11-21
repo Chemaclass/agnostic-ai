@@ -34,7 +34,7 @@ func TestValidateSend_RefusesCredentialsInEveryField(t *testing.T) {
 
 func TestStore_RefusesUnshippedMessageTypesAndOversizeText(t *testing.T) {
 	for _, test := range []struct{ name, kind, body, guard string }{
-		{"handoffs", "handoff", "Do this next.", "format"},
+		{"handoffs without paths", Handoff, "Do this next.", "ownership"},
 		{"a body on done", Done, "Goodbye.", "format"},
 		{"a body over 4000 characters", Finding, strings.Repeat("a", 4001), "size"},
 		{"an encoded line over 5000 bytes", Finding, strings.Repeat("<", 1000), "size"},

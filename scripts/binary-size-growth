@@ -2,6 +2,6 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3833 adds Git review reference resolution, mailbox request checks, and mailbox refs.
-# The linux/amd64 release build grows by 45056 bytes.
-45056
+# #3834 adds worktree file claims, recoverable handoff transfers, and their local API.
+# The linux/amd64 release build grows by 106496 bytes.
+106496

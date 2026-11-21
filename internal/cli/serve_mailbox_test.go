@@ -146,7 +146,7 @@ func TestMailboxHTTP_RefusesUnlistedSessionsAndForgedFields(t *testing.T) {
 		{"cap", `{"cap":80,` + strings.TrimPrefix(valid, "{"), "format"},
 		{"events", `{"events":[],` + strings.TrimPrefix(valid, "{"), "format"},
 		{"review request body", mailboxSendBody(inWorktree, "review_request", "", ""), "echo"},
-		{"handoff", mailboxSendBody(inWorktree, "handoff", "", ""), "format"},
+		{"handoff without paths", mailboxSendBody(inWorktree, "handoff", "", ""), "ownership"},
 		{"credential", mailboxSendBody(inWorktree, "question", "API_KEY=fixture-sensitive-value-123456789", ""), "secret"},
 		{"too large", mailboxSendBody(inWorktree, "question", strings.Repeat("x", 4001), ""), "size"},
 	} {
@@ -304,16 +304,11 @@ func TestMailboxHTTP_NestedTargetCanReplyToAnExistingThread(t *testing.T) {
 
 type mailboxTerminalProcesses struct {
 	runningProcesses
-	seen chan<- struct{}
 }
 
 func (p mailboxTerminalProcesses) Alive(pid int, _ string) bool { return pid == p.pid }
 
 func (p mailboxTerminalProcesses) Table() ([]conversations.ProcessInfo, error) {
-	select {
-	case p.seen <- struct{}{}:
-	default:
-	}
 	return []conversations.ProcessInfo{
 		{PID: 76, PPID: 1, Command: "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal"},
 		{PID: p.pid, PPID: 76, Stat: "S+", TTY: "/dev/ttys001", Command: "claude"},
@@ -358,11 +353,10 @@ func TestMailboxHTTP_TypesOnceAcrossServerInstances(t *testing.T) {
 	}}
 	h.launcher = launcher
 
-	secondScanned := make(chan struct{}, 1)
 	another := &conversationsHandler{global: true, root: project, openReplyWait: h.openReplyWait, launcher: launcher,
 		scanner: &conversations.Scanner{
 			Stores: h.scanner.Stores, SQLite: h.scanner.SQLite, MarksPath: h.scanner.MarksPath, Now: h.scanner.Now,
-			Processes: mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}, seen: secondScanned},
+			Processes: mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}},
 		},
 	}
 
@@ -376,21 +370,16 @@ func TestMailboxHTTP_TypesOnceAcrossServerInstances(t *testing.T) {
 		t.Fatal("first request did not reach the terminal")
 	}
 
-	second := make(chan *httptest.ResponseRecorder, 1)
-	go func() { second <- mailboxHTTP(t, another, http.MethodPost, "/api/mailbox/stage", body) }()
-	select {
-	case <-secondScanned:
-	case result := <-second:
-		t.Fatalf("second type returned before finding the recipient: %d %s", result.Code, result.Body)
-	case <-time.After(3 * time.Second):
-		t.Fatal("second request did not look up the recipient")
+	secondReply := mailboxHTTP(t, another, http.MethodPost, "/api/mailbox/stage", body)
+	if secondReply.Code != http.StatusConflict || !strings.Contains(secondReply.Body.String(), "mailbox is busy") {
+		t.Errorf("second type while the first holds the lock = %d %s", secondReply.Code, secondReply.Body)
 	}
 	release()
-	firstReply, secondReply := <-first, <-second
+	firstReply := <-first
 	if firstReply.Code != http.StatusOK || !strings.Contains(firstReply.Body.String(), `"staged":true`) {
 		t.Errorf("first type = %d %s", firstReply.Code, firstReply.Body)
 	}
-	mailboxExpectRefusal(t, secondReply, "format")
+	mailboxExpectRefusal(t, mailboxHTTP(t, another, http.MethodPost, "/api/mailbox/stage", body), "format")
 	if got := calls.Load(); got != 1 {
 		t.Errorf("both requests typed %d times, want once", got)
 	}

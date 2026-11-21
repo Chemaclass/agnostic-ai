@@ -1,5 +1,5 @@
-import { CallError, GivenUp, changeThread, readRefs, readThreads, sendMessage, stageMessage } from '/api.js'
-import { keyOf, mailboxSessionOf, reviewModelsOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
+import { CallError, GivenUp, answerHandoff, changeThread, claimPaths, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
+import { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf, keyOf, mailboxSessionOf, reviewModelsOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
 
 const ACTIONS = {
   reply: 'Reply',
@@ -10,8 +10,9 @@ const ACTIONS = {
   stop: 'Stop',
 }
 const REVIEW = 'review_request'
+const HANDOFF = 'handoff'
 const REF_PREVIEW_DELAY = 220
-const TYPES = { question: 'Question', finding: 'Finding', done: 'Done', [REVIEW]: 'Review request' }
+const TYPES = { question: 'Question', finding: 'Finding', done: 'Done', [REVIEW]: 'Review request', [HANDOFF]: 'Handoff' }
 const STATES = { open: 'Open', paused: 'Paused', closing: 'Closing', closed: 'Closed', waiting: 'Waiting', staged: 'Staged', cancelled: 'Cancelled' }
 const refOf = ({ tool, id }) => ({ tool, id })
 
@@ -53,6 +54,23 @@ function modelComparison(fromName, toName) {
   return `Sending: ${from} · Reviewing: ${to}${same ? '. Both sessions state the same model.' : ''}`
 }
 
+function pathsOf(worktree, text) {
+  return { worktree, paths: text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) }
+}
+
+function pathDetails({ worktree, paths, except }) {
+  const directory = element('p', 'mailbox-muted')
+  directory.append(element('code', '', worktree))
+  const files = element('ul', 'mailbox-claim-paths')
+  for (const path of paths) {
+    const item = element('li')
+    item.append(element('code', '', path))
+    files.append(item)
+  }
+  if (!except?.length) return [directory, files]
+  return [directory, files, element('p', 'mailbox-muted', 'Except ' + except.join(', '))]
+}
+
 function threadCount({ cap, messages }) {
   const count = messages.filter(({ type, state }) => type !== 'done' && state !== 'rejected').length
   const waiting = messages.filter(({ state }) => state === 'waiting').length
@@ -89,6 +107,11 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   const type = byId('mailbox-type')
   const body = byId('mailbox-body')
   const bodyField = byId('mailbox-body-field')
+  const handoff = byId('mailbox-handoff')
+  const handoffWorktree = byId('mailbox-handoff-worktree')
+  const handoffStatus = byId('mailbox-handoff-status')
+  const handoffPaths = byId('mailbox-handoff-paths')
+  const claimOffer = byId('mailbox-claim-offer')
   const review = byId('mailbox-review')
   const base = byId('mailbox-review-base')
   const reviewStatus = byId('mailbox-review-status')
@@ -98,7 +121,14 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   const comparison = byId('mailbox-review-comparison')
   const send = byId('mailbox-send')
   const cancel = byId('mailbox-cancel')
-  const fields = [target, type, body, base, sendingModel, reviewingModel, cancel]
+  const fields = [target, type, body, base, sendingModel, reviewingModel, handoffWorktree, handoffPaths, claimOffer, cancel]
+  const claimsCard = byId('mailbox-claims')
+  const claimsOwner = byId('mailbox-claims-owner')
+  const claimsList = byId('mailbox-claims-list')
+  const claimsDismiss = byId('mailbox-claims-dismiss')
+  const claimForm = byId('mailbox-claim-form')
+  const claimWorktree = byId('mailbox-claim-worktree')
+  const claimPathInput = byId('mailbox-claim-paths')
   const details = byId('mailbox-details')
   const title = byId('mailbox-details-title')
   const meta = byId('mailbox-details-meta')
@@ -108,6 +138,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   const dismiss = byId('mailbox-dismiss')
   let draft
   let opened
+  let claimsFor
   let nativeCopy = false
   let previewTimer
 
@@ -125,7 +156,9 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   function updateComposerControls() {
     const pending = Boolean(draft?.pending)
     for (const field of fields) field.disabled = pending
-    send.disabled = pending || (type.value === REVIEW && !draft?.refs)
+    const missingWorktree = type.value === HANDOFF && !handoffWorktree.value.trim()
+    claimOffer.disabled = pending || missingWorktree
+    send.disabled = pending || missingWorktree || (type.value === REVIEW && !draft?.refs)
   }
 
   function renderReview(refs, message = '') {
@@ -165,9 +198,33 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }, delay)
   }
 
+  async function previewWorktree() {
+    const current = draft
+    if (!current || current.worktreeEdited || handoffWorktree.value) return
+    const reading = new AbortController()
+    current.reading = reading
+    handoffStatus.textContent = 'Reading Git worktree…'
+    try {
+      const { worktree } = await readClaims(current.from, reading.signal)
+      if (draft !== current || current.reading !== reading) return
+      handoffWorktree.value = worktree ?? ''
+      handoffStatus.textContent = worktree ? '' : 'Enter the Git worktree root.'
+    } catch (error) {
+      if (error instanceof GivenUp || draft !== current || current.reading !== reading) return
+      if (!(error instanceof CallError)) throw error
+      handoffStatus.textContent = 'Could not read the Git worktree. Enter its root.'
+    } finally {
+      if (draft === current && current.reading === reading) {
+        current.reading = undefined
+        updateComposerControls()
+      }
+    }
+  }
+
   function changeType() {
     const reviewing = type.value === REVIEW
     review.hidden = !reviewing
+    handoff.hidden = type.value !== HANDOFF
     bodyField.hidden = reviewing
     if (reviewing) {
       compareModels()
@@ -175,15 +232,18 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     } else {
       stopPreview()
       renderReview()
+      if (!handoff.hidden) previewWorktree()
     }
   }
 
   function start(from, to, thread) {
-    if (draft?.pending || opened?.pending) return
+    if (draft?.pending || opened?.pending || claimsFor?.pending) return
     if (!thread) closeDetails(false)
+    closeClaims(false)
     stopPreview()
     composer.reset()
     draft = { from: refOf(from), to, thread }
+    handoffStatus.textContent = ''
     fromLabel.textContent = `From ${nameOf(from)}`
     target.value = to ? to.id : ''
     target.readOnly = Boolean(thread)
@@ -222,7 +282,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
     draft.to = refOf(conversation)
     target.value = conversation.id
-    const field = type.value === REVIEW ? base : body
+    const field = type.value === REVIEW ? base : type.value === HANDOFF ? handoffPaths : body
     field.focus()
     return true
   }
@@ -231,6 +291,13 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     if (draft) draft.to = undefined
   })
   type.addEventListener('change', changeType)
+  handoffWorktree.addEventListener('input', () => {
+    if (!draft) return
+    draft.worktreeEdited = true
+    stopPreview()
+    handoffStatus.textContent = ''
+    updateComposerControls()
+  })
   base.addEventListener('input', () => {
     base.removeAttribute('aria-invalid')
     previewRefs(REF_PREVIEW_DELAY)
@@ -238,11 +305,29 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   sendingModel.addEventListener('input', compareModels)
   reviewingModel.addEventListener('input', compareModels)
   cancel.addEventListener('click', () => closeComposer())
+  claimOffer.addEventListener('click', async () => {
+    const current = draft
+    if (!current || type.value !== HANDOFF || claimOffer.disabled) return
+    current.pending = true
+    updateComposerControls()
+    try {
+      const { version } = await claimPaths({ ...current.from, ...pathsOf(handoffWorktree.value, handoffPaths.value) })
+      say('Paths claimed.')
+      await afterChange(version)
+    } catch (error) {
+      if (!(error instanceof CallError)) throw error
+      say(refusalText(error), 'error')
+      if (error.guard === 'ownership') await afterChange(undefined)
+    } finally {
+      current.pending = false
+      if (draft === current) updateComposerControls()
+    }
+  })
   composer.addEventListener('submit', async (event) => {
     event.preventDefault()
     const current = draft
     const reviewing = type.value === REVIEW
-    if (!current || current.pending || (reviewing && !current.refs)) return
+    if (!current || send.disabled) return
     current.pending = true
     updateComposerControls()
     const to = current.to ?? { id: target.value.trim() }
@@ -255,6 +340,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       if (from || to) request.models = { ...(from && { from }), ...(to && { to }) }
     } else {
       request.body = body.value
+      if (type.value === HANDOFF) request.gives = pathsOf(handoffWorktree.value, handoffPaths.value)
     }
     if (current.thread) request.thread = current.thread
     try {
@@ -267,6 +353,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     } catch (error) {
       if (!(error instanceof CallError)) throw error
       say(refusalText(error), 'error')
+      if (error.guard === 'ownership') await afterChange(undefined)
       if (opened) await load(opened)
     } finally {
       current.pending = false
@@ -284,14 +371,138 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
 
   dismiss.addEventListener('click', () => closeDetails())
 
+  function conflictText(conflict) {
+    return conflictLabelOf(conflict, conflict.holder && nameOf(conflict.holder, keyOf(conflict.holder)))
+  }
+
+  function closeClaims(focus = true) {
+    if (claimsFor?.pending) return
+    claimsFor?.reading?.abort()
+    claimsFor = undefined
+    claimsCard.hidden = true
+    if (focus) focusRows()
+  }
+
+  function openClaims(conversation) {
+    if (draft || opened?.pending || claimsFor?.pending) return
+    closeDetails(false)
+    closeClaims(false)
+    const owner = conversation && refOf(conversation)
+    claimsFor = { owner, folder: conversation?.folder ?? '' }
+    claimForm.reset()
+    claimForm.hidden = !owner
+    claimWorktree.value = claimsFor.folder
+    claimsOwner.hidden = !owner
+    claimsOwner.textContent = owner ? nameOf(owner) : ''
+    claimsCard.hidden = false
+    renderClaims(claimsFor)
+    if (owner) claimWorktree.focus()
+    else claimsDismiss.focus()
+    loadClaims(claimsFor)
+  }
+
+  function renderClaims(current) {
+    const focusedRelease = claimsList.contains(document.activeElement)
+    claimsList.replaceChildren()
+    for (const control of claimsCard.querySelectorAll('button, input, textarea')) {
+      control.disabled = Boolean(current.pending)
+    }
+    if (focusedRelease && !current.pending) claimsDismiss.focus()
+    if (!current.reply || current.problem) {
+      claimsList.append(element('p', 'mailbox-muted', current.problem || 'Reading file claims…'))
+      return
+    }
+    const { claims, conflicts, warning } = current.reply
+    if (warning) claimsList.append(element('p', 'mailbox-refusal', warning))
+    if (!claims?.length) claimsList.append(element('p', 'mailbox-muted', 'No file claims.'))
+    for (const claim of claims ?? []) {
+      const entry = element('article', 'mailbox-message')
+      const release = button('Release', 'release', () => mutateClaim(current, () => releasePaths({
+        ...refOf(claim.owner), worktree: claim.worktree, paths: claim.paths,
+      }), 'Paths released.'))
+      release.disabled = Boolean(current.pending)
+      entry.append(
+        element('p', 'mailbox-muted', `${claimStatusOf(claim)} · ${nameOf(claim.owner, keyOf(claim.owner))}`),
+        ...pathDetails(claim),
+        release,
+      )
+      claimsList.append(entry)
+    }
+    for (const conflict of conflicts ?? []) {
+      claimsList.append(element('p', 'mailbox-refusal', conflictText(conflict)))
+    }
+  }
+
+  async function loadClaims(current) {
+    current.reading?.abort()
+    const reading = new AbortController()
+    current.reading = reading
+    try {
+      const reply = await readClaims(current.owner, reading.signal)
+      if (claimsFor !== current || current.reading !== reading) return
+      current.reply = reply
+      current.problem = undefined
+      if (reply.worktree && claimWorktree.value === current.folder) {
+        claimWorktree.value = reply.worktree
+        current.folder = reply.worktree
+      }
+    } catch (error) {
+      if (error instanceof GivenUp || claimsFor !== current || current.reading !== reading) return
+      if (!(error instanceof CallError)) throw error
+      current.problem = error.message
+    } finally {
+      if (claimsFor === current && current.reading === reading) {
+        current.reading = undefined
+        renderClaims(current)
+      }
+    }
+  }
+
+  async function mutateClaim(current, change, message) {
+    if (claimsFor !== current || current.pending) return
+    const focused = document.activeElement
+    const restore = claimsList.contains(focused) ? claimsDismiss : focused
+    current.pending = true
+    renderClaims(current)
+    try {
+      const { version } = await change()
+      say(message)
+      await afterChange(version)
+    } catch (error) {
+      if (!(error instanceof CallError)) throw error
+      say(refusalText(error), 'error')
+      if (error.guard === 'ownership') await afterChange(undefined)
+    } finally {
+      current.pending = false
+      await loadClaims(current)
+      if (claimsFor === current && document.activeElement === document.body && claimsCard.contains(restore)) restore.focus()
+    }
+  }
+
+  claimsDismiss.addEventListener('click', () => closeClaims())
+  claimForm.addEventListener('submit', (event) => {
+    event.preventDefault()
+    const current = claimsFor
+    if (!current?.owner) return
+    const paths = pathsOf(claimWorktree.value, claimPathInput.value)
+    mutateClaim(current, () => claimPaths({ ...current.owner, ...paths }), 'Paths claimed.')
+  })
+
   function rowsOf(conversation) {
     const summaries = threadsOf(conversation)
-    if (!summaries.length) return undefined
+    if (!summaries.length && !conversation.claimCount) return undefined
     const box = element('div', 'mailbox-threads')
+    if (conversation.claimCount) {
+      const label = claimCountOf(conversation.claimCount)
+      const control = button(label, 'claims', () => openClaims(conversation), 'mailbox-summary')
+      control.setAttribute('aria-label', `${label} for ${nameOf(conversation)}`)
+      box.append(control)
+    }
     for (const thread of summaries) {
       const other = nameOf(thread.with, thread.withTitle)
       const control = button('', 'open', () => {
-        if (draft || opened?.pending) return
+        if (draft || opened?.pending || claimsFor?.pending) return
+        closeClaims(false)
         opened?.reading?.abort()
         opened = { from: refOf(conversation), to: thread.with, summary: thread }
         title.textContent = `Thread with ${other}`
@@ -301,6 +512,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
         load(opened)
       }, 'mailbox-summary')
       control.append(element('strong', '', `With ${other}`), element('span', '', [TYPES[thread.lastType], STATES[thread.status], threadLabelOf(thread)].filter(Boolean).join(' · ')))
+      for (const conflict of thread.conflicts ?? []) control.append(element('span', 'mailbox-refusal', conflictText(conflict)))
       box.append(control)
     }
     return box
@@ -342,15 +554,27 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       restoreDetailFocus(current)
       return
     }
+    for (const conflict of current.summary.conflicts ?? []) {
+      messages.append(element('p', 'mailbox-refusal', conflictText(conflict)))
+    }
     for (const message of thread.messages) {
       const entry = element('article', 'mailbox-message')
-      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), TYPES[message.type] ?? message.type, STATES[message.state], sentAt(message.at)].filter(Boolean).join(' · ')))
+      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), TYPES[message.type] ?? message.type, STATES[message.state], handoffLabelOf(message.handoff), sentAt(message.at)].filter(Boolean).join(' · ')))
       if (message.body) entry.append(element('p', 'mailbox-body', message.body))
       if (message.refs) {
         const models = thread.models ?? {}
         const refs = element('div', 'mailbox-review-refs')
         refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(models[keyOf(message.from)]?.name, models[keyOf(message.to)]?.name)))
         entry.append(refs)
+      }
+      if (message.gives) {
+        entry.append(...pathDetails(message.gives))
+        if (message.handoff === 'offered' && message.state !== 'cancelled' && thread.status !== 'paused' && keyOf(current.from) === keyOf(message.to)) {
+          const controls = element('div', 'mailbox-actions')
+          if (thread.status !== 'closed') controls.append(button('Accept', `accept-${message.n}`, () => respondHandoff(current, message.n, 'accept')))
+          controls.append(button('Decline', `decline-${message.n}`, () => respondHandoff(current, message.n, 'decline')))
+          entry.append(controls)
+        }
       }
       if (message.state === 'waiting' && thread.status !== 'paused') {
         const controls = element('div', 'mailbox-actions')
@@ -433,6 +657,26 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
   }
 
+  async function respondHandoff(current, n, action) {
+    if (current.pending) return
+    current.pending = true
+    current.result = undefined
+    render(current)
+    try {
+      const { version } = await answerHandoff(current.summary.id, n, action)
+      current.result = action === 'accept' ? 'Handoff accepted.' : 'Handoff declined.'
+      await afterChange(version)
+    } catch (error) {
+      if (!(error instanceof CallError)) throw error
+      current.result = refusalText(error)
+      say(current.result, 'error')
+      if (error.guard === 'ownership') await afterChange(undefined)
+    } finally {
+      current.pending = false
+      await load(current)
+    }
+  }
+
   async function stage(current, n, how) {
     if (current.pending) return
     current.pending = true
@@ -480,14 +724,23 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     if (view) nativeCopy = mailboxNativeCopy === true
     warning.textContent = view?.mailboxWarning ?? ''
     warning.hidden = !warning.textContent
-    if (!opened || opened.pending || opened.version === version) return
+    if (claimsFor && !claimsFor.pending && claimsFor.version !== version) {
+      claimsFor.version = version
+      loadClaims(claimsFor)
+    }
+    if (!opened || opened.version === version) return
+    const row = rows().find((conversation) => keyOf(conversation) === keyOf(opened.from))
+    const summary = row && threadsOf(row).find((thread) => thread.id === opened.summary.id)
+    if (summary) opened.summary = summary
     opened.version = version
-    load(opened)
+    if (!opened.pending) load(opened)
   }
 
   function escape() {
     if (draft) {
       closeComposer()
+    } else if (claimsFor) {
+      closeClaims()
     } else if (opened?.confirmStop) {
       cancelStop(opened)
     } else {
@@ -496,8 +749,8 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   }
 
   return {
-    start, choose, rowsOf, viewChanged, escape, closeDetails,
+    start, choose, rowsOf, viewChanged, escape, closeDetails, openClaims, closeClaims,
     get composing() { return Boolean(draft) },
-    get open() { return Boolean(draft || opened) },
+    get open() { return Boolean(draft || opened || claimsFor) },
   }
 }

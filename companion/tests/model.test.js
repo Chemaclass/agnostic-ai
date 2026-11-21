@@ -119,7 +119,7 @@ test('says which conversation a nested row was started from', () => {
 test('offers Mark as read only on a row that needs the person, and Rename and Copy session ID on every row', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
-    [['read', 'rename', 'copy-session-id', 'send-to', 'complete'], ['read', 'rename', 'copy-session-id', 'send-to', 'complete'], ['rename', 'copy-session-id', 'send-to'], ['rename', 'copy-session-id', 'send-to', 'complete'], ['rename', 'copy-session-id', 'send-to', 'reopen', 'hide', 'delete'], ['rename', 'copy-session-id', 'send-to', 'hide', 'delete']],
+    [['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['rename', 'copy-session-id', 'send-to', 'claim-files'], ['rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'], ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete']],
   )
 })
 
@@ -152,16 +152,16 @@ test('shows mailbox counts and only the thread controls available in its state',
 })
 
 test('offers Delete only on a chat under Archived that no process holds', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'copy-session-id', 'send-to', 'reopen', 'hide', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'copy-session-id', 'send-to', 'reopen', 'hide'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'copy-session-id', 'send-to', 'hide', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename', 'copy-session-id', 'send-to', 'hide'])
-  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename', 'copy-session-id', 'send-to', 'complete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
 })
 
 test('an archived chat has no read state: no Mark as read, and Delete without reading it first', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'copy-session-id', 'send-to', 'hide', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'copy-session-id', 'send-to', 'reopen', 'hide', 'delete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete', 'web'])
   assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), 'hide')
   assert.equal(unreadMarkOf(row('a', 'dormant', { unread: true })), false)
   assert.equal(unreadMarkOf(row('a', 'active', { unread: true })), true)
@@ -645,8 +645,8 @@ test('a shared row shows under Local and under Cloud, and counts once in each', 
 })
 
 test('offers Open on claude.ai only on a shared row, and names its cloud session', () => {
-  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'copy-session-id', 'send-to', 'complete', 'web'])
-  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'copy-session-id', 'send-to', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'web'])
   assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename', 'copy-session-id', 'complete'])
   const sharedRow = shared('a', 'active')
   assert.deepEqual(cloudPageOf(sharedRow), { tool: 'claude', id: 'cse_a1', title: sharedRow.title })
@@ -744,7 +744,7 @@ test('a group header names the unread chats it holds, and an archived one adds n
 
 test('a resumed chat with an unread marker offers Mark as read, and its tooltip says so', () => {
   const open = { kind: 'focus', label: 'Switch to Ghostty' }
-  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename', 'copy-session-id', 'send-to', 'complete'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
   assert.equal(rowTooltipOf(row('a', 'active', { unread: true, open }), Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\nResumed with a reply from before that you have not read')
 })
 
@@ -836,17 +836,17 @@ const shellNow = Date.parse('2026-11-09T12:00:00Z')
 
 test('a saved completion offers Undo complete, and an archived row can still be hidden', () => {
   const completedAt = '2026-11-09T13:00:00Z'
-  assert.deepEqual(rowMenuOf(row('app-archive', 'dormant', { completedAt })), ['rename', 'copy-session-id', 'send-to', 'reopen', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('app-archive', 'dormant', { completedAt })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
   const waiting = row('shell-wait', 'blocked', { completedAt, live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
-  assert.deepEqual(rowMenuOf(waiting), ['read', 'rename', 'copy-session-id', 'send-to', 'reopen', 'stop-shell'])
+  assert.deepEqual(rowMenuOf(waiting), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'stop-shell'])
   assert.equal(rowActionOf(waiting), undefined)
 })
 
 test('offers Stop chat only on a live chat the server can stop, and says how it ended', () => {
   const stoppable = { pid: 42, procStart: 'chat-start' }
-  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable })), ['rename', 'copy-session-id', 'send-to', 'stop-session'])
-  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable })), ['rename', 'copy-session-id', 'send-to'])
-  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename', 'copy-session-id', 'send-to'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'stop-session'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable })), ['rename', 'copy-session-id', 'send-to', 'claim-files'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files'])
   assert.deepEqual(stopSessionConfirmOf(row('a', 'working', { title: 'Fix the build' })).title, 'Stop "Fix the build"?')
   assert.match(stopSessionConfirmOf(row('a', 'working')).body, /transcript stays/)
   assert.deepEqual(stoppedSessionOf({}), { message: 'Stopped.' })
@@ -864,10 +864,10 @@ test('offers Stop chat only on a live chat the server can stop, and says how it 
 
 test('warns about each shell with its age, command and owner when known', () => {
   const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })
-  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'copy-session-id', 'send-to', 'complete', 'stop-shell'])
-  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename', 'copy-session-id', 'send-to', 'complete'])
-  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename', 'copy-session-id', 'send-to', 'complete'])
-  assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'copy-session-id', 'send-to', 'stop-shell'])
+  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'stop-shell'])
+  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
+  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
+  assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'stop-shell'])
   assert.deepEqual(conversation.stuckShells.map((entry) => shellWarningOf(entry, shellNow)), [
     'Shell running for 1h: npm run dev',
     'Faramir left a shell running for 1h: npm run watch',
@@ -912,4 +912,15 @@ test('compares two stated model names without treating the tool as a model', asy
   assert.deepEqual(reviewModelsOf('Model A', 'Model B'), { from: 'Model A', to: 'Model B', same: false })
   assert.deepEqual(reviewModelsOf('Model A', ' '), { from: 'Model A', to: 'model unknown', same: false })
   assert.deepEqual(reviewModelsOf(undefined, undefined), { from: 'model unknown', to: 'model unknown', same: false })
+})
+
+test('names the handoff and claim statuses shown in the panel', async () => {
+  const { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf } = await import('../frontend/model.js')
+  assert.deepEqual(['offered', 'accepted', 'declined'].map(handoffLabelOf), ['Offered', 'Accepted', 'Declined'])
+  assert.equal(claimStatusOf({ stale: true }), 'Stale claim')
+  assert.equal(claimStatusOf({}), 'Active claim')
+  assert.equal(claimCountOf(1), '1 claim')
+  assert.equal(claimCountOf(2), '2 claims')
+  assert.equal(conflictLabelOf({ path: 'src/a.go' }, 'Parser session'), 'Path conflict: src/a.go is held by Parser session.')
+  assert.equal(conflictLabelOf({ path: 'src/a.go' }), 'Path conflict: no session holds src/a.go.')
 })

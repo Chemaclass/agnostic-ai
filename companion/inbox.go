@@ -42,6 +42,10 @@ const (
 	serverMailboxThreadPath  = "/api/mailbox/thread"
 	serverMailboxStagePath   = "/api/mailbox/stage"
 	serverMailboxRefsPath    = "/api/mailbox/refs"
+	serverMailboxClaimsPath  = "/api/mailbox/claims"
+	serverMailboxClaimPath   = "/api/mailbox/claim"
+	serverMailboxReleasePath = "/api/mailbox/release"
+	serverMailboxHandoffPath = "/api/mailbox/handoff"
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"
@@ -301,7 +305,8 @@ type stillOpening struct {
 func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch path {
-		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath, serverMailboxRefsPath:
+		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath, serverMailboxRefsPath,
+			serverMailboxClaimPath, serverMailboxReleasePath, serverMailboxHandoffPath:
 			if !mailboxPageAllowed(w, r) {
 				return
 			}
@@ -311,7 +316,8 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 			}
 		}
 		limit := int64(maxRequestBytes)
-		if path == serverMailboxSendPath {
+		switch path {
+		case serverMailboxSendPath, serverMailboxClaimPath, serverMailboxReleasePath:
 			// Let the server answer with the mailbox size guard.
 			limit = 1 << 20
 		}
@@ -333,13 +339,26 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 		}
 		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
 		switch {
-		case err != nil || answer.status >= 300 || path == serverMailboxRefsPath:
+		case err != nil || path == serverMailboxRefsPath:
+		case (path == serverMailboxClaimPath || path == serverMailboxHandoffPath) && mailboxOwnershipRefusal(answer):
+			in.noteListChange(w, r)
+		case answer.status >= 300:
 		case path == serverMailboxStagePath && !mailboxDidStage(answer.body):
 		default:
 			in.noteListChange(w, r)
 		}
 		in.answer(w, answer, err)
 	}
+}
+
+func mailboxOwnershipRefusal(answer reply) bool {
+	if answer.status != http.StatusUnprocessableEntity {
+		return false
+	}
+	var result struct {
+		Guard string `json:"guard"`
+	}
+	return json.Unmarshal(answer.body, &result) == nil && result.Guard == "ownership"
 }
 
 func (in *inbox) noteListChange(w http.ResponseWriter, r *http.Request) {
@@ -411,17 +430,18 @@ func (in *inbox) copyMailboxMessage(w http.ResponseWriter, r *http.Request, body
 	return true
 }
 
-func (in *inbox) mailboxThreads(w http.ResponseWriter, r *http.Request) {
-	if !mailboxPageAllowed(w, r) {
-		return
+func (in *inbox) readMailbox(path string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !mailboxPageAllowed(w, r) {
+			return
+		}
+		endpoint := path
+		if r.URL.RawQuery != "" {
+			endpoint += "?" + r.URL.RawQuery
+		}
+		answer, err := in.server.get(r.Context(), endpoint, "")
+		in.answer(w, answer, err)
 	}
-	query := r.URL.Query()
-	path := serverMailboxThreadsPath + "?" + url.Values{
-		"tool": {query.Get("tool")},
-		"id":   {query.Get("id")},
-	}.Encode()
-	answer, err := in.server.get(r.Context(), path, "")
-	in.answer(w, answer, err)
 }
 
 func mailboxPageAllowed(w http.ResponseWriter, r *http.Request) bool {

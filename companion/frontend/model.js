@@ -552,7 +552,7 @@ export function rowActionOf(conversation) {
  */
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename', 'copy-session-id'] : ['rename', 'copy-session-id']
-  if (!conversation.parent && mailboxSessionOf(conversation)) offered.push('send-to')
+  if (!conversation.parent && mailboxSessionOf(conversation)) offered.push('send-to', 'claim-files')
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')
   if (conversation.completedAt) offered.push('reopen')
@@ -580,6 +580,22 @@ export function reviewModelsOf(from, to) {
     to: reviewing || 'model unknown',
     same: Boolean(sending && reviewing && sending.toLowerCase() === reviewing.toLowerCase()),
   }
+}
+
+export function handoffLabelOf(status) {
+  return { offered: 'Offered', accepted: 'Accepted', declined: 'Declined' }[status]
+}
+
+export function claimStatusOf(claim) {
+  return claim.stale ? 'Stale claim' : 'Active claim'
+}
+
+export function claimCountOf(count) {
+  return `${count} ${count === 1 ? 'claim' : 'claims'}`
+}
+
+export function conflictLabelOf({ path }, holder) {
+  return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
 export function threadLabelOf({ count, cap, waiting }) {

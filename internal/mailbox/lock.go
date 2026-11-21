@@ -46,6 +46,10 @@ func (s Store) lock(ctx context.Context) (func(), error) {
 	for waiting.Err() == nil {
 		release, err := tryLock(file)
 		if err == nil {
+			if err := s.recoverTransfer(); err != nil {
+				release()
+				return nil, err
+			}
 			return release, nil
 		}
 		if !lockHeldElsewhere(err) {
@@ -62,6 +66,27 @@ func (s Store) lock(ctx context.Context) (func(), error) {
 		return nil, fmt.Errorf("lock %s: %w", path, err)
 	}
 	return nil, fmt.Errorf("lock %s: %w", path, ErrBusy)
+}
+
+func (s Store) lockForRead(ctx context.Context) (func(), bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, err
+	}
+	if err := checkDir(s.Dir); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, false, nil
+		}
+		return nil, false, err
+	}
+	release, err := s.lock(ctx)
+	if errors.Is(err, ErrBusy) {
+		// Writes replace files atomically, so a read can go on without the lock.
+		return func() {}, true, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return release, true, nil
 }
 
 func checkDir(path string) error {

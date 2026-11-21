@@ -12,7 +12,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FIXTURES, arrival } from './fixtures.mjs'
-import { mailboxChange, mailboxRefs, mailboxRows, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
+import { mailboxAnswer, mailboxChange, mailboxClaim, mailboxClaims, mailboxRefs, mailboxRelease, mailboxRows, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const FRONTEND = resolve(here, '../frontend')
@@ -42,6 +42,8 @@ function fixtureState(name, now) {
     fixture,
     conversations,
     mailbox: fixture.mailbox?.(now) ?? [],
+    claims: fixture.mailboxClaims?.(now) ?? [],
+    claimConflicts: [],
     knownClosed: new Set(fixture.knownClosed),
     /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */
     polled: structuredClone(conversations),
@@ -447,6 +449,13 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       const reply = mailboxThreads(state, url)
       sendJSON(response, reply.status, reply.body)
     },
+    'GET /api/mailbox/claims': (_request, response, url) => {
+      const reply = mailboxClaims(state, url)
+      sendJSON(response, reply.status, reply.body)
+    },
+    'POST /api/mailbox/claim': mailboxRoute('/api/mailbox/claim', mailboxClaim),
+    'POST /api/mailbox/release': mailboxRoute('/api/mailbox/release', mailboxRelease),
+    'POST /api/mailbox/handoff': mailboxRoute('/api/mailbox/handoff', mailboxAnswer),
     'POST /api/mailbox/refs': mailboxRoute('/api/mailbox/refs', mailboxRefs),
     'POST /api/mailbox/send': mailboxRoute('/api/mailbox/send', mailboxSend),
     'POST /api/mailbox/thread': mailboxRoute('/api/mailbox/thread', mailboxChange),

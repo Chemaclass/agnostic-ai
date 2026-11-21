@@ -12,6 +12,11 @@ const (
 	Finding       = "finding"
 	Done          = "done"
 	ReviewRequest = "review_request"
+	Handoff       = "handoff"
+
+	Offered  = "offered"
+	Accepted = "accepted"
+	Declined = "declined"
 
 	Open    = "open"
 	Paused  = "paused"
@@ -32,6 +37,12 @@ type SendRequest struct {
 	Thread string            `json:"thread,omitempty"`
 	Refs   *ReviewInput      `json:"refs,omitempty"`
 	Models *ModelInput       `json:"models,omitempty"`
+	Gives  *Gives            `json:"gives,omitempty"`
+}
+
+type Gives struct {
+	Worktree string   `json:"worktree"`
+	Paths    []string `json:"paths"`
 }
 
 type ReviewInput struct {
@@ -72,15 +83,19 @@ type Actor struct {
 }
 
 type Message struct {
-	N        int               `json:"n"`
-	Type     string            `json:"type"`
-	From     Actor             `json:"from"`
-	To       conversations.Ref `json:"to"`
-	Body     string            `json:"body,omitempty"`
-	Refs     *ReviewRefs       `json:"refs,omitempty"`
-	State    string            `json:"state"`
-	At       time.Time         `json:"at"`
-	QueuedAt time.Time         `json:"queuedAt"`
+	N          int                `json:"n"`
+	Type       string             `json:"type"`
+	From       Actor              `json:"from"`
+	To         conversations.Ref  `json:"to"`
+	Body       string             `json:"body,omitempty"`
+	Refs       *ReviewRefs        `json:"refs,omitempty"`
+	Gives      *Gives             `json:"gives,omitempty"`
+	Handoff    string             `json:"handoff,omitempty"`
+	AcceptedAt *time.Time         `json:"acceptedAt,omitempty"`
+	AcceptedBy *conversations.Ref `json:"acceptedBy,omitempty"`
+	State      string             `json:"state"`
+	At         time.Time          `json:"at"`
+	QueuedAt   time.Time          `json:"queuedAt"`
 }
 
 type Thread struct {

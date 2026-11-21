@@ -42,9 +42,21 @@ func (t Thread) valid(id string) bool {
 func (m Message) validType() bool {
 	switch m.Type {
 	case Question, Finding, Done:
-		return m.Refs == nil
+		return m.Refs == nil && m.Gives == nil && m.Handoff == ""
 	case ReviewRequest:
-		return m.Body == "" && m.Refs != nil && objectID.MatchString(m.Refs.Commit) && objectID.MatchString(m.Refs.Base)
+		return m.Body == "" && m.Refs != nil && m.Gives == nil && m.Handoff == "" &&
+			objectID.MatchString(m.Refs.Commit) && objectID.MatchString(m.Refs.Base)
+	case Handoff:
+		if m.Refs != nil || m.Gives == nil || validateClaimPaths(*m.Gives) != nil {
+			return false
+		}
+		switch m.Handoff {
+		case Offered, Declined:
+			return m.AcceptedAt == nil && m.AcceptedBy == nil
+		case Accepted:
+			return m.AcceptedAt != nil && !m.AcceptedAt.IsZero() && m.AcceptedBy != nil && *m.AcceptedBy == m.To
+		}
+		return false
 	default:
 		return false
 	}
@@ -175,6 +187,17 @@ func (s Store) PrepareStage(ctx context.Context, id string, n int) (Stage, error
 	if refused := checkStrings(id); refused != nil {
 		return Stage{}, refused
 	}
+	if !threadID.MatchString(id) {
+		return Stage{}, NewRefusal("format")
+	}
+	release, present, err := s.lockForRead(ctx)
+	if err != nil {
+		return Stage{}, err
+	}
+	if !present {
+		return Stage{}, missingThread()
+	}
+	defer release()
 	thread, m, err := s.loadMessage(id, n)
 	if err != nil {
 		return Stage{}, err

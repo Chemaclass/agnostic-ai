@@ -133,6 +133,14 @@ export function stageMessage(thread, n, how, { confirm } = {}) {
   return change('/api/mailbox/stage', { thread, n, how, ...(confirm ? { confirm } : {}) })
 }
 
+export function readClaims(owner, signal) {
+  const query = owner ? '?' + new URLSearchParams({ tool: owner.tool, id: owner.id }) : ''
+  return call('/api/mailbox/claims' + query, { signal })
+}
+export const claimPaths = (claim) => change('/api/mailbox/claim', claim)
+export const releasePaths = (claim) => change('/api/mailbox/release', claim)
+export const answerHandoff = (thread, n, action) => change('/api/mailbox/handoff', { thread, n, action })
+
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')
