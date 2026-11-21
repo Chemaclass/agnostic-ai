@@ -27,11 +27,19 @@ func (t Thread) valid(id string) bool {
 	}
 	for i, m := range t.Messages {
 		if m.N != i+1 || !t.includes(m.From.Ref) || !t.includes(m.To) || m.From.Ref == m.To ||
-			m.From.By != "human" || !m.validType() {
+			m.From.By != "human" && m.From.By != "agent" || !m.validType() {
 			return false
 		}
 		switch m.State {
-		case Waiting, Staged, Canceled:
+		case Held, Waiting, Staged, Rejected, Canceled:
+		case Reserved:
+			if m.ReservedAt == nil {
+				return false
+			}
+		case Delivered:
+			if m.DeliveredAt == nil {
+				return false
+			}
 		default:
 			return false
 		}
@@ -92,7 +100,7 @@ func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
 func (t Thread) contentCount() int {
 	count := 0
 	for _, m := range t.Messages {
-		if m.Type != Done {
+		if m.Type != Done && m.State != Rejected {
 			count++
 		}
 	}
@@ -117,7 +125,19 @@ func (t Thread) openOnly() *Refusal {
 }
 
 func (t *Thread) addEvent(at time.Time, action string, n int) {
-	t.Events = append(t.Events, Event{At: at, By: "human", Action: action, N: n})
+	t.addEventBy(at, "human", action, n)
+}
+
+func (t *Thread) addEventBy(at time.Time, by, action string, n int) {
+	t.Events = append(t.Events, Event{At: at, By: by, Action: action, N: n})
+}
+
+func (t *Thread) settle() {
+	if t.Status == Closing && !slices.ContainsFunc(t.Messages, func(m Message) bool {
+		return m.State == Held || m.State == Waiting || m.State == Reserved
+	}) {
+		t.Status = Closed
+	}
 }
 
 func (s Store) Change(ctx context.Context, id, action string) error {
@@ -157,8 +177,10 @@ func (s Store) Change(ctx context.Context, id, action string) error {
 		}
 		thread.Status = Closed
 		for i := range thread.Messages {
-			if thread.Messages[i].State == Waiting {
+			switch thread.Messages[i].State {
+			case Held, Waiting, Reserved:
 				thread.Messages[i].State = Canceled
+				thread.Messages[i].ReservedAt = nil
 			}
 		}
 	case "raise-cap":
@@ -287,9 +309,7 @@ func (t Thread) stageFor(m *Message) (Stage, error) {
 
 func (t *Thread) markStaged(m *Message, how string) {
 	m.State = Staged
-	if t.Status == Closing && !slices.ContainsFunc(t.Messages, func(m Message) bool { return m.State == Waiting }) {
-		t.Status = Closed
-	}
+	t.settle()
 	t.addEvent(time.Now().UTC(), how, m.N)
 }
 
@@ -311,4 +331,110 @@ func (t Thread) canStage(m *Message) *Refusal {
 		return &Refusal{"format", "That message is no longer waiting.", "Refresh the thread and choose a waiting message."}
 	}
 	return nil
+}
+
+// Approve answers a held message. Approving rechecks the thread as a send would.
+func (s Store) Approve(ctx context.Context, id string, n int, action string) error {
+	if refused := checkStrings(id, action); refused != nil {
+		return refused
+	}
+	if action != "approve" && action != "reject" {
+		return &Refusal{"format", "This is not an approval action.", "Use Approve or Reject."}
+	}
+	release, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	thread, m, err := s.loadMessage(id, n)
+	if err != nil {
+		return err
+	}
+	at := time.Now().UTC()
+	if action == "reject" {
+		switch m.State {
+		case Rejected:
+			return nil
+		case Held:
+		default:
+			return &Refusal{"format", "That message is not waiting for approval.", "Refresh the thread to see its current state."}
+		}
+		m.State = Rejected
+		stable := NewRefusal("rejected")
+		from := m.From.Ref
+		thread.Refusals = append(thread.Refusals, RefusalRecord{At: at, From: &from, Type: m.Type, Guard: stable.Guard, Reason: stable.Reason})
+		thread.addEvent(at, "reject", n)
+		thread.settle()
+		return s.writeThread(thread)
+	}
+
+	switch m.State {
+	case Held:
+	case Rejected:
+		return NewRefusal("rejected")
+	case Canceled:
+		return NewRefusal("closed")
+	default:
+		return nil
+	}
+	switch thread.Status {
+	case Paused:
+		return NewRefusal("paused")
+	case Closed:
+		return NewRefusal("closed")
+	}
+	if thread.contentCount() > thread.Cap {
+		return capRefusal(thread.Cap)
+	}
+	if m.Gives != nil {
+		refused, err := s.handoffRefusal(m.From.Ref, *m.Gives)
+		if err != nil {
+			return err
+		}
+		if refused != nil {
+			return refused
+		}
+	}
+	m.State = Waiting
+	m.QueuedAt = at
+	thread.addEvent(at, "approve", n)
+	if m.Type == Done {
+		thread.Status = Closing
+		thread.addEvent(at, "close", n)
+	}
+	return s.writeThread(thread)
+}
+
+// Queue hands a message I staged by hand back to the delivery hook.
+func (s Store) Queue(ctx context.Context, id string, n int) error {
+	if refused := checkStrings(id); refused != nil {
+		return refused
+	}
+	release, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	thread, m, err := s.loadMessage(id, n)
+	if err != nil {
+		return err
+	}
+	switch m.State {
+	case Waiting:
+		return nil
+	case Staged:
+	default:
+		return &Refusal{"format", "Only a staged message can be queued for delivery.", "Refresh the thread to see its current state."}
+	}
+	switch thread.Status {
+	case Paused:
+		return NewRefusal("paused")
+	case Closed:
+		return NewRefusal("closed")
+	}
+	at := time.Now().UTC()
+	m.State = Waiting
+	m.QueuedAt = at
+	thread.addEvent(at, "queue", n)
+	return s.writeThread(thread)
 }

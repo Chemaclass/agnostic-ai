@@ -65,7 +65,7 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 		if offered.Type != Handoff || offered.Gives == nil {
 			return NewRefusal("format")
 		}
-		if offered.Handoff == Offered {
+		if offered.Handoff == Offered && offered.State != Held && offered.State != Rejected {
 			scope, fold, err = normalizeClaimPaths(ctx, offered.Gives.Worktree, *offered.Gives)
 			if err != nil {
 				return err
@@ -83,6 +83,9 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	}
 	if message.Type != Handoff || message.Gives == nil {
 		return NewRefusal("format")
+	}
+	if action == "accept" && (message.State == Held || message.State == Rejected) {
+		return &Refusal{"format", "This handoff is waiting for approval.", "Approve the handoff in the companion first."}
 	}
 	if action == "accept" && message.Handoff == Accepted || action == "decline" && message.Handoff == Declined {
 		return nil
