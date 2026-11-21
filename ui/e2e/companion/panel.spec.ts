@@ -658,6 +658,48 @@ test('a held failed open that answers after a newer open leaves the newer notice
   await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)
 })
 
+for (const [title, id, archived] of [
+  ['Draft the release notes', 'reply-1'],
+  ['Refactor the search index', 'work-1'],
+  ['Bump the Go version', 'done-3', true],
+  ['Write the onboarding guide', 'cloud-1'],
+] as const) {
+  test(`Copy session ID copies the exact row ID for ${title}`, async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    if (archived) await openArchived(page)
+    else await openPanel(page)
+    const chat = row(page, title)
+    const item = page.getByRole('menuitem', { name: 'Copy session ID' })
+    const menu = page.getByRole('menu', { name: 'Conversation' })
+    await chat.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Rename…' }).press('ArrowDown')
+    await expect(item).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await chat.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Rename…' }).press('ArrowDown')
+    await page.keyboard.press('Enter')
+
+    await expect(menu).toBeHidden()
+    await expect(page.locator('#toast[role=status]')).toHaveText('Session ID copied.')
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(id)
+    expect((await calledPaths(page)).filter((path) => path === '/api/mark' || path === '/api/open')).toEqual([])
+  })
+}
+
+test('Copy session ID shows an error when the clipboard refuses', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('Write permission denied.')) } })
+  })
+  await openPanel(page)
+  await row(page, 'Draft the release notes').click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Copy session ID' }).click()
+
+  await expect(page.getByRole('menu', { name: 'Conversation' })).toBeHidden()
+  await expect(page.locator('#toast[data-tone=error]')).toHaveText('Could not copy the session ID.')
+  expect((await calledPaths(page)).filter((path) => path === '/api/mark' || path === '/api/open')).toEqual([])
+})
+
 test('copy resume command writes the exact command and says so', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openFailing(page, 'resume-failure')
@@ -1428,6 +1470,8 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   await expect(parent.getByRole('button', { name: '▾ 7 subagents' })).toHaveAttribute('aria-expanded', 'true')
   const helpers = page.locator('.helper-row')
   await expect(helpers).toHaveCount(5)
+  await helpers.first().click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Copy session ID' })).toBeHidden()
   await expect(helpers.locator('.title')).toHaveText(['Find rename call sites', 'Size budget check', 'Review #3511: local app chats', 'Review #3512: rename in each app', 'Helper rows design'])
   await expect(helpers.locator('.meta')).toHaveText(['Claude Code · Explore · 1m', 'Claude Code · 1m', 'Codex · 2m', 'Codex · 4m', 'Claude Code · Plan · 6m'])
   // A subagent's latest message sits between its title and its details; one that wrote none has no line.
@@ -2032,7 +2076,7 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  for (const name of ['Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+  for (const name of ['Copy session ID', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
     await page.keyboard.press('ArrowDown')
     await expect(page.getByRole('menuitem', { name })).toBeFocused()
   }
@@ -2048,7 +2092,8 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   const complete = page.getByRole('menuitem', { name: 'Mark complete' })
   const stop = page.getByRole('menuitem', { name: 'Stop chat…' })
   await expect(read).toBeFocused()
-  for (const item of [rename, complete, stop, read]) {
+  const copy = page.getByRole('menuitem', { name: 'Copy session ID' })
+  for (const item of [rename, copy, complete, stop, read]) {
     await page.keyboard.press('ArrowDown')
     await expect(item).toBeFocused()
   }

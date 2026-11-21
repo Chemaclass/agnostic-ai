@@ -1199,6 +1199,7 @@ const renameItem = document.getElementById('rename')
 const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
+  'copy-session-id': document.getElementById('copy-session-id'),
   complete: document.getElementById('complete'),
   reopen: document.getElementById('reopen'),
   hide: document.getElementById('hide'),
@@ -1320,6 +1321,18 @@ async function saveRename(conversation) {
 
 renameItem.addEventListener('click', () => {
   if (rowMenuFor) startRename(rowMenuFor)
+})
+menuItems['copy-session-id'].addEventListener('click', async () => {
+  const conversation = rowMenuTarget('copy-session-id')
+  closeRowMenu()
+  queryInput.focus()
+  if (!conversation) return
+  try {
+    await navigator.clipboard.writeText(conversation.id)
+    say('Session ID copied.')
+  } catch {
+    say('Could not copy the session ID.', 'error')
+  }
 })
 menuItems.read.addEventListener('click', () => {
   const conversation = rowMenuTarget('read')

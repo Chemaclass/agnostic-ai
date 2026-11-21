@@ -550,7 +550,7 @@ export function rowActionOf(conversation) {
  * Mark complete and Hide match the row's own button. Only a chat under Archived that no process holds can be deleted.
  */
 export function rowMenuOf(conversation) {
-  const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename'] : ['rename']
+  const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename', 'copy-session-id'] : ['rename', 'copy-session-id']
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')
   if (conversation.completedAt) offered.push('reopen')
