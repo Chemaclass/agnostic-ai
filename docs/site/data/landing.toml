@@ -26,7 +26,7 @@ line = 'model = "gpt-6-luna"'
 [[hero.fanout.outputs]]
 path = ".gemini/agents/reviewer.md"
 tools = "Gemini CLI"
-line = "model: gemini-3.5-flash"
+line = "model: gemini-3.5"
 
 [workflow]
 title = "Three steps."
