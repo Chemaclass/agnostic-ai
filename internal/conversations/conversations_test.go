@@ -500,6 +500,7 @@ type fakeLauncher struct {
 	err       error
 	folderErr error
 	newTabErr error
+	focusErr  error
 	focusOK   bool
 }
 
@@ -525,6 +526,9 @@ func (f *fakeLauncher) RunInNewTerminal(_ context.Context, command string) error
 
 func (f *fakeLauncher) FocusTab(_ context.Context, app, tty string) (bool, error) {
 	f.calls = append(f.calls, "focus "+app+" "+tty)
+	if f.focusErr != nil {
+		return false, f.focusErr
+	}
 	return f.focusOK, f.err
 }
 

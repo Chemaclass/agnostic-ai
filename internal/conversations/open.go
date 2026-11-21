@@ -294,7 +294,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 
 // tabApps are the terminal apps whose tabs the server selects by tty
 // and opens new tabs in.
-var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true}
+var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -369,15 +369,17 @@ type tabOpening struct {
 
 // openInTab runs command in a new tab of app when app takes one, else
 // in a new Terminal window. Terminal before macOS 26 has no do script
-// in new tab, so a failed Terminal tab falls back to a window; a refused
-// or unanswered permission does not, since the window needs it too.
+// in new tab, so a failed Terminal tab falls back to a window, as does a
+// tab app whose command cannot reach it; a refused or unanswered
+// permission does not, since the window needs it too.
 func openInTab(ctx context.Context, launcher Launcher, app, command string) tabOpening {
 	if hasControl(command) {
 		return tabOpening{app: app, err: errControlCharacters}
 	}
 	if tabApps[app] {
 		err := launcher.RunInNewTab(ctx, app, command)
-		if err == nil || app != "Terminal" || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
+		fallsBack := app == "Terminal" || errors.Is(err, errNoTabCommand)
+		if err == nil || !fallsBack || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
 			return tabOpening{app: app, err: err}
 		}
 	}
@@ -437,6 +439,8 @@ func switchToHost(ctx context.Context, folder string, placed placement, launcher
 	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
 		switch {
+		case errors.Is(err, errNoTabCommand):
+			// Without its command the app still comes forward below.
 		case errors.Is(err, errAutomationDenied):
 			return switchThere(allowControl("switching to", app, "then click again"))
 		case errors.Is(err, context.DeadlineExceeded):
@@ -795,6 +799,9 @@ func (macLauncher) RunInNewTerminal(ctx context.Context, command string) error {
 }
 
 func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) {
+	if driver, ok := commandTabs[app]; ok {
+		return driver.focus(ctx, tty)
+	}
 	if _, ok := tabScripts[app]; !ok {
 		return false, errNotHere
 	}
@@ -806,6 +813,9 @@ func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) 
 }
 
 func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, error) {
+	if driver, ok := commandTabs[app]; ok {
+		return driver.title(ctx, tty, title)
+	}
 	if _, ok := titleTabLines[app]; !ok {
 		return false, errNotHere
 	}
@@ -817,6 +827,9 @@ func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, 
 }
 
 func (macLauncher) TypeInTab(ctx context.Context, app, tty, text string, setClipboard bool) (bool, error) {
+	if driver, ok := commandTabs[app]; ok {
+		return driver.typeIn(ctx, tty, text)
+	}
 	if _, ok := typeInTabLines[app]; !ok {
 		return false, errNotHere
 	}
@@ -834,6 +847,9 @@ func (macLauncher) TypeInTab(ctx context.Context, app, tty, text string, setClip
 }
 
 func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
+	if driver, ok := commandTabs[app]; ok {
+		return driver.newTab(ctx, command)
+	}
 	if _, ok := newTabLines[app]; !ok {
 		return errNotHere
 	}

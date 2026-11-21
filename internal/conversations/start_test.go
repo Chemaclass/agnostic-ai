@@ -243,26 +243,31 @@ func TestStart_OpensATerminalWindowFromAnAppWithoutTabs(t *testing.T) {
 	}
 }
 
-func TestStart_OpensAnITermTabFromITerm(t *testing.T) {
-	traced := ghosttyChain()
-	traced[len(traced)-1].Command = "/Applications/iTerm.app/Contents/MacOS/iTerm2"
-	for name, tc := range map[string]struct {
-		table []ProcessInfo
-		env   map[string]string
-	}{
-		"traced":     {traced, nil},
-		"by its env": {chain("agnostic-ai", "/bin/zsh", "/opt/bin/codex"), map[string]string{"CODEX_THREAD_ID": idChild, "TERM_PROGRAM": "iTerm.app"}},
+func TestStart_OpensATabOfTheAppItRunsIn(t *testing.T) {
+	for _, tc := range []struct{ app, path, termProgram string }{
+		{"iTerm", "/Applications/iTerm.app/Contents/MacOS/iTerm2", "iTerm.app"},
+		{"WezTerm", "/Applications/WezTerm.app/Contents/MacOS/wezterm-gui", "WezTerm"},
 	} {
-		start := newFakeStart(t, tc.table, "claude")
-		start.starter.Getenv = env(tc.env)
+		traced := ghosttyChain()
+		traced[len(traced)-1].Command = tc.path
+		for name, from := range map[string]struct {
+			table []ProcessInfo
+			env   map[string]string
+		}{
+			"traced":     {traced, nil},
+			"by its env": {chain("agnostic-ai", "/bin/zsh", "/opt/bin/codex"), map[string]string{"CODEX_THREAD_ID": idChild, "TERM_PROGRAM": tc.termProgram}},
+		} {
+			start := newFakeStart(t, from.table, "claude")
+			start.starter.Getenv = env(from.env)
 
-		reply, err := start.starter.Start(context.Background(), request(ToolClaude, "Write the notes"))
+			reply, err := start.starter.Start(context.Background(), request(ToolClaude, "Write the notes"))
 
-		if err != nil || len(start.launcher.calls) != 1 || !strings.HasPrefix(start.launcher.calls[0], "new tab iTerm cd '/tmp/app' && ") {
-			t.Fatalf("%s: calls %q err %v", name, start.launcher.calls, err)
-		}
-		if !strings.HasPrefix(reply.Message, "Started Claude Code in a new iTerm tab in /tmp/app") {
-			t.Errorf("%s: message = %q", name, reply.Message)
+			if err != nil || len(start.launcher.calls) != 1 || !strings.HasPrefix(start.launcher.calls[0], "new tab "+tc.app+" cd '/tmp/app' && ") {
+				t.Fatalf("%s %s: calls %q err %v", tc.app, name, start.launcher.calls, err)
+			}
+			if !strings.HasPrefix(reply.Message, "Started Claude Code in a new "+tc.app+" tab in /tmp/app") {
+				t.Errorf("%s %s: message = %q", tc.app, name, reply.Message)
+			}
 		}
 	}
 }
