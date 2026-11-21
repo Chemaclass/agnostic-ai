@@ -5,7 +5,7 @@ import { audienceDescription, audienceLabel } from '../model/edit-audience'
 import { isPermissionKey, permissionSelection, rulesFromText } from '../model/permission-edit'
 import { useApp } from './app-context'
 import { Notice } from './Banner'
-import { useEditAudience, useGlobalLevel, useViewAudience, ViewPersonalButton } from './EditAudience'
+import { useEditAudience, useUserLevel, useViewAudience, ViewPersonalButton } from './EditAudience'
 import { DECISIONS, ruleRows, type Decision, type RuleRow } from '../model/authority'
 import { fieldEntryId } from '../model/identity'
 import { useEntry } from './section-context'
@@ -88,8 +88,8 @@ function PermissionForm({ field, files, decision, shows, path, select }: Permiss
   const app = useApp()
   const audience = useEditAudience()
   const viewAudience = useViewAudience()
-  const global = useGlobalLevel()
-  const Level = audienceLabel('shared', global)
+  const userLevel = useUserLevel()
+  const Level = audienceLabel('shared', userLevel)
   const level = Level.toLowerCase()
   const receipt = useContext(SavedRules)
   const id = useId()
@@ -282,7 +282,7 @@ function PermissionForm({ field, files, decision, shows, path, select }: Permiss
             <button type="button" className="button button-quiet" disabled={!!pending} onClick={() => { restoreFocus.current = true; setPreview(undefined); setError(undefined) }}>{editing ? 'Edit' : 'Cancel'}</button>
           </div>
         </div>
-        <p>{audienceDescription(audience, global)} · <Code>{preview.file}</Code></p>
+        <p>{audienceDescription(audience, userLevel)} · <Code>{preview.file}</Code></p>
         {!!preview.dropped?.length && <div>
           <p>This local list leaves out these {level} rules from this spec.</p>
           <ul>{preview.dropped.map((rule, index) => <li key={index}><Code>{rule}</Code></li>)}</ul>

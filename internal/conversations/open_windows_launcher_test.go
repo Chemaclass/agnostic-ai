@@ -3,10 +3,8 @@ package conversations
 import (
 	"context"
 	"encoding/base64"
-	"runtime"
 	"slices"
 	"testing"
-	"time"
 	"unicode/utf16"
 )
 
@@ -85,21 +83,6 @@ func TestWindowsLauncher_OpensALinkWithTheRegisteredApp(t *testing.T) {
 	}
 	if err := launcher.OpenLink(context.Background(), "file:///C:/Windows/System32/calc.exe"); err == nil {
 		t.Error("a file link was opened")
-	}
-}
-
-func TestMayStillRun_OnlyARecentSessionOnWindowsSystemProcesses(t *testing.T) {
-	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
-	recent := Conversation{UpdatedAt: "2026-11-21T08:00:00Z", Open: Route{Command: "claude --resume x"}}
-	quiet := Conversation{UpdatedAt: "2026-11-19T08:00:00Z", Open: Route{Command: "claude --resume x"}}
-	if !cannotCheckProcesses(SystemProcesses{}, "windows") || cannotCheckProcesses(SystemProcesses{}, "linux") || cannotCheckProcesses(fakeProcesses{}, "windows") {
-		t.Error("only Windows' own processes cannot be checked")
-	}
-	if mayStillRun(quiet, SystemProcesses{}, now) {
-		t.Error("a dormant session may still run")
-	}
-	if got := mayStillRun(recent, SystemProcesses{}, now); got != (runtime.GOOS == "windows") {
-		t.Errorf("a recent session may still run = %v on %s", got, runtime.GOOS)
 	}
 }
 

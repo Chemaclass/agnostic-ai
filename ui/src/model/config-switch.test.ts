@@ -1,25 +1,25 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createGlobalSetup, GLOBAL_SETUP_BODY, GlobalSetupError, globalSetupCreated, parseServedConfig, parseSwitchReply, requestSwitch, switchOffer } from './config-switch'
+import { createUserSetup, USER_SETUP_BODY, UserSetupError, userSetupCreated, parseServedConfig, parseSwitchReply, requestSwitch, switchOffer } from './config-switch'
 
 describe('switch between project and global', () => {
   it('reads the configuration a server reads, with the project a global server started in', () => {
-    expect(parseServedConfig({ ok: true, root: '/repo', global: false, ui: true })).toEqual({ root: '/repo', global: false })
+    expect(parseServedConfig({ ok: true, root: '/repo', global: false, ui: true })).toEqual({ root: '/repo', userLevel: false })
     expect(parseServedConfig({ ok: true, root: '/home/.agnostic-ai', global: true, projectRoot: '/repo' }))
-      .toEqual({ root: '/home/.agnostic-ai', global: true, projectRoot: '/repo' })
-    expect(parseServedConfig({ ok: true, root: '/home', global: true, projectRoot: '' })).toEqual({ root: '/home', global: true })
-    expect(parseServedConfig({ ok: true, root: '/repo', global: false, version: '0.91.0' })).toEqual({ root: '/repo', global: false, version: '0.91.0' })
-    expect(parseServedConfig({ ok: true, root: '/repo', global: false, version: '' })).toEqual({ root: '/repo', global: false })
+      .toEqual({ root: '/home/.agnostic-ai', userLevel: true, projectRoot: '/repo' })
+    expect(parseServedConfig({ ok: true, root: '/home', global: true, projectRoot: '' })).toEqual({ root: '/home', userLevel: true })
+    expect(parseServedConfig({ ok: true, root: '/repo', global: false, version: '0.91.0' })).toEqual({ root: '/repo', userLevel: false, version: '0.91.0' })
+    expect(parseServedConfig({ ok: true, root: '/repo', global: false, version: '' })).toEqual({ root: '/repo', userLevel: false })
     expect(parseServedConfig({ ok: true, root: '/repo', global: false, requires: '>=0.81.0', requiresMet: false }))
-      .toEqual({ root: '/repo', global: false, requires: '>=0.81.0', requiresMet: false })
+      .toEqual({ root: '/repo', userLevel: false, requires: '>=0.81.0', requiresMet: false })
     expect(parseServedConfig({ ok: true, root: '/repo', global: false, requires: '>=0.81.0', requiresMet: null }))
-      .toEqual({ root: '/repo', global: false, requires: '>=0.81.0', requiresMet: null })
-    expect(parseServedConfig({ ok: true, root: '/repo', global: false, requires: '', requiresMet: true })).toEqual({ root: '/repo', global: false })
+      .toEqual({ root: '/repo', userLevel: false, requires: '>=0.81.0', requiresMet: null })
+    expect(parseServedConfig({ ok: true, root: '/repo', global: false, requires: '', requiresMet: true })).toEqual({ root: '/repo', userLevel: false })
     expect(parseServedConfig({ ok: true })).toBeUndefined()
     expect(parseServedConfig('nope')).toBeUndefined()
   })
 
   it('offers global settings on a project page', () => {
-    expect(switchOffer({ root: '/repo', global: false })).toEqual({
+    expect(switchOffer({ root: '/repo', userLevel: false })).toEqual({
       label: 'Open global settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
       command: 'agnostic-ai ui --scope user',
@@ -27,8 +27,8 @@ describe('switch between project and global', () => {
   })
 
   it('offers the way back only on a global page started in a project', () => {
-    expect(switchOffer({ root: '/home/.agnostic-ai', global: true })).toBeUndefined()
-    expect(switchOffer({ root: '/home/.agnostic-ai', global: true, projectRoot: '/work/repo' })).toEqual({
+    expect(switchOffer({ root: '/home/.agnostic-ai', userLevel: true })).toBeUndefined()
+    expect(switchOffer({ root: '/home/.agnostic-ai', userLevel: true, projectRoot: '/work/repo' })).toEqual({
       label: 'Open project repo',
       title: 'Open /work/repo in a new tab, starting its server when none runs',
       command: "agnostic-ai ui --dir '/work/repo'",
@@ -36,7 +36,7 @@ describe('switch between project and global', () => {
   })
 
   it('quotes the project path so the command pastes into a shell', () => {
-    expect(switchOffer({ root: '/home', global: true, projectRoot: "/Users/x/My Code/it's" })?.command)
+    expect(switchOffer({ root: '/home', userLevel: true, projectRoot: "/Users/x/My Code/it's" })?.command)
       .toBe("agnostic-ai ui --dir '/Users/x/My Code/it'\\''s'")
   })
 
@@ -64,26 +64,26 @@ describe('switch between project and global', () => {
   it('reports a missing global setup with its folder, and nothing else as that', async () => {
     const missing = vi.fn(async () => new Response(JSON.stringify({ error: 'no global setup in /home/.agnostic-ai', missing: true, root: '/home/.agnostic-ai' }), { status: 409 }))
     const err = await requestSwitch(missing).catch((e: unknown) => e)
-    expect(err).toBeInstanceOf(GlobalSetupError)
-    expect((err as GlobalSetupError).root).toBe('/home/.agnostic-ai')
+    expect(err).toBeInstanceOf(UserSetupError)
+    expect((err as UserSetupError).root).toBe('/home/.agnostic-ai')
 
     const broken = vi.fn(async () => new Response(JSON.stringify({ error: '/h is a symlink to /gone, which does not exist' }), { status: 409 }))
     const plain = await requestSwitch(broken).catch((e: unknown) => e)
-    expect(plain).not.toBeInstanceOf(GlobalSetupError)
+    expect(plain).not.toBeInstanceOf(UserSetupError)
     expect((plain as Error).message).toContain('symlink')
   })
 
   it('posts the git choice to create the setup and reports a refusal', async () => {
     const ok = vi.fn(async () => new Response(JSON.stringify({ root: '/h', created: ['agnostic-ai.yaml'], git: 'initialized' }), { status: 200 }))
-    await expect(createGlobalSetup(true, ok)).resolves.toEqual({ root: '/h', created: ['agnostic-ai.yaml'], git: 'initialized' })
+    await expect(createUserSetup(true, ok)).resolves.toEqual({ root: '/h', created: ['agnostic-ai.yaml'], git: 'initialized' })
     expect(ok).toHaveBeenCalledWith('/api/global/create', expect.objectContaining({ method: 'POST', body: '{"git":true}' }))
 
     const exists = vi.fn(async () => new Response(JSON.stringify({ error: 'a global setup already exists in /h' }), { status: 409 }))
-    await expect(createGlobalSetup(false, exists)).rejects.toThrow('already exists')
+    await expect(createUserSetup(false, exists)).rejects.toThrow('already exists')
   })
 
   it('keeps the onboarding copy plain', () => {
-    expect(GLOBAL_SETUP_BODY).not.toMatch(/[–—]/)
-    expect(globalSetupCreated('/h/.agnostic-ai')).toBe('Created /h/.agnostic-ai. Add files, then run "agnostic-ai sync --scope user".')
+    expect(USER_SETUP_BODY).not.toMatch(/[–—]/)
+    expect(userSetupCreated('/h/.agnostic-ai')).toBe('Created /h/.agnostic-ai. Add files, then run "agnostic-ai sync --scope user".')
   })
 })

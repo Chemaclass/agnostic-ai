@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  createGlobalSetup,
-  GLOBAL_SETUP_BODY,
-  GLOBAL_SETUP_TITLE,
-  GlobalSetupError,
-  globalSetupCreated,
+  createUserSetup,
+  USER_SETUP_BODY,
+  USER_SETUP_TITLE,
+  UserSetupError,
+  userSetupCreated,
   requestSwitch,
   switchOffer,
   type ServedConfig,
@@ -56,7 +56,7 @@ export function ConfigSwitch({ served, inRail = false }: { served: ServedConfig;
       return true
     } catch (err) {
       closeTab(tab)
-      if (err instanceof GlobalSetupError) {
+      if (err instanceof UserSetupError) {
         setMissingRoot(err.root)
       } else {
         setMissingRoot(undefined)
@@ -87,8 +87,8 @@ export function ConfigSwitch({ served, inRail = false }: { served: ServedConfig;
     let note: string | undefined
     let failure: string | undefined
     try {
-      const made = await createGlobalSetup(git)
-      note = globalSetupCreated(made.root)
+      const made = await createUserSetup(git)
+      note = userSetupCreated(made.root)
       if (git && !made.git.startsWith('initialized')) note += ` Git: ${made.git}.`
     } catch (err) {
       failure = (err as Error).message
@@ -129,8 +129,8 @@ export function ConfigSwitch({ served, inRail = false }: { served: ServedConfig;
             if (!busy) cancel()
           }}
         >
-          <h2 id="global-onboarding-title">{GLOBAL_SETUP_TITLE}</h2>
-          <p>{GLOBAL_SETUP_BODY}</p>
+          <h2 id="global-onboarding-title">{USER_SETUP_TITLE}</h2>
+          <p>{USER_SETUP_BODY}</p>
           <p className="global-onboarding-path"><code>{missingRoot}</code></p>
           <label className="global-onboarding-git">
             <input type="checkbox" checked={git} disabled={busy} onChange={(e) => setGit(e.target.checked)} />

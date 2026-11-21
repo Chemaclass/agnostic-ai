@@ -7,17 +7,17 @@ export function readAudience(saved: string | null): EditAudience {
 }
 
 /** The level the page serves: a project, or the global setup in the home folder. */
-export function levelName(global: boolean): 'project' | 'global' {
-  return global ? 'global' : 'project'
+export function levelName(userLevel: boolean): 'project' | 'global' {
+  return userLevel ? 'global' : 'project'
 }
 
-export function audienceLabel(audience: EditAudience, global: boolean): string {
-  return audience === 'personal' ? 'Local' : global ? 'Global' : 'Project'
+export function audienceLabel(audience: EditAudience, userLevel: boolean): string {
+  return audience === 'personal' ? 'Local' : userLevel ? 'Global' : 'Project'
 }
 
 /** The selector's accessible name, which says whether Git tracks the files. */
-export function audienceDescription(audience: EditAudience, global: boolean): string {
-  return audience === 'personal' ? 'Local (not committed)' : global ? 'Global (every project)' : 'Project (committed)'
+export function audienceDescription(audience: EditAudience, userLevel: boolean): string {
+  return audience === 'personal' ? 'Local (not committed)' : userLevel ? 'Global (every project)' : 'Project (committed)'
 }
 
 /** The layer an item comes from, with each level's local layer shown as `local`. */

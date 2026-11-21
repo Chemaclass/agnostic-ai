@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -182,9 +181,6 @@ func findIn(results []sourceResult, tool Tool, id string) (Conversation, bool) {
 // deleteUnsupported says why a conversation's store cannot be deleted
 // from here; empty for a local Claude Code session.
 func (s *Scanner) deleteUnsupported(c Conversation) string {
-	if cannotCheckProcesses(s.Processes, runtime.GOOS) {
-		return "agnostic-ai cannot tell on Windows whether a session still runs, so it deletes none."
-	}
 	switch {
 	case c.App == AppCloud:
 		return "This conversation is stored in the tool's cloud, not on this computer. Delete it there."
@@ -324,9 +320,9 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 	if err != nil {
 		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
 	}
-	started := map[int]string{}
+	started := map[int]ProcessInfo{}
 	for _, process := range table {
-		started[process.PID] = process.Started
+		started[process.PID] = process
 	}
 	live := false
 	entries, unreadable, err := s.claudeLiveEntries()
@@ -339,8 +335,8 @@ func (s *Scanner) stillClosed(c Conversation, measured fs.FileInfo, changed stri
 		return &DeleteError{Kind: DeleteFailed, Message: "agnostic-ai could not check whether this session still runs, so it deleted nothing.", Cause: err}
 	}
 	for _, entry := range entries {
-		start, runs := started[entry.PID]
-		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || start == strings.TrimSpace(entry.ProcStart)) {
+		process, runs := started[entry.PID]
+		if entry.SessionID == c.ID && runs && (entry.ProcStart == "" || hidesClaudeStart(process) || process.Started == strings.TrimSpace(entry.ProcStart)) {
 			live = true
 		}
 	}

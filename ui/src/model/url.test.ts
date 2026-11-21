@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { nextState, parseUrlState, resolveDataSource, serializeUrlState, staticOverviewUrl } from './url'
+import { contextLanding, nextState, parseUrlState, resolveDataSource, serializeUrlState, staticOverviewUrl } from './url'
 
 describe('URL state parsing', () => {
   it('opens Conversations by default with a server or the mock fixture', () => {
@@ -108,5 +108,16 @@ describe('data source', () => {
   it('uses a build-time default source only when the URL names none', () => {
     expect(resolveDataSource(parseUrlState(''), './snapshot')).toEqual({ kind: 'static', base: './snapshot/' })
     expect(resolveDataSource(parseUrlState('?mock=1'), './snapshot')).toEqual({ kind: 'mock' })
+  })
+})
+
+describe('contextLanding', () => {
+  // The overview comes from the server as it is: `global` is its field
+  // for the user level, whatever the app calls that level itself.
+  it('reads the user level from the overview the server sends', () => {
+    const overview = JSON.parse('{"global":true,"targets":["claude"]}')
+    expect(contextLanding({ kind: 'api' }, overview)).toBe(false)
+    expect(contextLanding({ kind: 'api' }, { targets: ['claude'] })).toBe(true)
+    expect(contextLanding({ kind: 'api' }, { targets: [] })).toBe(false)
   })
 })

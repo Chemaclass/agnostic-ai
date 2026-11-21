@@ -162,7 +162,7 @@ function HealthPlace({ entry }: { entry: HealthEntry }) {
   const kind = entry.item ? entry.section.kinds.find((k) => k.kind === entry.item!.kind)?.label ?? entry.item.kind : undefined
   return (
     <div className="health-place">
-      {(entry.item || entry.global) && (
+      {(entry.item || entry.userLevel) && (
         <p className="health-place-name">
           {entry.entry ? <AppLink to={{ view: entry.section.id as ViewId, entry: entry.entry }}>{label}</AppLink> : <span>{label}</span>}
           {kind && <span className="muted"> · {kind}</span>}

@@ -4,7 +4,7 @@ import type { HookSpecPreview, Stage } from '../contract'
 import { audienceDescription, type EditAudience } from '../model/edit-audience'
 import { emptyHookDraft, HOOK_MATCHES, hookDraftProblem, hookRequest, stageExcludes, takesMatch, type HookDraft } from '../model/hook-form'
 import { useApp } from './app-context'
-import { useGlobalLevel } from './EditAudience'
+import { useUserLevel } from './EditAudience'
 import { Notice } from './Banner'
 import { Code, Select } from './ui'
 
@@ -41,7 +41,7 @@ export function HookSavedNotice({ saved, dismiss }: { saved: HookSaved; dismiss:
 }
 
 export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onClose: () => void; onSaved: (saved: HookSaved) => void }) {
-  const global = useGlobalLevel()
+  const userLevel = useUserLevel()
   const id = useId()
   const [draft, setDraft] = useState<HookDraft>(() => emptyHookDraft(stages.find((stage) => stage.id === 'after-edit')?.id ?? stages[0]?.id ?? ''))
   const [audience, setAudience] = useState<EditAudience>('shared')
@@ -90,7 +90,7 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
   if (preview) {
     return <section ref={previewRegion} tabIndex={-1} className="builtin-change builtin-change-preview hook-preview" aria-label={`${draft.name} hook preview`} aria-busy={!!pending}>
       <h3>Add {draft.name}</h3>
-      <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
+      <p>Create <Code>{preview.file}</Code> {audience === 'personal' ? 'for you only' : userLevel ? 'for every project' : 'for everyone'}.</p>
       <div className="builtin-change-files"><pre tabIndex={0} aria-label={`Spec for ${draft.name}`}>{preview.spec}</pre></div>
       <p className="muted">Run <Code>{preview.syncCommand}</Code> after saving to write it to your tools.</p>
       {failure}
@@ -129,8 +129,8 @@ export function AddHookForm({ stages, onClose, onSaved }: { stages: Stage[]; onC
     </label>
     <label>Save for
       <Select value={audience} onChange={(event) => { setAudience(event.target.value as EditAudience); setError(undefined) }}>
-        <option value="shared">{audienceDescription('shared', global)}</option>
-        <option value="personal">{audienceDescription('personal', global)}</option>
+        <option value="shared">{audienceDescription('shared', userLevel)}</option>
+        <option value="personal">{audienceDescription('personal', userLevel)}</option>
       </Select>
     </label>
     {failure}
