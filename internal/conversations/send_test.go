@@ -66,6 +66,14 @@ func TestSend_TypesOnlyIntoALiveSessionInATabApp(t *testing.T) {
 			reply:        SendReply{Sent: true, Message: "Pasted into the Terminal tab that runs it. Press Enter there to send it."},
 			calls:        "type Terminal /dev/ttys018 hello",
 		},
+		"iTerm2 tab": {
+			conversation: at(ToolClaude, terminalHost{App: "iTerm", TTY: "/dev/ttys040"}),
+			text:         "one\ntwo",
+			processes:    holding("S+", "/dev/ttys040"),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Sent: true, Message: "Typed into the iTerm tab that runs it. Press Enter there to send it."},
+			calls:        "type iTerm /dev/ttys040 one\ntwo",
+		},
 		"control characters removed before typing": {
 			conversation: at(ToolClaude, ghostty),
 			text:         "fix\x1b[201~\x03 it\r\n",
@@ -290,7 +298,7 @@ func TestSend_NeverTypesWhereNoTabCanBeNamed(t *testing.T) {
 	for name, c := range map[string]Conversation{
 		"Claude Code background session":    {Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude attach x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{TTY: "/dev/ttys004"}, claudeBackground: true}},
 		"Codex thread two clients may show": {Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{ttys: []string{"/dev/ttys002", "/dev/ttys004"}}},
-		"terminal app without tabs to name": {Tool: ToolClaude, Open: Route{Kind: RouteFocus}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: "iTerm", TTY: "/dev/ttys004"}}},
+		"terminal app without tabs to name": {Tool: ToolClaude, Open: Route{Kind: RouteFocus}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: "Warp", TTY: "/dev/ttys004"}}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			launcher := fakeLauncher{focusOK: true}
@@ -309,7 +317,7 @@ func TestSend_NeverTypesWhereNoTabCanBeNamed(t *testing.T) {
 
 func TestTypeInTabArgs_PassTheTextAsAnArgument(t *testing.T) {
 	text := "one\ntwo\"; do shell script \"echo hacked"
-	for _, app := range []string{"Ghostty", "Terminal"} {
+	for _, app := range []string{"Ghostty", "Terminal", "iTerm"} {
 		args := typeInTabArgs(app, "/dev/ttys004", text, false)
 		if args[len(args)-3] != "/dev/ttys004" || args[len(args)-2] != text {
 			t.Errorf("%s: tty and text must be the arguments, actual %q", app, args[len(args)-3:])
@@ -318,9 +326,16 @@ func TestTypeInTabArgs_PassTheTextAsAnArgument(t *testing.T) {
 		if strings.Contains(script, "hacked") {
 			t.Errorf("%s: the text leaked into the script", app)
 		}
-		if strings.Contains(script, `send key "enter"`) || strings.Contains(script, "do script") {
+		if strings.Contains(script, `send key "enter"`) || strings.Contains(script, "do script") || strings.Contains(script, "write text") && !strings.Contains(script, "without newline") {
 			t.Errorf("%s: the script must never press Enter:\n%s", app, script)
 		}
+	}
+}
+
+func TestTypeInTabArgs_ITermGetsTheTextAsOnePaste(t *testing.T) {
+	script := strings.Join(typeInTabArgs("iTerm", "/dev/ttys004", "one\ntwo", false), "\n")
+	if !strings.Contains(script, `tell t to write text ((character id 27) & "[200~" & (item 2 of argv) & (character id 27) & "[201~") without newline`) {
+		t.Errorf("iTerm types each line, so the text must go in as a bracketed paste:\n%s", script)
 	}
 }
 

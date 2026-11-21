@@ -294,7 +294,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 
 // tabApps are the terminal apps whose tabs the server selects by tty
 // and opens new tabs in.
-var tabApps = map[string]bool{"Terminal": true, "Ghostty": true}
+var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -587,10 +587,16 @@ var tabScripts = map[string]struct{ open, match, close []string }{
 		match: []string{"focus t"},
 		close: []string{"end if", "end repeat", "end tell"},
 	},
+	"iTerm": {
+		open:  []string{`tell application "iTerm"`, "repeat with w in windows", "repeat with k in tabs of w", "repeat with t in sessions of k", "if tty of t is (item 1 of argv) then"},
+		match: []string{"select t", "select k", "select w"},
+		close: []string{"end if", "end repeat", "end repeat", "end repeat", "end tell"},
+	},
 }
 
 // titleTabLines name the tab whose terminal's tty is item 1 of argv
-// after item 2. Ghostty names a tab, not the terminal inside it.
+// after item 2. Ghostty names a tab, not the terminal inside it; iTerm2
+// names the session in the pane.
 var titleTabLines = map[string][]string{
 	"Terminal": {
 		`tell application "Terminal"`,
@@ -612,6 +618,21 @@ var titleTabLines = map[string][]string{
 		"repeat with t in terminals of k",
 		"if tty of t is (item 1 of argv) then",
 		"set name override of k to (item 2 of argv)",
+		`return "ok"`,
+		"end if",
+		"end repeat",
+		"end repeat",
+		"end repeat",
+		"end tell",
+		`return "missing"`,
+	},
+	"iTerm": {
+		`tell application "iTerm"`,
+		"repeat with w in windows",
+		"repeat with k in tabs of w",
+		"repeat with t in sessions of k",
+		"if tty of t is (item 1 of argv) then",
+		"set name of t to (item 2 of argv)",
 		`return "ok"`,
 		"end if",
 		"end repeat",
@@ -658,11 +679,25 @@ var newTabLines = map[string][]string{
 		"activate",
 		"end tell",
 	},
+	"iTerm": {
+		`tell application "iTerm"`,
+		"if (count of windows) is 0 then",
+		"set w to (create window with default profile)",
+		"else",
+		"set w to current window",
+		"tell w to create tab with default profile",
+		"end if",
+		"tell current session of w to write text (item 1 of argv)",
+		"activate",
+		"end tell",
+	},
 }
 
 // typeInTabLines type item 2 of argv into the terminal whose tty is
 // item 1 of argv. Ghostty takes it as a paste, so a program that asks
-// for bracketed paste gets every line in one paste. Terminal has no such
+// for bracketed paste gets every line in one paste. iTerm2 types it, so
+// the script wraps it in the bracketed paste markers itself; every tool
+// typed into asks for bracketed paste. Terminal has no such
 // command (do script presses Enter), so it pastes the clipboard with
 // Cmd+V, only once the tab is selected in the front window. Item 3 is
 // "set" to put the text on the clipboard first, else the clipboard must
@@ -713,6 +748,25 @@ var typeInTabLines = map[string][]string{
 		"activate",
 		`return "ok"`,
 		"end if",
+		"end repeat",
+		"end tell",
+		`return "missing"`,
+	},
+	"iTerm": {
+		`tell application "iTerm"`,
+		"repeat with w in windows",
+		"repeat with k in tabs of w",
+		"repeat with t in sessions of k",
+		"if tty of t is (item 1 of argv) then",
+		`tell t to write text ((character id 27) & "[200~" & (item 2 of argv) & (character id 27) & "[201~") without newline`,
+		"select t",
+		"select k",
+		"select w",
+		"activate",
+		`return "ok"`,
+		"end if",
+		"end repeat",
+		"end repeat",
 		"end repeat",
 		"end tell",
 		`return "missing"`,

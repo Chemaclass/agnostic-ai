@@ -230,7 +230,7 @@ func TestStart_SaysTheLineToRunWhenNoTabOpens(t *testing.T) {
 
 func TestStart_OpensATerminalWindowFromAnAppWithoutTabs(t *testing.T) {
 	table := ghosttyChain()
-	table[len(table)-1].Command = "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+	table[len(table)-1].Command = "/Applications/Warp.app/Contents/MacOS/stable"
 	start := newFakeStart(t, table, "claude")
 
 	reply, err := start.starter.Start(context.Background(), request("", "Write the notes"))
@@ -240,6 +240,30 @@ func TestStart_OpensATerminalWindowFromAnAppWithoutTabs(t *testing.T) {
 	}
 	if !strings.HasPrefix(reply.Message, "Started Claude Code in a new Terminal window in /tmp/app") {
 		t.Errorf("message = %q", reply.Message)
+	}
+}
+
+func TestStart_OpensAnITermTabFromITerm(t *testing.T) {
+	traced := ghosttyChain()
+	traced[len(traced)-1].Command = "/Applications/iTerm.app/Contents/MacOS/iTerm2"
+	for name, tc := range map[string]struct {
+		table []ProcessInfo
+		env   map[string]string
+	}{
+		"traced":     {traced, nil},
+		"by its env": {chain("agnostic-ai", "/bin/zsh", "/opt/bin/codex"), map[string]string{"CODEX_THREAD_ID": idChild, "TERM_PROGRAM": "iTerm.app"}},
+	} {
+		start := newFakeStart(t, tc.table, "claude")
+		start.starter.Getenv = env(tc.env)
+
+		reply, err := start.starter.Start(context.Background(), request(ToolClaude, "Write the notes"))
+
+		if err != nil || len(start.launcher.calls) != 1 || !strings.HasPrefix(start.launcher.calls[0], "new tab iTerm cd '/tmp/app' && ") {
+			t.Fatalf("%s: calls %q err %v", name, start.launcher.calls, err)
+		}
+		if !strings.HasPrefix(reply.Message, "Started Claude Code in a new iTerm tab in /tmp/app") {
+			t.Errorf("%s: message = %q", name, reply.Message)
+		}
 	}
 }
 
