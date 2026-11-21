@@ -90,7 +90,7 @@ func newPacksAddCmd() *cobra.Command {
 		Short: "Install a spec pack from a Git URL or local directory.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			return runPacksAdd(".", args[0], name, cmd.OutOrStdout())
@@ -106,7 +106,7 @@ func newPacksRemoveCmd() *cobra.Command {
 		Short: "Uninstall a spec pack.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			return runPacksRemove(".", args[0], cmd.OutOrStdout())
@@ -131,7 +131,7 @@ func newPacksUpdateCmd() *cobra.Command {
 		Short: "Reinstall pack(s) at the commit recorded in the lockfile.",
 		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			only := ""

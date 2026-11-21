@@ -75,7 +75,7 @@ func homeToolMode(home config.ApprovalsConfig, tool string) (mode, from string) 
 // native reviewer is selected. A block that does not load writes no
 // reviewer key, with a warning: approvals then fall back to ask, and the
 // other surfaces still sync.
-func (p *globalPlan) loadPlanApprovals() error {
+func (p *userPlan) loadPlanApprovals() error {
 	if !slices.ContainsFunc(p.targets, func(target string) bool { _, ok := nativeReviewers[target]; return ok || target == "kiro" }) {
 		return nil
 	}
@@ -94,7 +94,7 @@ func (p *globalPlan) loadPlanApprovals() error {
 // home config sets review for target. A settings spec that sets the key
 // wins, and a value set outside agnostic-ai stays unowned: a different
 // one with a warning, the same one so removing review keeps it.
-func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []globalSetting, previous map[string]any) ([]globalSetting, map[string]any, error) {
+func (p *userPlan) approvalsReviewSetting(target, path, format string, want []userSetting, previous map[string]any) ([]userSetting, map[string]any, error) {
 	reviewer, ok := nativeReviewers[target]
 	mode, from := homeToolMode(p.approvals, target)
 	if !ok || mode != config.ApprovalsReview {
@@ -148,7 +148,7 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 		}
 		return want, previous, nil
 	}
-	return append(want, globalSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), previous, nil
+	return append(want, userSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), previous, nil
 }
 
 // reviewerState is a native reviewer key as the user settings file holds
@@ -161,12 +161,12 @@ type reviewerState struct {
 	present, on, written bool
 }
 
-func readReviewerState(tool, userHome string, state globalState) (reviewerState, bool, error) {
+func readReviewerState(tool, userHome string, state userState) (reviewerState, bool, error) {
 	reviewer, ok := nativeReviewers[tool]
 	if !ok {
 		return reviewerState{}, false, nil
 	}
-	g := globalTargets[tool]
+	g := userTargets[tool]
 	rs := reviewerState{reviewer: reviewer, path: g.path(userHome, g.settings.path)}
 	data, err := os.ReadFile(rs.path)
 	switch {
@@ -217,7 +217,7 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	if mode != config.ApprovalsReview && !rs.on {
 		return notes
 	}
-	format := globalTargets[tool].settings.format
+	format := userTargets[tool].settings.format
 	if off := r.off; off != nil {
 		if have, ok := settingsLookup(rs.values, off.key, format); ok && sameSetting(have, off.value) {
 			notes = append(notes, fmt.Sprintf("%s = %s in %s keeps %s from running; %s", off.key, settingsValueText(off.key, off.value), rs.path, r.name, off.why))

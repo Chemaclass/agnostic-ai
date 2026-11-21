@@ -10,7 +10,7 @@ Project layers, from lowest to highest priority:
 
 - **packs**: shared defaults installed into the project.
 - **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
-- **project-user** (`<project>/.agnostic-ai/local/`, gitignored): per-developer overrides.
+- **local** (`<project>/.agnostic-ai/local/`, gitignored): per-developer overrides.
 
 Tool configuration generated from global specs (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`) is a separate source for `sync --scope user` and does not participate in project layering.
 

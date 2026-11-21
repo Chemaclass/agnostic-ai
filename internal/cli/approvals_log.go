@@ -24,7 +24,7 @@ func newApprovalsLogCmd() *cobra.Command {
   agnostic-ai approvals log --since 1h --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			source, err := globalSourceRoot()
+			source, err := userSourceRoot()
 			if err != nil {
 				return err
 			}

@@ -57,7 +57,7 @@ func TestDoctor_ReportsCodexHookTrustInTextAndJSON(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing.T) {
+func TestSyncUser_CodexHookTrustUsesMergedCommandsAndPreservesState(t *testing.T) {
 	hash := "sha256:fd022754fe4b7274aa51f6229943be4f6bb80d966b69cffe4d793578e14ce6e8"
 	if runtime.GOOS == "windows" {
 		hash = "sha256:e9d9cf155ba9ce2edebca3b635c99c5aa19d57db27499690a9f260388ada88fc"

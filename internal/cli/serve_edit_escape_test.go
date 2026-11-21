@@ -12,7 +12,7 @@ import (
 // Every edit endpoint that names a file or spec from the request must
 // refuse one that climbs out of the project, and write nothing there.
 func TestServeEdit_RefusesRequestPathsOutsideTheProject(t *testing.T) {
-	global := editHome(t)
+	userLevel := editHome(t)
 	project := scopeProject(t)
 	outside := t.TempDir()
 	rel, err := filepath.Rel(project, filepath.Join(outside, "escape.yaml"))
@@ -21,7 +21,7 @@ func TestServeEdit_RefusesRequestPathsOutsideTheProject(t *testing.T) {
 	}
 	escapes := map[string]string{"relative": filepath.ToSlash(rel), "absolute": filepath.Join(outside, "escape.yaml")}
 	edit := newEditHandler(project, false)
-	move := newSpecMoveHandler(project, false, &switchPeer{root: global, global: true})
+	move := newSpecMoveHandler(project, false, &switchPeer{root: userLevel, userLevel: true})
 	for kind, escape := range escapes {
 		for _, audience := range []string{"shared", "personal"} {
 			for _, tc := range []struct {

@@ -204,7 +204,7 @@ func TestCompare_PermissionsRespectCodexOptInAndAuthoritativeEmptyPolicy(t *test
 	}
 }
 
-func TestCompare_PermissionDefaultModeRemainsGlobalOnly(t *testing.T) {
+func TestCompare_PermissionDefaultModeRemainsUserOnly(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	silence(t)
 	entry := spec.Entry{Kind: spec.KindSettings, Name: "mode", Path: "settings/mode.yaml", Meta: map[string]any{"permissions": map[string]any{"default-mode": "plan"}, "x-claude": map[string]any{"permissions": map[string]any{"defaultMode": "plan"}}}}

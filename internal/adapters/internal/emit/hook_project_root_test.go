@@ -137,18 +137,18 @@ func TestReportHookProjectRoot_WindowsOverrideAndLengthHonorPolicy(t *testing.T)
 		{"command": `echo ${#CLAUDE_PROJECT_DIR}`},
 	} {
 		hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Path: "hooks/guard.yaml", Meta: meta}
-		for _, global := range []bool{false, true} {
+		for _, userLevel := range []bool{false, true} {
 			ResetCoverageNotes()
 			out := swapWarnerForNotes(t)
-			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "warn", global); err != nil {
+			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "warn", userLevel); err != nil {
 				t.Error(err)
 			}
 			FlushCoverageNotes()
 			if !strings.Contains(out.String(), "guard") || !strings.Contains(out.String(), "CLAUDE_PROJECT_DIR") {
 				t.Errorf("missing named warning: %s", out.String())
 			}
-			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "error", global); err == nil || !strings.Contains(err.Error(), "guard") {
-				t.Errorf("meta=%v global=%v error=%v", meta, global, err)
+			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "error", userLevel); err == nil || !strings.Contains(err.Error(), "guard") {
+				t.Errorf("meta=%v global=%v error=%v", meta, userLevel, err)
 			}
 		}
 	}
@@ -159,15 +159,15 @@ func TestReportHookProjectRoot_OtherVariableNamesStayUnreported(t *testing.T) {
 	testutil.TempCwd(t)
 	for _, command := range []string{`echo ${#CLAUDE_PROJECT_DIR_EXTRA}`, `echo ${!CLAUDE_PROJECT_DIR_EXTRA}`, `$env:CLAUDE_PROJECT_DIR_EXTRA/guard.ps1`} {
 		hook := spec.Entry{Kind: spec.KindHook, Name: "other-variable", Meta: map[string]any{"command": command}}
-		for _, global := range []bool{false, true} {
+		for _, userLevel := range []bool{false, true} {
 			ResetCoverageNotes()
-			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "warn", global); err != nil {
+			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "warn", userLevel); err != nil {
 				t.Error(err)
 			}
 			if PendingCoverageNotesCount() != 0 {
 				t.Errorf("wrong variable got warning: %s", command)
 			}
-			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "error", global); err != nil {
+			if err := ReportHookProjectRoot("codex", []spec.Entry{hook}, "error", userLevel); err != nil {
 				t.Errorf("wrong variable got error: %s: %v", command, err)
 			}
 		}
@@ -175,7 +175,7 @@ func TestReportHookProjectRoot_OtherVariableNamesStayUnreported(t *testing.T) {
 	t.Cleanup(ResetCoverageNotes)
 }
 
-func TestReportHookProjectRoot_GlobalGeminiChecksRenderedTopLevelCommand(t *testing.T) {
+func TestReportHookProjectRoot_UserGeminiChecksRenderedTopLevelCommand(t *testing.T) {
 	hook := spec.Entry{Kind: spec.KindHook, Name: "global-guard", Meta: map[string]any{"command": `"${CLAUDE_PROJECT_DIR:-/tmp}/guard.sh"`, "x-gemini": map[string]any{"hooks": []any{map[string]any{"type": "command", "command": "safe.sh"}}}}}
 	if err := ReportHookProjectRoot("gemini", []spec.Entry{hook}, "error", true); err == nil || !strings.Contains(err.Error(), "global-guard") {
 		t.Errorf("global renderer uses top-level command, got error=%v", err)

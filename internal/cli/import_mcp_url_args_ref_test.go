@@ -561,12 +561,12 @@ func TestSync_URLArgsRefLeavesServerOutWithNote(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_CursorURLArgsRefsRoundTrip(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	mcpDir := filepath.Join(source, "mcps")
 	writeFile(t, filepath.Join(mcpDir, "gh.yaml"), "name: gh\ncommand: gh-mcp\nargs: [--token, \"${GH_TOKEN}\", \"${workspaceFolder}\", \"${env:workspaceFolder}\"]\n")
 	writeFile(t, filepath.Join(mcpDir, "api.yaml"), "name: api\ntype: http\nurl: https://${API_HOST}/mcp\n")
-	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	cursorPath := filepath.Join(home, ".cursor", "mcp.json")
@@ -579,7 +579,7 @@ func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	if err := os.RemoveAll(mcpDir); err != nil {
 		t.Fatal(err)
 	}
-	if _, warnings, err := runImportGlobalTest(); err != nil {
+	if _, warnings, err := runImportUserTest(); err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, filepath.Join(mcpDir, "gh.yaml")); !strings.Contains(got, "- ${GH_TOKEN}") || !strings.Contains(got, "- ${workspaceFolder}") || !strings.Contains(got, "- ${env:workspaceFolder}") {
@@ -588,7 +588,7 @@ func TestImportGlobal_CursorURLArgsRefsRoundTrip(t *testing.T) {
 	if got := readFile(t, filepath.Join(mcpDir, "api.yaml")); !strings.Contains(got, "url: https://${API_HOST}/mcp") {
 		t.Errorf("import must read the url reference back:\n%s", got)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "cursor"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "cursor"); err != nil {
 		t.Fatalf("sync after import: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, cursorPath); got != want {

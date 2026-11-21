@@ -69,6 +69,7 @@ func newStatusCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON")
+	addProjectOnlyScopeFlag(cmd, "`agnostic-ai sync --scope user --check` reports user-level drift")
 	return cmd
 }
 

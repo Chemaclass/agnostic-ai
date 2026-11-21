@@ -49,7 +49,7 @@ func hookRunnable(e spec.Entry) bool {
 }
 
 func hasHookHandler(meta map[string]any) bool {
-	if len(globalHookCommands(meta["command"])) > 0 {
+	if len(userHookCommands(meta["command"])) > 0 {
 		return true
 	}
 	for _, key := range []string{"commandWindows", "prompt", "url", "server", "tool", "agent"} {

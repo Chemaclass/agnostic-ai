@@ -18,10 +18,10 @@ Run commands from the project root. For a scratch project:
 
 ```bash
 echo "claude,codex" | agnostic-ai init
-agnostic-ai new rule payments-context --scope services/payments
+agnostic-ai new rule payments-context --dir services/payments
 ```
 
-In an existing project, skip `init` and check [tool compatibility](#shared-files-and-safe-updates). If `new rule --help` lacks `--scope`, [upgrade agnostic-ai](@/docs/installation.md#upgrade).
+In an existing project, skip `init` and check [tool compatibility](#shared-files-and-safe-updates). If `new rule --help` lacks `--dir`, [upgrade agnostic-ai](@/docs/installation.md#upgrade).
 
 Edit `.agnostic-ai/rules/payments-context.md`:
 

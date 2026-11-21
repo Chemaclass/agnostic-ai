@@ -44,12 +44,12 @@ func grokHookEntries(hooks map[string]any) map[string]any {
 	}
 	return probe
 }
-func validateGlobalGrokImport(home string, targets []string) error {
+func validateUserGrokImport(home string, targets []string) error {
 	for _, target := range targets {
 		if target != "grok" {
 			continue
 		}
-		g := globalTargets[target]
+		g := userTargets[target]
 		servers, err := readGrokConfig(g.mcpPath(home))
 		if err != nil {
 			return err

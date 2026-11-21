@@ -39,7 +39,7 @@ const (
 // the global source root with global set.
 type editHandler struct {
 	root      string
-	global    bool
+	userLevel bool
 	mu        sync.Mutex
 	validate  func() ([]string, error)
 	baselines map[string]editBaseline
@@ -47,7 +47,7 @@ type editHandler struct {
 
 // level names the served level in messages: project, or global.
 func (h *editHandler) level() string {
-	if h.global {
+	if h.userLevel {
 		return "global"
 	}
 	return "project"
@@ -55,14 +55,14 @@ func (h *editHandler) level() string {
 
 // levelLabel is level as the page's selector shows it.
 func (h *editHandler) levelLabel() string {
-	if h.global {
+	if h.userLevel {
 		return "Global"
 	}
 	return "Project"
 }
 
-func newEditHandler(root string, global bool) http.Handler {
-	return &editHandler{root: root, global: global}
+func newEditHandler(root string, userLevel bool) http.Handler {
+	return &editHandler{root: root, userLevel: userLevel}
 }
 
 type editError struct {
@@ -227,7 +227,7 @@ func (h *editHandler) serveTargetsToggle(w http.ResponseWriter, body []byte) (ed
 		return editPlan{}, false
 	}
 	if !req.Reset && !slices.Contains(h.supportedTargetNames(), req.Name) {
-		if h.global && slices.Contains(adapters.Names(), req.Name) {
+		if h.userLevel && slices.Contains(adapters.Names(), req.Name) {
 			writeEditJSON(w, http.StatusBadRequest, editError{Error: fmt.Sprintf("sync --scope user cannot write %s; change it in a project", req.Name)})
 			return editPlan{}, false
 		}
@@ -452,10 +452,10 @@ func requestOriginStatus(r *http.Request) int {
 // A nil value resets the personal override, and removes a personal file
 // that then only names its spec.
 func (h *editHandler) settingsEdit(where editAudience, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
-	if voiceEditField(key) && !h.global {
+	if voiceEditField(key) && !h.userLevel {
 		return "", nil, errors.New("voice is editable in the global view only")
 	}
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return "", nil, err
 	}
@@ -508,7 +508,7 @@ func (h *editHandler) validationProblems() ([]string, error) {
 	if h.validate != nil {
 		return h.validate()
 	}
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return nil, err
 	}

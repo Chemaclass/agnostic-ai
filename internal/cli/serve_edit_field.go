@@ -49,16 +49,16 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	if key == "session-retention-days" && addr.target != "" {
 		return "", nil, errors.New("session retention has no per-tool value; send target all")
 	}
-	if key == "session-retention-days" && !h.global {
+	if key == "session-retention-days" && !h.userLevel {
 		return "", nil, errors.New("session retention is editable in the global view only")
 	}
 	if voiceEditField(key) && addr.target != "" {
 		return "", nil, errors.New("voice has no per-tool value; send target all")
 	}
-	if voiceEditField(key) && !h.global {
+	if voiceEditField(key) && !h.userLevel {
 		return "", nil, errors.New("voice is editable in the global view only")
 	}
-	scope, err := loadCheckScope(h.global)
+	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {
 		return "", nil, err
 	}
@@ -116,11 +116,11 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 	if addr.target != "" {
 		edited = []string{addr.target}
 	}
-	inEffect := overview.SettingsInEffect(settings, key, edited, h.global)
+	inEffect := overview.SettingsInEffect(settings, key, edited, h.userLevel)
 	target := overview.SettingsWriteTarget(settings, inEffect, key, edited)
 	unreachable := inEffect >= 0 && target < 0
 	defaultFile := filepath.Join(h.root, "settings", "defaults.yaml")
-	if !h.global {
+	if !h.userLevel {
 		defaultFile = filepath.Join(config.ResolveSourcePath(h.root, scope.cfg.Sources.Settings), "defaults.yaml")
 	}
 	defaultShown := overviewDisplay(h.root, defaultFile)
@@ -132,7 +132,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 		})
 		switch {
 		case at >= 0:
-			if j := overview.SettingsOverride(settings, at, key, edited, h.global); j >= 0 {
+			if j := overview.SettingsOverride(settings, at, key, edited, h.userLevel); j >= 0 {
 				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SettingsValuePath(h.root, settings[j], key, edited, scope.models), key, shown)
 			}
 			chosen, file = settings[at], settings[at].Path
@@ -146,7 +146,7 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 					}
 				}
 			}
-			if j := overview.SettingsOverride(later, -1, key, edited, h.global); j >= 0 {
+			if j := overview.SettingsOverride(later, -1, key, edited, h.userLevel); j >= 0 {
 				return "", nil, fmt.Errorf("%s sets %s and overrides %s; edit that spec", overview.SettingsValuePath(h.root, later[j], key, edited, scope.models), key, shown)
 			}
 			if len(candidates) > 0 && !unreachable {
@@ -222,7 +222,7 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, addr fieldAddress, value
 		if _, inherited := overview.SettingsFieldValue(chosen.Meta, key); inherited && addr.target == "" {
 			return "", nil, noPersonalValueError{fmt.Errorf("this file inherits %s from the %s spec named %q; switch to %s to clear it", key, h.level(), chosen.Name, h.levelLabel())}
 		}
-		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no local %s to reset", overview.SettingsOverlayPath(h.global, cmp.Or(chosen.Name, "defaults")), addr.label())}
+		return "", nil, noPersonalValueError{fmt.Errorf("%s: there is no local %s to reset", overview.SettingsOverlayPath(h.userLevel, cmp.Or(chosen.Name, "defaults")), addr.label())}
 	}
 	if chosen.Path != "" {
 		file, scaffold, err := h.scopedSettingsFile(chosen, key, audiencePersonal)
@@ -235,7 +235,7 @@ func (h *editHandler) localFieldEdit(chosen spec.Entry, addr fieldAddress, value
 		}
 		return file, scalarFieldEdit(chosen, addr, value, base, scaffold), nil
 	}
-	file := filepath.Join(h.root, overview.SettingsOverlayPath(h.global, "defaults"))
+	file := filepath.Join(h.root, overview.SettingsOverlayPath(h.userLevel, "defaults"))
 	if _, err := os.Lstat(file); err == nil {
 		return "", nil, fmt.Errorf("%s exists but is not a loaded settings spec", overviewDisplay(h.root, file))
 	} else if !os.IsNotExist(err) {

@@ -47,7 +47,8 @@ Two jobs in `release.yml` handle the companion:
 1. Imports the secret into a temporary keychain and stops unless it holds the certificate whose hash is pinned at the top of the script (`companion_release_cert`). A lookup by name would also match a certificate whose name only contains the expected one.
 2. Adds that keychain to the search list, and prints the hash and the certificate's end date in the job log.
 3. For each disk image: copies the app out, signs the bundled CLI and then the app, pins the hash in the app's requirement, checks the app against it with `codesign --verify -R`, and writes the disk image again.
-4. Deletes the temporary keychain on exit, which also removes it from the search list.
+4. Mounts each written disk image and checks its app against the pinned requirement again, so an image signed ad hoc or with another certificate stops the release.
+5. Deletes the temporary keychain on exit, which also removes it from the search list.
 
 A stable release needs both disk images and both archives, so a failed build or signing stops it before anything is published. A prerelease ships without them. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
 
@@ -102,6 +103,8 @@ Rotate only when the key may have leaked or the certificate nears its end date. 
 2. Set `companion_release_cert` in `scripts/companion-sign.sh` to the new `cert.sha1`, and merge that change.
 3. Replace the secret with the new `.p12`. Do it after the merge and before the next tag, since the script refuses any other certificate.
 4. Note the rotation in the changelog, so users expect the prompt.
+
+The app's own update (`agnostic-ai companion update-app`) accepts only an app that meets the designated requirement of the app that runs. After a rotation, that check refuses the new release, so each user downloads the first disk image with the new certificate by hand once. Say so in the changelog with the rotation.
 
 ## Check a released app
 

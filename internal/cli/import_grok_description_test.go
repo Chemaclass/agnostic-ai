@@ -8,12 +8,12 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestImportGlobal_GrokDescribedServerRoundTrips(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_GrokDescribedServerRoundTrips(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".grok", "config.toml")
 	native := "# Native notes stay here.\n[mcp_servers.docs]\ncommand = 'docs-mcp'\nargs = ['--stdio']\ndescription = 'Docs search' # ignored\n"
 	writeFile(t, path, native)
-	_, warnings, err := runImportGlobalTest("grok")
+	_, warnings, err := runImportUserTest("grok")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
@@ -24,13 +24,13 @@ func TestImportGlobal_GrokDescribedServerRoundTrips(t *testing.T) {
 	if strings.Contains(got, "description") {
 		t.Errorf("spec retains ignored description:\n%s", got)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "grok"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "grok"); err != nil {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, path); got != native {
 		t.Errorf("sync changed native config:\n%s", got)
 	}
-	if _, warnings, err := runGlobalAgentTest("--only", "grok", "--check"); err != nil {
+	if _, warnings, err := runUserAgentTest("--only", "grok", "--check"); err != nil {
 		t.Fatalf("check: %v\n%s", err, warnings)
 	}
 }
@@ -66,7 +66,7 @@ func TestImportGrok_DescribedProjectServerRoundTrips(t *testing.T) {
 	execCLI(t, "lint")
 }
 
-func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) {
+func TestImportUser_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) {
 	for _, other := range []string{"claude", "cursor"} {
 		for _, grokFirst := range []bool{false, true} {
 			targets := []string{other, "grok"}
@@ -74,7 +74,7 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 				targets = []string{"grok", other}
 			}
 			t.Run(strings.Join(targets, "_"), func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				otherRel := ".claude.json"
 				if other == "cursor" {
 					otherRel = ".cursor/mcp.json"
@@ -86,7 +86,7 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 				for path, native := range paths {
 					writeFile(t, path, native)
 				}
-				_, warnings, err := runImportGlobalTest(targets...)
+				_, warnings, err := runImportUserTest(targets...)
 				if err != nil {
 					t.Fatalf("import: %v\n%s", err, warnings)
 				}
@@ -96,7 +96,7 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 				if got := readFile(t, filepath.Join(source, "mcps/fs.yaml")); !strings.Contains(got, "description: Files") {
 					t.Errorf("lost supported description:\n%s", got)
 				}
-				if _, warnings, err := runGlobalAgentTest("--only", strings.Join(targets, ",")); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", strings.Join(targets, ",")); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 				for path, native := range paths {
@@ -109,10 +109,10 @@ func TestImportGlobal_GrokKeepsOtherToolsDescriptionInEitherOrder(t *testing.T) 
 	}
 }
 
-func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
+func TestImportUser_CodexAndGrokDescriptionPreference(t *testing.T) {
 	for _, targets := range [][]string{{"codex", "grok"}, {"grok", "codex"}, {"codex", "grok", "claude"}, {"grok", "codex", "claude"}, {"claude", "grok", "codex"}} {
 		t.Run(strings.Join(targets, "_"), func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			paths := map[string]string{
 				filepath.Join(home, ".codex/config.toml"): "[mcp_servers.fs]\ncommand = 'fs-mcp'\ndescription = 'Ignored Codex note'\nroots = [{ uri = 'file:///ignored' }]\n",
 				filepath.Join(home, ".grok/config.toml"):  "[mcp_servers.fs]\ncommand = 'fs-mcp'\ndescription = 'Ignored Grok note'\n",
@@ -123,7 +123,7 @@ func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
 			for path, native := range paths {
 				writeFile(t, path, native)
 			}
-			_, warnings, err := runImportGlobalTest(targets...)
+			_, warnings, err := runImportUserTest(targets...)
 			if err != nil {
 				t.Fatalf("import: %v\n%s", err, warnings)
 			}
@@ -137,7 +137,7 @@ func TestImportGlobal_CodexAndGrokDescriptionPreference(t *testing.T) {
 			if len(targets) == 3 && !strings.Contains(got, "description: Files") {
 				t.Errorf("lost Claude description:\n%s", got)
 			}
-			if _, warnings, err := runGlobalAgentTest("--only", strings.Join(targets, ",")); err != nil {
+			if _, warnings, err := runUserAgentTest("--only", strings.Join(targets, ",")); err != nil {
 				t.Fatalf("sync: %v\n%s", err, warnings)
 			}
 			for path, native := range paths {

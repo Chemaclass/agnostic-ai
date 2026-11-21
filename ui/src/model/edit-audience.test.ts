@@ -37,10 +37,10 @@ describe('audience labels', () => {
   })
 
   it.each([
-    ['project-user', 'local'],
-    ['global-local', 'local'],
+    ['local', 'local'],
+    ['user-local', 'local'],
     ['project', 'project'],
-    ['global', 'global'],
+    ['user', 'user'],
     ['builtin', 'builtin'],
   ])('shows layer %s as %s', (layer, label) => {
     expect(layerLabel(layer)).toBe(label)

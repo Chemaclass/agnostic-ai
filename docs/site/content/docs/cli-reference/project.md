@@ -53,10 +53,10 @@ Before starting a cached environment, check the installed project binary and gen
 ```bash
 set -e
 agnostic-ai project --check
-agnostic-ai project -- doctor --scope project --check-references
+agnostic-ai project -- doctor --checks project --check-references
 ```
 
-Start your environment after these lines, so a failed check stops it. The second command checks every configured target, including local Markdown links in generated skills, without approving hooks on this machine. The project binary must support `doctor --scope project`. Keep the package pin, lockfile, and `requires` aligned.
+Start your environment after these lines, so a failed check stops it. The second command checks every configured target, including local Markdown links in generated skills, without approving hooks on this machine. The project binary must support `doctor --checks project`. Keep the package pin, lockfile, and `requires` aligned.
 
 - Missing or mismatched project binary: run `agnostic-ai project --bootstrap`, then repeat the checks.
 - Only ignored generated files missing: run `agnostic-ai project`.

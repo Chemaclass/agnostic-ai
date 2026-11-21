@@ -16,8 +16,8 @@ import (
 // OnUnsupportedModes are the values on-unsupported accepts.
 var OnUnsupportedModes = []string{"warn", "error", "silent"}
 
-// GlobalNameClashModes are the values sync.global-name-clash accepts.
-var GlobalNameClashModes = []string{"warn", "ignore"}
+// UserNameClashModes are the values sync.global-name-clash accepts.
+var UserNameClashModes = []string{"warn", "ignore"}
 
 // CodexSandboxModes are the values outputs.codex.config.sandbox accepts,
 // the ones Codex's `sandbox_mode` takes.
@@ -145,16 +145,16 @@ type SyncConfig struct {
 	// a tracked file the manifest lists that no spec produces anymore is a
 	// leftover, with or without a provenance header.
 	OutputManifest bool `yaml:"output-manifest,omitempty" json:"output-manifest,omitempty"`
-	// AllowGlobalNames lists skill and agent names the project shares with
+	// AllowUserNames lists skill and agent names the project shares with
 	// the global home on purpose. sync prints no shared-name warning for
 	// them; doctor still lists each one, marked as allowed. Names match
 	// the way Claude Code folds skill names.
-	AllowGlobalNames []string `yaml:"allow-global-names,omitempty" json:"allow-global-names,omitempty"`
-	// GlobalNameClash sets what sync does with a skill or agent name the
+	AllowUserNames []string `yaml:"allow-global-names,omitempty" json:"allow-global-names,omitempty"`
+	// UserNameClash sets what sync does with a skill or agent name the
 	// project shares with the global home: `warn` (the default when
 	// empty) prints the warning, `ignore` prints nothing. doctor still
 	// lists each one, marked as ignored.
-	GlobalNameClash string `yaml:"global-name-clash,omitempty" json:"global-name-clash,omitempty" jsonschema:"enum=warn,enum=ignore"`
+	UserNameClash string `yaml:"global-name-clash,omitempty" json:"global-name-clash,omitempty" jsonschema:"enum=warn,enum=ignore"`
 }
 
 func (c *Config) WithAdditionalTargets(targets ...string) *Config {
@@ -535,9 +535,9 @@ func (c *Config) validate(root string, files []*configFile) error {
 		return errs.Coded(errs.CodeConfigDecode, "%s: on-unsupported: %q is not one of %s",
 			source, c.OnUnsupported, strings.Join(OnUnsupportedModes, ", "))
 	}
-	if mode := c.Sync.GlobalNameClash; mode != "" && !slices.Contains(GlobalNameClashModes, mode) {
+	if mode := c.Sync.UserNameClash; mode != "" && !slices.Contains(UserNameClashModes, mode) {
 		return errs.Coded(errs.CodeConfigDecode, "%s: sync.global-name-clash: %q is not one of %s",
-			source, mode, strings.Join(GlobalNameClashModes, ", "))
+			source, mode, strings.Join(UserNameClashModes, ", "))
 	}
 	if codex := c.Outputs["codex"].Config; codex != nil && codex.Sandbox != "" && !slices.Contains(CodexSandboxModes, codex.Sandbox) {
 		return errs.Coded(errs.CodeConfigDecode, "%s: outputs.codex.config.sandbox: %q is not one of %s",

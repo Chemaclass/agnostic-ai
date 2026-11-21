@@ -262,7 +262,7 @@ test.describe('search across sections', () => {
     const data = structuredClone(fixture)
     const tools = data.sections.find((section) => section.id === 'tools')!
     const github = tools.items.find((item) => item.name === 'github')!
-    tools.items.push({ ...github, path: '.agnostic-ai/mcps/team/github.yaml', layer: 'global' })
+    tools.items.push({ ...github, path: '.agnostic-ai/mcps/team/github.yaml', layer: 'user' })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('./?view=context')
     await page.keyboard.press(modK)

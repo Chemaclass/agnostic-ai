@@ -14,14 +14,18 @@ import (
 
 const (
 	layerNameProject     = "project"
-	layerNameProjectUser = "project-user"
+	layerNameProjectUser = "local"
+	// layerNameUser and layerNameUserLocal are the layers of the user
+	// home and of its local/ folder.
+	layerNameUser      = "user"
+	layerNameUserLocal = "user-local"
 
 	// defaultProjectUser sits inside the source dir, the same shape as the
 	// global `~/.agnostic-ai/local/`.
 	defaultProjectUser = config.SourceBaseDir + "/local"
 )
 
-// defaultLayerSources is the fixed source layout used by the project-user
+// defaultLayerSources is the fixed source layout used by the local
 // layer. The project layer keeps its configurable
 // `cfg.Sources` paths.
 func defaultLayerSources() config.Sources {
@@ -69,7 +73,7 @@ func resolveProjectLayer(projectRoot string, cfg *config.Config) spec.Layer {
 	}
 }
 
-// resolveProjectUserLayer returns the project-user layer when
+// resolveProjectUserLayer returns the local layer when
 // `<projectRoot>/.agnostic-ai/local` exists.
 func resolveProjectUserLayer(projectRoot string) (spec.Layer, bool) {
 	pu := filepath.Join(projectRoot, defaultProjectUser)

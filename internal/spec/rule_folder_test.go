@@ -75,7 +75,7 @@ func TestLoadLayered_LocalFolderYieldsToASharedFrontmatterScope(t *testing.T) {
 	src := defaultsForTest().Sources
 	b, err := LoadLayered([]Layer{
 		{Name: "project", Root: root, Sources: src, IncludeRoot: root},
-		{Name: "project-user", Root: local, Sources: src, Extends: true, IncludeRoot: root},
+		{Name: "local", Root: local, Sources: src, Extends: true, IncludeRoot: root},
 	})
 	if err != nil {
 		t.Fatal(err)

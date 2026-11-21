@@ -239,7 +239,7 @@ func TestSettingsFields_NewDefaultSpecIsAChoiceAndNeverShadows(t *testing.T) {
 
 func localOverlay(shared spec.Entry, path string, own map[string]any) spec.Entry {
 	merged := shared
-	merged.Path, merged.Layer = path, "project-user"
+	merged.Path, merged.Layer = path, "local"
 	merged.Meta = map[string]any{}
 	maps.Copy(merged.Meta, shared.Meta)
 	maps.Copy(merged.Meta, own)
@@ -292,7 +292,7 @@ func TestSettingsFields_NativeValuesKeepTheirSharedAndPersonalSources(t *testing
 	mine := entry(spec.KindSettings, "native", personalPath, map[string]any{
 		"name": "native", "x-claude": map[string]any{"verbose": true},
 	})
-	mine.Layer = "project-user"
+	mine.Layer = "local"
 	sharedSource := FieldSource{Spec: "native", Path: shared.Path, Values: []Value{
 		{Key: "x-claude.theme", Type: ValueText, Value: "dark"},
 		{Key: "x-claude.verbose", Type: ValueBool, Value: "false"},
@@ -330,17 +330,17 @@ func TestSettingsFields_LocalPathNamesTheOverlayOfTheEditedSpec(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
 	team := entry(spec.KindSettings, "team", ".agnostic-ai/settings/team.yaml", map[string]any{"name": "team", "model": "sonnet"})
 	for _, tc := range []struct {
-		name     string
-		settings []spec.Entry
-		global   bool
-		want     string
+		name      string
+		settings  []spec.Entry
+		userLevel bool
+		want      string
 	}{
 		{"shared spec", []spec.Entry{team}, false, ".agnostic-ai/local/settings/team.yaml"},
 		{"no spec", nil, false, ".agnostic-ai/local/settings/defaults.yaml"},
 		{"global", nil, true, "local/settings/defaults.yaml"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, Global: tc.global, Bundle: spec.Bundle{Settings: tc.settings}}), SectionSettings).Fields {
+			for _, f := range sectionByID(t, Build(Inputs{Cfg: cfg, UserLevel: tc.userLevel, Bundle: spec.Bundle{Settings: tc.settings}}), SectionSettings).Fields {
 				if f.Key == "model" && (f.Editable == nil || f.Editable.LocalPath != tc.want) {
 					t.Errorf("model edit = %+v, want local path %s", f.Editable, tc.want)
 				}
@@ -517,7 +517,7 @@ func TestSettingsItem_ListsTheKeysItsOverlaySets(t *testing.T) {
 func TestSettingsItem_ListsTheKeysOfAPersonalOnlySpec(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
 	mine := entry(spec.KindSettings, "mine", ".agnostic-ai/local/settings/mine.yaml", map[string]any{"name": "mine", "x-claude": map[string]any{"verbose": true}})
-	mine.Layer = "project-user"
+	mine.Layer = "local"
 	for _, item := range sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{mine}}}), SectionSettings).Items {
 		if item.Name == "mine" && !slices.Equal(item.LocalKeys, []string{"x-claude.verbose"}) {
 			t.Errorf("local keys = %v", item.LocalKeys)

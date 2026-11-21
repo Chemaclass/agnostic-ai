@@ -1,0 +1,305 @@
+package cli
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
+)
+
+func postCreate(t *testing.T, h http.Handler, body string, mutate func(*http.Request)) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310"+userCreatePath, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if mutate != nil {
+		mutate(req)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestSwitch_OffersToCreateAMissingUserHomeAndStartsNoServer(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "missing")
+	started := false
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: t.TempDir()}, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+		started = true
+		return nil, nil
+	})
+	defer h.close()
+	rec, _ := postSwitch(t, h)
+	var body switchMissingReply
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if rec.Code != http.StatusConflict || !body.Missing || body.Root != home || body.Error == "" {
+		t.Errorf("switch = %d %s", rec.Code, rec.Body)
+	}
+	if started {
+		t.Error("a server started for a missing home")
+	}
+}
+
+func TestSwitch_EmptyUserHomeCountsAsMissing(t *testing.T) {
+	h := newSwitchHandler(&switchPeer{root: t.TempDir(), userLevel: true}, nil, probeViewServer, nil)
+	defer h.close()
+	if rec, _ := postSwitch(t, h); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), `"missing":true`) {
+		t.Errorf("switch = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSwitch_DanglingUserHomeLinkIsAPlainErrorNamingTheTarget(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	link := filepath.Join(t.TempDir(), "home")
+	if err := os.Symlink(filepath.Join(t.TempDir(), "gone"), link); err != nil {
+		t.Fatal(err)
+	}
+	h := newSwitchHandler(&switchPeer{root: link, userLevel: true}, nil, probeViewServer, nil)
+	defer h.close()
+	rec, _ := postSwitch(t, h)
+	if rec.Code != http.StatusConflict || strings.Contains(rec.Body.String(), `"missing"`) || !strings.Contains(rec.Body.String(), "gone") {
+		t.Errorf("switch = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestUserCreate_WritesTheStarterFilesAndRunsGitInit(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	root := filepath.Join(t.TempDir(), "home")
+	rec := postCreate(t, newUserCreateHandler(root), `{"git":true}`, nil)
+	var reply userCreateReply
+	if err := json.Unmarshal(rec.Body.Bytes(), &reply); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if reply.Root != root || reply.Git != "initialized" || len(reply.Created) != 3 {
+		t.Errorf("reply = %+v", reply)
+	}
+	if got := readFile(t, filepath.Join(root, "agnostic-ai.yaml")); got != "version: 1\n" {
+		t.Errorf("agnostic-ai.yaml = %q", got)
+	}
+	if got := readFile(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
+		t.Errorf(".gitignore = %q", got)
+	}
+	if got := readFile(t, filepath.Join(root, "AGNOSTIC_AI.md")); got != "" {
+		t.Errorf("AGNOSTIC_AI.md = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".git")); err != nil {
+		t.Errorf("no .git: %v", err)
+	}
+}
+
+func TestUserCreate_SkipsGitWhenNotRequestedOrMissing(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "home")
+	rec := postCreate(t, newUserCreateHandler(root), `{"git":false}`, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"git":"skipped`) {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".git")); err == nil {
+		t.Error("git init ran without being asked")
+	}
+
+	t.Setenv("PATH", "")
+	root = filepath.Join(t.TempDir(), "home")
+	rec = postCreate(t, newUserCreateHandler(root), `{"git":true}`, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "skipped: git not found") {
+		t.Fatalf("create without git = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, filepath.Join(root, ".gitignore")); got != "/local/\n" {
+		t.Errorf(".gitignore = %q", got)
+	}
+}
+
+func TestUserCreate_KeepsAnExistingGitignoreAndAddsLocalOnce(t *testing.T) {
+	root := t.TempDir()
+	ignore := filepath.Join(root, ".gitignore")
+	writeFile(t, ignore, "node_modules")
+	writeFile(t, filepath.Join(root, "README.md"), "notes\n")
+	for i := range 2 {
+		_ = os.Remove(filepath.Join(root, "agnostic-ai.yaml"))
+		_ = os.Remove(filepath.Join(root, "AGNOSTIC_AI.md"))
+		rec := postCreate(t, newUserCreateHandler(root), `{"git":false}`, nil)
+		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), ".gitignore") {
+			t.Fatalf("create %d = %d %s", i, rec.Code, rec.Body)
+		}
+	}
+	if got := readFile(t, ignore); got != "node_modules\n/local/\n" {
+		t.Errorf(".gitignore = %q", got)
+	}
+}
+
+func TestUserCreate_SkipsGitInsideAnExistingRepo(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not installed")
+	}
+	parent := t.TempDir()
+	if out, err := exec.Command("git", "-C", parent, "init", "--quiet").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	root := filepath.Join(parent, "agnostic-ai")
+	rec := postCreate(t, newUserCreateHandler(root), `{"git":true}`, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "skipped: inside an existing repo") {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(root, ".git")); err == nil {
+		t.Error("git init ran inside a repository")
+	}
+}
+
+func TestUserCreate_TheSwitchAcceptsTheHomeItJustWrote(t *testing.T) {
+	home := filepath.Join(t.TempDir(), "home")
+	project := configuredProject(t, t.TempDir())
+	ports := freeLoopbackAddrs(t, 1)
+	started := false
+	h := newSwitchHandler(&switchPeer{root: home, userLevel: true, dir: project}, ports, probeViewServer, func(_ switchPeer, addr string) (*peerProcess, error) {
+		started = true
+		return fakePeer(t, addr, viewServer{OK: true, Root: home, UserLevel: true, UI: true, ProjectRoot: project}), nil
+	})
+	defer h.close()
+	if rec, _ := postSwitch(t, h); rec.Code != http.StatusConflict {
+		t.Fatalf("switch before create = %d", rec.Code)
+	}
+	if rec := postCreate(t, newUserCreateHandler(home), `{"git":false}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if rec, _ := postSwitch(t, h); rec.Code != http.StatusOK || !started {
+		t.Errorf("switch after create = %d, started %v", rec.Code, started)
+	}
+}
+
+func TestUserCreate_ExistingSetupIsLeftUntouched(t *testing.T) {
+	root := t.TempDir()
+	sentinel := filepath.Join(root, "AGNOSTIC_AI.md")
+	writeFile(t, sentinel, "mine\n")
+	rec := postCreate(t, newUserCreateHandler(root), `{"git":true}`, nil)
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, sentinel); got != "mine\n" {
+		t.Errorf("sentinel = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(root, "agnostic-ai.yaml")); err == nil {
+		t.Error("create wrote into an existing setup")
+	}
+}
+
+func TestUserCreate_WorksInAnEmptyExistingFolder(t *testing.T) {
+	root := t.TempDir()
+	if rec := postCreate(t, newUserCreateHandler(root), `{"git":false}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, filepath.Join(root, "agnostic-ai.yaml")); got != "version: 1\n" {
+		t.Errorf("agnostic-ai.yaml = %q", got)
+	}
+}
+
+func TestUserCreate_RefusesADanglingLink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	target := filepath.Join(t.TempDir(), "gone")
+	link := filepath.Join(t.TempDir(), "home")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if rec := postCreate(t, newUserCreateHandler(link), `{"git":false}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("create = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(target); err == nil {
+		t.Error("create wrote through the dangling link")
+	}
+}
+
+func TestUserCreate_RefusesBadRequests(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "home")
+	h := newUserCreateHandler(root)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+userCreatePath, nil))
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Errorf("GET = %d", rec.Code)
+	}
+	if rec := postCreate(t, h, `{"git":true}`, func(r *http.Request) { r.Header.Set("Origin", "https://example.com") }); rec.Code != http.StatusForbidden {
+		t.Errorf("foreign origin = %d", rec.Code)
+	}
+	if rec := postCreate(t, h, `{"git":true}`, func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") }); rec.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("wrong type = %d", rec.Code)
+	}
+	if rec := postCreate(t, h, `{"git":true,"root":"/tmp/elsewhere"}`, nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("root field = %d", rec.Code)
+	}
+	if _, err := os.Stat(root); err == nil {
+		t.Error("a refused request created the folder")
+	}
+}
+
+func TestServeMux_UserCreateOnlyOnAProjectServer(t *testing.T) {
+	silence(t)
+	testutil.Chdir(t, demoProject(t))
+	src, err := openAuthoritySource(".", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}
+	post := func(mux http.Handler) int {
+		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310"+userCreatePath, strings.NewReader(`{"git":false}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	home := filepath.Join(t.TempDir(), "home")
+	project := newSwitchHandler(&switchPeer{root: home, userLevel: true}, nil, probeViewServer, nil)
+	defer project.close()
+	userLevel := newSwitchHandler(&switchPeer{root: src.root}, nil, probeViewServer, nil)
+	defer userLevel.close()
+	if code := post(newServeMux(src.load, opts, serveMuxOptions{compareInstalled: true, switches: userLevel})); code != http.StatusNotFound {
+		t.Errorf("global server create = %d, want 404", code)
+	}
+	if _, err := os.Stat(home); err == nil {
+		t.Error("the global server created the folder")
+	}
+	if code := post(newServeMux(src.load, opts, serveMuxOptions{compareInstalled: true, switches: project})); code != http.StatusOK {
+		t.Errorf("project server create route = %d", code)
+	}
+	if _, err := os.Stat(filepath.Join(home, "agnostic-ai.yaml")); err != nil {
+		t.Errorf("project server did not create the setup: %v", err)
+	}
+}
+
+func TestUserCreate_NeedsTheGitChoice(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "home")
+	for _, body := range []string{`{}`, `{"git":null}`, `{"git":true,"x":1}`} {
+		if rec := postCreate(t, newUserCreateHandler(root), body, nil); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s = %d %s, want 400", body, rec.Code, rec.Body)
+		}
+	}
+	if _, err := os.Stat(root); !os.IsNotExist(err) {
+		t.Errorf("a refused request wrote the home: %v", err)
+	}
+}
+
+func TestSwitch_RefusesAnUnknownField(t *testing.T) {
+	started := false
+	h := newSwitchHandler(&switchPeer{root: t.TempDir(), userLevel: true, dir: t.TempDir()}, freeLoopbackAddrs(t, 1), probeViewServer, func(switchPeer, string) (*peerProcess, error) {
+		started = true
+		return nil, nil
+	})
+	defer h.close()
+	req := httptest.NewRequest(http.MethodPost, switchPath, strings.NewReader(`{"x":1}`))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest || started {
+		t.Errorf("switch = %d %s, started %v; want 400 and no server", rec.Code, rec.Body, started)
+	}
+}

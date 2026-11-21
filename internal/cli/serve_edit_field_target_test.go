@@ -373,7 +373,7 @@ func TestEditFieldTarget_LaterPerToolValueOverridesOnlyItsTool(t *testing.T) {
 	}
 }
 
-func TestEditFieldTarget_GlobalPerToolEffortSaves(t *testing.T) {
+func TestEditFieldTarget_UserPerToolEffortSaves(t *testing.T) {
 	source := editHome(t)
 	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"shared","key":"effort","target":"claude","value":"high"}`, nil)
 	if rec.Code != http.StatusOK {

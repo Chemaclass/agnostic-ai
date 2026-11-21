@@ -20,7 +20,7 @@ export function HookCommand({ item }: { item: SectionItem }) {
   const command = fields.find((field) => field.key === 'command')?.value
   const others = fields.filter((field) => !SHOWN_ELSEWHERE.has(field.key))
   // A personal file can override a few fields of a shared hook; the server reads that file alone, while key fields are merged.
-  const fullLabel = item.layer === 'project-user' || item.layer === 'global-local' ? 'Fields this file sets' : 'Full file'
+  const fullLabel = item.layer === 'local' || item.layer === 'user-local' ? 'Fields this file sets' : 'Full file'
   return (
     <details className="hook-command">
       <summary>{command ? 'Command' : 'Details'}</summary>

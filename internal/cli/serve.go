@@ -39,10 +39,10 @@ func newServeCmd() *cobra.Command {
 
 func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
-		addr, dir, uiDir, switchBack       string
-		open, global, noInstalled, apiOnly bool
-		stopWithStdin, cloudSessions       bool
-		allowedOrigins                     []string
+		addr, dir, uiDir, switchBack          string
+		open, userLevel, noInstalled, apiOnly bool
+		stopWithStdin, cloudSessions          bool
+		allowedOrigins                        []string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -89,12 +89,12 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				}
 				allowedOrigins[i] = parsed
 			}
-			if global && cmd.Flags().Changed("dir") {
+			if userLevel && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--scope user and --dir cannot be combined")
 			}
 			// A project server lists the conversations started in the
 			// project, and a cloud session names no folder.
-			if cloudSessions && !global {
+			if cloudSessions && !userLevel {
 				return errors.New("--cloud-sessions needs --scope user: cloud sessions belong to no project folder")
 			}
 			if uiDir != "" {
@@ -108,21 +108,21 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				uiDir = abs
 			}
 			stuckShellAfter := servedShellThreshold(cmd.ErrOrStderr())
-			src, err := openAuthoritySource(dir, global)
+			src, err := openAuthoritySource(dir, userLevel)
 			if err != nil {
 				return err
 			}
 			defer src.close()
-			peer := switchPeerFor(".", global)
-			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, Global: global, Version: cmd.Root().Version, AllowedOrigins: allowedOrigins}
-			if global && peer != nil {
+			peer := switchPeerFor(".", userLevel)
+			opts := authority.HandlerOptions{Root: src.root, UIDir: uiDir, ConfigFiles: src.configFiles, UserLevel: userLevel, Version: cmd.Root().Version, AllowedOrigins: allowedOrigins}
+			if userLevel && peer != nil {
 				opts.ProjectRoot = peer.root
 			}
-			opts.Requires = servedRequiresOf(src.root, global)
+			opts.Requires = servedRequiresOf(src.root, userLevel)
 			if !apiOnly && uiDir == "" {
 				opts.UIFiles = webui.Files()
 			}
-			if !global && !noInstalled {
+			if !userLevel && !noInstalled {
 				opts.Installed = func(target string, cfg *config.Config, b spec.Bundle) (authority.InstalledState, error) {
 					return installedState(target, cfg, b, src.root)
 				}
@@ -163,7 +163,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	cmd.Flags().StringVar(&uiDir, "ui", "", "Override the bundled web interface with this directory.")
 	cmd.Flags().BoolVar(&apiOnly, "api-only", false, "Serve the JSON API without the web interface.")
 	cmd.Flags().BoolVar(&open, "open", false, "Open the served URL in a browser.")
-	addScopeFlag(cmd, &global, "Serve the user-level configuration sync --scope user uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	addScopeFlag(cmd, &userLevel, "Serve the user-level configuration sync --scope user uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&noInstalled, "no-installed", false, "Skip comparing the generated files with disk.")
 	cmd.Flags().StringVar(&switchBack, "switch-back", "", "Loopback address of the server that started this one; its way back tries it first.")
 	_ = cmd.Flags().MarkHidden("switch-back")
@@ -197,17 +197,17 @@ type serveMuxOptions struct {
 func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts serveMuxOptions) http.Handler {
 	switches := muxOpts.switches
 	mux := http.NewServeMux()
-	conversationsHandler := newConversationsHandler(opts.Root, opts.Global)
+	conversationsHandler := newConversationsHandler(opts.Root, opts.UserLevel)
 	conversationsHandler.stuckShellAfter = muxOpts.stuckShellAfter
 	opts.ScanningSince = conversationsHandler.scanner.ScanningSince
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", muxOpts.compareInstalled)
-	if opts.Global {
-		views = newGlobalOverviewHandler(muxOpts.compareInstalled)
+	if opts.UserLevel {
+		views = newUserOverviewHandler(muxOpts.compareInstalled)
 	}
 	mux.Handle(overview.OverviewPath, views)
 	edits := newEditHandler(".", false)
-	if opts.Global {
+	if opts.UserLevel {
 		edits = newEditHandler(opts.Root, true)
 	}
 	mux.Handle(editBuiltinPath, edits)
@@ -218,10 +218,10 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux.Handle(editProtectedPath, edits)
 	mux.Handle(editMCPPath, edits)
 	mux.Handle(editHookPath, edits)
-	changes := newBuiltinChangeHandler(opts.Root, opts.Global)
+	changes := newBuiltinChangeHandler(opts.Root, opts.UserLevel)
 	mux.Handle(builtinStatusPath, changes)
 	mux.Handle(builtinStatusPath+"/", changes)
-	mux.Handle(contextViewPath, newContextHandler(".", opts.Global))
+	mux.Handle(contextViewPath, newContextHandler(".", opts.UserLevel))
 	if muxOpts.cloudSessions {
 		conversationsHandler.scanner.Cloud = conversations.NewClaudeCloud()
 		conversationsHandler.scanner.CodexCloud = conversations.NewCodexCloud()
@@ -232,20 +232,20 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	approvalsRoutes := approvalsHandler{reader: conversationsHandler.approvals}
 	mux.Handle(approvalsViewPath, approvalsRoutes)
 	mux.Handle(approvalsAskPath, approvalsRoutes)
-	mux.Handle(sourceViewPath, newSourceHandler(opts.Global))
+	mux.Handle(sourceViewPath, newSourceHandler(opts.UserLevel))
 	var peer *switchPeer
 	if switches != nil {
 		peer = switches.peer
 	}
 	moveRoot := "."
-	if opts.Global {
+	if opts.UserLevel {
 		moveRoot = opts.Root
 	}
-	mux.Handle(editSpecMovePath, newSpecMoveHandler(moveRoot, opts.Global, peer))
+	mux.Handle(editSpecMovePath, newSpecMoveHandler(moveRoot, opts.UserLevel, peer))
 	if switches != nil {
 		mux.Handle(switchPath, switches)
-		if switches.peer != nil && switches.peer.global {
-			mux.Handle(globalCreatePath, newGlobalCreateHandler(switches.peer.root))
+		if switches.peer != nil && switches.peer.userLevel {
+			mux.Handle(userCreatePath, newUserCreateHandler(switches.peer.root))
 		}
 	}
 	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)

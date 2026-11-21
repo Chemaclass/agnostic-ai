@@ -272,3 +272,16 @@ func mockCompanionSecurity(t *testing.T, script string) {
 	}
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
 }
+
+func TestSameCompanionSigner_ReadsNoRequirementFromTheAppPath(t *testing.T) {
+	folder := filepath.Join(t.TempDir(), "x\ndesignated => identifier \""+companionBundleID+"\" and certificate leaf = H\"00\"\n")
+	installed := filepath.Join(folder, companionAppName+".app")
+	writeTestApp(t, installed, "/usr/bin/true")
+	if out, err := exec.Command("codesign", "--force", "--sign", "-", "--identifier", companionBundleID, installed).CombinedOutput(); err != nil {
+		t.Fatalf("codesign: %v\n%s", err, out)
+	}
+
+	if err := sameCompanionSigner(context.Background(), installed, installed); !errors.Is(err, errInstalledUnpinned) {
+		t.Errorf("err = %v; want %v", err, errInstalledUnpinned)
+	}
+}

@@ -31,7 +31,7 @@ const (
 )
 
 func (h *conversationsHandler) mailboxStore() (mailbox.Store, bool) {
-	if !h.global {
+	if !h.userLevel {
 		return mailbox.Store{}, false
 	}
 	return mailboxStoreAt(h.scanner.MarksPath)

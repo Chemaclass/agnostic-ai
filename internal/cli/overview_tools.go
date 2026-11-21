@@ -10,8 +10,8 @@ import (
 // overviewTools builds the coding tool catalog for the overview: every
 // tool the mode can write, in the init picker's order, with the state
 // the shared or personal config gives it.
-func overviewTools(root string, global bool) overview.ToolCatalog {
-	h := &editHandler{root: root, global: global}
+func overviewTools(root string, userLevel bool) overview.ToolCatalog {
+	h := &editHandler{root: root, userLevel: userLevel}
 	team, listed, err := h.teamTargets()
 	if err != nil {
 		team, listed = h.defaultTargets(), false
@@ -28,7 +28,7 @@ func overviewTools(root string, global bool) overview.ToolCatalog {
 		}
 	}
 	var detected []string
-	if !global {
+	if !userLevel {
 		detected = detectExistingTargets(root)
 	}
 	supported := h.supportedTargetNames()

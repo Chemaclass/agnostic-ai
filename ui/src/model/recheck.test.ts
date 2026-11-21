@@ -72,9 +72,9 @@ describe('recheck', () => {
   })
 
   it('reads a stopped lint run only in the layer it ran on', () => {
-    const globalStopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'The global setup did not load: bad config', path: 'agnostic-ai.yaml', layer: 'global' }
+    const globalStopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'The global setup did not load: bad config', path: 'agnostic-ai.yaml', layer: 'user' }
     expect(recheckResult(target(read, [read]), view([read]), view([], [globalStopped]))).toEqual({ state: 'resolved', added: [] })
-    const globalRead: ItemFinding = { ...read, layer: 'global' }
+    const globalRead: ItemFinding = { ...read, layer: 'user' }
     const projectStopped: ItemFinding = { ...globalStopped, layer: undefined }
     const globalTarget: RecheckTarget = { id: findingEntryIds([globalRead])[0], finding: globalRead }
     expect(recheckResult(globalTarget, view([], [globalRead]), view([], [projectStopped]))).toEqual({ state: 'resolved', added: [] })
@@ -83,7 +83,7 @@ describe('recheck', () => {
 
   it('names new findings on the same file only in the same layer', () => {
     const config: ItemFinding = { source: 'lint', code: 'LINT006', severity: 'warning', message: 'Unknown key.', path: 'agnostic-ai.yaml' }
-    const global: ItemFinding = { ...config, message: 'Unknown global key.', layer: 'global' }
+    const global: ItemFinding = { ...config, message: 'Unknown global key.', layer: 'user' }
     const project: ItemFinding = { ...config, message: 'Another unknown key.' }
     const configTarget: RecheckTarget = { id: findingEntryIds([config])[0], finding: config }
     const result = recheckResult(configTarget, view([], [config]), view([], [global, project]))
@@ -130,9 +130,9 @@ describe('recheck all', () => {
   })
 
   it('judges a gone lint finding by the lint run of its own layer', () => {
-    const stopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml', layer: 'global' }
+    const stopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'Lint stopped before it finished: bad config', path: 'agnostic-ai.yaml', layer: 'user' }
     expect(recheckAllResult(view([read]), view([], [stopped]))).toMatchObject({ resolved: 1, unknown: 0 })
-    expect(recheckAllResult(view([], [{ ...read, layer: 'global' }]), view([], [stopped]))).toMatchObject({ resolved: 0, unknown: 1 })
+    expect(recheckAllResult(view([], [{ ...read, layer: 'user' }]), view([], [stopped]))).toMatchObject({ resolved: 0, unknown: 1 })
   })
 
   it('matches identical findings one to one', () => {

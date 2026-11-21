@@ -26,10 +26,10 @@ func TestResolveLayers_ProjectOnlyByDefault(t *testing.T) {
 	}
 }
 
-func TestResolveLayers_DoesNotLoadGlobalHome(t *testing.T) {
-	globalHome := t.TempDir()
-	t.Setenv(envUserGlobalRoot, globalHome)
-	if err := os.MkdirAll(filepath.Join(globalHome, "rules"), 0o755); err != nil {
+func TestResolveLayers_DoesNotLoadUserHome(t *testing.T) {
+	userLevelHome := t.TempDir()
+	t.Setenv(envUserRoot, userLevelHome)
+	if err := os.MkdirAll(filepath.Join(userLevelHome, "rules"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -58,10 +58,10 @@ func TestResolveLayers_ProjectUserDetected(t *testing.T) {
 		t.Fatalf("expected 2 layers, got %d", len(layers))
 	}
 	if layers[1].Name != layerNameProjectUser {
-		t.Errorf("layer[1]=%+v, want project-user", layers[1])
+		t.Errorf("layer[1]=%+v, want local", layers[1])
 	}
 	if layers[1].Root != filepath.Join(root, defaultProjectUser) {
-		t.Errorf("project-user root mismatch: %q", layers[1].Root)
+		t.Errorf("local root mismatch: %q", layers[1].Root)
 	}
 }
 
@@ -105,7 +105,7 @@ func TestResolveLayers_ReadsLocalInsideTheSourceDirOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(layers) != 2 || layers[1].Root != filepath.Join(root, ".agnostic-ai", "local") {
-		t.Fatalf("want .agnostic-ai/local as the project-user layer, got %+v", layers)
+		t.Fatalf("want .agnostic-ai/local as the local layer, got %+v", layers)
 	}
 }
 

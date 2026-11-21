@@ -134,7 +134,7 @@ const (
 	elsewhere  = "33333333-3333-4333-8333-333333333333"
 )
 
-func conversationsFixture(t *testing.T, global bool) (*conversationsHandler, *recordingLauncher, string) {
+func conversationsFixture(t *testing.T, userLevel bool) (*conversationsHandler, *recordingLauncher, string) {
 	t.Helper()
 	home, project, worktree, other := realDir(t), realDir(t), realDir(t), realDir(t)
 	claudeDir := filepath.Join(home, ".claude")
@@ -152,7 +152,7 @@ func conversationsFixture(t *testing.T, global bool) (*conversationsHandler, *re
 	}
 	h := &conversationsHandler{
 		root:      project,
-		global:    global,
+		userLevel: userLevel,
 		scanner:   scanner,
 		launcher:  launcher,
 		worktrees: func(string) []string { return []string{project, worktree} },
@@ -432,7 +432,7 @@ func TestConversationOpenReplyTimeout_OutlastsTheCompanionOpenAndSendWaits(t *te
 	}
 }
 
-func TestConversationsHandler_ListsEveryConversationOnAGlobalServer(t *testing.T) {
+func TestConversationsHandler_ListsEveryConversationOnAUserServer(t *testing.T) {
 	h, _, _ := conversationsFixture(t, true)
 
 	if actual := ids(listConversations(t, h)); actual != inProject+","+inWorktree+","+elsewhere {
@@ -1134,7 +1134,7 @@ func TestConversationsHandler_EveryServerSaysWhenACodexWaitIsReadFromSilence(t *
 	}
 	shared.Processes = holdingProcesses{held: map[string]int{thread + ".lock": 4242}}
 	shared.Now = func() time.Time { return now }
-	dashboard := &conversationsHandler{root: companion.root, global: true, scanner: &conversations.Scanner{
+	dashboard := &conversationsHandler{root: companion.root, userLevel: true, scanner: &conversations.Scanner{
 		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now,
 	}, worktrees: companion.worktrees}
 

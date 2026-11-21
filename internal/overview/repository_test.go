@@ -56,7 +56,7 @@ func TestBuild_LinksTheProjectRepositoryButNotUserConfiguration(t *testing.T) {
 	if got := Build(Inputs{OriginURL: remote}).Repository; got == nil || got.URL != "https://github.com/octo/hello" {
 		t.Errorf("project view repository = %+v, want https://github.com/octo/hello", got)
 	}
-	if got := Build(Inputs{OriginURL: remote, Global: true}).Repository; got != nil {
+	if got := Build(Inputs{OriginURL: remote, UserLevel: true}).Repository; got != nil {
 		t.Errorf("user configuration view repository = %+v, want none", got)
 	}
 }

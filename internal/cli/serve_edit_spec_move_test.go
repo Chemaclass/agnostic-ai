@@ -30,9 +30,9 @@ type specMoveTestReply struct {
 
 // moveProject is a project server's working folder with a global setup
 // beside it, both under a fake home.
-func moveProject(t *testing.T) (project, global string) {
+func moveProject(t *testing.T) (project, userLevel string) {
 	t.Helper()
-	global = editHome(t)
+	userLevel = editHome(t)
 	project = scopeProject(t)
 	writeFile(t, ".agnostic-ai/skills/review-pr/SKILL.md", "---\nname: review-pr\ndescription: Review a pull request.\n---\n\nReview it.\n")
 	writeFile(t, ".agnostic-ai/skills/review-pr/checklist.md", "- tests\n")
@@ -41,11 +41,11 @@ func moveProject(t *testing.T) (project, global string) {
 	writeFile(t, ".agnostic-ai/rules/api.md", "---\nname: api\ndescription: API.\npaths: [\"api/**\"]\n---\n\nVersion the API.\n")
 	writeFile(t, ".agnostic-ai/commands/ship.md", "---\nname: ship\ndescription: Ship.\n---\n\nShip it.\n")
 	writeFile(t, ".agnostic-ai/local/agents/mine.md", "---\nname: mine\ndescription: Mine.\n---\n\nMine.\n")
-	return project, global
+	return project, userLevel
 }
 
-func projectMoveHandler(project, global string) http.Handler {
-	return newSpecMoveHandler(project, false, &switchPeer{root: global, global: true})
+func projectMoveHandler(project, userLevel string) http.Handler {
+	return newSpecMoveHandler(project, false, &switchPeer{root: userLevel, userLevel: true})
 }
 
 func postSpecMove(t *testing.T, h http.Handler, request map[string]any) (int, specMoveTestReply) {
@@ -77,9 +77,9 @@ func previewThenApply(t *testing.T, h http.Handler, request map[string]any) (spe
 	return preview, code, applied
 }
 
-func TestSpecMove_MovesASkillFolderToGlobal(t *testing.T) {
-	project, global := moveProject(t)
-	h := projectMoveHandler(project, global)
+func TestSpecMove_MovesASkillFolderToUser(t *testing.T) {
+	project, userLevel := moveProject(t)
+	h := projectMoveHandler(project, userLevel)
 	preview, code, applied := previewThenApply(t, h, moveBody("skill", "review-pr", "project", "global", "move"))
 	if preview.Source != ".agnostic-ai/skills/review-pr/SKILL.md" || preview.Destination != "~/source/skills/review-pr/SKILL.md" || preview.Exists {
 		t.Errorf("preview = %+v", preview)
@@ -93,44 +93,44 @@ func TestSpecMove_MovesASkillFolderToGlobal(t *testing.T) {
 	if !slices.Equal(applied.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --scope user"}) {
 		t.Errorf("sync commands = %v", applied.SyncCommands)
 	}
-	if got := readOptional(t, filepath.Join(global, "skills", "review-pr", "checklist.md")); got != "- tests\n" {
+	if got := readOptional(t, filepath.Join(userLevel, "skills", "review-pr", "checklist.md")); got != "- tests\n" {
 		t.Errorf("resource = %q", got)
 	}
 	if _, err := os.Stat(filepath.Join(project, ".agnostic-ai", "skills", "review-pr")); !os.IsNotExist(err) {
 		t.Errorf("move left the source folder: %v", err)
 	}
-	b, err := loadGlobalBundle(global, nil)
+	b, err := loadUserBundle(userLevel, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.ContainsFunc(b.Skills, func(e spec.Entry) bool { return e.Name == "review-pr" && e.Layer == "global" }) {
+	if !slices.ContainsFunc(b.Skills, func(e spec.Entry) bool { return e.Name == "review-pr" && e.Layer == layerNameUser }) {
 		t.Errorf("global setup does not load the skill: %+v", b.Skills)
 	}
 }
 
 func TestSpecMove_CopyKeepsTheSourceAndNamesOnlyTheDestinationSync(t *testing.T) {
-	project, global := moveProject(t)
-	_, code, applied := previewThenApply(t, projectMoveHandler(project, global), moveBody("agent", "guard", "project", "global", "copy"))
+	project, userLevel := moveProject(t)
+	_, code, applied := previewThenApply(t, projectMoveHandler(project, userLevel), moveBody("agent", "guard", "project", "global", "copy"))
 	if code != http.StatusOK || !slices.Equal(applied.SyncCommands, []string{"agnostic-ai sync --scope user"}) {
 		t.Fatalf("apply = %d %+v", code, applied)
 	}
 	want := readOptional(t, filepath.Join(project, ".agnostic-ai", "agents", "guard.md"))
-	if want == "" || readOptional(t, filepath.Join(global, "agents", "guard.md")) != want {
+	if want == "" || readOptional(t, filepath.Join(userLevel, "agents", "guard.md")) != want {
 		t.Errorf("copy did not keep both files equal")
 	}
 }
 
 func TestSpecMove_OverwriteNeedsTheFlagAndReplacesTheWholeFolder(t *testing.T) {
-	project, global := moveProject(t)
-	writeFile(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
-	writeFile(t, filepath.Join(global, "skills", "review-pr", "stale.md"), "old\n")
-	h := projectMoveHandler(project, global)
+	project, userLevel := moveProject(t)
+	writeFile(t, filepath.Join(userLevel, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	writeFile(t, filepath.Join(userLevel, "skills", "review-pr", "stale.md"), "old\n")
+	h := projectMoveHandler(project, userLevel)
 
 	preview, code, reply := previewThenApply(t, h, moveBody("skill", "review-pr", "project", "global", "copy"))
 	if !preview.Exists || code != http.StatusConflict || !strings.Contains(reply.Error, "overwrite") {
 		t.Fatalf("preview exists=%v, apply = %d %+v", preview.Exists, code, reply)
 	}
-	if got := readOptional(t, filepath.Join(global, "skills", "review-pr", "stale.md")); got != "old\n" {
+	if got := readOptional(t, filepath.Join(userLevel, "skills", "review-pr", "stale.md")); got != "old\n" {
 		t.Fatalf("a refused copy changed the destination")
 	}
 
@@ -140,17 +140,17 @@ func TestSpecMove_OverwriteNeedsTheFlagAndReplacesTheWholeFolder(t *testing.T) {
 	if code != http.StatusOK {
 		t.Fatalf("overwrite = %d %+v", code, reply)
 	}
-	if _, err := os.Stat(filepath.Join(global, "skills", "review-pr", "stale.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(userLevel, "skills", "review-pr", "stale.md")); !os.IsNotExist(err) {
 		t.Errorf("overwrite kept a file the source does not have: %v", err)
 	}
-	if !strings.Contains(readOptional(t, filepath.Join(global, "skills", "review-pr", "SKILL.md")), "Review a pull request.") {
+	if !strings.Contains(readOptional(t, filepath.Join(userLevel, "skills", "review-pr", "SKILL.md")), "Review a pull request.") {
 		t.Errorf("overwrite did not replace SKILL.md")
 	}
 }
 
 func TestSpecMove_Refusals(t *testing.T) {
-	project, global := moveProject(t)
-	h := projectMoveHandler(project, global)
+	project, userLevel := moveProject(t)
+	h := projectMoveHandler(project, userLevel)
 	scope, err := loadCheckScope(false)
 	if err != nil {
 		t.Fatal(err)
@@ -195,8 +195,8 @@ func TestSpecMove_Refusals(t *testing.T) {
 }
 
 func TestSpecMove_StalePreviewWritesNothing(t *testing.T) {
-	project, global := moveProject(t)
-	h := projectMoveHandler(project, global)
+	project, userLevel := moveProject(t)
+	h := projectMoveHandler(project, userLevel)
 	request := moveBody("agent", "guard", "project", "global", "move")
 	_, preview := postSpecMove(t, h, request)
 	writeFile(t, ".agnostic-ai/agents/guard.md", "---\nname: guard\ndescription: Changed.\n---\n\nGuard.\n")
@@ -205,12 +205,12 @@ func TestSpecMove_StalePreviewWritesNothing(t *testing.T) {
 	if code != http.StatusConflict {
 		t.Fatalf("stale apply = %d %+v", code, reply)
 	}
-	if _, err := os.Stat(filepath.Join(global, "agents", "guard.md")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(userLevel, "agents", "guard.md")); !os.IsNotExist(err) {
 		t.Errorf("stale apply wrote the destination: %v", err)
 	}
 }
 
-func TestSpecMove_MissingGlobalSetupOffersCreate(t *testing.T) {
+func TestSpecMove_MissingUserSetupOffersCreate(t *testing.T) {
 	project, _ := moveProject(t)
 	missing := filepath.Join(t.TempDir(), "nowhere")
 	code, reply := postSpecMove(t, projectMoveHandler(project, missing), moveBody("agent", "guard", "project", "global", "copy"))
@@ -219,10 +219,10 @@ func TestSpecMove_MissingGlobalSetupOffersCreate(t *testing.T) {
 	}
 }
 
-func TestSpecMove_GlobalServerCopiesToItsProject(t *testing.T) {
-	project, global := moveProject(t)
-	writeFile(t, filepath.Join(global, "hooks", "lint.yaml"), "name: lint\non: after-edit\ncommand: npm run lint\n")
-	h := newSpecMoveHandler(global, true, &switchPeer{root: project})
+func TestSpecMove_UserServerCopiesToItsProject(t *testing.T) {
+	project, userLevel := moveProject(t)
+	writeFile(t, filepath.Join(userLevel, "hooks", "lint.yaml"), "name: lint\non: after-edit\ncommand: npm run lint\n")
+	h := newSpecMoveHandler(userLevel, true, &switchPeer{root: project})
 	_, code, reply := previewThenApply(t, h, moveBody("hook", "lint", "global", "project", "copy"))
 	if code != http.StatusOK {
 		t.Fatalf("apply = %d %+v", code, reply)
@@ -237,15 +237,15 @@ func TestSpecMove_GlobalServerCopiesToItsProject(t *testing.T) {
 		t.Error("the hook did not reach the project")
 	}
 
-	code, reply = postSpecMove(t, newSpecMoveHandler(global, true, nil), moveBody("hook", "lint", "global", "project", "copy"))
+	code, reply = postSpecMove(t, newSpecMoveHandler(userLevel, true, nil), moveBody("hook", "lint", "global", "project", "copy"))
 	if code != http.StatusConflict || !strings.Contains(reply.Error, "project") {
 		t.Errorf("no project = %d %+v", code, reply)
 	}
 }
 
 func TestSpecMove_UsesTheEditGuards(t *testing.T) {
-	project, global := moveProject(t)
-	h := projectMoveHandler(project, global)
+	project, userLevel := moveProject(t)
+	h := projectMoveHandler(project, userLevel)
 	rec := postEdit(t, h, editSpecMovePath, `{}`, func(r *http.Request) { r.Method = http.MethodGet })
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("GET = %d", rec.Code)
@@ -257,19 +257,19 @@ func TestSpecMove_UsesTheEditGuards(t *testing.T) {
 }
 
 func TestServeMux_RoutesSpecMoveToThePeer(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	src, err := openAuthoritySource(".", false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	switches := newSwitchHandler(&switchPeer{root: global, global: true}, nil, probeViewServer, nil)
+	switches := newSwitchHandler(&switchPeer{root: userLevel, userLevel: true}, nil, probeViewServer, nil)
 	defer switches.close()
 	mux := newServeMux(src.load, authority.HandlerOptions{Root: src.root, ConfigFiles: src.configFiles}, serveMuxOptions{compareInstalled: true, switches: switches})
 	_, code, reply := previewThenApply(t, mux, moveBody("agent", "guard", "project", "global", "move"))
 	if code != http.StatusOK {
 		t.Fatalf("apply = %d %+v", code, reply)
 	}
-	if readOptional(t, filepath.Join(global, "agents", "guard.md")) == "" || readOptional(t, filepath.Join(project, ".agnostic-ai", "agents", "guard.md")) != "" {
+	if readOptional(t, filepath.Join(userLevel, "agents", "guard.md")) == "" || readOptional(t, filepath.Join(project, ".agnostic-ai", "agents", "guard.md")) != "" {
 		t.Error("the served move did not reach the global setup")
 	}
 }
@@ -277,8 +277,8 @@ func TestServeMux_RoutesSpecMoveToThePeer(t *testing.T) {
 // The panel previews once, then the user picks Copy or Move and may tick
 // overwrite; the one revision covers each choice.
 func TestSpecMove_OnePreviewCoversEachChoice(t *testing.T) {
-	project, global := moveProject(t)
-	h := projectMoveHandler(project, global)
+	project, userLevel := moveProject(t)
+	h := projectMoveHandler(project, userLevel)
 	_, preview := postSpecMove(t, h, moveBody("agent", "guard", "project", "global", "copy"))
 	request := moveBody("agent", "guard", "project", "global", "move")
 	request["action"], request["expected"], request["overwrite"] = "apply", preview.Expected, true
@@ -312,12 +312,12 @@ func TestSpecMove_RefusesWhenSourceAndDestinationAreTheSameFile(t *testing.T) {
 		}
 	}
 
-	project, global := moveProject(t)
-	if err := os.RemoveAll(filepath.Join(global, "agents")); err != nil {
+	project, userLevel := moveProject(t)
+	if err := os.RemoveAll(filepath.Join(userLevel, "agents")); err != nil {
 		t.Fatal(err)
 	}
-	symlinkOrSkip(t, filepath.Join(project, ".agnostic-ai", "agents"), filepath.Join(global, "agents"))
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("agent", "guard", "project", "global", "move"))
+	symlinkOrSkip(t, filepath.Join(project, ".agnostic-ai", "agents"), filepath.Join(userLevel, "agents"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("agent", "guard", "project", "global", "move"))
 	if code != http.StatusConflict || !strings.Contains(reply.Error, "same") {
 		t.Errorf("linked kind folder = %d %+v", code, reply)
 	}
@@ -327,23 +327,23 @@ func TestSpecMove_RefusesWhenSourceAndDestinationAreTheSameFile(t *testing.T) {
 }
 
 func TestSpecMove_RefusesASkillAtTheSkillsFolderRoot(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/skills/SKILL.md", "---\ndescription: Root.\n---\n\nRoot.\n")
-	writeFile(t, filepath.Join(global, "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n")
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "skills", "project", "global", "copy"))
+	writeFile(t, filepath.Join(userLevel, "skills", "other", "SKILL.md"), "---\nname: other\ndescription: Other.\n---\n\nOther.\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("skill", "skills", "project", "global", "copy"))
 	if code != http.StatusUnprocessableEntity {
 		t.Errorf("= %d %+v, want 422", code, reply)
 	}
-	if readOptional(t, filepath.Join(global, "skills", "other", "SKILL.md")) == "" {
+	if readOptional(t, filepath.Join(userLevel, "skills", "other", "SKILL.md")) == "" {
 		t.Error("the global skills folder lost a skill")
 	}
 }
 
 func TestSpecMove_RefusesADestinationLinkedOutsideTheSetup(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	outside := t.TempDir()
-	symlinkOrSkip(t, outside, filepath.Join(global, "agents"))
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("agent", "guard", "project", "global", "copy"))
+	symlinkOrSkip(t, outside, filepath.Join(userLevel, "agents"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("agent", "guard", "project", "global", "copy"))
 	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "outside") {
 		t.Errorf("= %d %+v, want 422 naming outside", code, reply)
 	}
@@ -353,9 +353,9 @@ func TestSpecMove_RefusesADestinationLinkedOutsideTheSetup(t *testing.T) {
 }
 
 func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/rules/web.md", "---\nname: web\ndescription: Web.\nx-claude:\n  paths: [\"web/**\"]\n---\n\nWeb.\n")
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("rule", "web", "project", "global", "move"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("rule", "web", "project", "global", "move"))
 	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "global rules") {
 		t.Errorf("= %d %+v", code, reply)
 	}
@@ -365,19 +365,19 @@ func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
 }
 
 func TestSpecMove_RefusesWhenTheDestinationLayoutChangesHowTheSkillLoads(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/skills/tools/lint.md", "---\nname: lint\ndescription: Lint.\n---\n\nLint.\n")
-	writeFile(t, filepath.Join(global, "skills", "tools", "SKILL.md"), "---\nname: tools\ndescription: Tools.\n---\n\nTools.\n")
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("skill", "lint", "project", "global", "move"))
+	writeFile(t, filepath.Join(userLevel, "skills", "tools", "SKILL.md"), "---\nname: tools\ndescription: Tools.\n---\n\nTools.\n")
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("skill", "lint", "project", "global", "move"))
 	if code != http.StatusConflict || !strings.Contains(reply.Error, "tools") {
 		t.Errorf("flat skill into a folder skill = %d %+v", code, reply)
 	}
 
 	// A folder skill must not replace a folder of flat skills.
-	writeFile(t, filepath.Join(global, "skills", "review-pr", "keep.md"), "---\nname: keep\ndescription: Keep.\n---\n\nKeep.\n")
+	writeFile(t, filepath.Join(userLevel, "skills", "review-pr", "keep.md"), "---\nname: keep\ndescription: Keep.\n---\n\nKeep.\n")
 	request := moveBody("skill", "review-pr", "project", "global", "copy")
 	request["overwrite"] = true
-	code, reply = postSpecMove(t, projectMoveHandler(project, global), request)
+	code, reply = postSpecMove(t, projectMoveHandler(project, userLevel), request)
 	if code != http.StatusConflict {
 		t.Errorf("folder skill over flat skills = %d %+v", code, reply)
 	}
@@ -387,25 +387,25 @@ func TestSpecMove_RefusesWhenTheDestinationLayoutChangesHowTheSkillLoads(t *test
 }
 
 func TestSpecMove_StagesOutsideTheSkillsFolderAndWarnsOnLeftovers(t *testing.T) {
-	project, global := moveProject(t)
-	writeFile(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	project, userLevel := moveProject(t)
+	writeFile(t, filepath.Join(userLevel, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
 	removeAll := removeMoveStaging
 	removeMoveStaging = func(string) error { return os.ErrPermission }
 	t.Cleanup(func() { removeMoveStaging = removeAll })
 	request := moveBody("skill", "review-pr", "project", "global", "move")
 	request["overwrite"] = true
-	_, code, reply := previewThenApply(t, projectMoveHandler(project, global), request)
+	_, code, reply := previewThenApply(t, projectMoveHandler(project, userLevel), request)
 	if code != http.StatusOK || !reply.OK || reply.Warning == "" {
 		t.Fatalf("apply = %d %+v, want ok with a warning", code, reply)
 	}
-	b, err := loadGlobalBundle(global, nil)
+	b, err := loadUserBundle(userLevel, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(b.Skills) != 1 || b.Skills[0].Name != "review-pr" {
 		t.Errorf("the global setup loads %d skills: %+v", len(b.Skills), b.Skills)
 	}
-	entries, err := os.ReadDir(filepath.Join(global, "skills"))
+	entries, err := os.ReadDir(filepath.Join(userLevel, "skills"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -429,8 +429,8 @@ func TestSpecMove_RefusesADestinationInsideTheSourceSkill(t *testing.T) {
 }
 
 func TestSpecMove_KeepsTheOldSkillWhenRollbackFails(t *testing.T) {
-	project, global := moveProject(t)
-	writeFile(t, filepath.Join(global, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
+	project, userLevel := moveProject(t)
+	writeFile(t, filepath.Join(userLevel, "skills", "review-pr", "SKILL.md"), "---\nname: review-pr\ndescription: Old.\n---\n\nOld.\n")
 	rename := renameMoveUnit
 	calls := 0
 	renameMoveUnit = func(from, to string) error {
@@ -443,18 +443,18 @@ func TestSpecMove_KeepsTheOldSkillWhenRollbackFails(t *testing.T) {
 	t.Cleanup(func() { renameMoveUnit = rename })
 	request := moveBody("skill", "review-pr", "project", "global", "copy")
 	request["overwrite"] = true
-	_, code, reply := previewThenApply(t, projectMoveHandler(project, global), request)
+	_, code, reply := previewThenApply(t, projectMoveHandler(project, userLevel), request)
 	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, ".agnostic-ai-move-") {
 		t.Fatalf("apply = %d %+v, want 422 naming the kept folder", code, reply)
 	}
-	kept, err := filepath.Glob(filepath.Join(global, ".agnostic-ai-move-*", "old", "SKILL.md"))
+	kept, err := filepath.Glob(filepath.Join(userLevel, ".agnostic-ai-move-*", "old", "SKILL.md"))
 	if err != nil || len(kept) != 1 || !strings.Contains(readOptional(t, kept[0]), "Old.") {
 		t.Errorf("the old skill is gone: %v %v", kept, err)
 	}
 }
 
 func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/hooks/guard-push.yaml", "name: guard-push\non: before-tool\nmatch: shell\ncommand: .agnostic-ai/scripts/guard-push.sh\ncommandWindows: powershell -File .agnostic-ai/scripts/guard-push.ps1\n")
 	writeFile(t, ".agnostic-ai/scripts/guard-push.sh", "#!/bin/sh\nexit 0\n")
 	writeFile(t, ".agnostic-ai/scripts/claude/guard-push.sh", "#!/bin/sh\necho claude\n")
@@ -463,7 +463,7 @@ func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
 	if err := os.Chmod(filepath.Join(project, ".agnostic-ai", "scripts", "guard-push.sh"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	preview, code, applied := previewThenApply(t, projectMoveHandler(project, global), moveBody("hook", "guard-push", "project", "global", "move"))
+	preview, code, applied := previewThenApply(t, projectMoveHandler(project, userLevel), moveBody("hook", "guard-push", "project", "global", "move"))
 	want := []string{"~/source/scripts/claude/guard-push.sh", "~/source/scripts/guard-push.ps1", "~/source/scripts/guard-push.sh"}
 	if !slices.Equal(preview.Scripts, want) {
 		t.Errorf("scripts = %v, want %v", preview.Scripts, want)
@@ -471,14 +471,14 @@ func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
 	if code != http.StatusOK || !applied.OK {
 		t.Fatalf("apply = %d %+v", code, applied)
 	}
-	if got := readOptional(t, filepath.Join(global, "scripts", "claude", "guard-push.sh")); got != "#!/bin/sh\necho claude\n" {
+	if got := readOptional(t, filepath.Join(userLevel, "scripts", "claude", "guard-push.sh")); got != "#!/bin/sh\necho claude\n" {
 		t.Errorf("target script = %q", got)
 	}
-	info, err := os.Stat(filepath.Join(global, "scripts", "guard-push.sh"))
+	info, err := os.Stat(filepath.Join(userLevel, "scripts", "guard-push.sh"))
 	if err != nil || info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("script lost its run bit: %v %v", info, err)
 	}
-	if _, err := os.Stat(filepath.Join(global, "scripts", "other.sh")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(userLevel, "scripts", "other.sh")); !os.IsNotExist(err) {
 		t.Errorf("copied a script the hook does not run: %v", err)
 	}
 	if readOptional(t, filepath.Join(project, ".agnostic-ai", "scripts", "guard-push.sh")) == "" {
@@ -487,31 +487,31 @@ func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
 }
 
 func TestSpecMove_RefusesAHookWhoseScriptDiffersOrIsMissing(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/hooks/guard-push.yaml", "name: guard-push\non: session-start\ncommand: .agnostic-ai/scripts/guard-push.sh\n")
 	writeFile(t, ".agnostic-ai/hooks/lost.yaml", "name: lost\non: session-start\ncommand: .agnostic-ai/scripts/lost.sh\n")
 	writeFile(t, ".agnostic-ai/scripts/guard-push.sh", "#!/bin/sh\nexit 0\n")
-	writeFile(t, filepath.Join(global, "scripts", "guard-push.sh"), "#!/bin/sh\nexit 1\n")
-	h := projectMoveHandler(project, global)
+	writeFile(t, filepath.Join(userLevel, "scripts", "guard-push.sh"), "#!/bin/sh\nexit 1\n")
+	h := projectMoveHandler(project, userLevel)
 	if code, reply := postSpecMove(t, h, moveBody("hook", "guard-push", "project", "global", "copy")); code != http.StatusConflict || !strings.Contains(reply.Error, "guard-push.sh") {
 		t.Errorf("different script = %d %+v, want 409", code, reply)
 	}
 	if code, reply := postSpecMove(t, h, moveBody("hook", "lost", "project", "global", "copy")); code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "lost.sh") {
 		t.Errorf("missing script = %d %+v, want 422", code, reply)
 	}
-	if got := readOptional(t, filepath.Join(global, "scripts", "guard-push.sh")); got != "#!/bin/sh\nexit 1\n" {
+	if got := readOptional(t, filepath.Join(userLevel, "scripts", "guard-push.sh")); got != "#!/bin/sh\nexit 1\n" {
 		t.Errorf("refusal changed the global script: %q", got)
 	}
 }
 
 func TestSpecMove_ReadsEveryCommandFormOfAHook(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/hooks/pair.yaml", "name: pair\non: session-start\ncommand: [.agnostic-ai/scripts/a.sh, .agnostic-ai/scripts/b.sh]\n")
 	writeFile(t, ".agnostic-ai/hooks/flagged.yaml", "name: flagged\non: session-start\ncommand: .agnostic-ai/scripts/c.sh\nargs: [x]\ncommandWindows: powershell -File .agnostic-ai/scripts/c.ps1 -Flag\n")
 	for _, name := range []string{"a.sh", "b.sh", "c.sh", "c.ps1"} {
 		writeFile(t, ".agnostic-ai/scripts/"+name, "exit 0\n")
 	}
-	h := projectMoveHandler(project, global)
+	h := projectMoveHandler(project, userLevel)
 	for name, want := range map[string][]string{
 		"pair":    {"~/source/scripts/a.sh", "~/source/scripts/b.sh"},
 		"flagged": {"~/source/scripts/c.ps1", "~/source/scripts/c.sh"},
@@ -524,18 +524,18 @@ func TestSpecMove_ReadsEveryCommandFormOfAHook(t *testing.T) {
 }
 
 func TestSpecMove_ReadsCommandsUnderToolKeys(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/hooks/kiro-only.yaml", "name: kiro-only\non: session-start\ncommand: echo hi\nx-kiro:\n  action:\n    type: command\n    command: .agnostic-ai/scripts/k.sh\nx-cursor:\n  hooks:\n    - command: .agnostic-ai/scripts/gone.sh\nx-gemini:\n  hooks:\n    - command: .agnostic-ai/scripts/g.sh\n")
 	writeFile(t, ".agnostic-ai/scripts/k.sh", "exit 0\n")
 	writeFile(t, ".agnostic-ai/scripts/g.sh", "exit 0\n")
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("hook", "kiro-only", "project", "global", "copy"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("hook", "kiro-only", "project", "global", "copy"))
 	if want := []string{"~/source/scripts/g.sh", "~/source/scripts/k.sh"}; code != http.StatusOK || !slices.Equal(reply.Scripts, want) {
 		t.Errorf("move = %d %+v, want scripts %v", code, reply, want)
 	}
 }
 
 func TestSpecMove_RefusesAScriptLinkedOutsideTheScriptsFolder(t *testing.T) {
-	project, global := moveProject(t)
+	project, userLevel := moveProject(t)
 	outside := filepath.Join(t.TempDir(), "outside")
 	writeFile(t, filepath.Join(outside, "secret.sh"), "cat ~/.ssh/id_ed25519\n")
 	writeFile(t, ".agnostic-ai/hooks/linked.yaml", "name: linked\non: session-start\ncommand: .agnostic-ai/scripts/link/secret.sh\n")
@@ -545,11 +545,11 @@ func TestSpecMove_RefusesAScriptLinkedOutsideTheScriptsFolder(t *testing.T) {
 	if err := os.Symlink(outside, filepath.Join(project, ".agnostic-ai", "scripts", "link")); err != nil {
 		t.Skip(err)
 	}
-	code, reply := postSpecMove(t, projectMoveHandler(project, global), moveBody("hook", "linked", "project", "global", "copy"))
+	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("hook", "linked", "project", "global", "copy"))
 	if code != http.StatusUnprocessableEntity {
 		t.Errorf("linked script = %d %+v, want 422", code, reply)
 	}
-	if _, err := os.Stat(filepath.Join(global, "scripts", "link", "secret.sh")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(userLevel, "scripts", "link", "secret.sh")); !os.IsNotExist(err) {
 		t.Errorf("copied a file from outside the scripts folder: %v", err)
 	}
 }

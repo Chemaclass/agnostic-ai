@@ -284,7 +284,7 @@ func TestUpgradeRequires_NamesADroppedRangeWhenSyncFails(t *testing.T) {
 	}
 }
 
-func TestUpgradeRequires_RefusesGlobalHome(t *testing.T) {
+func TestUpgradeRequires_RefusesUserHome(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", home)
 	testutil.Chdir(t, home)

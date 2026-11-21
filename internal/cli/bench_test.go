@@ -690,7 +690,7 @@ func writeBenchProject(tb testing.TB, root string, n int) {
 }
 
 // benchLoad loads the fixture config and a project-only bundle. It skips
-// resolveLayers so the project-user layer cannot leak host state into the
+// resolveLayers so the local layer cannot leak host state into the
 // numbers.
 func benchLoad(b *testing.B, root string) (*config.Config, spec.Bundle) {
 	b.Helper()

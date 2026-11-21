@@ -54,7 +54,7 @@ func newRevertCmd() *cobra.Command {
 			if len(only) > 0 && len(except) > 0 {
 				return errors.New("--only and --except are mutually exclusive")
 			}
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			cfg, b, err := loadProject(".")
@@ -172,6 +172,7 @@ func newRevertCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for machine consumption")
 	cmd.Flags().BoolVar(&force, "force", false, "Also delete adapter-emitted files that lack a .bak (use with care: removes user-authored files that share a path with adapter output)")
 	registerTargetCompletion(cmd)
+	addProjectOnlyScopeFlag(cmd, "a user-level sync has no undo; `agnostic-ai sync --scope user --backup` keeps a .bak copy of each file it changes")
 	return cmd
 }
 

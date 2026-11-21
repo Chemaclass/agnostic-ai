@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -94,6 +95,7 @@ func TestCompanionUpdateApp_VerifiesBeforeStoppingAndReplacesTogether(t *testing
 			return nil
 		},
 	}
+	deps.sameSigner = acceptSigner
 	if err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps); err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +165,7 @@ func TestCompanionUpdateApp_RestoresOldAppWhenReplacementFails(t *testing.T) {
 	restarted := false
 	deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
 		return testDownloadableApp(t, staging), nil
-	}, start: func(string) error { restarted = true; return nil }}
+	}, sameSigner: acceptSigner, start: func(string) error { restarted = true; return nil }}
 	err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps)
 	if err == nil || !restarted {
 		t.Errorf("update = %v, restarted %v", err, restarted)
@@ -203,9 +205,94 @@ func TestCompanionUpdateApp_NamesEachStepForTheCompanion(t *testing.T) {
 			t.Errorf("prepared after %q", out.String())
 		}
 		return testDownloadableApp(t, staging), nil
-	}, start: func(string) error { return nil }}
+	}, sameSigner: acceptSigner, start: func(string) error {
+		if !strings.HasSuffix(out.String(), "Replaced the companion app.\n") {
+			t.Errorf("started after %q", out.String())
+		}
+		return nil
+	}}
 
 	if err := updateCompanionApp(context.Background(), &out, app, "2.0.0", tools, deps); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func acceptSigner(context.Context, string, string) error { return nil }
+
+func TestCompanionUpdateApp_RefusesAnAppSignedByAnotherCertificate(t *testing.T) {
+	app := testDownloadableApp(t, t.TempDir())
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) {
+		t.Error("stopped the companion for an app signed by someone else")
+		return false, nil
+	}
+	deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
+		return testDownloadableApp(t, staging), nil
+	}, sameSigner: func(_ context.Context, installed, built string) error {
+		if installed != app || filepath.Base(built) != companionAppName+".app" {
+			t.Errorf("compared %q with %q", installed, built)
+		}
+		return errors.New("codesign: test-requirement: failed")
+	}}
+
+	err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps)
+
+	if err == nil || !strings.Contains(err.Error(), "is not signed by this project") {
+		t.Errorf("error %v", err)
+	}
+	if raw, _ := os.ReadFile(filepath.Join(app, "Contents", "Resources", binaryName)); string(raw) != "cli" {
+		t.Errorf("changed CLI: %q", raw)
+	}
+}
+
+func TestCompanionUpdateApp_RefusesAFolderItCannotWriteBeforeDownloading(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Getuid() == 0 {
+		t.Skip("needs a folder this user cannot write")
+	}
+	parent := t.TempDir()
+	app := testDownloadableApp(t, parent)
+	if err := os.Chmod(parent, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o700) })
+	deps := companionAppDeps{prepare: func(context.Context, io.Writer, string, string) (string, error) {
+		t.Error("downloaded for an app it cannot replace")
+		return "", nil
+	}}
+
+	err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", builtTools(t), deps)
+
+	if err == nil || !strings.Contains(err.Error(), "Move the app to Applications, open it from there, then update") {
+		t.Errorf("error %v", err)
+	}
+}
+
+func TestPinnedRequirement_ReadsOnlyARequirementThatPinsACertificate(t *testing.T) {
+	pinned := `identifier "dev.agnostic-ai.companion" and certificate leaf = H"0e01a50348aa6d59f2ccc808b8ca966bdcd25585"`
+	for _, tc := range []struct {
+		name, output, want string
+		ok                 bool
+	}{
+		{"pinned", "Executable=/A.app/Contents/MacOS/agnostic-ai-companion\ndesignated => " + pinned + "\n", pinned, true},
+		{"ad hoc", "Executable=/A.app/Contents/MacOS/agnostic-ai-companion\n# designated => cdhash H\"8b8f\"\n", "", false},
+		{"identifier only", "designated => identifier \"dev.agnostic-ai.companion\"\n", "", false},
+		{"empty", "", "", false},
+	} {
+		if got, ok := pinnedRequirement(tc.output); got != tc.want || ok != tc.ok {
+			t.Errorf("%s: pinnedRequirement = %q, %v; want %q, %v", tc.name, got, ok, tc.want, tc.ok)
+		}
+	}
+}
+
+func TestCompanionUpdateApp_BlamesAnInstalledAppWithoutAProjectSignature(t *testing.T) {
+	app := testDownloadableApp(t, t.TempDir())
+	deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
+		return testDownloadableApp(t, staging), nil
+	}, sameSigner: func(context.Context, string, string) error { return fmt.Errorf("%s: %w", app, errInstalledUnpinned) }}
+
+	err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", builtTools(t), deps)
+
+	if err == nil || strings.Contains(err.Error(), "is not signed by this project") || !strings.Contains(err.Error(), "Download the new disk image by hand once") {
+		t.Errorf("error %v", err)
 	}
 }

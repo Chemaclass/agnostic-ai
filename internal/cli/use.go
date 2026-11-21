@@ -40,7 +40,7 @@ func newUseCmd() *cobra.Command {
 		Args:      cobra.MinimumNArgs(1),
 		ValidArgs: adapters.Names(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := refuseGlobalHome(".", globalHomeSpecsRemedy); err != nil {
+			if err := refuseUserSource(".", userHomeSpecsRemedy); err != nil {
 				return err
 			}
 			tools, err := knownTools(args)
@@ -287,7 +287,7 @@ func enclosingProject(dir string) (string, bool) {
 		top, _ = filepath.EvalSymlinks(strings.TrimSpace(string(out)))
 	}
 	var home os.FileInfo
-	if source, err := globalSourceRoot(); err == nil {
+	if source, err := userSourceRoot(); err == nil {
 		home, _ = os.Stat(source)
 	}
 	for dir != top && filepath.Dir(dir) != dir {

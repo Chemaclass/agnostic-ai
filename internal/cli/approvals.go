@@ -108,11 +108,11 @@ func newApprovalsAskCmd() *cobra.Command {
 			// A broken config must not block the switch off, so a failed
 			// read only drops the reviewer note.
 			before, _ := readApprovalsStatus(io.Discard)
-			source, err := globalSourceRoot()
+			source, err := userSourceRoot()
 			if err != nil {
 				return err
 			}
-			path := globalConfigPaths(source)[1]
+			path := userConfigPaths(source)[1]
 			if err := writeApprovalsAsk(path); err != nil {
 				return err
 			}
@@ -129,7 +129,7 @@ func newApprovalsAskCmd() *cobra.Command {
 }
 
 func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
-	source, err := globalSourceRoot()
+	source, err := userSourceRoot()
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
@@ -137,12 +137,12 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
-	targets, err := loadGlobalTargets(source, io.Discard)
+	targets, err := loadUserTargets(source, io.Discard)
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
 	if targets == nil {
-		targets = globalTargetNames()
+		targets = userTargetNames()
 	}
 	dir, err := os.Getwd()
 	if err != nil {
@@ -152,7 +152,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
-	userHome, err := globalUserHome()
+	userHome, err := userHomeDir()
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
@@ -163,7 +163,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			}
 		}
 	}
-	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+	state, err := loadUserState(filepath.Join(source, "state", "global.json"))
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
@@ -252,11 +252,11 @@ func approvalHookProblem(tool string) string {
 	case "codex":
 		path, _ = codex.UserHooksPath()
 	case "qoder":
-		if home, err := globalUserHome(); err == nil {
+		if home, err := userHomeDir(); err == nil {
 			path = filepath.Join(home, ".qoder", "settings.json")
 		}
 	case "qwen":
-		if home, err := globalUserHome(); err == nil {
+		if home, err := userHomeDir(); err == nil {
 			if dir, ok := qwenUserDir(home); ok {
 				path = filepath.Join(dir, "settings.json")
 			} else {
@@ -322,7 +322,7 @@ func approvalHookProblem(tool string) string {
 // enabled PermissionRequest hook in ~/.kiro/hooks runs it, or a Kiro
 // rule asks, which turns the hook off.
 func kiroHookProblem(notSynced string) string {
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return notSynced
 	}
@@ -380,7 +380,7 @@ func kiroApprovalRoot(home string) (string, error) {
 	if os.Getenv("KIRO_HOME") == "" {
 		return filepath.Join(home, ".kiro"), nil
 	}
-	root := globalTargets["kiro"].overrideRoot(home)
+	root := userTargets["kiro"].overrideRoot(home)
 	if root == "" {
 		return "", errors.New("cannot locate the Kiro rules under KIRO_HOME")
 	}
@@ -412,7 +412,7 @@ func qwenAskProblem() string {
 			return env + " is set, which turns off every Qwen Code hook"
 		}
 	}
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return "cannot find the home folder: " + err.Error()
 	}
@@ -453,7 +453,7 @@ func qwenHookMode(mode string) bool {
 // qoderAskProblem says when a Qoder CLI permissions.ask rule, whose
 // prompt a hook allow could answer, turns the hook off.
 func qoderAskProblem() string {
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return "cannot find the home folder: " + err.Error()
 	}
@@ -600,7 +600,7 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 // root that would loosen approvals. The home folder is skipped: there the
 // same file is the home config, which may loosen.
 func projectApprovalsIssues(root string) ([]config.ApprovalsIssue, error) {
-	if source, err := globalSourceRoot(); err == nil && sameRealDir(root, source) {
+	if source, err := userSourceRoot(); err == nil && sameRealDir(root, source) {
 		return nil, nil
 	}
 	return config.ProjectApprovalsIssues(root)

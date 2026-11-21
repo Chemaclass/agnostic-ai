@@ -96,7 +96,7 @@ func TestEditPersonal_RejectsTeamChangesBeforeReplacement(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			silence(t)
 			source := editHome(t)
-			h := &editHandler{root: source, global: true}
+			h := &editHandler{root: source, userLevel: true}
 			var file, team string
 			var edit func([]byte) ([]byte, error)
 			var err error

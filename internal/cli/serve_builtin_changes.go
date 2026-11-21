@@ -55,7 +55,7 @@ type builtinChangeView struct {
 
 type builtinChangeHandler struct {
 	root        string
-	global      bool
+	userLevel   bool
 	mu          sync.Mutex
 	plan        *builtinChangePlan
 	last        *builtinChangeView
@@ -65,8 +65,8 @@ type builtinChangeHandler struct {
 	beforeWrite func(string) error
 }
 
-func newBuiltinChangeHandler(root string, global bool) *builtinChangeHandler {
-	return &builtinChangeHandler{root: root, global: global}
+func newBuiltinChangeHandler(root string, userLevel bool) *builtinChangeHandler {
+	return &builtinChangeHandler{root: root, userLevel: userLevel}
 }
 
 func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -86,7 +86,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	if h.global {
+	if h.userLevel {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "Built-in preview, apply, undo, and cancel are available for projects only"})
 		return
 	}
@@ -188,7 +188,7 @@ func (h *builtinChangeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *builtinChangeHandler) status() builtinChangeView {
-	view := builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "idle", Name: "caveman", Supported: !h.global, Changes: []builtinFileChange{}, Findings: []string{}, Targets: []string{}}
+	view := builtinChangeView{SchemaVersion: "builtin-change/v1", Status: "idle", Name: "caveman", Supported: !h.userLevel, Changes: []builtinFileChange{}, Findings: []string{}, Targets: []string{}}
 	if h.last != nil {
 		view = *h.last
 	}

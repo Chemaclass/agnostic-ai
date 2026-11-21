@@ -379,9 +379,9 @@ Specs load from four layers, lowest first. A higher layer overrides a spec with 
 | `builtin` | bundled specs | enabled with `builtins` |
 | packs | `.agnostic-ai/packs/` from `agnostic.packs.lock` | packs are installed |
 | `project` | `agnostic-ai.yaml` `sources` paths | always |
-| `project-user` | `<project>/.agnostic-ai/local` | directory exists |
+| `local` | `<project>/.agnostic-ai/local` | directory exists |
 
-- The `project-user` layer merges into the shared spec field by field ([local overrides](@/docs/local-overrides.md#override-fields)).
+- The `local` layer merges into the shared spec field by field ([local overrides](@/docs/local-overrides.md#override-fields)).
 - Only `project` uses custom `sources` paths.
 - `$AGNOSTIC_AI_HOME` is not a project layer.
 

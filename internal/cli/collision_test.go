@@ -298,7 +298,7 @@ func TestSync_PerTargetCollisionPolicyPreferSpecOnOneTarget_StillPrompts(t *test
 	}
 }
 
-func TestSync_PerTargetCollisionPolicyFail_BeatsGlobalPreferSpec(t *testing.T) {
+func TestSync_PerTargetCollisionPolicyFail_BeatsUserPreferSpec(t *testing.T) {
 	dir := setupFixture(t)
 	testutil.Chdir(t, dir)
 	silence(t)

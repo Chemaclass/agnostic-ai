@@ -11,9 +11,9 @@ import (
 
 func TestSettingsFields_VoiceEditContractFollowsScope(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}, Sources: config.Sources{Settings: ".agnostic-ai/settings"}}
-	for _, global := range []bool{false, true} {
+	for _, userLevel := range []bool{false, true} {
 		fields := map[string]SettingField{}
-		for _, field := range buildFields(SectionSettings, nil, nil, cfg, "", global) {
+		for _, field := range buildFields(SectionSettings, nil, nil, cfg, "", userLevel) {
 			fields[field.Key] = field
 		}
 		for _, tc := range []struct {
@@ -26,14 +26,14 @@ func TestSettingsFields_VoiceEditContractFollowsScope(t *testing.T) {
 		} {
 			field, present := fields[tc.key]
 			if !present || field.Editable == nil {
-				t.Errorf("global=%t: missing editable metadata for %s", global, tc.key)
+				t.Errorf("global=%t: missing editable metadata for %s", userLevel, tc.key)
 				continue
 			}
 			edit := field.Editable
 			if field.Label != tc.label || edit.Kind != tc.kind || !reflect.DeepEqual(edit.Allowed, tc.allowed) {
-				t.Errorf("global=%t: %s = %+v, edit=%+v", global, tc.key, field, edit)
+				t.Errorf("global=%t: %s = %+v, edit=%+v", userLevel, tc.key, field, edit)
 			}
-			if global {
+			if userLevel {
 				if edit.Path != "settings/defaults.yaml" || edit.DisabledReason != "" || edit.SyncCommand != "agnostic-ai sync --scope user" {
 					t.Errorf("global %s edit = %+v", tc.key, edit)
 				}
@@ -72,7 +72,7 @@ func TestSettingsFields_VoiceValuesStayEditableAndSeparate(t *testing.T) {
 	}
 }
 
-func TestSettingsFields_ProjectVoiceValuesShowTheGlobalOnlyReason(t *testing.T) {
+func TestSettingsFields_ProjectVoiceValuesShowTheUserOnlyReason(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}}
 	e := entry(spec.KindSettings, "voice", ".agnostic-ai/settings/voice.yaml", map[string]any{
 		"name": "voice", "voice": map[string]any{"enabled": false, "mode": "tap", "language": "es"},
@@ -112,9 +112,9 @@ func TestSettingsFields_WholePersonalVoiceClearShowsSourcesAndBlocksEdits(t *tes
 	cfg := &config.Config{Targets: []string{"claude"}}
 	shared := entry(spec.KindSettings, "voice", "settings/voice.yaml", map[string]any{"voice": map[string]any{"enabled": true, "mode": "hold", "language": "es"}})
 	overlay := localOverlay(shared, "local/settings/voice.yaml", map[string]any{"voice": nil})
-	overlay.Layer = "global-local"
+	overlay.Layer = "user-local"
 	delete(overlay.Meta, "voice")
-	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}, Global: true}), SectionSettings)
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}, UserLevel: true}), SectionSettings)
 	for _, field := range section.Fields {
 		if !strings.HasPrefix(field.Key, "voice.") {
 			continue
@@ -138,10 +138,10 @@ func TestSettingsFields_IndependentVoiceSourceRemainsEditable(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}}
 	shared := entry(spec.KindSettings, "a", "settings/a.yaml", map[string]any{"voice": map[string]any{"enabled": true, "mode": "hold"}})
 	cleared := localOverlay(shared, "local/settings/a.yaml", map[string]any{"voice": nil})
-	cleared.Layer = "global-local"
+	cleared.Layer = "user-local"
 	delete(cleared.Meta, "voice")
 	active := entry(spec.KindSettings, "z", "settings/z.yaml", map[string]any{"voice": map[string]any{"enabled": false, "mode": "tap", "language": "es"}})
-	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{cleared, active}}, Global: true}), SectionSettings)
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{cleared, active}}, UserLevel: true}), SectionSettings)
 	for _, field := range section.Fields {
 		if !strings.HasPrefix(field.Key, "voice.") {
 			continue
@@ -155,7 +155,7 @@ func TestSettingsFields_IndependentVoiceSourceRemainsEditable(t *testing.T) {
 func TestSettingsFields_InvalidVoiceMemberShapeStaysReadOnly(t *testing.T) {
 	cfg := &config.Config{Targets: []string{"claude"}}
 	e := entry(spec.KindSettings, "voice", "settings/voice.yaml", map[string]any{"voice": map[string]any{"mode": map[string]any{"unexpected": "hold"}}})
-	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{e}}, Global: true}), SectionSettings)
+	section := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{e}}, UserLevel: true}), SectionSettings)
 	for _, field := range section.Fields {
 		if field.Key == "voice.mode" && (field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "non-scalar")) {
 			t.Errorf("invalid mode edit = %+v", field.Editable)

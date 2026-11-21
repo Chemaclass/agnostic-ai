@@ -22,7 +22,7 @@ import (
 const ProjectMemoryIndexPath = ".agnostic-ai/memory/MEMORY.md"
 
 // PersonalMemoryIndexPath is the index of the personal store, under the
-// git-ignored project-user layer.
+// git-ignored local layer.
 const PersonalMemoryIndexPath = ".agnostic-ai/local/memory/MEMORY.md"
 
 // MemoryBuiltin names the built-in that owns the shared memory store.

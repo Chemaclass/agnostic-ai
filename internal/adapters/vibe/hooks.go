@@ -69,7 +69,7 @@ func (Adapter) UserHookRecordsForPlatform(hooks []spec.Entry, scriptsDir, platfo
 				command = win
 			}
 		}
-		command = emit.RewriteGlobalHookPath(command, target, scriptsDir, m)
+		command = emit.RewriteUserHookPath(command, target, scriptsDir, m)
 		command, err := nativeHookCommand(command, args, platform)
 		if err != nil {
 			return nil, fmt.Errorf("vibe: hook %s: %w", h.Name, err)

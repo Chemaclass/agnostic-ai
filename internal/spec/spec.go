@@ -58,7 +58,7 @@ type Entry struct {
 	// project directory, whether or not Scope took it.
 	Folder string
 	// Layer names the source layer this entry came from
-	// ("pack:<name>", "project", "project-user"). Empty when loaded
+	// ("pack:<name>", "project", "local"). Empty when loaded
 	// outside the layered loader (legacy path).
 	Layer     string
 	bodyLayer string

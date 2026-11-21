@@ -118,8 +118,8 @@ func TestSync_SummaryLeavesOutAHookNoToolWrote(t *testing.T) {
 	}
 }
 
-func TestExplainGlobal_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestExplainUser_ListsNoOutputForAHookWithoutCommand(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "fmt.yaml"), "name: fmt\non: after-edit\nrun: echo hi\n")
 	out, err := runRoot(t, "explain", "--scope", "user", "hooks/fmt.yaml")
 	if err != nil {

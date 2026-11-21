@@ -16,8 +16,8 @@ func TestDoctor_UnknownTargetFailsLikeSync(t *testing.T) {
 	setupDoctorLintProject(t, nil)
 
 	for _, args := range [][]string{
-		{"-t", "bogus", "--scope", "project"},
-		{"-t", "bogus", "--scope", "project", "--json"},
+		{"-t", "bogus", "--checks", "project"},
+		{"-t", "bogus", "--checks", "project", "--json"},
 	} {
 		out, err := runDoctor(t, args...)
 
@@ -81,7 +81,7 @@ func TestDoctorJSON_CheckGlobsListsUnmatchedAndFails(t *testing.T) {
 		"rules/dead.md": "---\nname: dead\ndescription: d\nglobs: does-not-exist/**\n---\nbody\n",
 	})
 
-	out, err := runDoctor(t, "--json", "--check-globs", "--scope", "project")
+	out, err := runDoctor(t, "--json", "--check-globs", "--checks", "project")
 
 	if err == nil || !strings.Contains(err.Error(), "glob") {
 		t.Fatalf("a rule that never loads must fail doctor --json as it fails text mode, got %v\n%s", err, out)
@@ -98,7 +98,7 @@ func TestDoctorJSON_CheckGlobsListsUnmatchedAndFails(t *testing.T) {
 func TestDoctorJSON_OmitsGlobsWithoutFlag(t *testing.T) {
 	setupDoctorLintProject(t, nil)
 
-	out, err := runDoctor(t, "--json", "--scope", "project")
+	out, err := runDoctor(t, "--json", "--checks", "project")
 
 	if err != nil {
 		t.Fatalf("doctor --json: %v\n%s", err, out)
@@ -118,7 +118,7 @@ func TestDoctorJSON_ListsNestedClaudeCopiesAndFails(t *testing.T) {
 	syncProject(t)
 	writeFile(t, filepath.Join("src", "a", "CLAUDE.md"), "# Module A\n\nA facts.\n")
 
-	out, err := runDoctor(t, "--json", "--scope", "project")
+	out, err := runDoctor(t, "--json", "--checks", "project")
 
 	if err == nil {
 		t.Fatalf("a nested copy fails text mode, so it must fail --json:\n%s", out)
@@ -134,7 +134,7 @@ func TestDoctorJSON_ListsDivergentHookScriptsAndFails(t *testing.T) {
 	mustWriteHookScript(t, ".", "claude", "guard.sh", "echo claude\n")
 	mustWriteHookScript(t, ".", "codex", "guard.sh", "echo codex\n")
 
-	out, err := runDoctor(t, "--json", "--scope", "project")
+	out, err := runDoctor(t, "--json", "--checks", "project")
 
 	if err == nil {
 		t.Fatalf("divergent hook scripts fail text mode, so they must fail --json:\n%s", out)

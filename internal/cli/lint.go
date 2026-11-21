@@ -50,7 +50,7 @@ func (f lintFinding) String() string {
 }
 
 func newLintCmd() *cobra.Command {
-	var strict, global, asJSON, onlyFiles, neutralCapabilities bool
+	var strict, userLevel, asJSON, onlyFiles, neutralCapabilities bool
 	cmd := &cobra.Command{
 		Use:   "lint [--files <path>...]",
 		Short: "Run semantic lint checks on source specs beyond schema validation.",
@@ -95,7 +95,7 @@ func newLintCmd() *cobra.Command {
 			if len(args) > 0 && !onlyFiles {
 				return errors.New("lint takes paths only with --files")
 			}
-			if onlyFiles && global {
+			if onlyFiles && userLevel {
 				return errs.Coded(errs.CodeFlagConflict, "--files cannot be combined with --scope user")
 			}
 			return nil
@@ -136,7 +136,7 @@ func newLintCmd() *cobra.Command {
 				printLintFindings(cmd, findings)
 				return lintExitErr(findings, strict)
 			}
-			scope, err := loadCheckScope(global)
+			scope, err := loadCheckScope(userLevel)
 			if err != nil {
 				return err
 			}
@@ -174,7 +174,7 @@ func newLintCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print findings as JSON on stdout.")
 	cmd.Flags().BoolVar(&onlyFiles, "files", false, "Report only findings on the paths given as arguments; - reads paths from stdin.")
-	addScopeFlag(cmd, &global, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes.")
+	addScopeFlag(cmd, &userLevel, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes.")
 	return cmd
 }
 
@@ -250,20 +250,20 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 		return nil, 0, err
 	}
 	findings := collectLintFindings(scope.targets, scope.support, scope.bundle)
-	if scope.global {
+	if scope.userLevel {
 		findings = slices.DeleteFunc(findings, func(f lintFinding) bool { return f.Code == "LINT038" })
-		findings = append(findings, lintGlobalRuleFindings(scope.bundle.Rules, scope.targets)...)
-		findings = append(findings, lintGlobalSettingsFindings(scope.bundle.Settings, scope.targets)...)
+		findings = append(findings, lintUserRuleFindings(scope.bundle.Rules, scope.targets)...)
+		findings = append(findings, lintUserSettingsFindings(scope.bundle.Settings, scope.targets)...)
 	}
 	findings = append(findings, budget...)
 	findings = append(findings, lintGitignoreCommitTargets(scope.cfg)...)
 	unmanagedPath := unmanagedSource(".")
-	if scope.global {
-		unmanagedPath = globalConfigPaths(scope.source)[0]
+	if scope.userLevel {
+		unmanagedPath = userConfigPaths(scope.source)[0]
 	}
 	findings = append(findings, lintUnmanagedDoubleStar(scope.cfg, unmanagedPath)...)
 	accepted := 0
-	if !scope.global {
+	if !scope.userLevel {
 		nulls, err := lintLocalNulls()
 		if err != nil {
 			return nil, 0, err
@@ -296,18 +296,18 @@ func lintScopeReport(scope checkScope) ([]lintFinding, int, error) {
 	findings = append(findings, lintCodexMCPEnvironment(scope.targets, scope.bundle)...)
 	findings = append(findings, lintMCPTimeoutSeconds(scope.targets, scope.bundle)...)
 	configPath := config.ConfigFileName
-	if scope.global {
-		configPath = globalConfigPaths(scope.source)[0]
+	if scope.userLevel {
+		configPath = userConfigPaths(scope.source)[0]
 	}
 	findings = append(findings, lintModels(scope.models, configPath, scope.targets, scope.support, scope.bundle)...)
 	findings = append(findings, lintTargetRefusals(scope.cfg, scope.targets, scope.bundle, configPath)...)
 	outputPaths := []string{configPath, config.LocalOverrideFileName}
-	if scope.global {
-		outputPaths = globalConfigPaths(scope.source)
+	if scope.userLevel {
+		outputPaths = userConfigPaths(scope.source)
 	}
 	findings = append(findings, lintRulesModes(scope.cfg, outputPaths)...)
 	findings = append(findings, lintRulesFiles(scope.cfg, outputPaths)...)
-	if !scope.global {
+	if !scope.userLevel {
 		findings = append(findings, lintSharedRulesFiles(scope.cfg, scope.bundle, scope.targets, outputPaths)...)
 	}
 	return withoutBuiltinFindings(findings, scope.bundle), accepted, nil

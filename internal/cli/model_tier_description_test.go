@@ -168,18 +168,18 @@ func TestLintBudget_CountsTheModelTiersLayer(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude, codex]\n"+describedTiersConfig)
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
-	if _, errOut, err := runGlobalCheck("sync"); err != nil {
+	if _, errOut, err := runUserCheck("sync"); err != nil {
 		t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 	}
 
 	for _, path := range []string{filepath.Join(home, ".claude", "CLAUDE.md"), filepath.Join(home, ".codex", "AGENTS.md")} {
-		got := readGlobalManaged(t, path)
+		got := readUserManaged(t, path)
 		instructions, tiers, rules := strings.Index(got, "Home instructions."), strings.Index(got, describedTiersLine), strings.Index(got, "## safe")
 		if instructions < 0 || tiers < instructions || rules < tiers {
 			t.Errorf("%s should hold instructions, tiers, then rules:\n%s", path, got)
@@ -187,31 +187,31 @@ func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_LocalTierReplacesItsDescription(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_LocalTierReplacesItsDescription(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+describedTiersConfig)
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "version: 1\nmodels:\n  strong: {claude: opus, description: for the hard parts}\n")
 
-	if _, errOut, err := runGlobalCheck("sync"); err != nil {
+	if _, errOut, err := runUserCheck("sync"); err != nil {
 		t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 	}
 
-	got := readGlobalManaged(t, filepath.Join(home, ".claude", "CLAUDE.md"))
+	got := readUserManaged(t, filepath.Join(home, ".claude", "CLAUDE.md"))
 	if !strings.Contains(got, "`strong` for the hard parts") || strings.Contains(got, "everyday coding") {
 		t.Errorf("the local tier should replace the description:\n%s", got)
 	}
 }
 
-func TestSyncGlobal_TiersWithoutDescriptionsKeepTheManagedBlock(t *testing.T) {
+func TestSyncUser_TiersWithoutDescriptionsKeepTheManagedBlock(t *testing.T) {
 	blocks := make([]string, 0, 2)
 	for _, models := range []string{"", "models:\n  strong: {claude: opus}\n"} {
-		home, source := globalAgentTestHome(t)
+		home, source := userAgentTestHome(t)
 		writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+models)
 		writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
-		if _, errOut, err := runGlobalCheck("sync"); err != nil {
+		if _, errOut, err := runUserCheck("sync"); err != nil {
 			t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 		}
-		blocks = append(blocks, readGlobalManaged(t, filepath.Join(home, ".claude", "CLAUDE.md")))
+		blocks = append(blocks, readUserManaged(t, filepath.Join(home, ".claude", "CLAUDE.md")))
 	}
 
 	if blocks[0] != blocks[1] {
@@ -219,13 +219,13 @@ func TestSyncGlobal_TiersWithoutDescriptionsKeepTheManagedBlock(t *testing.T) {
 	}
 }
 
-func readGlobalManaged(t *testing.T, path string) string {
+func readUserManaged(t *testing.T, path string) string {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return globalBlock(data)
+	return userBlock(data)
 }
 
 func TestSync_RulesFileThatOwnsTheEntryPointListsTheTiers(t *testing.T) {
@@ -254,12 +254,12 @@ func TestSync_RulesFileBesideTheEntryPointGetsNoTiers(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\nmodels:\n  \"<!-- agnostic-ai:global:end -->\": {claude: opus, description: for all}\n")
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 
-	_, _, err := runGlobalCheck("sync")
+	_, _, err := runUserCheck("sync")
 
 	if err == nil || !strings.Contains(err.Error(), "tier name") {
 		t.Errorf("sync --scope user error = %v, want the tier name rejected", err)

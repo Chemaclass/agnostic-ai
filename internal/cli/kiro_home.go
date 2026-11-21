@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-func (g globalTarget) overrideRoot(home string) string {
+func (g userTarget) overrideRoot(home string) string {
 	root := os.Getenv(g.rootEnv)
 	if g.rootEnv != "KIRO_HOME" {
 		return root

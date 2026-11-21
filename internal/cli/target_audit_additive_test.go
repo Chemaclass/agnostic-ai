@@ -111,13 +111,13 @@ func TestAuditCrushGoose_SharedManualSkillAndCommand(t *testing.T) {
 	}
 }
 
-func TestAuditKiloGlobal_TrustedShellOnly(t *testing.T) {
+func TestAuditKiloUser_TrustedShellOnly(t *testing.T) {
 	for _, mode := range []string{"warn", "error"} {
 		t.Run(mode, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: "+mode+"\n")
 			writeFile(t, filepath.Join(source, "skills", "probe", "SKILL.md"), "---\nname: probe\ndescription: Show context.\n---\nLive: !`printf audit-probe`\n")
-			_, warnings, err := runGlobalAgentTest("--only", "kilo")
+			_, warnings, err := runUserAgentTest("--only", "kilo")
 			if err != nil {
 				t.Fatalf("trusted global shell: %v", err)
 			}
@@ -127,18 +127,18 @@ func TestAuditKiloGlobal_TrustedShellOnly(t *testing.T) {
 			if body := readFile(t, filepath.Join(home, ".kilo", "skills", "probe", "SKILL.md")); !strings.Contains(body, "!`printf audit-probe`") {
 				t.Errorf("shell placeholder lost: %s", body)
 			}
-			if _, _, err := runGlobalAgentTest("--only", "kilo", "--check"); err != nil {
+			if _, _, err := runUserAgentTest("--only", "kilo", "--check"); err != nil {
 				t.Errorf("check: %v", err)
 			}
 		})
 	}
 }
 
-func TestAuditKiloGlobal_ArgumentPlaceholdersRemainUnsupported(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestAuditKiloUser_ArgumentPlaceholdersRemainUnsupported(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
-	writeFile(t, filepath.Join(source, "skills", "probe", "SKILL.md"), globalSyntaxSkill)
-	_, _, err := runGlobalAgentTest("--only", "kilo")
+	writeFile(t, filepath.Join(source, "skills", "probe", "SKILL.md"), userSyntaxSkill)
+	_, _, err := runUserAgentTest("--only", "kilo")
 	if err == nil || !strings.Contains(err.Error(), "$ARGUMENTS") {
 		t.Errorf("want unsupported arguments, got %v", err)
 	}

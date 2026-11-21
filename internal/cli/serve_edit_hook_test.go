@@ -144,7 +144,7 @@ func TestServeEditHook_UsesTheProjectsConfiguredHookSource(t *testing.T) {
 	}
 }
 
-func TestServeEditHook_GlobalSavesUnderTheGlobalSource(t *testing.T) {
+func TestServeEditHook_UserSavesUnderTheUserSource(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	h := newEditHandler(source, true)
@@ -465,7 +465,7 @@ func TestServeEditHook_ChecksTheToolsItLeavesOut(t *testing.T) {
 	}
 }
 
-func TestServeEditHook_GlobalAcceptsAToolTheGlobalSetupWritesNoHooksFor(t *testing.T) {
+func TestServeEditHook_UserAcceptsAToolTheUserSetupWritesNoHooksFor(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - windsurf\n")

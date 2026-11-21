@@ -67,13 +67,13 @@ func TestCodebuddy_ImportKeepsResolvableInlineMCPReferences(t *testing.T) {
 		t.Fatal("reference changed")
 	}
 }
-func TestCodebuddy_GlobalRejectsInactiveOrUnsupportedHooks(t *testing.T) {
+func TestCodebuddy_UserRejectsInactiveOrUnsupportedHooks(t *testing.T) {
 	for _, extra := range []string{"disabled: true\n", "type: prompt\n"} {
 		t.Run(extra, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "hooks/guard.yaml"), "event: PreToolUse\ncommand: .agnostic-ai/scripts/guard.sh\n"+extra)
 			writeFile(t, filepath.Join(source, "scripts/guard.sh"), "#!/bin/sh\nexit 0\n")
-			if _, _, err := runGlobalAgentTest("--only", "codebuddy"); err == nil {
+			if _, _, err := runUserAgentTest("--only", "codebuddy"); err == nil {
 				t.Fatal("inactive/unsupported hook became active")
 			}
 			for _, p := range []string{".codebuddy/settings.json", ".codebuddy/hooks/guard.sh"} {
