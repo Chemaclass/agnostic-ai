@@ -99,6 +99,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal or Ghostty tab takes the name too, in place of
   the title the tool sets.
+- Right-click a chat and choose **Copy session ID** to copy its exact ID.
+  A cloud chat gives you its cloud ID. Use the tool that owns the chat to
+  decide how to open it. Copying keeps the chat state and marks.
 - On a chat in Needs you, the same menu offers **Mark as read**. It takes the
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.

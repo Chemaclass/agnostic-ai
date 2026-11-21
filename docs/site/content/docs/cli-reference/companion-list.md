@@ -93,6 +93,10 @@ Only one chat can take text? It goes straight there. Change the shortcut under *
 - What the server refuses: [`POST /api/conversations/send`](@/docs/cli-reference/conversations-api.md#post-api-conversations-send).
 {% </details> %}
 
+## Copy a session ID {#copy-a-session-id}
+
+Right-click a chat and choose **Copy session ID**. The clipboard gets the exact ID for that row. A cloud row gives you its cloud session ID. Copying keeps the chat state and marks.
+
 ## Rename a chat {#rename-a-chat}
 
 Give a chat your own name. The web interface shows the same name.
