@@ -86,7 +86,7 @@ func addScopeFlag(cmd *cobra.Command, user *bool, userHelp string) {
 		}
 		if flags.Changed(legacyGlobalFlagName) && verbosity >= levelDefault {
 			instead := specScopeProject
-			if state.legacy {
+			if *state.user {
 				instead = specScopeUser
 			}
 			fmt.Fprintf(cmd.ErrOrStderr(), "warning: --global is deprecated; use --scope %s\n", instead)

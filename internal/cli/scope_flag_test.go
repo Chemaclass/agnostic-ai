@@ -303,3 +303,13 @@ func TestScopeFlag_GlobalSwitchedOffPointsAtProject(t *testing.T) {
 		t.Errorf("stderr=%q, want it to point at --scope project", stderr)
 	}
 }
+
+func TestScopeFlag_GlobalSwitchedOffWithScopeUserPointsAtUser(t *testing.T) {
+	user, _, stderr, err := runScopeCmd(t, "--global=false", "--scope", "user")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !user || !strings.Contains(stderr, "--scope user") {
+		t.Errorf("user=%t stderr=%q, want user scope and a pointer to --scope user", user, stderr)
+	}
+}

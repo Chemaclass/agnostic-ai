@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -71,7 +72,7 @@ func TestInstallHookGlobal_WritesTheGlobalGate(t *testing.T) {
 	if !strings.HasPrefix(got, existing) || !strings.HasSuffix(got, globalHook.text()) {
 		t.Errorf("want the checks appended once after the existing content, got:\n%s", got)
 	}
-	for _, line := range []string{"agnostic-ai lint $scope --strict", "agnostic-ai validate $scope", "\tagnostic-ai sync $scope --check"} {
+	for _, line := range []string{`agnostic-ai lint "${agnostic_ai_scope:---global}" --strict`, `agnostic-ai validate "${agnostic_ai_scope:---global}"`, "\t" + `agnostic-ai sync "${agnostic_ai_scope:---global}" --check`} {
 		if n := strings.Count(got, line); n != 1 {
 			t.Errorf("want %q once, got %d:\n%s", line, n, got)
 		}
@@ -151,7 +152,7 @@ func TestInstallHookGlobal_RefusesWhenCoreHooksPathSendsGitElsewhere(t *testing.
 
 			_, err := runInstallHook("--scope", "user")
 			want := "core.hooksPath is " + elsewhere + " (set in " + origin + ")"
-			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), "agnostic-ai lint $scope --strict") {
+			if err == nil || !strings.Contains(err.Error(), want) || !strings.Contains(err.Error(), `agnostic-ai lint "${agnostic_ai_scope:---global}" --strict`) {
 				t.Fatalf("want %q with the lines to add, got %v", want, err)
 			}
 			for _, path := range []string{globalHookPath(source), filepath.Join(elsewhere, "pre-commit")} {
@@ -223,7 +224,7 @@ func TestInstallHookGlobal_CommitsRunTheChecks(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	all := []string{"lint --scope user --strict", "validate --scope user", "sync --scope user --check"}
+	all := []string{"lint --scope=user --strict", "validate --scope=user", "sync --scope=user --check"}
 	older := []string{"lint --global --strict", "validate --global", "sync --global --check"}
 	for _, tc := range []struct {
 		name    string
@@ -343,3 +344,107 @@ common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)" || exit 1
 if [ "$git_dir" = "$common_dir" ]; then
 	agnostic-ai sync --global --check || exit 1
 fi`
+
+// commitWithFakeAgnosticAI commits in dir with a fake agnostic-ai first
+// on PATH and returns the calls it logged, apart from help probes.
+func commitWithFakeAgnosticAI(t *testing.T, dir string) (string, error) {
+	t.Helper()
+	bin := t.TempDir()
+	log := filepath.Join(t.TempDir(), "calls.log")
+	fake := "#!/bin/sh\ncase \"$*\" in *--help) exit 0 ;; esac\necho \"$*\" >> \"$CALLS\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "agnostic-ai"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	commit := exec.Command("git", "commit", "-q", "--allow-empty", "-m", "x")
+	commit.Dir = dir
+	commit.Env = append(os.Environ(), "PATH="+bin+string(os.PathListSeparator)+os.Getenv("PATH"), "CALLS="+log)
+	out, err := commit.CombinedOutput()
+	calls, _ := os.ReadFile(log)
+	if err != nil {
+		return string(calls), fmt.Errorf("%w: %s", err, out)
+	}
+	return strings.TrimSpace(string(calls)), nil
+}
+
+// A hook edited by hand may lack the line the scope probe replaces.
+// The other checks must still run at user scope, not fall to the
+// project.
+func TestInstallHookGlobal_UpgradeOfAHookWithoutTheLintLineStaysAtUserScope(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake agnostic-ai is a sh script")
+	}
+	source, _ := globalGitHome(t)
+	body := strings.Replace(globalHookChecksBeforeScope, "agnostic-ai lint --global --strict || exit 1\n", "", 1)
+	path := globalHookPath(source)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+globalHook.sentinel+"\n"+body+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runInstallHook("--scope", "user"); err != nil {
+		t.Fatalf("install-hook: %v\n%s", err, out)
+	}
+
+	calls, err := commitWithFakeAgnosticAI(t, source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "validate --global\nsync --global --check"; calls != want {
+		t.Errorf("calls\nwant %s\ngot  %s", want, calls)
+	}
+}
+
+// The flag must reach agnostic-ai as one argument in a hook the user
+// runs under zsh or after changing IFS, where a two-word value would
+// not split.
+func TestInstallHookGlobal_ScopeSurvivesZshAndAChangedIFS(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake agnostic-ai is a sh script")
+	}
+	for _, tc := range []struct{ name, shell, prelude string }{
+		{"changed IFS", "/bin/sh", "IFS='\n'\n"},
+		{"zsh", "/bin/zsh", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := os.Stat(tc.shell); err != nil {
+				t.Skipf("%s is not installed", tc.shell)
+			}
+			source, _ := globalGitHome(t)
+			path := globalHookPath(source)
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte("#!"+tc.shell+"\n"+tc.prelude+globalHook.text()), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			calls, err := commitWithFakeAgnosticAI(t, source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if want := "lint --scope=user --strict\nvalidate --scope=user\nsync --scope=user --check"; calls != want {
+				t.Errorf("calls\nwant %s\ngot  %s", want, calls)
+			}
+		})
+	}
+}
+
+func TestInstallHookGlobal_UpgradeKeepsTheIndentOfEveryInsertedLine(t *testing.T) {
+	source, _ := globalGitHome(t)
+	path := globalHookPath(source)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	old := "#!/bin/sh\nif true; then\n    " + globalHook.sentinel + "\n    agnostic-ai lint --global --strict || exit 1\nfi\n"
+	if err := os.WriteFile(path, []byte(old), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := runInstallHook("--scope", "user"); err != nil {
+		t.Fatalf("install-hook: %v\n%s", err, out)
+	}
+	for _, line := range strings.Split(readHook(t, path), "\n")[2:6] {
+		if !strings.HasPrefix(line, "    ") {
+			t.Errorf("line lost its indent: %q", line)
+		}
+	}
+}

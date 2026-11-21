@@ -67,31 +67,34 @@ var globalHook = hookBlock{
 	checks: `AGNOSTIC_AI_HOME="$(git rev-parse --show-toplevel)" || exit 1
 export AGNOSTIC_AI_HOME
 ` + globalHookScopeProbe + `
-agnostic-ai lint $scope --strict || exit 1
-agnostic-ai validate $scope || exit 1
+agnostic-ai lint "${agnostic_ai_scope:---global}" --strict || exit 1
+agnostic-ai validate "${agnostic_ai_scope:---global}" || exit 1
 # A linked worktree holds a branch, not the specs sync --scope user deployed,
 # so only the main checkout compares them with the live files.
 git_dir="$(cd "$(git rev-parse --git-dir)" && pwd -P)" || exit 1
 common_dir="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)" || exit 1
 if [ "$git_dir" = "$common_dir" ]; then
-	agnostic-ai sync $scope --check || exit 1
+	agnostic-ai sync "${agnostic_ai_scope:---global}" --check || exit 1
 fi`,
 	// Releases before --scope wrote these lines with --global, which
 	// still works and warns on every commit.
 	upgrades: map[string]string{
-		"agnostic-ai lint --global --strict || exit 1":                              globalHookScopeProbe + "\nagnostic-ai lint $scope --strict || exit 1",
-		"agnostic-ai validate --global || exit 1":                                   "agnostic-ai validate $scope || exit 1",
+		"agnostic-ai lint --global --strict || exit 1":                              globalHookScopeProbe + "\n" + `agnostic-ai lint "${agnostic_ai_scope:---global}" --strict || exit 1`,
+		"agnostic-ai validate --global || exit 1":                                   `agnostic-ai validate "${agnostic_ai_scope:---global}" || exit 1`,
 		"# A linked worktree holds a branch, not the specs sync --global deployed,": "# A linked worktree holds a branch, not the specs sync --scope user deployed,",
-		"agnostic-ai sync --global --check || exit 1":                               "agnostic-ai sync $scope --check || exit 1",
+		"agnostic-ai sync --global --check || exit 1":                               `agnostic-ai sync "${agnostic_ai_scope:---global}" --check || exit 1`,
 	},
 }
 
 // globalHookScopeProbe picks the flag the agnostic-ai on PATH takes. A
 // hook outlives the release that wrote it, and a commit must not stop
 // on "unknown flag" because an older agnostic-ai comes first on PATH.
+// The flag is one word, so it survives zsh and a changed IFS, and each
+// check falls back to --global, which every release takes, when a hook
+// edited by hand lost these lines.
 const globalHookScopeProbe = `# An agnostic-ai older than --scope takes --global instead.
-scope="--scope user"
-agnostic-ai validate --scope user --help >/dev/null 2>&1 || scope="--global"`
+agnostic_ai_scope="--scope=user"
+agnostic-ai validate --scope=user --help >/dev/null 2>&1 || agnostic_ai_scope="--global"`
 
 const legacyProjectSyncHookChecks = `root="$(git rev-parse --show-toplevel)" || exit 0
 command -v agnostic-ai >/dev/null 2>&1 || exit 0
@@ -487,7 +490,9 @@ func writeHookAt(dir string, block hookBlock) (hookWrite, error) {
 		updated := false
 		for i, line := range lines {
 			if next, ok := block.upgrades[strings.TrimSpace(line)]; ok {
-				lines[i] = strings.Replace(line, strings.TrimSpace(line), next, 1)
+				// next may be several lines: each keeps the old line's indent.
+				indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+				lines[i] = strings.Replace(line, strings.TrimSpace(line), strings.ReplaceAll(next, "\n", "\n"+indent), 1)
 				updated = true
 			}
 		}
