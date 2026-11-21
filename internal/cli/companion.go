@@ -73,6 +73,48 @@ type companionNeed struct {
 	check []string
 	// fix says how to meet it.
 	fix string
+	// packages names the Linux package that meets it, by package manager.
+	packages map[string]string
+}
+
+// linuxPackageManager is one way a Linux distribution installs packages.
+type linuxPackageManager struct {
+	name, install, distros string
+}
+
+var linuxPackageManagers = []linuxPackageManager{
+	{name: "apt", install: "sudo apt install", distros: "Debian and Ubuntu"},
+	{name: "dnf", install: "sudo dnf install", distros: "Fedora"},
+	{name: "pacman", install: "sudo pacman -S", distros: "Arch"},
+}
+
+// linuxNeed is a need met by one package on each Linux package manager:
+// apt, dnf and pacman, in that order.
+func linuxNeed(what string, check []string, apt, dnf, pacman string) companionNeed {
+	packages := map[string]string{"apt": apt, "dnf": dnf, "pacman": pacman}
+	return companionNeed{what: what, check: check, packages: packages, fix: "Install it (" + installLines([]companionNeed{{packages: packages}}) + ")"}
+}
+
+// installLines names, for each package manager, the command that
+// installs what every need in needs lacks.
+func installLines(needs []companionNeed) string {
+	lines := make([]string, 0, len(linuxPackageManagers))
+	for _, manager := range linuxPackageManagers {
+		lines = append(lines, manager.distros+": "+manager.installCommand(needs))
+	}
+	return strings.Join(lines, "; ")
+}
+
+func (m linuxPackageManager) installCommand(needs []companionNeed) string {
+	words := []string{m.install}
+	for _, need := range needs {
+		words = append(words, need.packages[m.name])
+	}
+	return strings.Join(words, " ")
+}
+
+func pkgConfigNeed(what, module, apt, dnf, pacman string) companionNeed {
+	return linuxNeed(what+" for developers", []string{"pkg-config", "--exists", module}, apt, dnf, pacman)
 }
 
 var needsGo = companionNeed{what: "Go", check: []string{"go", "version"}, fix: "Install Go from https://go.dev/dl/"}
@@ -87,8 +129,11 @@ var companionNeeds = map[string][]companionNeed{
 	},
 	"linux": {
 		needsGo,
-		{what: "a C compiler", check: []string{"cc", "--version"}, fix: "Install gcc (Debian and Ubuntu: sudo apt install build-essential)"},
-		{what: "GTK 4, WebKitGTK 6.0 and X11 for developers", check: []string{"pkg-config", "--exists", "gtk4", "webkitgtk-6.0", "x11"}, fix: "Install them (Debian and Ubuntu: sudo apt install pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev)"},
+		linuxNeed("a C compiler", []string{"cc", "--version"}, "build-essential", "gcc", "gcc"),
+		linuxNeed("pkg-config", []string{"pkg-config", "--version"}, "pkg-config", "pkgconf-pkg-config", "pkgconf"),
+		pkgConfigNeed("GTK 4", "gtk4", "libgtk-4-dev", "gtk4-devel", "gtk4"),
+		pkgConfigNeed("WebKitGTK 6.0", "webkitgtk-6.0", "libwebkitgtk-6.0-dev", "webkitgtk6.0-devel", "webkitgtk-6.0"),
+		pkgConfigNeed("X11", "x11", "libx11-dev", "libX11-devel", "libx11"),
 	},
 	"windows": {needsGo},
 }

@@ -62,12 +62,25 @@ It works from Claude Code, Codex, and Cursor's terminal agent (`cursor-agent`). 
 | Ghostty | A new tab in the front window |
 | iTerm | A new tab in the front window |
 | WezTerm | A new tab in the window the command ran in |
+| kitty, with remote control on | A new tab in the active window |
 | Terminal, macOS 26 or later | A new tab |
 | Terminal, older macOS | A new window |
 | Warp, an editor's terminal, or another app | A new Terminal window |
-| Linux or Windows | Refused. The message gives the line to run in a terminal yourself. |
+| Linux with `x-terminal-emulator` (Debian, Ubuntu) | A new window of that terminal |
+| Other Linux, or Windows | Refused. The message gives the line to run in a terminal yourself. |
 
 The first time, macOS may ask whether the terminal that runs the command may control Terminal, Ghostty or iTerm.
+
+#### kitty remote control
+
+kitty takes commands from other programs only with remote control on. Add these two lines to `kitty.conf`, then restart kitty:
+
+```
+allow_remote_control socket-only
+listen_on unix:/tmp/kitty-{kitty_pid}
+```
+
+Then any program you run can control kitty through that socket, not only agnostic-ai. Without them, a kitty session's app comes forward and the message gives these lines. agnostic-ai never edits `kitty.conf`.
 
 ### When it refuses
 

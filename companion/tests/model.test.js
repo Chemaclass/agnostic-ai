@@ -517,13 +517,14 @@ test('pick mode keeps the selected row while it is offered, else selects the fir
   assert.equal(pickKeyOf([], [], 'gone'), undefined)
 })
 
-test('only live rows in a Terminal, Ghostty, iTerm or WezTerm tab, outside Archived, can be typed into', () => {
+test('only live rows in a Terminal, Ghostty, iTerm, WezTerm or kitty tab, outside Archived, can be typed into', () => {
   const tab = (app) => ({ live: true, open: { kind: 'focus', label: 'Switch to ' + app } })
   const rows = [
     row('ghostty', 'unread', tab('Ghostty')),
     row('terminal', 'working', tab('Terminal')),
     row('iterm', 'active', tab('iTerm')),
     row('wezterm', 'active', tab('WezTerm')),
+    row('kitty', 'active', tab('kitty')),
     row('warp', 'active', tab('Warp')),
     row('ended', 'active', { open: { kind: 'terminal', label: 'Open in Ghostty' } }),
     row('not-live', 'active', { ...tab('Ghostty'), live: false }),
@@ -535,8 +536,8 @@ test('only live rows in a Terminal, Ghostty, iTerm or WezTerm tab, outside Archi
     row('codex-idle', 'active', { ...tab('Ghostty'), tool: 'codex' }),
     row('cursor-idle', 'active', { ...tab('Ghostty'), tool: 'cursor' }),
   ]
-  assert.deepEqual(typableRows(rows).map((r) => r.id), ['ghostty', 'terminal', 'iterm', 'wezterm', 'codex-idle'])
-  assert.deepEqual(typableRows([rows[1], rows[4]]).map((r) => r.id), ['terminal'])
+  assert.deepEqual(typableRows(rows).map((r) => r.id), ['ghostty', 'terminal', 'iterm', 'wezterm', 'kitty', 'codex-idle'])
+  assert.deepEqual(typableRows([rows[1], rows[5]]).map((r) => r.id), ['terminal'])
   assert.deepEqual(typableRows([]), [])
 })
 

@@ -44,7 +44,7 @@ const (
 // The provider's own words stay in CloudError.Cause.
 var cloudReasonTexts = map[Tool]map[CloudReason]string{
 	ToolClaude: {
-		CloudUnsupported:  "this system has no supported place to read the Claude sign-in from; only macOS is supported.",
+		CloudUnsupported:  "this system has no supported place to read the Claude sign-in from; only macOS and Linux are supported.",
 		CloudNoCredential: "no Claude sign-in that may list cloud sessions was found on this machine. Sign in with `claude` first.",
 		CloudSignedOut:    "the Claude sign-in has expired or was refused. Run `claude` once to renew it.",
 		CloudRefused:      "claude.ai refused to list them.",
