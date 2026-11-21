@@ -514,6 +514,14 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       logCall('/api/update')
       noContent(response)
     },
+    // Like the shell: only a known release can start, and the panel follows the first step.
+    'POST /api/update/start': (request, response) => {
+      logCall('/api/update/start')
+      if (state.update.state !== 'available' && state.update.state !== 'failed') return sendJSON(response, 409, { error: 'no update is known; check for updates first' })
+      state.update = { state: 'updating', version: state.update.version, current: state.update.current, step: 'downloading' }
+      noContent(response)
+      emit('update', state.update)
+    },
     'GET /api/appearance': (request, response) => sendJSON(response, 200, state.appearance),
     'POST /api/appearance/animate': async (request, response) => {
       state.appearance.animate = (await bodyOf(request)).enabled === true

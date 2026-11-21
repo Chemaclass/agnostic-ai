@@ -93,6 +93,16 @@
       <div class="mailbox-actions" id="mailbox-thread-actions"></div>
     </section>
     <p class="note" id="note" role="status" hidden></p>
+    <section class="notice" id="update-status" aria-label="Update" hidden>
+      <p class="notice-message" id="update-text" role="status"></p>
+      <button class="icon-button notice-dismiss" id="update-dismiss" type="button" aria-label="Dismiss" title="Dismiss">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
+      </button>
+      <code class="notice-command" id="update-log" hidden></code>
+      <div class="notice-actions">
+        <button class="notice-copy" id="update-retry" type="button" hidden>Retry</button>
+      </div>
+    </section>
     <section class="notice" id="notice" aria-label="Why it did not open" data-tone="info" hidden>
       <svg class="tone-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2.6L14 13H2zM8 6.7v3.1M8 11.3v.1"/></svg>
       <p class="notice-message" id="notice-message" role="status"><span class="unseen" id="notice-about"></span><span id="notice-text"></span></p>
@@ -130,6 +140,14 @@
       <div class="notice-actions confirm-actions">
         <button class="confirm-cancel" id="stop-session-cancel" type="button">Cancel</button>
         <button class="confirm-delete" id="stop-session-go" type="button">Stop chat</button>
+      </div>
+    </section>
+    <section class="notice confirm" id="update-confirm" role="alertdialog" aria-modal="true" aria-labelledby="update-title" aria-describedby="update-body" hidden>
+      <p class="confirm-title" id="update-title"></p>
+      <p class="confirm-body" id="update-body">The app and its command line tool are replaced together. Your settings and chats stay. The companion is gone for a few seconds while it restarts.</p>
+      <div class="notice-actions confirm-actions">
+        <button class="confirm-cancel" id="update-cancel" type="button">Later</button>
+        <button class="confirm-delete" id="update-go" type="button">Update and restart</button>
       </div>
     </section>
     <section class="notice confirm" id="quit-confirm" role="alertdialog" aria-modal="true" aria-labelledby="quit-title" aria-describedby="quit-body" hidden>

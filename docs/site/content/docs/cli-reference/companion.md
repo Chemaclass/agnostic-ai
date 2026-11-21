@@ -44,9 +44,9 @@ To use the command in a terminal, right-click the circle and choose **Install co
 {% </details> %}
 
 {% <details summary="Update the disk-image app"> %}
-The app checks for updates on start and every 24 hours while it runs. A check it makes on its own opens no window: when a newer stable release has a disk image for this Mac, the update entry in both menus reads **Update to vX.Y.Z** and a dot appears on the list's ⋯ button. Choose **Check for updates** in either menu to check now, or **Update to vX.Y.Z** to update. **Update and restart** replaces the app and its bundled CLI together. The download uses the same checksum and build provenance checks as the CLI installer.
+The app checks for updates on start and every 24 hours while it runs. A check it makes on its own opens no window: when a newer stable release has a disk image for this Mac, the update entry in both menus reads **Update to vX.Y.Z** and a dot appears on the list's ⋯ button. Choose **Check for updates** in either menu to check now; the list says what it found. Choose **Update to vX.Y.Z** to update: the list asks once, then **Update and restart** replaces the app and its bundled CLI together. The list shows each step: downloading, checking the download, restarting. The download uses the same checksum and build provenance checks as the CLI installer.
 
-Separate npm or Homebrew installs keep their own update path. Running `agnostic-ai upgrade` from the bundled CLI link directs you to the app menu. If an update fails, see `~/Library/Application Support/agnostic-ai/companion-update.log`.
+Separate npm or Homebrew installs keep their own update path. Running `agnostic-ai upgrade` from the bundled CLI link directs you to the app menu. If an update fails, your current version keeps running. The list names the reason, such as a download that did not match its checksum, and the log, `~/Library/Application Support/agnostic-ai/companion-update.log`. **Retry** starts the update again.
 {% </details> %}
 
 ### Install from the terminal {#install-from-terminal}

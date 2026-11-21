@@ -401,6 +401,9 @@ test('the preview answers the update entry: none by default, a newer release in 
 
   const newer = await startPreview({ port: 0, fixture: 'update-available' })
   t.after(newer.close)
-  assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'available', version: '0.97.0' })
+  assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'available', version: '0.97.0', current: '0.96.0' })
   assert.equal((await fetch(newer.url + '/api/update', { method: 'POST' })).status, 204)
+  assert.equal((await fetch(plain.url + '/api/update/start', { method: 'POST' })).status, 409)
+  assert.equal((await fetch(newer.url + '/api/update/start', { method: 'POST' })).status, 204)
+  assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'updating', version: '0.97.0', current: '0.96.0', step: 'downloading' })
 })

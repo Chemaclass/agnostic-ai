@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateFeed, updateLabelOf } from '../frontend/model.js'
+import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateFeed, updateLabelOf, updateMessageOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
@@ -86,4 +86,26 @@ test('an update read that an event overtook does not overwrite the event', () =>
   showRead({ state: 'checking' })
   feed.since()({ state: 'idle' })
   assert.deepEqual(shown, ['available', 'idle'])
+})
+
+test('the panel says each update step in plain words', () => {
+  const current = '0.96.0'
+  assert.equal(updateMessageOf({ state: 'idle', current }), undefined)
+  assert.equal(updateMessageOf({ state: 'available', version: '0.97.0', current }), undefined)
+  assert.deepEqual(updateMessageOf({ state: 'checking', current }), { text: 'Checking for updates…' })
+  assert.deepEqual(updateMessageOf({ state: 'idle', result: 'latest', current }), { text: 'No newer version is available for this Mac. You have v0.96.0.' })
+  assert.deepEqual(updateMessageOf({ state: 'idle', result: 'unreachable', current }), { text: 'Could not check for updates. Check your connection and try again.' })
+  assert.deepEqual(updateMessageOf({ state: 'available', version: '0.97.0', result: 'unreachable', current }), { text: 'Could not check for updates. Check your connection and try again.' })
+  assert.deepEqual(updateMessageOf({ state: 'updating', version: '0.97.0', step: 'downloading', current }), { text: 'Downloading v0.97.0…' })
+  assert.deepEqual(updateMessageOf({ state: 'updating', version: '0.97.0', step: 'verifying', current }), { text: 'Checking the download…' })
+  assert.deepEqual(updateMessageOf({ state: 'updating', version: '0.97.0', step: 'restarting', current }), { text: 'Restarting…' })
+  assert.deepEqual(updateMessageOf({ state: 'failed', version: '0.97.0', reason: 'the download did not match its checksum', log: '/tmp/companion-update.log', current }), {
+    text: 'The update did not finish: the download did not match its checksum. Your current version is still running.',
+    retry: true,
+    log: '/tmp/companion-update.log',
+  })
+})
+
+test('Escape answers the update question before the menus', () => {
+  assert.equal(escapeTarget({ updateConfirmOpen: true, rowMenuOpen: true, settingsOpen: true }), 'update-confirm')
 })

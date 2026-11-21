@@ -158,8 +158,10 @@ export const saveDimWhenIdle = (enabled) => post('/api/appearance/dim-when-idle'
 export const saveSmallCompanion = (enabled) => post('/api/appearance/small-companion', { enabled })
 /** The update entry: {state, version?}; state is unavailable, idle, checking, available, updating or failed. */
 export const readUpdate = () => call('/api/update')
-/** Checks for updates, or offers the known one: the shell asks before it updates. */
-export const startUpdate = () => post('/api/update')
+/** Checks for a newer release now; the update event says what it found. */
+export const checkForUpdates = () => post('/api/update')
+/** Updates to the known release and restarts; the update event follows the steps. */
+export const startUpdate = () => post('/api/update/start')
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 

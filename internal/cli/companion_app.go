@@ -113,6 +113,8 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 			_ = os.RemoveAll(staging)
 		}
 	}()
+	// The companion shows these lines as its update steps.
+	_, _ = fmt.Fprintf(out, "Downloading agnostic-ai %s.\n", version)
 	built, err := deps.prepare(ctx, out, version, staging)
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", app, err)
@@ -121,6 +123,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return fmt.Errorf("update %s: %w", app, err)
 	}
 	ctx = context.WithoutCancel(ctx)
+	_, _ = fmt.Fprintln(out, "Restarting the companion.")
 	if _, err := endCompanion(ctx, tools, filepath.Join(app, "Contents", "MacOS", companionName)); err != nil {
 		return err
 	}
@@ -167,6 +170,7 @@ func prepareCompanionApp(ctx context.Context, out io.Writer, version, staging st
 	if err != nil {
 		return "", err
 	}
+	_, _ = fmt.Fprintln(out, "Checking the downloaded app.")
 	image := filepath.Join(staging, asset)
 	if err := os.WriteFile(image, data, 0600); err != nil {
 		return "", fmt.Errorf("%s: %w", image, err)
