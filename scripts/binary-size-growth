@@ -2,6 +2,7 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3835 adds the mailbox delivery hook, approval of agent messages, and their local API.
-# The linux/amd64 release build grows by 69632 bytes.
-69632
+# #3856 adds new --dir, doctor --checks, and new --scope local|user, which loads the
+# project to place a local override beside the spec it changes.
+# The linux/amd64 release build grows by 20480 bytes.
+20480
