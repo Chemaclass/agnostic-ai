@@ -533,6 +533,7 @@ var builtinDescriptions = map[string]string{
 	"memory":            "Shared memory every coding tool reads and saves facts to.",
 	"handoff":           "Saves a task so the next session, in this or another tool, can resume it.",
 	"handoff-hook":      "Offers a saved handoff when a session starts.",
+	"mailbox":           "Delivers mailbox messages from other sessions with your next prompt.",
 	"rtk":               "Routes shell commands through rtk to cut output tokens.",
 	"caveman":           "Terse replies to cut output tokens.",
 	"cloud-handoff":     "Pushes the current task and continues it in a cloud session.",
@@ -573,6 +574,14 @@ var builtinAbouts = map[string]BuiltinAbout{
 			"With the handoff built-in on, you can resume from the last snapshot even when no one wrote a note.",
 			"Adds hooks to Claude Code, Codex, Gemini CLI, Qoder and Factory.",
 			"Nothing resumes until you ask.",
+		},
+	},
+	"mailbox": {
+		Summary: "Adds Claude Code and Codex hooks that hand a session its waiting mailbox messages.",
+		Points: []string{
+			"Messages arrive with your next prompt, or when the session starts or resumes. Compaction and clear deliver nothing.",
+			"Messages an agent sends wait for your approval in the companion first.",
+			"Codex runs a new or changed hook only after you trust it.",
 		},
 	},
 	"rtk": {
@@ -636,6 +645,7 @@ var builtinLabels = map[string]string{
 	"memory":            "Shared memory",
 	"handoff":           "Handoff",
 	"handoff-hook":      "Handoff on start",
+	"mailbox":           "Mailbox delivery",
 	"rtk":               "RTK",
 	"caveman":           "Caveman",
 	"cloud-handoff":     "Cloud handoff",
