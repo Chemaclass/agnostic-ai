@@ -120,15 +120,18 @@ func (s Store) Stats(ctx context.Context, since time.Time) (Stats, error) {
 		at := since.UTC().Format(time.RFC3339)
 		stats.Since = &at
 	}
-	release, present, err := s.lockForRead(ctx)
-	if err != nil {
+	// Writes replace files atomically, so counting goes on without the lock
+	// and never finishes an interrupted transfer.
+	if err := ctx.Err(); err != nil {
 		return Stats{}, err
 	}
-	if !present {
-		stats.finish(nil, time.Time{}, nil)
-		return stats, nil
+	if err := checkDir(s.Dir); err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			stats.finish(nil, time.Time{}, nil)
+			return stats, nil
+		}
+		return Stats{}, err
 	}
-	defer release()
 
 	entries, err := s.threadEntries()
 	if err != nil {
@@ -155,6 +158,7 @@ func (s Store) Stats(ctx context.Context, since time.Time) (Stats, error) {
 	var audit []auditRecord
 	if err := readJSON(filepath.Join(s.Dir, "audit.json"), &audit); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		stats.Unreadable = append(stats.Unreadable, "audit.json")
+		audit = nil
 	}
 	stats.AuditFull = len(audit) >= MaxAudit
 	for _, record := range audit {
@@ -191,7 +195,7 @@ func (stats *Stats) addThread(thread Thread, since time.Time, delivery *[]float6
 		case Closed:
 			stats.Threads.Closed++
 		}
-		if thread.contentCount() >= thread.Cap && !slices.ContainsFunc(thread.Messages, func(m Message) bool { return m.Type == Done }) {
+		if thread.contentCount() >= thread.Cap && !slices.ContainsFunc(thread.Messages, func(m Message) bool { return m.Type == Done && m.State != Rejected }) {
 			stats.Threads.ReachedCapWithoutDone++
 		}
 	}

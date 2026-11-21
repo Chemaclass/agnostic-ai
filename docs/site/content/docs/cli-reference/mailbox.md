@@ -142,7 +142,7 @@ Handoff accepted. Work only in /Users/you/Code/app: src/parser.go.
 agnostic-ai mailbox stats [--since <date>] [--json]
 ```
 
-Prints counts and durations from every thread on this computer. Run it anywhere; it needs no session and only reads. `--since 2026-11-01` counts only messages, events and refusals at or after that date (UTC); a thread counts when it has a message from then on. `--json` prints the same numbers as JSON with schema `mailbox-stats/v1`. The plain output prints each value as its dotted JSON key.
+Prints counts and durations from every thread on this computer. Run it anywhere; it needs no session, takes no lock, and changes no file. `--since 2026-11-01` counts only messages, events and refusals at or after that date (UTC); a thread counts when it has a message from then on. `--json` prints the same numbers as JSON with schema `mailbox-stats/v1`. The plain output prints each value as its dotted JSON key.
 
 The output holds no message text, paths or session IDs, and draws no conclusions: zero human actions proves neither that you were watching nor that you were not. Every duration is in seconds. With no data, counts are 0 and every median, percentile and ratio is `null`. An empty or missing mailbox exits 0. A thread file that cannot be read is skipped and named on standard error.
 
@@ -159,7 +159,7 @@ The output holds no message text, paths or session IDs, and draws no conclusions
 | `humanActions.pause`, `resume`, `stop`, `approve`, `reject`, `raiseCap`, `queue` | Thread events a person made | Count |
 | `humanActions.per10Threads` | The seven actions above | Actions / threads × 10 |
 | `handoffs.offered`, `accepted`, `declined` | Handoffs by their current answer. Rejected handoffs are not in it. | Count |
-| `handoffs.conflicts` | Acceptances refused because another session held a path | Count |
+| `handoffs.conflicts` | Acceptances refused because the sender no longer held an offered path, once per handoff | Count |
 | `handoffs.conflictsPer10Handoffs` | Conflicts | Conflicts / handoffs × 10 |
 | `reviews.requests` | Review requests, not counting rejected ones | Count |
 | `reviews.crossModel`, `sameModel`, `unknownModel` | Review requests where both models are known and differ, both are known and equal (letter case ignored, whatever the tools), or either is missing. The sender's model is the one stated on the message, or else the one stored for that session. | Count |

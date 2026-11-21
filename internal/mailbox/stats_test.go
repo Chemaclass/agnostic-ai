@@ -348,12 +348,68 @@ func TestAnswerHandoff_AConflictLeavesAnEventWithoutPaths(t *testing.T) {
 		t.Fatal(err)
 	}
 	requireGuard(t, s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"), "ownership")
+	requireGuard(t, s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"), "ownership")
 	thread := onlyThread(t, s)
+	if got := countEvents(thread, "conflict"); got != 1 {
+		t.Errorf("a retried accept left %d conflict events, want 1", got)
+	}
 	last := thread.Events[len(thread.Events)-1]
 	if last.Action != "conflict" || last.By != "human" || last.N != offer.N || last.At.IsZero() {
 		t.Errorf("conflict event = %+v", last)
 	}
 	if got := readStats(t, s, time.Time{}).Handoffs.Conflicts; got != 1 {
 		t.Errorf("conflicts = %d", got)
+	}
+}
+
+func countEvents(thread Thread, action string) int {
+	count := 0
+	for _, e := range thread.Events {
+		if e.Action == action {
+			count++
+		}
+	}
+	return count
+}
+
+func TestStats_ARejectedDoneDoesNotEndACappedThread(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	messages := []Message{}
+	for n := 1; n <= threadCap; n++ {
+		messages = append(messages, statsMessage(n, Question, Delivered, "agent", claude, codex, statsAt(n)))
+	}
+	messages = append(messages, statsMessage(threadCap+1, Done, Rejected, "agent", claude, codex, statsAt(threadCap+1)))
+	writeStatsThread(t, s, Thread{ID: "th_20261121_00000001", Messages: messages})
+	if got := readStats(t, s, time.Time{}).Threads.ReachedCapWithoutDone; got != 1 {
+		t.Errorf("reachedCapWithoutDone = %d, want 1", got)
+	}
+}
+
+func TestStats_AnUnreadableAuditFileCountsNothing(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	if err := os.WriteFile(filepath.Join(s.Dir, "audit.json"), []byte(`[{"at":"2026-11-21T10:00:00Z","guard":"format","extra":1}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	stats := readStats(t, s, time.Time{})
+	if stats.Refusals.WithoutThread != 0 || len(stats.Unreadable) != 1 {
+		t.Errorf("refusals %+v, unreadable %v", stats.Refusals, stats.Unreadable)
+	}
+}
+
+func TestStats_ReadsWithoutTakingTheLockOrFinishingATransfer(t *testing.T) {
+	s := statsFixture(t)
+	if err := writeJSON(filepath.Join(s.Dir, "claims.json"), claimsFile{SchemaVersion: claimsVersion, Claims: []Claim{}, Pending: &pendingTransfer{Thread: "th_20261121_0000000f", N: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(filepath.Join(s.Dir, "claims.json"))
+	if stats := readStats(t, s, time.Time{}); stats.Threads.Total != 3 {
+		t.Errorf("threads = %d", stats.Threads.Total)
+	}
+	after, _ := os.ReadFile(filepath.Join(s.Dir, "claims.json"))
+	if string(before) != string(after) {
+		t.Error("stats changed claims.json")
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir, ".lock")); !os.IsNotExist(err) {
+		t.Errorf("stats created the lock file: %v", err)
 	}
 }

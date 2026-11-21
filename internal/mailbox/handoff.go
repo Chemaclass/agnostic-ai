@@ -161,7 +161,7 @@ func (s Store) answerHandoff(ctx context.Context, actor *conversations.Ref, id s
 			conflict.Path, conflict.Holder = at, holder
 		}
 		refused := s.recordClaimConflict(state, conflict)
-		if _, ok := errors.AsType[*Refusal](refused); ok {
+		if _, ok := errors.AsType[*Refusal](refused); ok && !slices.ContainsFunc(thread.Events, func(e Event) bool { return e.Action == "conflict" && e.N == n }) {
 			thread.addEventBy(time.Now().UTC(), by, "conflict", n)
 			if err := s.writeThread(thread); err != nil {
 				return err
