@@ -26,7 +26,27 @@ hdiutil_retrying() {
   done
 }
 
-# Sourced by scripts/companion-release_test.sh for the function above.
+download_modules() {
+  local attempt=1 delay=5 output status
+  while :; do
+    status=0
+    output="$(go mod download 2>&1)" || status=$?
+    if [ -n "$output" ]; then
+      printf '%s\n' "$output"
+    fi
+    [ "$status" -eq 0 ] && return 0
+    if [ "$attempt" -ge 3 ] ||
+      ! grep -Eq 'i/o timeout|TLS handshake timeout|connection reset by peer|temporary failure in name resolution|429 Too Many Requests|50[234] (Bad Gateway|Service Unavailable|Gateway Timeout)' <<< "$output" ||
+      grep -Eq 'SECURITY ERROR|checksum mismatch' <<< "$output"; then
+      return "$status"
+    fi
+    echo "Go dependency download failed on attempt $attempt of 3. Retrying in ${delay}s." >&2
+    sleep "$delay"
+    attempt=$((attempt + 1))
+    delay=$((delay * 2))
+  done
+}
+
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
   return 0
 fi
@@ -64,6 +84,9 @@ trap cleanup EXIT
 mkdir -p "$work/companion.iconset"
 cp "$root/internal/cli/companion-icon.png" "$work/companion.iconset/icon_512x512.png"
 iconutil -c icns "$work/companion.iconset" -o "$work/companion.icns"
+
+(cd "$root/companion" && download_modules)
+(cd "$root" && download_modules)
 
 for arch in arm64 amd64; do
   mkdir -p "$work/$arch"

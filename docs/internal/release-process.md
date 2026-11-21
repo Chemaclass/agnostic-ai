@@ -17,11 +17,15 @@ updates archive, RSS entry identifier (GUID), old `.html` address, and sitemap U
 The version, changelog, and announcement must share one commit. Push that commit,
 wait for its complete continuous integration (CI) run on Linux, macOS, and Windows, then sign and push the tag.
 
-The tag workflow uses `scripts/release-notes.sh` to build GitHub Release notes from the dated `CHANGELOG.md` section.
+Before tagging, confirm that the manual CI run for the release commit built and verified both macOS disk images and companion archives, and that its web client check passed. Go users can install a stable tag as soon as it is pushed.
+
+The tag workflow builds one candidate and tests the dashboard inside its Linux archive. It checks the asset inventory and checksums, then signs the candidate files and package manifests. It uploads the verified assets to a draft, compares the uploaded digests, and publishes the draft. Stable releases require both macOS disk images and both companion archives. Prereleases can omit them.
+
+The tag workflow uses `scripts/release-notes.sh` to build GitHub Release notes from the dated `CHANGELOG.md` section and the verified asset inventory.
 
 After pushing the tag, watch both workflows:
 
-- `Release` builds release files and publishes the GitHub Release from the tag.
+- `Release` publishes the GitHub Release and then starts the distribution jobs.
 - `Pages` deploys the Zola site and playground automatically from the release
   commit on `main`.
 
@@ -43,7 +47,7 @@ safe retry, then watch the manual run to completion.
 
 ### One-time setup per channel
 
-Each publishing channel requires its own credential. Without the secret, GoReleaser builds the manifest and skips the push; missing setup does not fail a release. Its log does not distinguish a skipped push from a successful one. The `distribution` job checks that the channel serves the new version (#920).
+Each publishing channel requires its own credential. GoReleaser builds the manifests without those credentials. After publication, each channel job verifies its manifest before using its scoped credential. Unconfigured channels show as skipped. Homebrew and Scoop publish the stable version. The `distribution` job checks npm and the configured Homebrew tap.
 
 - **Homebrew**: `Chemaclass/homebrew-tap` updates its own cask without a secret in this repository. Its [Update agnostic-ai cask workflow](https://github.com/Chemaclass/homebrew-tap/blob/main/.github/workflows/update-agnostic-ai-cask.yml) runs at minutes 23 and 53 each hour. It resolves the latest release, rewrites `Casks/agnostic-ai.rb` from `checksums.txt`, checks that all four archives return 200, and commits with its `GITHUB_TOKEN`. The cask can lag until the next successful run; dispatch the workflow to update it sooner.
 
@@ -72,7 +76,7 @@ Every new publish uses `--provenance`, which attaches signed records of the buil
 
 Re-run the same release after a temporary registry or signing-service failure when the published packages have valid attestations. Verified platform packages are skipped and missing packages publish before the parent. If a tarball reached npm without its required attestation, stop: npm versions are immutable and re-running cannot attach a replacement. Prepare a new version of all seven packages through the normal release process. Do not plain-publish, unpublish, or move the old tag to bypass verification.
 
-If the **Attest build provenance** step failed, the archives already on the release page carry no attestation, and `scripts/npm-binaries.sh` refuses them. A re-run attests the archives it rebuilds, which match the uploaded ones only when the build is byte-for-byte reproducible. Prepare a new version instead.
+If candidate validation or attestation fails, no GitHub release is published. Re-run the failed job against the staged candidate while its Actions artifact is available. If publication stops after an upload, the release stays a draft. Re-run **Publish the verified release** against the same signed candidate. It compares existing draft assets and uploads missing files. It stops if any existing file has a different digest. Check the failing file and the retained candidate before touching a draft. Published releases keep their original files.
 
 See [npm provenance verification](https://docs.npmjs.com/viewing-package-provenance/) and the [npm verifier implementation](https://github.com/npm/cli/blob/v11.5.1/lib/utils/verify-signatures.js).
 
