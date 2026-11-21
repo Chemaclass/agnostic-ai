@@ -306,7 +306,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 
 // tabApps are the terminal apps whose tabs the server selects by tty
 // and opens new tabs in.
-var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true, "kitty": true}
+var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true, "kitty": true, "Konsole": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -361,6 +361,8 @@ func notOpenedInTab(opened tabOpening, command string) OpenReply {
 		return byHand("Could not open a Terminal window. Run this command in a terminal.")
 	case errors.Is(opened.err, context.DeadlineExceeded):
 		return byHand(waitingForPrompt(opened.app))
+	case errors.Is(opened.err, errKonsoleCommandsOff):
+		return byHand("Opened a new Konsole tab in its folder, but " + opened.err.Error() + ", or run this command there.")
 	default:
 		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", opened.app))
 	}
@@ -844,8 +846,10 @@ func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) 
 	if driver, ok := commandTabs[app]; ok {
 		return driver.focus(ctx, tty)
 	}
+	// Konsole is driven only on Linux; elsewhere it comes forward as an
+	// app without its command does.
 	if _, ok := tabScripts[app]; !ok {
-		return false, errNotHere
+		return false, errNoTabCommand
 	}
 	out, err := run(ctx, "osascript", focusTabArgs(app, tty)...)
 	if err != nil {
@@ -893,7 +897,7 @@ func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 		return driver.newTab(ctx, command)
 	}
 	if _, ok := newTabLines[app]; !ok {
-		return errNotHere
+		return errNoTabCommand
 	}
 	_, err := run(ctx, "osascript", runInNewTabArgs(app, command)...)
 	return err
