@@ -83,6 +83,9 @@ func TestHostOf_FindsTheAppAndTheTTY(t *testing.T) {
 	if host, ok := hostOf(append(table, wezterm...), 802); !ok || host != (terminalHost{App: "WezTerm", TTY: "/dev/ttys041"}) {
 		t.Errorf("a shell under wezterm-gui: %+v, %v", host, ok)
 	}
+	if host, ok := hostOf(kittyTable(), 922); !ok || host != (terminalHost{App: "kitty", TTY: "/dev/ttys041"}) {
+		t.Errorf("a shell under kitty: %+v, %v", host, ok)
+	}
 	if host, ok := hostOf(table, 6923); ok {
 		t.Errorf("a daemon without a terminal has no host, got %+v", host)
 	}
@@ -512,6 +515,18 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 			reply:        OpenReply{Message: "Brought WezTerm to the front, but its tab cannot be selected from outside. It runs on ttys041 (process 42)."},
 			calls:        "focus WezTerm /dev/ttys041; activate WezTerm",
 		},
+		"kitty tab": {
+			conversation: at(terminalHost{App: "kitty", TTY: "/dev/ttys041"}),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        OpenReply{Opened: true, Message: "Switched to the kitty tab that runs it."},
+			calls:        "focus kitty /dev/ttys041",
+		},
+		"kitty with remote control off": {
+			conversation: at(terminalHost{App: "kitty", TTY: "/dev/ttys041"}),
+			launcher:     fakeLauncher{focusErr: errKittyRemoteControlOff},
+			reply:        OpenReply{Message: "Brought kitty to the front, but " + errKittyRemoteControlOff.Error() + ". It runs on ttys041 (process 42)."},
+			calls:        "focus kitty /dev/ttys041; activate kitty",
+		},
 		"app without tabs": {
 			conversation: at(terminalHost{App: "Warp", TTY: "/dev/ttys040"}),
 			launcher:     fakeLauncher{focusOK: true},
@@ -598,6 +613,7 @@ func TestTitleTab_NamesOnlyTheTabOfALiveSession(t *testing.T) {
 		"tab gone":           {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}), processes: alive, calls: "title Ghostty /dev/ttys004 Fix login", fails: true},
 		"iTerm2 tab":         {conversation: at(terminalHost{App: "iTerm", TTY: "/dev/ttys040"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title iTerm /dev/ttys040 Fix login"},
 		"WezTerm tab":        {conversation: at(terminalHost{App: "WezTerm", TTY: "/dev/ttys041"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title WezTerm /dev/ttys041 Fix login"},
+		"kitty tab":          {conversation: at(terminalHost{App: "kitty", TTY: "/dev/ttys041"}), processes: alive, launcher: fakeLauncher{focusOK: true}, calls: "title kitty /dev/ttys041 Fix login"},
 		"app without tabs":   {conversation: at(terminalHost{App: "Warp", TTY: "/dev/ttys040"}), processes: alive},
 		"session ended":      {conversation: at(terminalHost{App: "Ghostty", TTY: "/dev/ttys004"})},
 		"terminal not found": {conversation: Conversation{Tool: ToolClaude, process: &liveProcess{PID: 42}}, processes: alive},
@@ -625,6 +641,7 @@ func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
 	terminalTab := terminalHost{App: "Terminal", TTY: "/dev/ttys009"}
 	itermTab := terminalHost{App: "iTerm", TTY: "/dev/ttys040"}
 	weztermTab := terminalHost{App: "WezTerm", TTY: "/dev/ttys041"}
+	kittyTab := terminalHost{App: "kitty", TTY: "/dev/ttys041"}
 	for name, tc := range map[string]struct {
 		conversation Conversation
 		processes    fakeProcesses
@@ -673,6 +690,11 @@ func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
 			launcher:     fakeLauncher{newTabErr: errNoTabCommand},
 			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},
 			calls:        "new tab WezTerm claude --resume x; terminal claude --resume x",
+		},
+		"kitty tab": {
+			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &kittyTab},
+			reply:        OpenReply{Opened: true, Message: "Resumed in a new kitty tab."},
+			calls:        "new tab kitty claude --resume x",
 		},
 		"no tab remembered": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}},

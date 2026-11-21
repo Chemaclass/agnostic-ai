@@ -87,6 +87,7 @@ var terminalApps = []struct{ fragment, app string }{
 	{"/iTerm2/iTermServer-", "iTerm"},
 	{"/Ghostty.app/", "Ghostty"},
 	{"/WezTerm.app/", "WezTerm"},
+	{"/kitty.app/", "kitty"},
 	{"/Warp.app/", "Warp"},
 	{"/Cursor.app/", "Cursor"},
 	{"/Visual Studio Code.app/", "VS Code"},

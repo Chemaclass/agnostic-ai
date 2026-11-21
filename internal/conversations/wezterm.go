@@ -5,53 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
-
-// errNoTabCommand means the command that drives a tab app is missing
-// or could not reach the app, as when the app is not running.
-var errNoTabCommand = errors.New("its command could not reach the app")
-
-// commandTab drives a tab app through its own command instead of
-// AppleScript. Each value goes in as an argument of its own.
-type commandTab interface {
-	focus(ctx context.Context, tty string) (bool, error)
-	title(ctx context.Context, tty, title string) (bool, error)
-	typeIn(ctx context.Context, tty, text string) (bool, error)
-	newTab(ctx context.Context, command string) error
-}
-
-var commandTabs = map[string]commandTab{
-	"WezTerm": weztermTab{run: run, path: weztermPath},
-}
 
 // weztermTab drives WezTerm with `wezterm cli`. --no-auto-start keeps
 // it from starting a hidden mux server when the app is not running.
 type weztermTab struct {
 	run  func(ctx context.Context, name string, args ...string) (string, error)
 	path func() (string, error)
-}
-
-// weztermPath finds the wezterm command. The companion started from
-// Finder has no shell PATH, so the app bundles come first.
-func weztermPath() (string, error) {
-	candidates := []string{"/Applications/WezTerm.app/Contents/MacOS/wezterm"}
-	if home, err := os.UserHomeDir(); err == nil {
-		candidates = append(candidates, filepath.Join(home, "Applications", "WezTerm.app", "Contents", "MacOS", "wezterm"))
-	}
-	for _, candidate := range candidates {
-		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
-			return candidate, nil
-		}
-	}
-	if path, err := exec.LookPath("wezterm"); err == nil {
-		return path, nil
-	}
-	return "", errNoTabCommand
 }
 
 func weztermCLI(args ...string) []string {

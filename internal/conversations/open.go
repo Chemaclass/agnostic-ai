@@ -294,7 +294,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 
 // tabApps are the terminal apps whose tabs the server selects by tty
 // and opens new tabs in.
-var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true}
+var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true, "kitty": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -436,9 +436,13 @@ func switchToHost(ctx context.Context, folder string, placed placement, launcher
 		return OpenReply{Message: message}
 	}
 	app, pid, tty := placed.host.App, placed.process.PID, shortTTY(placed.host.TTY)
+	cannot := "its tab cannot be selected from outside"
 	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
+		var setup tabSetupError
 		switch {
+		case errors.As(err, &setup):
+			cannot = setup.Error()
 		case errors.Is(err, errNoTabCommand):
 			// Without its command the app still comes forward below.
 		case errors.Is(err, errAutomationDenied):
@@ -463,7 +467,7 @@ func switchToHost(ctx context.Context, folder string, placed placement, launcher
 	if err := launcher.ActivateApp(ctx, app); err != nil {
 		return switchThere(fmt.Sprintf("It runs in %s on %s (process %d). Switch to it there.", app, tty, pid))
 	}
-	return switchThere(fmt.Sprintf("Brought %s to the front, but its tab cannot be selected from outside. It runs on %s (process %d).", app, tty, pid))
+	return switchThere(fmt.Sprintf("Brought %s to the front, but %s. It runs on %s (process %d).", app, cannot, tty, pid))
 }
 
 // TitleTab gives the tab that runs a live session the name the person

@@ -247,16 +247,19 @@ func TestStart_OpensATabOfTheAppItRunsIn(t *testing.T) {
 	for _, tc := range []struct{ app, path, termProgram string }{
 		{"iTerm", "/Applications/iTerm.app/Contents/MacOS/iTerm2", "iTerm.app"},
 		{"WezTerm", "/Applications/WezTerm.app/Contents/MacOS/wezterm-gui", "WezTerm"},
+		{"kitty", "/Applications/kitty.app/Contents/MacOS/kitty", ""},
 	} {
 		traced := ghosttyChain()
 		traced[len(traced)-1].Command = tc.path
-		for name, from := range map[string]struct {
+		type origin struct {
 			table []ProcessInfo
 			env   map[string]string
-		}{
-			"traced":     {traced, nil},
-			"by its env": {chain("agnostic-ai", "/bin/zsh", "/opt/bin/codex"), map[string]string{"CODEX_THREAD_ID": idChild, "TERM_PROGRAM": tc.termProgram}},
-		} {
+		}
+		origins := map[string]origin{"traced": {traced, nil}}
+		if tc.termProgram != "" {
+			origins["by its env"] = origin{chain("agnostic-ai", "/bin/zsh", "/opt/bin/codex"), map[string]string{"CODEX_THREAD_ID": idChild, "TERM_PROGRAM": tc.termProgram}}
+		}
+		for name, from := range origins {
 			start := newFakeStart(t, from.table, "claude")
 			start.starter.Getenv = env(from.env)
 
