@@ -530,6 +530,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       logCall('/api/update')
       noContent(response)
     },
+    'POST /api/update/release-page': (request, response) => {
+      logCall('/api/update/release-page')
+      if (state.update.state === 'unavailable') return sendJSON(response, 404, { error: 'this companion has no update entry' })
+      noContent(response)
+    },
     // Like the shell: only a known release can start, and the panel follows the first step.
     'POST /api/update/start': (request, response) => {
       logCall('/api/update/start')

@@ -326,6 +326,30 @@ func (s *shell) runUpdate() {
 	}
 }
 
+// releasesURL is the project's release page; only stable releases are offered.
+const releasesURL = "https://github.com/Chemaclass/agnostic-ai/releases"
+
+// openReleasePage answers the list's Release page: the known release, or the
+// latest one, where the companion cannot update itself.
+func (s *shell) openReleasePage(w http.ResponseWriter, _ *http.Request) {
+	c := s.appCommands
+	if c == nil {
+		writeJSON(w, http.StatusNotFound, apiError{Error: "this companion has no update entry; open " + releasesURL + "/latest"})
+		return
+	}
+	page := releasesURL + "/latest"
+	if named := c.status().Version; named != "" {
+		if _, ok := stableReleaseVersion(named); ok {
+			page = releasesURL + "/tag/v" + named
+		}
+	}
+	if err := s.openPage(page); err != nil {
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: fmt.Sprintf("open %s: %v", page, err)})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *shell) getUpdate(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.updateStatus())
 }

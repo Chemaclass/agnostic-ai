@@ -172,6 +172,7 @@ export const readUpdate = () => call('/api/update')
 export const checkForUpdates = () => post('/api/update')
 /** Updates to the known release and restarts; the update event follows the steps. */
 export const startUpdate = () => post('/api/update/start')
+export const openReleasePage = () => post('/api/update/release-page')
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 
