@@ -34,8 +34,8 @@ var commandTabs = map[string]commandTab{
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return bundledCommand("kitty.app", "kitty") }, table: SystemProcesses{}.Table, socket: ownSocket},
 }
 
-// linuxCommandTabs drive the same apps on Linux, from PATH. Their
-// windows cannot be brought forward there.
+// linuxCommandTabs drive the same apps on Linux, from PATH, without
+// bringing their windows forward.
 var linuxCommandTabs = map[string]commandTab{
 	"WezTerm": weztermTab{run: run, path: func() (string, error) { return commandOnPath("wezterm") }, noRaising: true},
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return commandOnPath("kitty") }, table: SystemProcesses{}.Table, socket: ownSocket, noRaising: true},

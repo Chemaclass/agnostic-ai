@@ -21,8 +21,8 @@ type kittyTab struct {
 	path   func() (string, error)
 	table  func() ([]ProcessInfo, error)
 	socket func(path string) bool
-	// noRaising is set where kitty's window cannot be brought forward
-	// from outside, as on Linux, where only macOS's open -a can.
+	// noRaising is set on Linux, where agnostic-ai does not bring kitty's
+	// window forward: Wayland lets no program raise another's window.
 	noRaising bool
 }
 
@@ -43,8 +43,9 @@ func isKitty(command string) bool {
 	return strings.HasSuffix(command, "/kitty.app/Contents/MacOS/kitty") || programOf(command) == "kitty"
 }
 
-// remote is the address of the kitty that runs tty, or of the first
-// kitty when tty is empty; pids holds the processes on tty.
+// remote is the address of the kitty that runs tty, or when tty is
+// empty of the first kitty that listens: on Linux each kitty started
+// alone is a process of its own. pids holds the processes on tty.
 func (k kittyTab) remote(tty string) (to string, pids map[int]bool, err error) {
 	table, err := k.table()
 	if err != nil {
@@ -58,8 +59,10 @@ func (k kittyTab) remote(tty string) (to string, pids map[int]bool, err error) {
 	kitty := 0
 	for _, process := range table {
 		switch {
-		case tty == "" && kitty == 0 && isKitty(process.Command) && !isKitty(byPID[process.PPID].Command):
-			kitty = process.PID
+		case tty == "" && isKitty(process.Command) && !isKitty(byPID[process.PPID].Command):
+			if kitty == 0 || !k.socket(kittySocket(kitty)) {
+				kitty = process.PID
+			}
 		case tty != "" && process.TTY == tty:
 			pids[process.PID] = true
 			if kitty == 0 && isKitty(byPID[process.PPID].Command) {
@@ -70,12 +73,14 @@ func (k kittyTab) remote(tty string) (to string, pids map[int]bool, err error) {
 	if kitty == 0 {
 		return "", pids, nil
 	}
-	socket := "/tmp/kitty-" + strconv.Itoa(kitty)
+	socket := kittySocket(kitty)
 	if !k.socket(socket) {
 		return "", pids, errKittyRemoteControlOff
 	}
 	return "unix:" + socket, pids, nil
 }
+
+func kittySocket(pid int) string { return "/tmp/kitty-" + strconv.Itoa(pid) }
 
 func (k kittyTab) at(ctx context.Context, to string, args ...string) (string, error) {
 	path, err := k.path()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -105,5 +106,67 @@ func TestSwitchToHost_NamesATerminalWithNoTabSupport(t *testing.T) {
 
 	if want := "It runs in GNOME Terminal on pts/5 (process 158). Switch to it there."; reply.Message != want || reply.Opened {
 		t.Errorf("reply %+v, want %q", reply, want)
+	}
+}
+
+func TestLinuxDrivers_TypeAndOpenTabsWithoutRaising(t *testing.T) {
+	wezList := `[{"pane_id": 4, "tty_name": "/dev/pts/2"}]`
+	weztermCommands := &fakeCommands{out: map[string]string{"wezterm cli --no-auto-start list": wezList, "wezterm cli --no-auto-start spawn": "5"}}
+	wezterm := testWezTerm(weztermCommands)
+	wezterm.noRaising = true
+	kittyCommands := &fakeCommands{out: map[string]string{"kitty @ --to unix:/tmp/kitty-900 ls": kittyLs, "kitty @ --to unix:/tmp/kitty-900 launch": "7"}}
+	kitty := testKitty(kittyCommands)
+	kitty.noRaising = true
+
+	for name, driver := range map[string]commandTab{"WezTerm": wezterm, "kitty": kitty} {
+		tty := map[string]string{"WezTerm": "/dev/pts/2", "kitty": "/dev/ttys041"}[name]
+		if ok, err := driver.typeIn(context.Background(), tty, "hello"); !ok || err != nil {
+			t.Errorf("%s typeIn: ok %v err %v", name, ok, err)
+		}
+		if err := driver.newTab(context.Background(), "claude --resume x"); err != nil {
+			t.Errorf("%s newTab: %v", name, err)
+		}
+	}
+	for _, calls := range [][]string{weztermCommands.calls, kittyCommands.calls} {
+		for _, call := range calls {
+			if strings.HasPrefix(call, "open ") {
+				t.Errorf("raised the window on Linux: %q", call)
+			}
+		}
+		if !slices.ContainsFunc(calls, func(call string) bool { return strings.Contains(call, "send-text") && strings.Contains(call, "hello") }) {
+			t.Errorf("text not sent: %q", calls)
+		}
+	}
+}
+
+func TestKitty_ANewTabGoesToAKittyThatListens(t *testing.T) {
+	commands := &fakeCommands{out: map[string]string{"kitty @ --to unix:/tmp/kitty-950 launch": "7"}}
+	kitty := testKitty(commands, "/tmp/kitty-950")
+	kitty.table = func() ([]ProcessInfo, error) {
+		return []ProcessInfo{
+			{PID: 940, PPID: 1, Command: "kitty"},
+			{PID: 950, PPID: 1, Command: "kitty"},
+		}, nil
+	}
+
+	if err := kitty.newTab(context.Background(), "claude"); err != nil || !strings.HasPrefix(commands.calls[0], "kitty @ --to unix:/tmp/kitty-950 launch") {
+		t.Errorf("err %v calls %q", err, commands.calls)
+	}
+}
+
+func TestSwitchToHost_KeepsTheKittySetupStepsOnLinux(t *testing.T) {
+	launcher := &fakeLauncher{focusErr: errKittyRemoteControlOff, err: errNotHere}
+	placed := placement{process: liveProcess{PID: 195}, host: terminalHost{App: "kitty", TTY: "/dev/pts/7"}}
+
+	reply := switchToHost(context.Background(), "", placed, fakeProcesses{}, launcher, "")
+
+	if !strings.Contains(reply.Message, "allow_remote_control socket-only") || !strings.Contains(reply.Message, "pts/7") {
+		t.Errorf("reply %q", reply.Message)
+	}
+}
+
+func TestProgramOf_KeepsATmuxPathWithASpace(t *testing.T) {
+	if got := programOf("/Users/a b/bin/tmux"); got != "tmux" {
+		t.Errorf("got %q", got)
 	}
 }

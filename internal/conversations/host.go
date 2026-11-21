@@ -119,6 +119,9 @@ func programOf(command string) string {
 	if strings.Contains(command, ".app/") {
 		return ""
 	}
+	if filepath.Base(command) == "tmux" {
+		return "tmux"
+	}
 	first, _, _ := strings.Cut(command, " ")
 	program := strings.TrimSuffix(filepath.Base(first), ":")
 	if len(program) == linuxNameLength {

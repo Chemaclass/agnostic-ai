@@ -14,8 +14,8 @@ import (
 type weztermTab struct {
 	run  func(ctx context.Context, name string, args ...string) (string, error)
 	path func() (string, error)
-	// noRaising is set where WezTerm's window cannot be brought forward
-	// from outside, as on Linux, where only macOS's open -a can.
+	// noRaising is set on Linux, where agnostic-ai does not bring WezTerm's
+	// window forward: Wayland lets no program raise another's window.
 	noRaising bool
 }
 

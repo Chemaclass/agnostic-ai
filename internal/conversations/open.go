@@ -482,12 +482,13 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		app = ""
 	}
 	cannot := "its tab cannot be selected from outside"
+	setupNeeded := false
 	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
 		var setup tabSetupError
 		switch {
 		case errors.As(err, &setup):
-			cannot = setup.Error()
+			cannot, setupNeeded = setup.Error(), true
 		case errors.Is(err, errNoTabCommand):
 			// Without its command the app still comes forward below.
 		case ok && errors.Is(err, errNotInFront):
@@ -512,6 +513,9 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		return resumeElsewhere(fmt.Sprintf("It runs on %s (process %d) in an app this version cannot switch to. Switch to it there.", tty, pid), resume)
 	}
 	if err := launcher.ActivateApp(ctx, app); err != nil {
+		if setupNeeded {
+			return switchThere(fmt.Sprintf("It runs in %s on %s (process %d), but %s. Switch to it there.", app, tty, pid, cannot))
+		}
 		return switchThere(fmt.Sprintf("It runs in %s on %s (process %d). Switch to it there.", app, tty, pid))
 	}
 	return switchThere(fmt.Sprintf("Brought %s to the front, but %s. It runs on %s (process %d).", app, cannot, tty, pid))
