@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -149,7 +150,7 @@ func TestMailboxProxy_CopiesNativelyBeforeConfirming(t *testing.T) {
 			server := newServer()
 			server.base, server.health.Version = upstream.URL, "1.2.3"
 			in := newInbox(server, "1.2.3", func() {})
-			in.writeClipboard = func(got string) bool {
+			in.writeClipboard = func(_ context.Context, got string) bool {
 				writes.Add(1)
 				if got != text {
 					t.Errorf("native clipboard got %q, want %q", got, text)
@@ -185,17 +186,17 @@ func TestMailboxProxy_CopiesNativelyBeforeConfirming(t *testing.T) {
 
 func TestMailboxProxy_AdvertisesNativeCopyOnItsInbox(t *testing.T) {
 	in, _ := connected(t, &fakeAgnosticAI{})
-	in.writeClipboard = func(string) bool { return true }
+	in.writeClipboard = func(context.Context, string) bool { return true }
 	status, body := getInbox(t, in, "")
 	if status != http.StatusOK || !strings.Contains(body, `"mailboxNativeCopy":true`) {
 		t.Errorf("inbox = %d %s", status, body)
 	}
 }
 
-func TestMailboxProxy_RejectsCopyConfirmationWithoutNativeClipboard(t *testing.T) {
+func TestMailboxProxy_RejectsConfirmationWithoutCopying(t *testing.T) {
 	fake := &fakeAgnosticAI{}
 	in, _ := connected(t, fake)
-	in.writeClipboard = func(string) bool {
+	in.writeClipboard = func(context.Context, string) bool {
 		t.Error("confirm-only request touched the clipboard")
 		return true
 	}

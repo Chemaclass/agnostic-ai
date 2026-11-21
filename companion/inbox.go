@@ -59,7 +59,7 @@ type inbox struct {
 	// readClipboardHTML returns the copied HTML, as a browser puts it
 	// beside the text; empty when none is or the system cannot say.
 	readClipboardHTML func() string
-	writeClipboard    func(string) bool
+	writeClipboard    func(context.Context, string) bool
 
 	// reading lets one read at a time run, from naming the held tag to
 	// telling changed, so an older answer never replaces a newer one.
@@ -388,7 +388,7 @@ func (in *inbox) copyMailboxMessage(w http.ResponseWriter, r *http.Request, body
 		writeJSON(w, http.StatusBadGateway, apiError{Error: "agnostic-ai did not return a mailbox message to copy."})
 		return true
 	}
-	if ctx.Err() != nil || !in.writeClipboard(message.Text) {
+	if ctx.Err() != nil || !in.writeClipboard(ctx, message.Text) {
 		writeJSON(w, http.StatusOK, map[string]any{"staged": false, "message": "Could not copy the message. It is still waiting."})
 		return true
 	}

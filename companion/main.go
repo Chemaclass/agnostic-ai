@@ -747,19 +747,23 @@ func main() {
 		s.app.Event.Emit(eventAppearance, looks)
 	}
 	in := s.inbox
-	// Wails creates its clipboard lazily on the first call.
+	// Lock before dispatch because a GTK clipboard read can run a nested event loop.
 	var clipboard sync.Mutex
 	in.readClipboard = func() string {
 		clipboard.Lock()
 		defer clipboard.Unlock()
-		text, _ := s.app.Clipboard.Text()
-		return text
+		return application.InvokeSyncWithResult(func() string {
+			text, _ := s.app.Clipboard.Text()
+			return text
+		})
 	}
 	in.readClipboardHTML = clipboardHTML
-	in.writeClipboard = func(text string) bool {
+	in.writeClipboard = func(ctx context.Context, text string) bool {
 		clipboard.Lock()
 		defer clipboard.Unlock()
-		return s.app.Clipboard.SetText(text)
+		return application.InvokeSyncWithResult(func() bool {
+			return ctx.Err() == nil && s.app.Clipboard.SetText(text)
+		})
 	}
 	s.app = application.New(application.Options{
 		Name:        "agnostic-ai companion",
