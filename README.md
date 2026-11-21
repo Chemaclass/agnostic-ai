@@ -72,7 +72,7 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 - [Answer routine permission prompts](https://agnostic-ai.org/docs/approvals/): with `approvals.mode: yolo` in your home config, a hook approves safe Claude Code, Codex, Kiro, Qwen Code and Qoder tool calls one at a time; risky ones still ask.
 - [Hand off to the cloud](https://agnostic-ai.org/docs/cloud-handoff/): say "send this to a remote agent" to push the task and continue it in a Claude Code or Codex cloud session.
 - [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.
-- [Personal settings](https://agnostic-ai.org/docs/global-configuration/): keep them in `~/.agnostic-ai` and apply them with `agnostic-ai sync --global`.
+- [Personal settings](https://agnostic-ai.org/docs/global-configuration/): keep them in `~/.agnostic-ai` and apply them with `agnostic-ai sync --scope user`.
 - [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails. `agnostic-ai doctor` explains drift.
 
 ## Contribute

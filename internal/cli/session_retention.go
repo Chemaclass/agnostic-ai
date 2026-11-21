@@ -23,8 +23,8 @@ func sessionRetentionIssues(settings []spec.Entry) []validationIssue {
 	return issues
 }
 
-func globalRetentionSetting(target string, f globalSettingsFile, settings []spec.Entry) []globalSetting {
-	var out []globalSetting
+func userRetentionSetting(target string, f userSettingsFile, settings []spec.Entry) []userSetting {
+	var out []userSetting
 	for _, entry := range settings {
 		value, present := entry.Meta[sessionRetentionField]
 		if !present || !entry.EmitsTo(target) {
@@ -49,7 +49,7 @@ func globalRetentionSetting(target string, f globalSettingsFile, settings []spec
 		if target != "claude" && target != "codebuddy" {
 			native = strconv.FormatUint(days, 10) + "d"
 		}
-		out = []globalSetting{{target: target, key: f.retention, field: sessionRetentionField, source: entry.Path, value: native}}
+		out = []userSetting{{target: target, key: f.retention, field: sessionRetentionField, source: entry.Path, value: native}}
 	}
 	return out
 }

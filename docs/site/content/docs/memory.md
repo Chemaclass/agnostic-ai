@@ -114,7 +114,7 @@ The `shared-memory-policy` rule asks tools to save only facts the code, history,
 - Kiro shows a marker for an included list that has no file yet. The marker goes away once a tool saves a fact there.
 - If you added the include to a steering file by hand, remove it.
 - With `memory.personal: repo`, Kiro and Antigravity include only the project list. They find personal memory with `agnostic-ai memory path`.
-- With `sync --global`, both get only the rule, because a home file cannot name a project's lists.
+- With `sync --scope user`, both get only the rule, because a home file cannot name a project's lists.
 - See [Kiro](@/docs/targets/kiro.md#native-mappings) and [Antigravity shared memory](@/docs/targets/antigravity.md#shared-memory) (rule size limits).
 
 Aider gets only the rule, because a missing file shows an error. Once both `MEMORY.md` files exist, add them yourself in `.aider.conf.yml`: `read: [.agnostic-ai/local/memory/MEMORY.md, .agnostic-ai/memory/MEMORY.md]`

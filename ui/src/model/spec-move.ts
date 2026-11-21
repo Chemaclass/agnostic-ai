@@ -9,9 +9,14 @@ export function otherLevel(level: SpecLevel): SpecLevel {
   return level === 'global' ? 'project' : 'global'
 }
 
+/** The spec layer a level's own shared specs load in. The level keeps its name in the API; the layer is what `list` prints. */
+export function layerOfLevel(level: SpecLevel): string {
+  return level === 'global' ? 'user' : 'project'
+}
+
 /** Only a shared spec of the served level moves; built-ins, packs, and local specs stay. */
 export function canMoveSpec(item: SectionItem, level: SpecLevel): boolean {
-  return MOVABLE_KINDS.includes(item.kind) && item.layer === level
+  return MOVABLE_KINDS.includes(item.kind) && item.layer === layerOfLevel(level)
 }
 
 export function specMoveLabel(level: SpecLevel): string {
@@ -54,4 +59,4 @@ export function parseSpecMoved(value: unknown): SpecMoved | undefined {
   return moved
 }
 
-export const GLOBAL_SETUP_MISSING = 'The global setup does not exist yet. Create it with Open global settings at the foot of the sidebar, then copy again.'
+export const USER_SETUP_MISSING = 'The global setup does not exist yet. Create it with Open global settings at the foot of the sidebar, then copy again.'

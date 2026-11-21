@@ -77,18 +77,18 @@ func TestInstallHookPostCheckout_Shared(t *testing.T) {
 	}
 }
 
-func TestInstallHookPostCheckout_RejectsGlobal(t *testing.T) {
+func TestInstallHookPostCheckout_RejectsUser(t *testing.T) {
 	dir := setupGitRepo(t)
 	testutil.Chdir(t, dir)
 
 	if _, err := runInstallHook("--post-checkout", "--scope", "user"); err == nil {
-		t.Error("--post-checkout with --global must be rejected")
+		t.Error("--post-checkout with --scope user must be rejected")
 	}
 }
 
 // fakeAgnosticAI writes a stub `agnostic-ai` script on a fresh PATH
 // entry that appends "<args> cwd=<dir>" to a log file, mirroring the
-// fake binary TestInstallHookGlobal_CommitsRunTheChecks uses to prove a
+// fake binary TestInstallHookUser_CommitsRunTheChecks uses to prove a
 // hook's checks actually run, without needing the real CLI.
 func fakeAgnosticAI(t *testing.T) (bin, log string) {
 	t.Helper()

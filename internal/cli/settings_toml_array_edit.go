@@ -105,12 +105,12 @@ func encodeTOMLArrayRecord(parent string, value map[string]any) ([]byte, error) 
 	}
 	return b.Bytes(), nil
 }
-func mergeTOMLArray(path string, data []byte, parent string, want map[string]map[string]any, previous map[string]any, layouts map[string]tomlArrayLayout) (globalSettingsMerge, map[string]tomlArrayLayout, error) {
+func mergeTOMLArray(path string, data []byte, parent string, want map[string]map[string]any, previous map[string]any, layouts map[string]tomlArrayLayout) (userSettingsMerge, map[string]tomlArrayLayout, error) {
 	return mergeTOMLArrayRecords(path, data, parent, want, previous, layouts, false)
 }
 
 // unnamed keeps external spec identities in state, never in the native records.
-func mergeTOMLArrayRecords(path string, data []byte, parent string, want map[string]map[string]any, previous map[string]any, layouts map[string]tomlArrayLayout, unnamed bool) (globalSettingsMerge, map[string]tomlArrayLayout, error) {
+func mergeTOMLArrayRecords(path string, data []byte, parent string, want map[string]map[string]any, previous map[string]any, layouts map[string]tomlArrayLayout, unnamed bool) (userSettingsMerge, map[string]tomlArrayLayout, error) {
 	transitioned := maps.Clone(previous)
 	if transitioned == nil {
 		transitioned = map[string]any{}
@@ -120,11 +120,11 @@ func mergeTOMLArrayRecords(path string, data []byte, parent string, want map[str
 	}
 	original, err := decodeTOMLDocument(path, data)
 	if err != nil {
-		return globalSettingsMerge{}, nil, err
+		return userSettingsMerge{}, nil, err
 	}
 	current, inline, err := scan(data)
 	if err != nil {
-		return globalSettingsMerge{}, nil, err
+		return userSettingsMerge{}, nil, err
 	}
 	nextLayouts := maps.Clone(layouts)
 	if nextLayouts == nil {
@@ -142,7 +142,7 @@ func mergeTOMLArrayRecords(path string, data []byte, parent string, want map[str
 			proven[id] = true
 		}
 	}
-	m := globalSettingsMerge{owned: map[string]any{}}
+	m := userSettingsMerge{owned: map[string]any{}}
 	var remove, replace, add []string
 	for _, name := range slices.Sorted(maps.Keys(want)) {
 		value := want[name]
@@ -354,7 +354,7 @@ func tomlArrayAnchor(data []byte) string {
 	if i := strings.LastIndexByte(text, '\n'); i >= 0 {
 		text = text[i+1:]
 	}
-	return globalSum([]byte(text))
+	return userSum([]byte(text))
 }
 
 func tomlArrayIdentities(path, parent string, records []map[string]any, want map[string]map[string]any, previous map[string]any, unnamed bool) ([]string, error) {

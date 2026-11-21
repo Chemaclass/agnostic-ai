@@ -20,7 +20,7 @@ test.describe('calm Tools page', () => {
     const section = tools(data)
     section.items = section.items.filter((item) => item.kind !== 'mcp')
     section.kinds = section.kinds.map((kind) => (kind.kind === 'mcp' ? { ...kind, count: 0 } : kind))
-    section.native = [{ name: 'paper', import: 'agnostic-ai import --global claude', holders: [
+    section.native = [{ name: 'paper', import: 'agnostic-ai import --scope user claude', holders: [
       { target: 'claude', label: 'Claude Code', path: '~/.claude.json', scope: 'user', transport: 'stdio' },
       { target: 'codex', label: 'Codex', path: '~/.codex/config.toml', scope: 'user', transport: 'stdio' },
     ] }]
@@ -48,7 +48,7 @@ test.describe('calm Tools page', () => {
     const panel = row.locator('.native-details')
     await expect(panel.getByRole('combobox', { name: 'Source for paper' })).toBeVisible()
     await expect(panel).toContainText('~/.codex/config.toml')
-    await expect(panel).toContainText('agnostic-ai import --global claude')
+    await expect(panel).toContainText('agnostic-ai import --scope user claude')
     await page.mouse.move(0, 0)
     await expect(details).toHaveCSS('opacity', '1')
   })

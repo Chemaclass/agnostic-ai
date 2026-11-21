@@ -207,26 +207,26 @@ func TestHookRun_PortableEditHookRunsOnEveryEditTool(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_StopsOnAnInvalidPortableHook(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestSyncUser_StopsOnAnInvalidPortableHook(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: befor-tool\ncommand: 'true'\n")
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "did you mean before-tool") {
-		t.Errorf("sync --global = %v, want it to stop on the typo", err)
+	if _, _, err := runUserAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "did you mean before-tool") {
+		t.Errorf("sync --scope user = %v, want it to stop on the typo", err)
 	}
 }
 
-func TestSyncGlobal_PortableHookReachesClaudeAndCursor(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_PortableHookReachesClaudeAndCursor(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), "name: guard\non: before-tool\nmatch: shell\ncommand: 'exit 2'\n")
-	_, warnings, err := runGlobalAgentTest("--only", "claude,cursor")
+	_, warnings, err := runUserAgentTest("--only", "claude,cursor")
 	if err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
-	if got := firstGlobalHandler(t, readGlobalJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")["command"]; got != "exit 2" {
+	if got := firstUserHandler(t, readUserJSON(t, filepath.Join(home, ".claude", "settings.json")), "PreToolUse")["command"]; got != "exit 2" {
 		t.Errorf("claude PreToolUse handler = %v", got)
 	}
 	wrapper := filepath.ToSlash(filepath.Join(home, ".cursor", "hooks", "agnostic-ai-portable-hook.sh"))
-	entries, _ := readGlobalJSON(t, filepath.Join(home, ".cursor", "hooks.json"))["hooks"].(map[string]any)["preToolUse"].([]any)
+	entries, _ := readUserJSON(t, filepath.Join(home, ".cursor", "hooks.json"))["hooks"].(map[string]any)["preToolUse"].([]any)
 	if len(entries) != 1 {
 		t.Fatalf("cursor preToolUse handlers = %v, want one", entries)
 	}

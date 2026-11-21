@@ -93,17 +93,17 @@ func TestValidate_NamesTheSameLayerWinnerWhenALocalSpecExtendsIt(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestSyncUser_WarnsWhenADuplicateNameDropsASpec(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "rules", "b.md"), "---\nname: b\n---\nbody1\n")
 	writeFile(t, filepath.Join(source, "rules", "b2.md"), "---\nname: b\n---\nbody2\n")
 
-	_, errOut, err := runGlobalCheck("sync", "--dry-run")
+	_, errOut, err := runUserCheck("sync", "--dry-run")
 	if err != nil {
-		t.Fatalf("sync --global --dry-run: %v\n%s", err, errOut)
+		t.Fatalf("sync --scope user --dry-run: %v\n%s", err, errOut)
 	}
 	if !strings.Contains(filepath.ToSlash(errOut), `duplicate rule name "b"`) {
-		t.Errorf("sync --global did not warn about the dropped spec:\n%s", errOut)
+		t.Errorf("sync --scope user did not warn about the dropped spec:\n%s", errOut)
 	}
 }
 

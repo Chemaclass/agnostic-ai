@@ -23,7 +23,7 @@ func builtinProject(t *testing.T, names string) string {
 		}
 	})
 	dir := testutil.TempCwd(t)
-	t.Setenv(envUserGlobalRoot, t.TempDir())
+	t.Setenv(envUserRoot, t.TempDir())
 	writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: [claude, codex]\nbuiltins: ["+names+"]\n")
 	return dir
 }
@@ -258,10 +258,10 @@ func TestBuiltins_InitOptsIn(t *testing.T) {
 	}
 }
 
-func TestBuiltins_GlobalConfigLocalListReplacesSharedList(t *testing.T) {
+func TestBuiltins_UserConfigLocalListReplacesSharedList(t *testing.T) {
 	t.Cleanup(func() { _ = cleanupBuiltinLayers() })
 	source := t.TempDir()
-	t.Setenv(envUserGlobalRoot, source)
+	t.Setenv(envUserRoot, source)
 	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\nbuiltins: [handoff]\n")
 	scope, err := loadSpecScope(true, nil)
 	if err != nil {
@@ -433,16 +433,16 @@ func TestBuiltins_ReplacedFallbackIsCleaned(t *testing.T) {
 	}
 }
 
-func TestBuiltins_ProjectAndGlobalShareOriginWithoutNameClash(t *testing.T) {
+func TestBuiltins_ProjectAndUserShareOriginWithoutNameClash(t *testing.T) {
 	dir := builtinProject(t, "handoff")
 	source := t.TempDir()
-	t.Setenv(envUserGlobalRoot, source)
+	t.Setenv(envUserRoot, source)
 	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\ntargets: [claude]\nbuiltins: [handoff]\n")
 	_, b, err := loadProject(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if clashes := globalNameClashes(b, []string{"claude"}); len(clashes) != 0 {
+	if clashes := userNameClashes(b, []string{"claude"}); len(clashes) != 0 {
 		t.Errorf("same builtin origin reported as name clash: %+v", clashes)
 	}
 	writeFile(t, filepath.Join(dir, ".agnostic-ai", "skills", "handoff.md"), "---\nname: handoff\ndescription: Custom handoff\n---\nMine.\n")
@@ -450,7 +450,7 @@ func TestBuiltins_ProjectAndGlobalShareOriginWithoutNameClash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clashes := globalNameClashes(b, []string{"claude"})
+	clashes := userNameClashes(b, []string{"claude"})
 	if len(clashes) != 1 {
 		t.Errorf("custom project override did not clash with global builtin: %+v", clashes)
 		return
@@ -471,7 +471,7 @@ func TestBuiltins_ProjectAndGlobalShareOriginWithoutNameClash(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	clashes = globalNameClashes(b, []string{"claude"})
+	clashes = userNameClashes(b, []string{"claude"})
 	if len(clashes) != 1 {
 		t.Fatalf("project builtin did not clash with global override: %+v", clashes)
 	}
@@ -594,15 +594,15 @@ func TestBuiltins_PacksOverrideAndPersonalSpecsExtend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(b.Skills) != 1 || b.Skills[0].Layer != "project-user" || !strings.Contains(b.Skills[0].Body, "Pack body.\nPersonal addition.") {
+	if len(b.Skills) != 1 || b.Skills[0].Layer != "local" || !strings.Contains(b.Skills[0].Body, "Pack body.\nPersonal addition.") {
 		t.Errorf("personal extension = %+v", b.Skills)
 	}
 }
 
-func TestBuiltins_GlobalSpecsAndPersonalOverridesWin(t *testing.T) {
+func TestBuiltins_UserSpecsAndPersonalOverridesWin(t *testing.T) {
 	t.Cleanup(func() { _ = cleanupBuiltinLayers() })
 	source := t.TempDir()
-	t.Setenv(envUserGlobalRoot, source)
+	t.Setenv(envUserRoot, source)
 	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\nbuiltins: [handoff]\n")
 	writeFile(t, filepath.Join(source, "skills", "handoff.md"), "---\nname: handoff\ndescription: Global handoff\n---\nGlobal body.\n")
 	writeFile(t, filepath.Join(source, "local", "skills", "handoff.md"), "---\nname: handoff\ndescription: Personal handoff\n---\n::parent\nPersonal addition.\n")
@@ -614,7 +614,7 @@ func TestBuiltins_GlobalSpecsAndPersonalOverridesWin(t *testing.T) {
 		t.Fatalf("global skills = %+v", scope.bundle.Skills)
 	}
 	e := scope.bundle.Skills[0]
-	if e.Layer != "global-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "Global body.\nPersonal addition.") {
+	if e.Layer != "user-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "Global body.\nPersonal addition.") {
 		t.Errorf("global override = %+v", e)
 	}
 }

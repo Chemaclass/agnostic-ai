@@ -37,7 +37,7 @@ func TestWindowsSmoke_PiCoverageStaysBounded(t *testing.T) {
 		t.Error("Windows smoke omits the Pi adapter package")
 	}
 	for path, names := range map[string][]string{
-		"./internal/cli":      {"TestImportPi_NativeRoundTrip", "TestImportGlobal_PiAdoptsNativeFilesWithoutChangingBytes", "TestSyncGlobal_PiInvalidMCPPreservesManagedFiles", "TestPiExposure_GlobalUserReorderSurvivesRemovalAndRootMove", "TestPiBOM_ProjectImportAndInPlaceSync", "TestPiBOM_GlobalOwnedUpdateAndRemovalRestoreOriginalBytes"},
+		"./internal/cli":      {"TestImportPi_NativeRoundTrip", "TestImportUser_PiAdoptsNativeFilesWithoutChangingBytes", "TestSyncUser_PiInvalidMCPPreservesManagedFiles", "TestPiExposure_UserLevelReorderSurvivesRemovalAndRootMove", "TestPiBOM_ProjectImportAndInPlaceSync", "TestPiBOM_UserOwnedUpdateAndRemovalRestoreOriginalBytes"},
 		"./tests/integration": {"TestPiRoundTrip_NativeProject"},
 	} {
 		var pattern string

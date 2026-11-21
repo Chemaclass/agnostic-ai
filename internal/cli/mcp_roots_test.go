@@ -45,10 +45,10 @@ func TestMCPRoots_AcceptsURIMappings(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_RefusesAStringRoot(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+func TestSyncUser_RefusesAStringRoot(t *testing.T) {
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "mcps", "fs.yaml"), "name: fs\ncommand: npx\nroots: [\"file:///tmp/x\"]\n")
-	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "roots[0] must be a mapping") {
-		t.Errorf("sync --global must refuse it: %v", err)
+	if _, _, err := runUserAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "roots[0] must be a mapping") {
+		t.Errorf("sync --scope user must refuse it: %v", err)
 	}
 }

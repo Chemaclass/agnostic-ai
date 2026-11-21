@@ -47,9 +47,9 @@ func TestOverviewTools_ReadsSharedPersonalAndDefaultLists(t *testing.T) {
 	}
 }
 
-func TestOverviewTools_GlobalListsOnlyUserLevelTargets(t *testing.T) {
+func TestOverviewTools_UserListsOnlyUserLevelTargets(t *testing.T) {
 	tools := overviewTools(t.TempDir(), true)
-	if tools.Source != "default" || len(tools.Items) != len(globalTargetNames()) {
+	if tools.Source != "default" || len(tools.Items) != len(userTargetNames()) {
 		t.Fatalf("global catalog = %+v", tools)
 	}
 	for _, item := range tools.Items {

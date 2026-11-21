@@ -90,7 +90,7 @@ func TestPacksList_InsideAProjectNamesItWhenNoPacksAreHere(t *testing.T) {
 func TestDoctor_InsideAProjectNamesItInsteadOfInit(t *testing.T) {
 	root := projectWithSubfolder(t)
 
-	out, err := runCLI(t, "doctor", "--scope", "project")
+	out, err := runCLI(t, "doctor", "--checks", "project")
 	if err == nil {
 		t.Fatalf("doctor passed in a folder with no config:\n%s", out)
 	}
@@ -124,7 +124,7 @@ func TestErrorText_MissingConfigInAnotherFolderKeepsTheRegistryFix(t *testing.T)
 	}
 }
 
-func TestInit_StartsAProjectUnderAGlobalHomeThatIsTheUserHome(t *testing.T) {
+func TestInit_StartsAProjectUnderAUserSourceThatIsTheHomeDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
@@ -186,7 +186,7 @@ func TestInsideAProject_EveryCommandUsesOneSentence(t *testing.T) {
 	}{
 		{[]string{"status"}, "the command"},
 		{[]string{"init"}, "the command"},
-		{[]string{"doctor", "--scope", "project"}, "agnostic-ai doctor"},
+		{[]string{"doctor", "--checks", "project"}, "agnostic-ai doctor"},
 		{[]string{"packs", "list"}, "agnostic-ai packs list"},
 		{[]string{"use", "codex"}, "agnostic-ai use"},
 	} {

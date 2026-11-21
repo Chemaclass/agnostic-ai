@@ -34,7 +34,7 @@ func newHookApproveCmd() *cobra.Command {
 			"Claude Code user, project, local or managed settings files. For kiro it asks whenever a Kiro permissions " +
 			"file or agent profile holds an ask or evaluate rule or the approve-for-me preset, and for qwen whenever a " +
 			"Qwen Code settings file lists a permissions.ask rule, and for qoder whenever a Qoder settings file does.",
-		Example: `  # Hook command sync --global writes for Claude Code
+		Example: `  # Hook command sync --scope user writes for Claude Code
   command -v agnostic-ai >/dev/null 2>&1 || exit 0; agnostic-ai hook approve --target claude`,
 		Args:               cobra.ArbitraryArgs,
 		FParseErrWhitelist: cobra.FParseErrWhitelist{UnknownFlags: true},
@@ -92,7 +92,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	if !filepath.IsAbs(p.Cwd) {
 		return nil
 	}
-	source, err := globalSourceRoot()
+	source, err := userSourceRoot()
 	if err != nil || !filepath.IsAbs(source) {
 		return nil
 	}
@@ -104,7 +104,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	if err != nil {
 		return nil
 	}
-	userHome, err := globalUserHome()
+	userHome, err := userHomeDir()
 	if err != nil || !filepath.IsAbs(userHome) {
 		return nil
 	}

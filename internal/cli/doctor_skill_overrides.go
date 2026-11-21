@@ -272,7 +272,7 @@ func claudeLocalSettingsRoot() (root, checkout string, ok bool) {
 		return "", "", false
 	}
 	root = filepath.Dir(layout.CommonDir)
-	if home, err := globalUserHome(); err == nil && samePath(resolvedPath(home), resolvedPath(root)) {
+	if home, err := userHomeDir(); err == nil && samePath(resolvedPath(home), resolvedPath(root)) {
 		return "", "", false
 	}
 	checkout = "git root"
@@ -287,7 +287,7 @@ func claudeLocalSettingsRoot() (root, checkout string, ok bool) {
 func claudeUserSettingsPath() (string, bool) {
 	dir := os.Getenv("CLAUDE_CONFIG_DIR")
 	if dir == "" {
-		home, err := globalUserHome()
+		home, err := userHomeDir()
 		if err != nil {
 			return "", false
 		}

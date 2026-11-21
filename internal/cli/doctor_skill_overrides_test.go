@@ -73,7 +73,7 @@ func TestDoctor_ReportsClaudeSkillOverrides(t *testing.T) {
 		}},
 		{name: "claude not a target", config: "version: 1\ntargets: [codex]\n", settings: `{"skillOverrides":{"a":"off"}}`, absent: true},
 		{name: "claude not selected", config: "version: 1\ntargets: [claude, codex]\n", settings: `{"skillOverrides":{"a":"off"}}`, args: []string{"--target", "codex"}, absent: true},
-		{name: "project scope", config: claudeOnly, settings: `{"skillOverrides":{"a":"off"}}`, args: []string{"--scope", "project"}, absent: true},
+		{name: "project scope", config: claudeOnly, settings: `{"skillOverrides":{"a":"off"}}`, args: []string{"--checks", "project"}, absent: true},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -579,7 +579,7 @@ func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
 		{
 			name:   "overlay note under project scope",
 			files:  map[string]string{shared: `{"skillOverrides":{"b":"off"}}`, overlay: `{"skillOverrides":{"b":"off"}}`},
-			args:   []string{"--scope", "project"},
+			args:   []string{"--checks", "project"},
 			want:   []string{"~ .claude/settings.json turns off 1 of 3 synced skills (off) as .agnostic-ai/overlays/claude.settings.json sets: b"},
 			absent: []string{"! ", "→"},
 		},
@@ -601,7 +601,7 @@ func TestDoctor_ReportsSkillOverridesFromEveryClaudeSettingsFile(t *testing.T) {
 				shared: `{"skillOverrides":{"b":"off"}}`,
 				local:  `{"skillOverrides":{"c":"off"}}`,
 			},
-			args:   []string{"--scope", "project"},
+			args:   []string{"--checks", "project"},
 			want:   []string{"! .claude/settings.json turns off 1 of 3 synced skills (off)"},
 			absent: []string{"settings.local.json turns off", "~/.claude/settings.json"},
 		},
@@ -849,7 +849,7 @@ func TestDoctor_JSONListsSkillOverrides(t *testing.T) {
 	if problem["path"] != filepath.ToSlash(userFile) || problem["scope"] != "user" || len(problem) != 3 || !strings.Contains(problem["problem"].(string), "Claude Code skips this file (") {
 		t.Errorf("problem record: %v", problem)
 	}
-	project := doctorSkillOverridesJSON(t, "--scope", "project")
+	project := doctorSkillOverridesJSON(t, "--checks", "project")
 	if len(project) != 3 || project[0]["scope"] != "shared" || project[0]["effective"] != true {
 		t.Errorf("--scope project: %+v", project)
 	}

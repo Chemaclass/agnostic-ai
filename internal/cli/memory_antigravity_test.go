@@ -17,7 +17,7 @@ func TestSync_AntigravityMemoryIncludesAreStaticAndTargeted(t *testing.T) {
 		{"repo personal", "", ".agents/rules/antigravity-memory-index.md", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			globalAgentTestHome(t)
+			userAgentTestHome(t)
 			root := setupMemoryConfig(t, "version: 1\ntargets: [antigravity, codex]\nbuiltins: [memory]\n"+tc.extra)
 			gitInit(t, root)
 			if !tc.personal {
@@ -62,10 +62,10 @@ func TestSync_AntigravityMemoryIncludesAreStaticAndTargeted(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_AntigravityMemoryIncludeStaysProjectOnly(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestSyncUser_AntigravityMemoryIncludeStaysProjectOnly(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [antigravity]\nbuiltins: [memory]\n")
-	if _, notes, err := runGlobalAgentTest(); err != nil {
+	if _, notes, err := runUserAgentTest(); err != nil {
 		t.Fatalf("global sync: %v\n%s", err, notes)
 	}
 	body := readFile(t, filepath.Join(home, ".gemini", "GEMINI.md"))

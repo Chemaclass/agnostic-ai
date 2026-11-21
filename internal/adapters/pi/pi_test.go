@@ -211,13 +211,13 @@ func TestEmit_NativeControlOnlyOverride(t *testing.T) {
 	}
 }
 
-func TestUserMCP_ProviderAuthIsGlobalOnly(t *testing.T) {
+func TestUserMCP_ProviderAuthIsUserOnly(t *testing.T) {
 	entry := spec.Entry{Kind: spec.KindMCP, Name: "remote", Meta: map[string]any{"type": "http", "url": "https://example.invalid/mcp", "x-pi": map[string]any{"auth": map[string]any{"provider": "radius"}, "oauth": map[string]any{"clientRegistration": "dcr"}}}}
-	global, err := New().CheckedUserMCPServers([]spec.Entry{entry})
+	userLevel, err := New().CheckedUserMCPServers([]spec.Entry{entry})
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := global["remote"].(map[string]any)
+	got := userLevel["remote"].(map[string]any)
 	if auth, ok := got["auth"].(map[string]any); !ok || auth["provider"] != "radius" {
 		t.Errorf("global auth = %#v", got["auth"])
 	}

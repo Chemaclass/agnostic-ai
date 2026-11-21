@@ -795,7 +795,7 @@ func waitForFile(t *testing.T, path string, timeout time.Duration) {
 }
 
 // assertWatchPicksUpNewLocalInstructions starts a watch in a project with
-// no project-user dir, creates it with an AGNOSTIC_AI.md, and waits
+// no local dir, creates it with an AGNOSTIC_AI.md, and waits
 // for the text to reach CLAUDE.md. The directory is the usual way a user
 // starts personal instructions, so its creation must not need a restart.
 func assertWatchPicksUpNewLocalInstructions(t *testing.T, forcePoll bool) {

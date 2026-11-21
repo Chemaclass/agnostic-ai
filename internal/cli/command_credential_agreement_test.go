@@ -7,7 +7,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
-// compare, import, and sync --global read a shell command the same way
+// compare, import, and sync --scope user read a shell command the same way
 // (#2717).
 func TestCommandCredentialChecksAgree(t *testing.T) {
 	for _, c := range []struct {

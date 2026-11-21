@@ -11,7 +11,7 @@ func TestBuiltinItems_ExplainEveryBuiltin(t *testing.T) {
 		"caveman": "https://github.com/JuliusBrussee/caveman",
 		"rtk":     "https://github.com/rtk-ai/rtk",
 	}
-	for _, item := range builtinItems(Inputs{Global: true}) {
+	for _, item := range builtinItems(Inputs{UserLevel: true}) {
 		if item.Description == "Built-in feature." || item.Label == item.Name {
 			t.Errorf("%s description %q label %q, want its own line and label", item.Name, item.Description, item.Label)
 		}
@@ -39,9 +39,9 @@ func TestBuiltinItems_ProjectHidesApprovals(t *testing.T) {
 		return slices.ContainsFunc(items, func(item SectionItem) bool { return item.Name == "approvals" })
 	}
 	if has(builtinItems(Inputs{})) {
-		t.Error("project overview offers the approvals built-in, which only sync --global writes")
+		t.Error("project overview offers the approvals built-in, which only sync --scope user writes")
 	}
-	if !has(builtinItems(Inputs{Global: true})) {
+	if !has(builtinItems(Inputs{UserLevel: true})) {
 		t.Error("global overview has no approvals built-in")
 	}
 }

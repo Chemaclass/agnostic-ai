@@ -121,7 +121,7 @@ agnostic-ai explain rules/conventional-commits.md --layers
 rule conventional-commits
   .agnostic-ai/packs/team/rules/conventional-commits.md [pack:team] base (replaced)
   .agnostic-ai/rules/conventional-commits.md [project] replace (contributor)
-  .agnostic-ai/local/rules/conventional-commits.md [project-user] extend (contributor)
+  .agnostic-ai/local/rules/conventional-commits.md [local] extend (contributor)
 effective source: .agnostic-ai/local/rules/conventional-commits.md
 ```
 

@@ -99,7 +99,7 @@ test.describe('conversations', () => {
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
     const open = page.getByRole('region', { name: /^Open now/ })
-    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Add a Conversations page to the local UI', 'Tighten the nav labels on phones', 'Plan the sync --global dry run'])
+    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Add a Conversations page to the local UI', 'Tighten the nav labels on phones', 'Plan the sync --scope user dry run'])
     await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader', 'Explain the sync --watch debounce'])
 
     const working = row(page, 'Add a Conversations page to the local UI')
@@ -110,7 +110,7 @@ test.describe('conversations', () => {
     // The agent's latest reply sits right under the title, above the meta line.
     await expect(working.locator('.conversation-body > *')).toHaveClass([/conversation-title/, /conversation-reply/, /conversation-meta/, /conversation-prompt/])
     await expect(working.locator('.conversation-reply')).toHaveText('Latest reply: Two specs still fail: the empty state and the tool filter on phones.')
-    await expect(row(page, 'Plan the sync --global dry run').locator('.conversation-reply')).toHaveText('Latest reply: Should the dry run list the files it would remove, or only the ones it writes?')
+    await expect(row(page, 'Plan the sync --scope user dry run').locator('.conversation-reply')).toHaveText('Latest reply: Should the dry run list the files it would remove, or only the ones it writes?')
     await expect(row(page, 'Tighten the nav labels on phones').locator('.conversation-reply')).toHaveCount(0)
     await expect(row(page, 'Nightly dependency audit').locator('.conversation-reply')).toHaveCount(0)
     await expect(row(page, 'Nightly dependency audit').locator('.conversation-withheld')).toHaveText('Latest reply Hidden: may hold a credential')
@@ -119,7 +119,7 @@ test.describe('conversations', () => {
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
     await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toHaveCount(0)
 
-    const waiting = row(page, 'Plan the sync --global dry run').locator('.conversation-live')
+    const waiting = row(page, 'Plan the sync --scope user dry run').locator('.conversation-live')
     await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')
     await expect(waiting).toHaveClass(/badge-approval/)
     // The person's own marks show as chips too: a reply not yet read, and a chat they archived.
@@ -255,7 +255,7 @@ test.describe('conversations', () => {
     await expect(page).toHaveURL(/\?q=SQLITE$/)
     // The search goes to the server, which searches every conversation, not just the loaded weeks.
     expect(mocks.views).toContain('?editor=cursor&q=SQLITE')
-    await search.fill('sync --global')
+    await search.fill('sync --scope user')
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 1'])
     await search.fill('website')
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Explain the sync --watch debounce'])
@@ -441,7 +441,7 @@ test.describe('conversations', () => {
     const message = "Switched to the Terminal tab that runs it. Its subagent is 'Find every caller of writeGlobal'. Use the agent rows below the prompt to switch to it."
     const mocks = await mockServer(page, () => ({ json: { opened: true, message } }))
     await page.goto('/')
-    const plan = row(page, 'Plan the sync --global dry run')
+    const plan = row(page, 'Plan the sync --scope user dry run')
     const subagents = plan.getByRole('list', { name: 'Working subagents' }).getByRole('listitem')
     await expect(subagents).toHaveCount(2)
     await expect(subagents.locator('.conversation-helper-title')).toHaveText(['Draft the dry run tests', 'Find every caller of writeGlobal'])
@@ -485,7 +485,7 @@ test.describe('conversations', () => {
     many.conversations[1].helpers = Array.from({ length: 7 }, (_, index) => ({ tool: 'claude', id: `agent${index}`, title: `Subagent ${index}`, state: 'working', updatedAt: `2026-11-07T14:5${index}:00Z` }))
     await mockServer(page, opened, () => ({ json: many }))
     await page.goto('/')
-    const plan = row(page, 'Plan the sync --global dry run')
+    const plan = row(page, 'Plan the sync --scope user dry run')
     const subagents = plan.getByRole('list', { name: 'Working subagents' }).getByRole('listitem')
     await expect(subagents.locator('.conversation-helper-title')).toHaveText(['Subagent 6', 'Subagent 5', 'Subagent 4', 'Subagent 3', 'Subagent 2'])
     await plan.getByRole('button', { name: 'Show 2 more subagents' }).click()
@@ -566,7 +566,7 @@ const weekBefore = {
     },
     {
       tool: 'claude', app: 'cli', id: '5a0e3f8c-9d21-4b7a-8c64-e2f1a7d09b38', title: '', updatedAt: '2026-10-27T19:34:00Z',
-      prompt: 'What does the --global flag change for sync?',
+      prompt: 'What does the --scope user flag change for sync?',
       open: { kind: 'terminal', label: 'Open in Terminal', command: 'claude --resume 5a0e3f8c-9d21-4b7a-8c64-e2f1a7d09b38' },
     },
   ],

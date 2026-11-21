@@ -29,13 +29,13 @@ func HookDoc(cfg *config.Config, h spec.Entry) ([]byte, error) {
 	return json.Marshal(doc)
 }
 
-// GlobalHooksFile renders the user-level plugin hooks file, or nil when no
+// UserHooksFile renders the user-level plugin hooks file, or nil when no
 // hook produces a handler. Commands reference scripts in scriptsDir.
-func GlobalHooksFile(hooks []spec.Entry, scriptsDir string) ([]byte, error) {
+func UserHooksFile(hooks []spec.Entry, scriptsDir string) ([]byte, error) {
 	doc := buildHooksWith(hooks, func(command string, meta map[string]any) string {
-		return emit.RewriteGlobalHookPath(command, target, scriptsDir, meta)
+		return emit.RewriteUserHookPath(command, target, scriptsDir, meta)
 	}, func(path string) string {
-		return emit.RewriteGlobalHookPath(path, target, scriptsDir)
+		return emit.RewriteUserHookPath(path, target, scriptsDir)
 	})
 	if doc == nil {
 		return nil, nil
@@ -47,9 +47,9 @@ func GlobalHooksFile(hooks []spec.Entry, scriptsDir string) ([]byte, error) {
 	return append(body, '\n'), nil
 }
 
-// GlobalPluginManifest renders the manifest for the user-level plugin
+// UserPluginManifest renders the manifest for the user-level plugin
 // named by the directory root.
-func GlobalPluginManifest(root string) ([]byte, error) {
+func UserPluginManifest(root string) ([]byte, error) {
 	body, err := json.MarshalIndent(map[string]string{
 		"name":        filepath.Base(root),
 		"version":     "1.0.0",

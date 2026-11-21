@@ -14,7 +14,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/overview"
 )
 
-func TestView_BinaryResolvesProjectGlobalAndLinkedWorktree(t *testing.T) {
+func TestView_BinaryResolvesProjectUserAndLinkedWorktree(t *testing.T) {
 	binary := builtBinary(t)
 	source := t.TempDir()
 	t.Setenv("AGNOSTIC_AI_HOME", source)

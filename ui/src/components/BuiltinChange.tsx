@@ -3,7 +3,7 @@ import { builtinChange, BuiltinChangeError, type BuiltinChange as Change, type B
 import { useApp } from './app-context'
 import { Notice } from './Banner'
 import { FileDiff } from './PermissionEditor'
-import { useEditAudience, useGlobalLevel, useLevelName, type EditAudience } from './EditAudience'
+import { useEditAudience, useUserLevel, useLevelName, type EditAudience } from './EditAudience'
 import { addressKey } from '../model/field-address'
 import { Code, CopyButton, Switch, Toggle, ToolAvatar, toolName } from './ui'
 
@@ -223,7 +223,7 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
   const level = useLevelName()
   const { change, pending, settling, proposal, resetList } = useBuiltinChanges()
   if (app.source.kind !== 'api') return null
-  if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
+  if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --scope user</Code> to apply them to your tools.</p>{local && resetSource}</>
   return <div className="builtin-change">
     <div className="builtin-change-controls">
       {!proposal && <span className="muted">Ready-made features. Turning one on shows a preview before anything changes.</span>}
@@ -258,7 +258,7 @@ export function SettingChangePreview({ change, label }: { change: Change; label:
 
 function Preview({ change, title, heading }: { change: Change; title: string; heading: string }) {
   const { pending, request, cancel } = useBuiltinChanges()
-  const global = useGlobalLevel()
+  const userLevel = useUserLevel()
   const preview = useRef<HTMLElement>(null)
   useEffect(() => { preview.current?.scrollIntoView({ block: 'start' }) }, [change.id])
   const findings = reviewNotes(change.findings)
@@ -270,7 +270,7 @@ function Preview({ change, title, heading }: { change: Change; title: string; he
         <button className="button" type="button" disabled={!!pending} onClick={() => { void cancel() }}>Cancel</button>
       </div>
     </div>
-    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : global ? 'for every project' : 'for everyone'}.</p>
+    <p>Update <Code>{change.config}</Code> {change.audience === 'personal' ? 'for you only' : userLevel ? 'for every project' : 'for everyone'}.</p>
     {change.findings.includes(pendingSourceFinding) && <p className="builtin-change-pending" role="note"><strong>{pendingSourceFinding}</strong> They were not synced yet; the changed files list them.</p>}
     <p className="muted">{change.changes.length} files will change. Secret values are hidden in the preview.</p>
     {change.targets.length > 0 && <details className="preview-disclosure">

@@ -59,7 +59,7 @@ func TestDoctorFix_SavesAHandEditedFileAsBakBeforeWriting(t *testing.T) {
 	previous := logOut
 	logOut = &logged
 	t.Cleanup(func() { logOut = previous })
-	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err != nil {
+	if out, err := runCLI(t, "doctor", "--fix", "--checks", "project"); err != nil {
 		t.Fatalf("doctor --fix: %v\n%s", err, out)
 	}
 	if !strings.Contains(logged.String(), "overwrote a hand edit to CLAUDE.md (saved as CLAUDE.md.bak)") {
@@ -89,7 +89,7 @@ func TestDoctorFix_FailsWhenAnEarlierBakBlocksTheBackup(t *testing.T) {
 	writeFile(t, "CLAUDE.md.bak", "an earlier copy I keep\n")
 	writeFile(t, "CLAUDE.md", "my hand edit\n")
 
-	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err == nil {
+	if out, err := runCLI(t, "doctor", "--fix", "--checks", "project"); err == nil {
 		t.Fatalf("doctor --fix passed while it kept the edit:\n%s", out)
 	}
 	if got, _ := os.ReadFile("CLAUDE.md"); string(got) != "my hand edit\n" {
@@ -122,7 +122,7 @@ func TestDoctorFix_SaysItSavedARemovedHandEdit(t *testing.T) {
 	previous := logOut
 	logOut = &logged
 	t.Cleanup(func() { logOut = previous })
-	out, _ := runCLI(t, "doctor", "--fix", "--scope", "project")
+	out, _ := runCLI(t, "doctor", "--fix", "--checks", "project")
 	if _, err := os.Stat(generated + ".bak"); err != nil {
 		t.Fatalf("doctor --fix kept the edited leftover instead of removing it:\n%s\n%s", out, logged.String())
 	}
@@ -142,7 +142,7 @@ func TestDoctorFix_SavesAHandEditMadeThroughASymlinkedOutput(t *testing.T) {
 	logOut = &logged
 	t.Cleanup(func() { logOut = previous })
 
-	if out, err := runCLI(t, "doctor", "--fix", "--scope", "project"); err != nil {
+	if out, err := runCLI(t, "doctor", "--fix", "--checks", "project"); err != nil {
 		t.Fatalf("doctor --fix: %v\n%s", err, out)
 	}
 

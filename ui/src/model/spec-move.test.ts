@@ -7,7 +7,8 @@ const item = (kind: string, layer: string): SectionItem => ({ kind, name: 'revie
 describe('spec move', () => {
   it.each(['rule', 'agent', 'skill', 'hook', 'mcp'])('offers a shared %s of the served level', (kind) => {
     expect(canMoveSpec(item(kind, 'project'), 'project')).toBe(true)
-    expect(canMoveSpec(item(kind, 'global'), 'global')).toBe(true)
+    expect(canMoveSpec(item(kind, 'user'), 'global')).toBe(true)
+    expect(canMoveSpec(item(kind, 'user'), 'project')).toBe(false)
   })
 
   it.each([
@@ -16,8 +17,9 @@ describe('spec move', () => {
     ['instructions', 'project'],
     ['skill', 'builtin'],
     ['skill', 'pack:team'],
-    ['skill', 'project-user'],
-    ['skill', 'global-local'],
+    ['skill', 'local'],
+    ['skill', 'user-local'],
+    ['skill', 'global'],
   ])('leaves a %s from layer %s alone', (kind, layer) => {
     expect(canMoveSpec(item(kind, layer), 'project')).toBe(false)
     expect(canMoveSpec(item(kind, layer), 'global')).toBe(false)
@@ -40,7 +42,7 @@ describe('spec move', () => {
   })
 
   it('keeps a saved notice only when it has every field', () => {
-    const moved = { name: 'review-pr', mode: 'move', destination: '~/.agnostic-ai/skills/review-pr/SKILL.md', syncCommands: ['agnostic-ai sync', 'agnostic-ai sync --global'] }
+    const moved = { name: 'review-pr', mode: 'move', destination: '~/.agnostic-ai/skills/review-pr/SKILL.md', syncCommands: ['agnostic-ai sync', 'agnostic-ai sync --scope user'] }
     expect(parseSpecMoved(moved)).toEqual(moved)
     expect(specMovedText(parseSpecMoved(moved)!)).toBe('Moved review-pr to ~/.agnostic-ai/skills/review-pr/SKILL.md.')
     expect(parseSpecMoved({ ...moved, mode: 'link' })).toBeUndefined()

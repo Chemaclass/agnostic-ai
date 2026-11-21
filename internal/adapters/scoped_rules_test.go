@@ -222,7 +222,7 @@ func TestScopedRules_RejectIncompatibleReaders(t *testing.T) {
 	}
 }
 
-func TestScopedRules_UnsupportedNeverEmitsGlobalCopy(t *testing.T) {
+func TestScopedRules_UnsupportedNeverEmitsUserCopy(t *testing.T) {
 	for _, target := range []string{"aider", "zed", "junie", "crush", "jules"} {
 		t.Run(target, func(t *testing.T) {
 			testutil.Chdir(t, t.TempDir())

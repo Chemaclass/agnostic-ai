@@ -20,7 +20,7 @@ requires: ">=0.94.0"
 builtins: [side-conversation]
 ```
 
-- Off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --global`.
+- Off unless you list it. For every project, add the same lines to `~/.agnostic-ai/agnostic-ai.yaml` and run `agnostic-ai sync --scope user`.
 - It runs [`agnostic-ai conversations start`](@/docs/cli-reference/conversations.md#conversations-start), so `agnostic-ai` must be on `PATH`.
 - It works from Claude Code, Codex and Cursor terminal agent (`cursor-agent`) sessions on macOS; see [where it runs](@/docs/cli-reference/conversations.md#where-it-runs).
 

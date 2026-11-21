@@ -96,7 +96,7 @@ func TestFilterTargets_EmptyRunOmitsTheList(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_MistypedTargetSuggestsClosestName(t *testing.T) {
+func TestSyncUser_MistypedTargetSuggestsClosestName(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
 	t.Setenv("AGNOSTIC_AI_HOME", t.TempDir())
 	silence(t)

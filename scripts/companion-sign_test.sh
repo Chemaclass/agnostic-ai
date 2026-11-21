@@ -43,6 +43,40 @@ codesign|--verify|-R=identifier "dev.agnostic-ai.companion" and certificate leaf
   rm -f "$calls"
 }
 
+function test_it_checks_the_written_image_against_the_pinned_requirement() {
+  local calls
+  calls="$(mktemp)"
+  # shellcheck disable=SC2329
+  function hdiutil_retrying() { printf 'hdiutil|%s\n' "$(IFS='|'; echo "$*")" >> "$calls"; }
+  # shellcheck disable=SC2329
+  function codesign() { printf 'codesign|%s\n' "$(IFS='|'; echo "$*")" >> "$calls"; }
+  # shellcheck disable=SC2034 # read by verify_companion_image
+  local companion_release_cert=ABC123 mount
+  mount="$(mktemp -d)/mount"
+
+  verify_companion_image "a.dmg" "$mount"
+
+  assert_same "hdiutil|attach|-nobrowse|-readonly|-mountpoint|$mount|a.dmg
+codesign|--verify|--deep|--strict|-R=identifier \"dev.agnostic-ai.companion\" and certificate leaf = H\"ABC123\"|$mount/agnostic-ai companion.app
+hdiutil|detach|$mount" "$(cat "$calls")"
+  unset -f hdiutil_retrying codesign
+  rm -f "$calls"
+}
+
+function test_it_stops_on_an_image_signed_by_another_certificate() {
+  # shellcheck disable=SC2329
+  function hdiutil_retrying() { :; }
+  # shellcheck disable=SC2329
+  function codesign() { return 3; }
+  local status=0 mount
+  mount="$(mktemp -d)/mount"
+
+  verify_companion_image "a.dmg" "$mount" 2> /dev/null || status=$?
+
+  assert_same 3 "$status"
+  unset -f hdiutil_retrying codesign
+}
+
 # make_test_p12 <dir> <name>: writes <dir>/id.p12, a self-signed code-signing
 # certificate with the release password, and prints its SHA-1 hash.
 function make_test_p12() {

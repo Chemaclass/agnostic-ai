@@ -48,7 +48,7 @@ var errSourceNotFound = editError{Error: "path is not a file of the loaded confi
 // newSourceHandler serves the content of one file a row of the page
 // lists, read on every request. Any other path answers 404, as does a
 // listed file whose symlinks lead outside the configuration's folders.
-func newSourceHandler(global bool) http.Handler {
+func newSourceHandler(userLevel bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !allowGetOnly(w, r) {
 			return
@@ -67,7 +67,7 @@ func newSourceHandler(global bool) http.Handler {
 			writeEditJSON(w, http.StatusNotFound, errSourceNotFound)
 			return
 		}
-		files, roots, err := sourceFiles(global)
+		files, roots, err := sourceFiles(userLevel)
 		if err != nil {
 			writeEditJSON(w, http.StatusInternalServerError, editError{Error: preview.RedactText(err.Error())})
 			return
@@ -91,16 +91,16 @@ func newSourceHandler(global bool) http.Handler {
 // rows may show, with the folders those files must resolve into: each
 // layer's source folder of a kind the rows list, and the folder of each
 // instructions file.
-func sourceFiles(global bool) (map[string]string, []string, error) {
+func sourceFiles(userLevel bool) (map[string]string, []string, error) {
 	var in overview.Inputs
 	var layers []spec.Layer
-	if global {
+	if userLevel {
 		scope, err := loadCheckScope(true)
 		if err != nil {
 			return nil, nil, err
 		}
-		in = overview.Inputs{Cfg: &config.Config{Targets: scope.targets}, Bundle: scope.bundle, Instructions: globalInstructionDocuments(scope.source)}
-		if layers, err = globalLayers(scope.source, nil); err != nil {
+		in = overview.Inputs{Cfg: &config.Config{Targets: scope.targets}, Bundle: scope.bundle, Instructions: userInstructionDocuments(scope.source)}
+		if layers, err = userLayers(scope.source, nil); err != nil {
 			return nil, nil, err
 		}
 	} else {

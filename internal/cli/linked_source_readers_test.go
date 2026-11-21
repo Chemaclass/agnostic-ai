@@ -46,18 +46,18 @@ func TestEntrySum_LinkedSourceAssetEditChangesSum(t *testing.T) {
 	}
 }
 
-func TestSkillAssets_LinkedSourceDetectsGlobalDifference(t *testing.T) {
+func TestSkillAssets_LinkedSourceDetectsUserDifference(t *testing.T) {
 	project, _ := linkedSourceSkill(t)
-	globalRoot := t.TempDir()
-	writeFile(t, filepath.Join(globalRoot, "SKILL.md"), skillSpec("demo", ""))
-	writeFile(t, filepath.Join(globalRoot, "references", "guide.txt"), "Initial asset.\n")
-	global := project
-	global.Path = filepath.Join(globalRoot, "SKILL.md")
-	if got := compareSkillAssets(project, global); got != contentIdentical {
+	userRoot := t.TempDir()
+	writeFile(t, filepath.Join(userRoot, "SKILL.md"), skillSpec("demo", ""))
+	writeFile(t, filepath.Join(userRoot, "references", "guide.txt"), "Initial asset.\n")
+	userLevel := project
+	userLevel.Path = filepath.Join(userRoot, "SKILL.md")
+	if got := compareSkillAssets(project, userLevel); got != contentIdentical {
 		t.Errorf("same linked and global assets = %v, want identical", got)
 	}
-	writeFile(t, filepath.Join(globalRoot, "references", "guide.txt"), "Changed asset.\n")
-	if got := compareSkillAssets(project, global); got != contentDiffers {
+	writeFile(t, filepath.Join(userRoot, "references", "guide.txt"), "Changed asset.\n")
+	if got := compareSkillAssets(project, userLevel); got != contentDiffers {
 		t.Errorf("changed global asset = %v, want differs", got)
 	}
 	assets, err := skillAssets(project)
@@ -69,13 +69,13 @@ func TestSkillAssets_LinkedSourceDetectsGlobalDifference(t *testing.T) {
 	}
 }
 
-func TestAddGlobalSkill_LinkedSourceCopiesNestedAsset(t *testing.T) {
+func TestAddUserSkill_LinkedSourceCopiesNestedAsset(t *testing.T) {
 	e, physical := linkedSourceSkill(t)
 	outside := t.TempDir()
 	writeFile(t, filepath.Join(outside, "outside.txt"), "Do not copy.\n")
 	testutil.DirectoryAlias(t, outside, filepath.Join(physical, "nested-link"))
 	files := map[string][]byte{}
-	err := addGlobalSkill("native/demo", e, "claude", false, nil,
+	err := addUserSkill("native/demo", e, "claude", false, nil,
 		func(path string, data []byte, _ fs.FileMode) error {
 			files[filepath.ToSlash(path)] = data
 			return nil

@@ -11,11 +11,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 )
 
-func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
+func TestSessionRetention_UserWritesAndRestoresOwnedKeys(t *testing.T) {
 	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		for _, before := range []string{"absent", "empty", "compact-empty", "formatted-empty", "different", "matching"} {
 			t.Run(target+"/"+before, func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				path := filepath.Join(home, "."+target, "settings.json")
 				original := ""
 				if before != "absent" {
@@ -44,7 +44,7 @@ func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 				}
 				settings := filepath.Join(source, "settings", "retention.yaml")
 				writeFile(t, settings, "session-retention-days: 3650\n")
-				if _, warnings, err := runGlobalAgentTest("--only", target, "--backup"); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", target, "--backup"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 				values, err := settingsValues(path, "json", []byte(readFile(t, path)))
@@ -61,7 +61,7 @@ func TestSessionRetention_GlobalWritesAndRestoresOwnedKeys(t *testing.T) {
 				if err := os.Remove(settings); err != nil {
 					t.Fatal(err)
 				}
-				if _, warnings, err := runGlobalAgentTest("--only", target); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", target); err != nil {
 					t.Fatalf("removal: %v\n%s", err, warnings)
 				}
 				if before == "absent" {
@@ -82,7 +82,7 @@ func TestSessionRetention_LintsPositiveIntegersOnly(t *testing.T) {
 		valid bool
 	}{{"1", true}, {"3650", true}, {"0", false}, {"-1", false}, {`"30d"`, false}, {`"30"`, false}, {"1.5", false}, {"true", false}, {"null", false}} {
 		t.Run(tc.value, func(t *testing.T) {
-			_, source := globalAgentTestHome(t)
+			_, source := userAgentTestHome(t)
 			writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: "+tc.value+"\n")
 			out, err := runRoot(t, "lint", "--scope", "user")
 			if strings.Contains(out, "LINT045") == tc.valid {
@@ -95,12 +95,12 @@ func TestSessionRetention_LintsPositiveIntegersOnly(t *testing.T) {
 func TestSessionRetention_DoesNotEnableDisabledCleanup(t *testing.T) {
 	for _, target := range []string{"gemini", "qoder"} {
 		t.Run(target, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, "."+target, "settings.json")
 			original := "{\"general\":{\"sessionRetention\":{\"enabled\":false,\"maxAge\":\"7d\"}}}\n"
 			writeFile(t, path, original)
 			writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\n")
-			_, warnings, err := runGlobalAgentTest("--only", target)
+			_, warnings, err := runUserAgentTest("--only", target)
 			if err != nil || !strings.Contains(warnings, "disabled") {
 				t.Errorf("missing disabled cleanup note: %v\n%s", err, warnings)
 			}
@@ -112,11 +112,11 @@ func TestSessionRetention_DoesNotEnableDisabledCleanup(t *testing.T) {
 }
 
 func TestSessionRetention_ClaudeOverrideWinsAndWarnsForShorterAge(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	writeFile(t, path, "{\"cleanupPeriodDays\":30}\n")
 	writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\nx-claude:\n  cleanupPeriodDays: 7\n")
-	_, warnings, err := runGlobalAgentTest("--only", "claude", "--backup")
+	_, warnings, err := runUserAgentTest("--only", "claude", "--backup")
 	if err != nil || !strings.Contains(warnings, "older sessions") {
 		t.Errorf("missing shorter-retention warning: %v\n%s", err, warnings)
 	}
@@ -126,7 +126,7 @@ func TestSessionRetention_ClaudeOverrideWinsAndWarnsForShorterAge(t *testing.T) 
 }
 
 func TestSessionRetention_ExplainsMappingsAndUnsupportedTargets(t *testing.T) {
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\n")
 	out, err := runRoot(t, "explain", "--scope", "user", "settings/retention.yaml")
 	if err != nil {
@@ -137,14 +137,14 @@ func TestSessionRetention_ExplainsMappingsAndUnsupportedTargets(t *testing.T) {
 			t.Errorf("missing mapping %s: %s", key, out)
 		}
 	}
-	_, warnings, err := runGlobalAgentTest("--only", "codex")
+	_, warnings, err := runUserAgentTest("--only", "codex")
 	if err != nil || !strings.Contains(warnings, "session-retention-days") || !strings.Contains(warnings, "no documented retention") {
 		t.Errorf("missing unsupported-target note: %v\n%s", err, warnings)
 	}
 }
 
 func TestSessionRetention_ProjectSyncLeavesNativeRetentionAlone(t *testing.T) {
-	globalAgentTestHome(t)
+	userAgentTestHome(t)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude, gemini, qoder]\n")
 	writeFile(t, filepath.Join(".agnostic-ai", "settings", "retention.yaml"), "session-retention-days: 7\n")
 	var notes bytes.Buffer
@@ -156,7 +156,7 @@ func TestSessionRetention_ProjectSyncLeavesNativeRetentionAlone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out, "session-retention-days") || !strings.Contains(out, "sync --global") {
+	if !strings.Contains(out, "session-retention-days") || !strings.Contains(out, "sync --scope user") {
 		t.Errorf("missing personal-scope note: %s", out)
 	}
 	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
@@ -175,18 +175,18 @@ func TestSessionRetention_RestoresExistingEmptyContainers(t *testing.T) {
 	for _, target := range []string{"gemini", "qoder"} {
 		for _, original := range []string{`{"general":{"sessionRetention":{}},"theme":"dark"}`, "{\n  \"general\": { }, \"theme\": \"dark\"\n}\n"} {
 			t.Run(target+original, func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				path := filepath.Join(home, "."+target, "settings.json")
 				writeFile(t, path, original)
 				settings := filepath.Join(source, "settings", "retention.yaml")
 				writeFile(t, settings, "session-retention-days: 3650\n")
-				if _, warnings, err := runGlobalAgentTest("--only", target); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", target); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 				if err := os.Remove(settings); err != nil {
 					t.Fatal(err)
 				}
-				if _, warnings, err := runGlobalAgentTest("--only", target); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", target); err != nil {
 					t.Fatalf("removal: %v\n%s", err, warnings)
 				}
 				if got := readFile(t, path); got != original {
@@ -201,7 +201,7 @@ func TestSessionRetention_WarnsWhenRemovalShortensOwnedRetention(t *testing.T) {
 	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		for _, existing := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/existing=%t", target, existing), func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				path := filepath.Join(home, "."+target, "settings.json")
 				if existing {
 					original := `{"cleanupPeriodDays":30}`
@@ -212,13 +212,13 @@ func TestSessionRetention_WarnsWhenRemovalShortensOwnedRetention(t *testing.T) {
 				}
 				settings := filepath.Join(source, "settings", "retention.yaml")
 				writeFile(t, settings, "session-retention-days: 3650\n")
-				if _, warnings, err := runGlobalAgentTest("--only", target, "--backup"); err != nil {
+				if _, warnings, err := runUserAgentTest("--only", target, "--backup"); err != nil {
 					t.Fatalf("sync: %v\n%s", err, warnings)
 				}
 				if err := os.Remove(settings); err != nil {
 					t.Fatal(err)
 				}
-				_, warnings, err := runGlobalAgentTest("--only", target)
+				_, warnings, err := runUserAgentTest("--only", target)
 				if err != nil || !strings.Contains(warnings, "older sessions") {
 					t.Errorf("removal lowered retention without warning: %v\n%s", err, warnings)
 				}
@@ -228,14 +228,14 @@ func TestSessionRetention_WarnsWhenRemovalShortensOwnedRetention(t *testing.T) {
 }
 
 func TestSessionRetention_RequiresANewOwnershipStateVersion(t *testing.T) {
-	if globalStateVersion <= 6 {
-		t.Errorf("retention origins require a state version newer than 6, got %d", globalStateVersion)
+	if userStateVersion <= 6 {
+		t.Errorf("retention origins require a state version newer than 6, got %d", userStateVersion)
 	}
-	_, source := globalAgentTestHome(t)
+	_, source := userAgentTestHome(t)
 	path := filepath.Join(source, "state", "global.json")
 	writeFile(t, path, `{"version":6,"files":[],"settings":{"claude":{"cleanupPeriodDays":90}}}`)
-	state, err := loadGlobalState(path)
-	if err != nil || state.Version != globalStateVersion || !sameSetting(state.Settings["claude"]["cleanupPeriodDays"], 90) {
+	state, err := loadUserState(path)
+	if err != nil || state.Version != userStateVersion || !sameSetting(state.Settings["claude"]["cleanupPeriodDays"], 90) {
 		t.Errorf("supported previous state did not migrate: %+v, %v", state, err)
 	}
 }
@@ -244,11 +244,11 @@ func TestSessionRetention_RejectsEmptyNativeDocumentsBeforeWriting(t *testing.T)
 	for _, target := range []string{"claude", "codebuddy", "gemini", "qoder"} {
 		for _, original := range []string{"", " \t\n"} {
 			t.Run(target+fmt.Sprintf("/%q", original), func(t *testing.T) {
-				home, source := globalAgentTestHome(t)
+				home, source := userAgentTestHome(t)
 				path := filepath.Join(home, "."+target, "settings.json")
 				writeFile(t, path, original)
 				writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\n")
-				_, _, err := runGlobalAgentTest("--only", target)
+				_, _, err := runUserAgentTest("--only", target)
 				if err == nil || !strings.Contains(err.Error(), "unexpected end of JSON input") {
 					t.Errorf("invalid native document must fail before retention: %v", err)
 				}
@@ -263,7 +263,7 @@ func TestSessionRetention_RejectsEmptyNativeDocumentsBeforeWriting(t *testing.T)
 func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T) {
 	for _, backup := range []bool{false, true} {
 		t.Run(fmt.Sprintf("backup=%t", backup), func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".claude", "settings.json")
 			original := "{\n  \"cleanupPeriodDays\": 0, \"theme\": \"dark\"\n}\n"
 			writeFile(t, path, original)
@@ -273,7 +273,7 @@ func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T)
 			if backup {
 				args = append(args, "--backup")
 			}
-			_, notes, err := runGlobalAgentTest(args...)
+			_, notes, err := runUserAgentTest(args...)
 			if err != nil {
 				t.Errorf("sync should preserve native zero: %v\n%s", err, notes)
 			}
@@ -286,7 +286,7 @@ func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T)
 			if err := os.Remove(settings); err != nil {
 				t.Fatal(err)
 			}
-			if _, notes, err := runGlobalAgentTest("--only", "claude"); err != nil {
+			if _, notes, err := runUserAgentTest("--only", "claude"); err != nil {
 				t.Errorf("remove portable retention: %v\n%s", err, notes)
 			}
 			if got := readFile(t, path); got != original {
@@ -297,17 +297,17 @@ func TestSessionRetention_ClaudeNativeZeroRequiresManualCorrection(t *testing.T)
 }
 
 func TestSessionRetention_ClaudeUserEditedZeroStaysPaused(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	settings := filepath.Join(source, "settings", "retention.yaml")
 	writeFile(t, path, "{\"cleanupPeriodDays\":30}\n")
 	writeFile(t, settings, "session-retention-days: 3650\n")
-	if _, notes, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("initial managed sync: %v\n%s", err, notes)
 	}
 	edited := "{ \"cleanupPeriodDays\": 0, \"theme\": \"dark\" }\n"
 	writeFile(t, path, edited)
-	_, notes, err := runGlobalAgentTest("--only", "claude", "--backup")
+	_, notes, err := runUserAgentTest("--only", "claude", "--backup")
 	if err != nil {
 		t.Errorf("sync should preserve user edit: %v\n%s", err, notes)
 	}
@@ -320,7 +320,7 @@ func TestSessionRetention_ClaudeUserEditedZeroStaysPaused(t *testing.T) {
 	if err := os.Remove(settings); err != nil {
 		t.Fatal(err)
 	}
-	if _, notes, err := runGlobalAgentTest("--only", "claude"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "claude"); err != nil {
 		t.Errorf("release ownership: %v\n%s", err, notes)
 	}
 	if got := readFile(t, path); got != edited {
@@ -329,11 +329,11 @@ func TestSessionRetention_ClaudeUserEditedZeroStaysPaused(t *testing.T) {
 }
 
 func TestSessionRetention_ClaudeExplicitOverlayCanCorrectNativeZero(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	path := filepath.Join(home, ".claude", "settings.json")
 	writeFile(t, path, "{\"cleanupPeriodDays\":0}\n")
 	writeFile(t, filepath.Join(source, "settings", "retention.yaml"), "session-retention-days: 3650\nx-claude:\n  cleanupPeriodDays: 7\n")
-	if _, notes, err := runGlobalAgentTest("--only", "claude", "--backup"); err != nil {
+	if _, notes, err := runUserAgentTest("--only", "claude", "--backup"); err != nil {
 		t.Fatalf("explicit native correction: %v\n%s", err, notes)
 	}
 	values, err := settingsValues(path, "json", []byte(readFile(t, path)))

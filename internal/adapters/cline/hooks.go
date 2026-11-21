@@ -113,11 +113,11 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, cfg *config.Config, dryRu
 	return sess.MaterializeHookScripts(hooks, target, dryRun)
 }
 
-func GlobalHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
-	return renderHookFiles(GlobalSDKHooks(hooks), scriptsDir, false)
+func UserHookFiles(hooks []spec.Entry, scriptsDir string) []emit.HookScript {
+	return renderHookFiles(UserSDKHooks(hooks), scriptsDir, false)
 }
 
-func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
+func UserSDKHooks(hooks []spec.Entry) []spec.Entry {
 	filtered := make([]spec.Entry, 0, len(hooks))
 	omitted := 0
 	for _, hook := range hooks {
@@ -131,7 +131,7 @@ func GlobalSDKHooks(hooks []spec.Entry) []spec.Entry {
 	return filtered
 }
 
-func renderHookFiles(hooks []spec.Entry, globalScriptsDir string, noteVSCodeGap bool) []emit.HookScript {
+func renderHookFiles(hooks []spec.Entry, userScriptsDir string, noteVSCodeGap bool) []emit.HookScript {
 	commands := map[string][]hookCommand{}
 	var order []string
 	var unmapped, matchers, timeouts, inert, cliOnly int
@@ -167,10 +167,10 @@ func renderHookFiles(hooks []spec.Entry, globalScriptsDir string, noteVSCodeGap 
 		}
 		for _, cmd := range cmds {
 			command := emit.WrapPortableHook(h, target, emit.ShellHookCommand(cmd, target, h.Meta))
-			if globalScriptsDir != "" {
-				rewrite := func(value string) string { return emit.RewriteGlobalHookPath(value, target, globalScriptsDir, h.Meta) }
+			if userScriptsDir != "" {
+				rewrite := func(value string) string { return emit.RewriteUserHookPath(value, target, userScriptsDir, h.Meta) }
 				command = emit.PortableHookCommand(h, target, emit.ExecFormCommand(rewrite(cmd), emit.HookArgs(target, h.Meta)), func(value string) string {
-					return emit.RewriteGlobalHookPath(value, target, globalScriptsDir)
+					return emit.RewriteUserHookPath(value, target, userScriptsDir)
 				})
 			}
 			commands[canonical] = append(commands[canonical], hookCommand{command: command, tools: tools})

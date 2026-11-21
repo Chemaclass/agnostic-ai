@@ -15,7 +15,7 @@ func loadExtending(t *testing.T, base, local string) Bundle {
 	src.MCPs, src.Settings = "mcps", "settings"
 	b, err := LoadLayered([]Layer{
 		{Name: "project", Root: base, Sources: src},
-		{Name: "project-user", Root: local, Sources: src, Extends: true},
+		{Name: "local", Root: local, Sources: src, Extends: true},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -41,8 +41,8 @@ func TestLoadLayered_LocalLayerOverridesOneFieldAndExtendsTheBody(t *testing.T) 
 	if got.Body != "foo for\nbar baz\n" {
 		t.Errorf("body = %q, want the shared body then the local lines", got.Body)
 	}
-	if got.Layer != "project-user" {
-		t.Errorf("layer = %q, want project-user", got.Layer)
+	if got.Layer != "local" {
+		t.Errorf("layer = %q, want local", got.Layer)
 	}
 }
 
@@ -281,7 +281,7 @@ func TestLoadLayered_UnreadableLocalSkillFolderFails(t *testing.T) {
 	src := defaultsForTest().Sources
 	_, err := LoadLayered([]Layer{
 		{Name: "project", Root: base, Sources: src},
-		{Name: "project-user", Root: local, Sources: src, Extends: true},
+		{Name: "local", Root: local, Sources: src, Extends: true},
 	})
 	if err == nil || !strings.Contains(err.Error(), "scripts") {
 		t.Fatalf("err = %v, want a failure naming the unreadable folder", err)

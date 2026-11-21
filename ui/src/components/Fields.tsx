@@ -155,9 +155,9 @@ export function FieldEditor(props: FieldEditControlProps) {
   return props.field.editable?.kind === 'permission-list' ? props.sources() : <FieldEditControl {...props} />
 }
 
-function GlobalSettingsAction() {
+function UserSettingsAction() {
   const { served } = useServedConfig(useApp().source.kind, 0)
-  return served && !served.global ? <div className="field-edit-row"><ConfigSwitch served={served} /></div> : null
+  return served && !served.userLevel ? <div className="field-edit-row"><ConfigSwitch served={served} /></div> : null
 }
 
 function FieldEditControl(props: FieldEditControlProps) {
@@ -234,7 +234,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
     if (clean) setValue(current)
   }, [current, localCurrent, teamCurrent])
   if (!edit) return sources()
-  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/serve/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <GlobalSettingsAction />}</>
+  if (edit.disabledReason) return <>{sources()}<p className="muted">{edit.disabledReason}{field.key === 'session-retention-days' && !target && <> <a href={documentationUrl('/docs/cli-reference/serve/#serve')}>Global view instructions</a></>}</p>{field.key === 'permissions.default-mode' && <UserSettingsAction />}</>
   const sourceDisabledReason = edit.sources?.find((source) => source.path === path)?.disabledReason
   if (sourceDisabledReason) return <>{sources()}<p className="muted">{sourceDisabledReason}</p>{paths.length > 1 && <label className="field-edit-target">{audience === 'shared' ? 'Save to' : 'Override file'} <Select value={path} onChange={(event) => setPath(event.target.value)}>{paths.map((candidate) => <option key={candidate} value={candidate}>{candidate}</option>)}</Select></label>}</>
   if (app.source.kind !== 'api') return sources()
@@ -274,7 +274,7 @@ function FieldEditForm({ field, files, sources, target, toolLabel, path, setPath
   const valueLabel = `${field.label}${toolLabel ? ` for ${toolLabel}` : ''} value`
   const allowed = target ? edit.toolAllowed?.[target] : edit.allowed
   const configured = audience === 'personal' ? localCurrent !== undefined : teamCurrent !== undefined
-  const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --global' : ''}`
+  const syncCommand = edit.syncCommand ?? `agnostic-ai sync${field.key === 'session-retention-days' ? ' --scope user' : ''}`
   // A shown preview keeps its draft, so the applied value becomes the new basis.
   const locked = pending || settling || !!transaction.proposal
   const resetButton = audience === 'personal' && !transaction.supported && localCurrent !== undefined && <button type="button" className="button button-quiet" disabled={locked} onClick={reset}>{resetLabel}</button>

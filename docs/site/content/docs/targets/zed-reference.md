@@ -90,7 +90,7 @@ With `outputs.zed.tasks-file` set, hooks become [Zed Tasks](https://zed.dev/docs
 
 ## Global instructions
 
-`agnostic-ai sync --global --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). Each platform's path is in the [global output table](@/docs/global-configuration-reference.md#global-output). Skills still use `~/.agents/skills/`.
+`agnostic-ai sync --scope user --only zed` writes home instructions and rules to Zed's [personal instruction file](https://zed.dev/docs/ai/instructions). Each platform's path is in the [global output table](@/docs/global-configuration-reference.md#global-output). Skills still use `~/.agents/skills/`.
 
 | Platform | File |
 |---|---|
@@ -105,7 +105,7 @@ After a path correction:
 - The first sync clears the managed block from the old XDG file, only when the ledger records it.
 - Personal text and private permissions remain. A link to the active file is kept.
 - Old files the ledger has not recorded stay unchanged.
-- `explain --global rules/<name>.md` shows the current native file.
+- `explain --scope user rules/<name>.md` shows the current native file.
 - Global instruction import is not supported. Project `import zed` keeps its paths below.
 
 ## Import

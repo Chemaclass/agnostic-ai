@@ -15,7 +15,7 @@ func linkEscapeProject(t *testing.T) string {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks need privileges on Windows")
 	}
-	globalAgentTestHome(t)
+	userAgentTestHome(t)
 	dir := setupFixture(t)
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n")
 	testutil.Chdir(t, dir)
@@ -113,11 +113,11 @@ func TestSync_WritesThroughALinkThatStaysInsideTheProject(t *testing.T) {
 	}
 }
 
-func TestSyncGlobal_WritesThroughALinkedToolFolder(t *testing.T) {
+func TestSyncUser_WritesThroughALinkedToolFolder(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("symlinks need privileges on Windows")
 	}
-	home, source := globalAgentTestHome(t)
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Be brief.\n")
 	dotfiles := filepath.Join(t.TempDir(), "dotfiles", "claude")
 	if err := os.MkdirAll(dotfiles, 0o755); err != nil {
@@ -126,8 +126,8 @@ func TestSyncGlobal_WritesThroughALinkedToolFolder(t *testing.T) {
 	mustSymlink(t, dotfiles, filepath.Join(home, ".claude"))
 	testutil.Chdir(t, home)
 
-	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+	if _, warnings, err := runUserAgentTest("--only", "claude"); err != nil {
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 
 	if got := readFile(t, filepath.Join(dotfiles, "CLAUDE.md")); !strings.Contains(got, "Be brief.") {

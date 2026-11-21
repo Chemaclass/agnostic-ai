@@ -103,7 +103,7 @@ func TestLintAgentDescriptions_NamesClaudeOnlyWhenTheAgentGoesThere(t *testing.T
 // An agent sync leaves out of Claude Code does not hide a global agent
 // of the same name there.
 func TestSync_NoNameClashForAnAgentClaudeLeavesOut(t *testing.T) {
-	globalNameClashProject(t, "claude",
+	userNameClashProject(t, "claude",
 		map[string]string{"agents/idle.md": agentSpec("idle")},
 		map[string]string{"agents/idle.md": "---\nname: idle\ndescription: Thinks.\ncan: []\n---\nThink.\n"})
 	buf := captureLog(t)

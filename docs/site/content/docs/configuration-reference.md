@@ -133,7 +133,7 @@ Sync lists each tier that has a `description` on one line in the instructions ev
 ``Model tiers: `balanced` when strong breezes through the task; `fast` for lookups and high-volume subagents; `frontier` for ambitious, open-ended work; `strong` for everyday coding.``
 
 - A tier without a `description` is left out. With no described tier, files do not change.
-- The line goes into each tool's [entry-point file](#entry-point-files) after your instructions, Junie's `.junie/AGENTS.md`, a `rules-file` that is the tool's entry point, and the managed block `sync --global` writes.
+- The line goes into each tool's [entry-point file](#entry-point-files) after your instructions, Junie's `.junie/AGENTS.md`, a `rules-file` that is the tool's entry point, and the managed block `sync --scope user` writes.
 - A tool with no root instructions file from sync, such as Cursor, Continue, or Grok in a project, sees the line only in a file another target writes, such as `AGENTS.md`.
 - `import` drops the line.
 - The description and the tier name must fit on one line. They cannot hold a backtick, `<!--`, or `-->`.
@@ -237,7 +237,7 @@ Setting the named key clears the note. `sync -vv` shows every note.
 
 ## `coverage`
 
-These keys accept coverage notes or make them fail sync. `on-unsupported: error` never fails on a note. Both keys are project-only: `sync --global` warns about a `coverage:` key in the home config and ignores it.
+These keys accept coverage notes or make them fail sync. `on-unsupported: error` never fails on a note. Both keys are project-only: `sync --scope user` warns about a `coverage:` key in the home config and ignores it.
 
 ```yaml
 coverage:
@@ -308,7 +308,7 @@ Notes that start with a target name, such as `note: codex: outputs.codex.config.
 - Sync skips a `.agnostic-ai/.sync-state` entry outside the project or inside `.git/`, names it in a warning, and never removes or changes that file.
 - Project sync refuses to write or remove through a link that leads outside the project or into a `.git` folder, and names the link.
 - A link that stays inside the project, such as `CLAUDE.md` linked to `AGENTS.md`, still works.
-- `sync --global` follows linked dotfiles as before.
+- `sync --scope user` follows linked dotfiles as before.
 - A linked `.agnostic-ai` folder keeps the sync lock and ledger only when it holds `AGNOSTIC_AI.md`.
 - A source root can be a directory symlink (macOS, Linux) or junction (Windows). Sync does not follow links below it.
 
@@ -325,7 +325,7 @@ Notes that start with a target name, such as `note: codex: outputs.codex.config.
 - Windows can leave an empty file named `git` beside it. Gemini CLI sync removes it to make the `git` folder. For other targets, delete it yourself.
 - Gemini CLI sync stops and names a `git` file that holds content when no colon output in the last sync explains it, or when you edited its old colon file. Copy any text you need, delete `git`, and sync again.
 - On Windows, import refuses an MCP server or other spec whose file name would hold a colon, such as a server named `ns:tool`, and names the file.
-- `import --global` skips such a server with a warning that names the home config file.
+- `import --scope user` skips such a server with a warning that names the home config file.
 - Rename the server before you import it. Continue needs the rename too, since sync writes `.continue/mcpServers/<name>.yaml`.
 - An older release reported such an import as done and may have left an empty file such as `.agnostic-ai/mcps/ns`. Delete it.
 
@@ -379,20 +379,20 @@ Specs load from four layers, lowest first. A higher layer overrides a spec with 
 | `builtin` | bundled specs | enabled with `builtins` |
 | packs | `.agnostic-ai/packs/` from `agnostic.packs.lock` | packs are installed |
 | `project` | `agnostic-ai.yaml` `sources` paths | always |
-| `project-user` | `<project>/.agnostic-ai/local` | directory exists |
+| `local` | `<project>/.agnostic-ai/local` | directory exists |
 
-- The `project-user` layer merges into the shared spec field by field ([local overrides](@/docs/local-overrides.md#override-fields)).
+- The `local` layer merges into the shared spec field by field ([local overrides](@/docs/local-overrides.md#override-fields)).
 - Only `project` uses custom `sources` paths.
 - `$AGNOSTIC_AI_HOME` is not a project layer.
 
 ## Global configuration
 
-`agnostic-ai sync --global` installs your own instructions, skills, hooks, settings, agents, and MCP servers for every project. It reads `~/.agnostic-ai/`, not the current project's specs. [Global configuration](@/docs/global-configuration.md) covers the source layout, target selection, ownership, and recovery.
+`agnostic-ai sync --scope user` installs your own instructions, skills, hooks, settings, agents, and MCP servers for every project. It reads `~/.agnostic-ai/`, not the current project's specs. [Global configuration](@/docs/global-configuration.md) covers the source layout, target selection, ownership, and recovery.
 
 ```bash
-agnostic-ai sync --global --only claude,codex --dry-run
-agnostic-ai sync --global --only claude,codex
-agnostic-ai sync --global --only claude,codex --check
+agnostic-ai sync --scope user --only claude,codex --dry-run
+agnostic-ai sync --scope user --only claude,codex
+agnostic-ai sync --scope user --only claude,codex --check
 ```
 
 ### Shared names {#global-shared-names}

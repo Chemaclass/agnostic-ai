@@ -105,7 +105,7 @@ func TestEditHandler_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
 func TestEditHandler_RestoresAFileThatNoLongerLoads(t *testing.T) {
 	silence(t)
 	source := editHome(t)
-	h := &editHandler{root: source, global: true}
+	h := &editHandler{root: source, userLevel: true}
 	file := filepath.Join(source, "settings", "native.yaml")
 	original, _ := os.ReadFile(file)
 	problems, err := h.applyValidated(file, func([]byte) ([]byte, error) { return []byte("x-claude: [unclosed\n"), nil })

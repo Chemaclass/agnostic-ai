@@ -96,6 +96,7 @@ func newGraphCmd() *cobra.Command {
 	cmd.Flags().StringVar(&specFilter, "spec", "", "Restrict to one spec name.")
 	cmd.Flags().StringVar(&kindFilter, "kind", "", "Restrict to one spec kind (agent, skill, rule, hook, mcp, command, settings, review, environment, ignore).")
 	registerTargetCompletion(cmd)
+	addProjectOnlyScopeFlag(cmd, "`agnostic-ai list --scope user` lists user-level specs and their layers")
 	return cmd
 }
 

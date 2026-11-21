@@ -51,13 +51,13 @@ type explainSpecRef = specSourceRef
 
 func newExplainCmd() *cobra.Command {
 	var (
-		jsonOut bool
-		global  bool
-		file    string
-		target  string
-		inputs  bool
-		context bool
-		layers  bool
+		jsonOut   bool
+		userLevel bool
+		file      string
+		target    string
+		inputs    bool
+		context   bool
+		layers    bool
 	)
 	cmd := &cobra.Command{
 		Use:   "explain <spec | AAI-NNN | LINTNNN> | --file <path> --target <name> | --context --target <name>",
@@ -110,7 +110,7 @@ func newExplainCmd() *cobra.Command {
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if layers {
-				if len(args) != 1 || global || file != "" || target != "" || inputs || context {
+				if len(args) != 1 || userLevel || file != "" || target != "" || inputs || context {
 					return errs.Coded(errs.CodeFlagConflict, "--layers requires one spec and cannot be combined with --scope user, --file, --target, --inputs, or --context")
 				}
 				if errs.IsCode(args[0]) || isLintCode(args[0]) {
@@ -119,13 +119,13 @@ func newExplainCmd() *cobra.Command {
 				return runExplainLayers(cmd, args[0], jsonOut)
 			}
 			if context {
-				if len(args) > 0 || global || inputs || target == "" {
+				if len(args) > 0 || userLevel || inputs || target == "" {
 					return errs.Coded(errs.CodeFlagConflict, "--context requires --target and cannot be combined with a spec, --scope user, or --inputs")
 				}
 				return runExplainContext(cmd, target, file, jsonOut)
 			}
 			if inputs {
-				if len(args) > 0 || file != "" || target != "" || global {
+				if len(args) > 0 || file != "" || target != "" || userLevel {
 					return errs.Coded(errs.CodeFlagConflict, "--inputs takes no spec and cannot be combined with --file, --target, or --scope user")
 				}
 				return runExplainInputs(cmd, jsonOut)
@@ -133,7 +133,7 @@ func newExplainCmd() *cobra.Command {
 			if err := validateExplainInput(args, file, target); err != nil {
 				return err
 			}
-			if global && file != "" {
+			if userLevel && file != "" {
 				return errors.New("--scope user cannot be combined with --file")
 			}
 			if file != "" {
@@ -145,8 +145,8 @@ func newExplainCmd() *cobra.Command {
 			if isLintCode(args[0]) {
 				return runExplainLintCode(cmd, args[0], jsonOut)
 			}
-			if global {
-				return runExplainGlobal(cmd, args[0], jsonOut)
+			if userLevel {
+				return runExplainUser(cmd, args[0], jsonOut)
 			}
 			cfg, bundle, err := loadProject(".")
 			if err != nil {
@@ -203,7 +203,7 @@ func newExplainCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&layers, "layers", false, "Show the project source layers that replace or extend this spec.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Output as JSON for editor extensions and scripts.")
-	addScopeFlag(cmd, &global, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --scope user writes for each target.")
+	addScopeFlag(cmd, &userLevel, "Explain a spec in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) or its local/ layer: the user-level file, section, or settings key sync --scope user writes for each target.")
 	cmd.Flags().StringVar(&file, "file", "", "Project file to inspect instead of a spec. Requires --target.")
 	cmd.Flags().StringVar(&target, "target", "", "Configured target for --context, or instructions --file reports ("+strings.Join(fileContextTargets, ", ")+").")
 	cmd.Flags().BoolVar(&inputs, "inputs", false, "List every file and directory whose change can change a generated output, one per line, for a git hook's trigger list.")

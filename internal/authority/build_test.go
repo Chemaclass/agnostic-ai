@@ -375,7 +375,7 @@ func TestBuild_FileMatchesWalkTheProjectWithinBounds(t *testing.T) {
 	}
 }
 
-func TestBuild_GlobalViewWritesNoPermissionRules(t *testing.T) {
+func TestBuild_UserViewWritesNoPermissionRules(t *testing.T) {
 	root := writeProject(t, map[string]string{
 		"settings/permissions.yaml": "permissions:\n  allow: [shell(go test:*)]\n",
 	})
@@ -384,7 +384,7 @@ func TestBuild_GlobalViewWritesNoPermissionRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v, err := Build(cfg, b, Options{Root: root, Global: true, Now: fixedNow})
+	v, err := Build(cfg, b, Options{Root: root, UserLevel: true, Now: fixedNow})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -392,7 +392,7 @@ func TestBuild_GlobalViewWritesNoPermissionRules(t *testing.T) {
 		t.Errorf("project %q, support %q", v.Snapshot.Project.Name, v.Harness.PermissionSupport)
 	}
 	op := findOp(t, v, "shell-go-test:run")
-	if op.Declared != EffectAllowed || op.Effect != EffectUnresolved || !strings.Contains(enforcementOn(t, op, "claude").Note, "sync --global writes no permission rules") {
+	if op.Declared != EffectAllowed || op.Effect != EffectUnresolved || !strings.Contains(enforcementOn(t, op, "claude").Note, "sync --scope user writes no permission rules") {
 		t.Errorf("go test = %+v", op)
 	}
 	if v.Snapshot.Evidence.Installed != InstalledNotChecked {

@@ -34,7 +34,7 @@ var (
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
 	Tools []approvalsToolStatus `json:"tools"`
-	// reviewerWritten is set when a native reviewer key sync --global
+	// reviewerWritten is set when a native reviewer key sync --scope user
 	// wrote is still on.
 	reviewerWritten bool
 }
@@ -76,7 +76,7 @@ func newApprovalsStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Print the approvals mode and route per tool for the working directory",
-		Long: "Prints, for each tool sync --global writes, the approvals mode for the working directory, the setting " +
+		Long: "Prints, for each tool sync --scope user writes, the approvals mode for the working directory, the setting " +
 			"that chose it, and how the tool carries it out. A tool with no route for the mode falls back to ask.",
 		Example: `  agnostic-ai approvals status
   agnostic-ai approvals status --json`,
@@ -108,17 +108,17 @@ func newApprovalsAskCmd() *cobra.Command {
 			// A broken config must not block the switch off, so a failed
 			// read only drops the reviewer note.
 			before, _ := readApprovalsStatus(io.Discard)
-			source, err := globalSourceRoot()
+			source, err := userSourceRoot()
 			if err != nil {
 				return err
 			}
-			path := globalConfigPaths(source)[1]
+			path := userConfigPaths(source)[1]
 			if err := writeApprovalsAsk(path); err != nil {
 				return err
 			}
 			cmd.Printf("approvals: ask for every tool and project. Wrote %s.\n", path)
 			if before.reviewerWritten {
-				cmd.Println("Run sync --global to remove the native reviewer keys it wrote to the tools' user settings.")
+				cmd.Println("Run sync --scope user to remove the native reviewer keys it wrote to the tools' user settings.")
 			}
 			if before.reviewerWritten || slices.ContainsFunc(before.Tools, func(s approvalsToolStatus) bool { return s.Effective == config.ApprovalsReview }) {
 				cmd.Println("A running session in a native reviewer mode keeps it until you switch modes in the tool (Shift+Tab in Claude Code).")
@@ -129,7 +129,7 @@ func newApprovalsAskCmd() *cobra.Command {
 }
 
 func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
-	source, err := globalSourceRoot()
+	source, err := userSourceRoot()
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
@@ -137,12 +137,12 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
-	targets, err := loadGlobalTargets(source, io.Discard)
+	targets, err := loadUserTargets(source, io.Discard)
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
 	if targets == nil {
-		targets = globalTargetNames()
+		targets = userTargetNames()
 	}
 	dir, err := os.Getwd()
 	if err != nil {
@@ -152,7 +152,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
-	userHome, err := globalUserHome()
+	userHome, err := userHomeDir()
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
@@ -163,7 +163,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 			}
 		}
 	}
-	state, err := loadGlobalState(filepath.Join(source, "state", "global.json"))
+	state, err := loadUserState(filepath.Join(source, "state", "global.json"))
 	if err != nil {
 		return approvalsStatusOutput{}, err
 	}
@@ -239,9 +239,9 @@ func approvalsMechanismName(m *approvals.Mechanism) string {
 const approvalHookCommand = "agnostic-ai hook approve"
 
 // approvalHookProblem says why tool's approvals hook cannot answer yet:
-// sync --global has not written it, or Codex has not trusted it.
+// sync --scope user has not written it, or Codex has not trusted it.
 func approvalHookProblem(tool string) string {
-	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --global"
+	const notSynced = "the hook is not installed; add approvals to builtins in the home config and run sync --scope user"
 	if tool == "kiro" {
 		return kiroHookProblem(notSynced)
 	}
@@ -252,11 +252,11 @@ func approvalHookProblem(tool string) string {
 	case "codex":
 		path, _ = codex.UserHooksPath()
 	case "qoder":
-		if home, err := globalUserHome(); err == nil {
+		if home, err := userHomeDir(); err == nil {
 			path = filepath.Join(home, ".qoder", "settings.json")
 		}
 	case "qwen":
-		if home, err := globalUserHome(); err == nil {
+		if home, err := userHomeDir(); err == nil {
 			if dir, ok := qwenUserDir(home); ok {
 				path = filepath.Join(dir, "settings.json")
 			} else {
@@ -322,7 +322,7 @@ func approvalHookProblem(tool string) string {
 // enabled PermissionRequest hook in ~/.kiro/hooks runs it, or a Kiro
 // rule asks, which turns the hook off.
 func kiroHookProblem(notSynced string) string {
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return notSynced
 	}
@@ -380,7 +380,7 @@ func kiroApprovalRoot(home string) (string, error) {
 	if os.Getenv("KIRO_HOME") == "" {
 		return filepath.Join(home, ".kiro"), nil
 	}
-	root := globalTargets["kiro"].overrideRoot(home)
+	root := userTargets["kiro"].overrideRoot(home)
 	if root == "" {
 		return "", errors.New("cannot locate the Kiro rules under KIRO_HOME")
 	}
@@ -412,7 +412,7 @@ func qwenAskProblem() string {
 			return env + " is set, which turns off every Qwen Code hook"
 		}
 	}
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return "cannot find the home folder: " + err.Error()
 	}
@@ -453,7 +453,7 @@ func qwenHookMode(mode string) bool {
 // qoderAskProblem says when a Qoder CLI permissions.ask rule, whose
 // prompt a hook allow could answer, turns the hook off.
 func qoderAskProblem() string {
-	home, err := globalUserHome()
+	home, err := userHomeDir()
 	if err != nil {
 		return "cannot find the home folder: " + err.Error()
 	}
@@ -600,7 +600,7 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 // root that would loosen approvals. The home folder is skipped: there the
 // same file is the home config, which may loosen.
 func projectApprovalsIssues(root string) ([]config.ApprovalsIssue, error) {
-	if source, err := globalSourceRoot(); err == nil && sameRealDir(root, source) {
+	if source, err := userSourceRoot(); err == nil && sameRealDir(root, source) {
 		return nil, nil
 	}
 	return config.ProjectApprovalsIssues(root)

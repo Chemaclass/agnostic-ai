@@ -163,7 +163,7 @@ func rewriteHookPathPrefix(command, prefix, dir string, directPath bool, literal
 	return out.String()
 }
 
-func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
+func RewriteUserHookPath(command, target, scriptsDir string, metadata ...map[string]any) string {
 	meta := hookRootMeta(target, metadata)
 	literal := len(StringSlice(meta["args"])) > 0
 	command = stripNeutralHookRoots(command, literal)
@@ -173,10 +173,10 @@ func RewriteGlobalHookPath(command, target, scriptsDir string, metadata ...map[s
 	} else {
 		command = RewriteNeutralHookPath(command, scriptsDir, literal)
 	}
-	return RewriteGlobalHookRoot(command, target, metadata...)
+	return RewriteUserHookRoot(command, target, metadata...)
 }
 
-func RewriteGlobalWindowsHookPath(command, scriptsDir string) string {
+func RewriteUserWindowsHookPath(command, scriptsDir string) string {
 	return RewriteWindowsNeutralHookPath(stripNeutralHookRoots(command, false), scriptsDir)
 }
 

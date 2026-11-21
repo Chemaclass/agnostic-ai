@@ -26,7 +26,7 @@ type nativeReviewer struct {
 	// off is a value in the same file that keeps the reviewer from running.
 	off *reviewerOff
 	// overrideEnv names a variable that makes the tool ignore the key in
-	// the file sync --global writes.
+	// the file sync --scope user writes.
 	overrideEnv string
 	// reviewNote is a fixed limit status names whenever the mode is review.
 	reviewNote string
@@ -42,7 +42,7 @@ type reviewerOff struct {
 }
 
 // nativeReviewers carry out review, each through a key in the user
-// settings file sync --global owns. Claude Code honors auto mode only from
+// settings file sync --scope user owns. Claude Code honors auto mode only from
 // user, policy, or flag settings.
 var nativeReviewers = map[string]nativeReviewer{
 	"claude": {name: "Claude Code auto mode", key: "permissions.defaultMode", value: "auto"},
@@ -75,7 +75,7 @@ func homeToolMode(home config.ApprovalsConfig, tool string) (mode, from string) 
 // native reviewer is selected. A block that does not load writes no
 // reviewer key, with a warning: approvals then fall back to ask, and the
 // other surfaces still sync.
-func (p *globalPlan) loadPlanApprovals() error {
+func (p *userPlan) loadPlanApprovals() error {
 	if !slices.ContainsFunc(p.targets, func(target string) bool { _, ok := nativeReviewers[target]; return ok || target == "kiro" }) {
 		return nil
 	}
@@ -84,7 +84,7 @@ func (p *globalPlan) loadPlanApprovals() error {
 		p.approvals = approvals
 		return nil
 	}
-	if _, werr := fmt.Fprintf(p.warn, "warning: %v; sync --global writes no native reviewer key\n", err); werr != nil {
+	if _, werr := fmt.Fprintf(p.warn, "warning: %v; sync --scope user writes no native reviewer key\n", err); werr != nil {
 		return fmt.Errorf("write approvals warning: %w", werr)
 	}
 	return nil
@@ -94,7 +94,7 @@ func (p *globalPlan) loadPlanApprovals() error {
 // home config sets review for target. A settings spec that sets the key
 // wins, and a value set outside agnostic-ai stays unowned: a different
 // one with a warning, the same one so removing review keeps it.
-func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []globalSetting, previous map[string]any) ([]globalSetting, map[string]any, error) {
+func (p *userPlan) approvalsReviewSetting(target, path, format string, want []userSetting, previous map[string]any) ([]userSetting, map[string]any, error) {
 	reviewer, ok := nativeReviewers[target]
 	mode, from := homeToolMode(p.approvals, target)
 	if !ok || mode != config.ApprovalsReview {
@@ -148,11 +148,11 @@ func (p *globalPlan) approvalsReviewSetting(target, path, format string, want []
 		}
 		return want, previous, nil
 	}
-	return append(want, globalSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), previous, nil
+	return append(want, userSetting{target: target, key: reviewer.key, value: reviewer.value, field: from, source: filepath.Join(p.source, config.ConfigFileName)}), previous, nil
 }
 
 // reviewerState is a native reviewer key as the user settings file holds
-// it, and whether sync --global wrote it there.
+// it, and whether sync --scope user wrote it there.
 type reviewerState struct {
 	reviewer             nativeReviewer
 	path                 string
@@ -161,12 +161,12 @@ type reviewerState struct {
 	present, on, written bool
 }
 
-func readReviewerState(tool, userHome string, state globalState) (reviewerState, bool, error) {
+func readReviewerState(tool, userHome string, state userState) (reviewerState, bool, error) {
 	reviewer, ok := nativeReviewers[tool]
 	if !ok {
 		return reviewerState{}, false, nil
 	}
-	g := globalTargets[tool]
+	g := userTargets[tool]
 	rs := reviewerState{reviewer: reviewer, path: g.path(userHome, g.settings.path)}
 	data, err := os.ReadFile(rs.path)
 	switch {
@@ -196,13 +196,13 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	var notes []string
 	switch {
 	case mode == config.ApprovalsReview && !rs.present && r.defaultOn == "":
-		notes = append(notes, fmt.Sprintf("%s is off: %s is not set in %s; run sync --global to write %s", r.name, r.key, rs.path, want))
+		notes = append(notes, fmt.Sprintf("%s is off: %s is not set in %s; run sync --scope user to write %s", r.name, r.key, rs.path, want))
 	case mode == config.ApprovalsReview && !rs.on:
 		notes = append(notes, fmt.Sprintf("%s is off: %s is %s in %s, not %s", r.name, r.key, settingsValueText(r.key, rs.have), rs.path, want))
 	case mode != config.ApprovalsReview && rs.written && homeMode == config.ApprovalsReview:
-		notes = append(notes, fmt.Sprintf("%s stays on here: sync --global wrote %s = %s to %s, which every folder reads", r.name, r.key, want, rs.path))
+		notes = append(notes, fmt.Sprintf("%s stays on here: sync --scope user wrote %s = %s to %s, which every folder reads", r.name, r.key, want, rs.path))
 	case mode != config.ApprovalsReview && rs.written:
-		notes = append(notes, fmt.Sprintf("%s stays on from %s until sync --global removes %s", r.name, rs.path, r.key))
+		notes = append(notes, fmt.Sprintf("%s stays on from %s until sync --scope user removes %s", r.name, rs.path, r.key))
 	case mode != config.ApprovalsReview && rs.on && !rs.present:
 		notes = append(notes, fmt.Sprintf("%s is on %s while %s is unset in %s; to see prompts, set x-%s.%s to %s in a home settings spec",
 			r.name, r.defaultOn, r.key, rs.path, tool, r.key, settingsValueText(r.key, r.askValue)))
@@ -217,7 +217,7 @@ func (rs reviewerState) notes(tool, mode, homeMode string) []string {
 	if mode != config.ApprovalsReview && !rs.on {
 		return notes
 	}
-	format := globalTargets[tool].settings.format
+	format := userTargets[tool].settings.format
 	if off := r.off; off != nil {
 		if have, ok := settingsLookup(rs.values, off.key, format); ok && sameSetting(have, off.value) {
 			notes = append(notes, fmt.Sprintf("%s = %s in %s keeps %s from running; %s", off.key, settingsValueText(off.key, off.value), rs.path, r.name, off.why))

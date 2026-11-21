@@ -44,16 +44,16 @@ func TestImportKimi_RejectsHookCredentialsBeforeWrites(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_KimiRejectsHookCredentialsBeforeWrites(t *testing.T) {
+func TestImportUser_KimiRejectsHookCredentialsBeforeWrites(t *testing.T) {
 	for name, command := range kimiCredentialHookCommands(t) {
 		t.Run(name, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			root := filepath.Join(home, "kimi-current")
 			t.Setenv("KIMI_CODE_HOME", root)
 			path := filepath.Join(root, "config.toml")
 			before := fmt.Sprintf("[[hooks]]\nevent='Stop'\ncommand='safe-hook'\n[[hooks]]\nevent='Stop'\ncommand=%q\n", command)
 			writeFile(t, path, before)
-			out, warnings, err := runImportGlobalTest("kimi")
+			out, warnings, err := runImportUserTest("kimi")
 			assertKimiHookCredentialRefused(t, source, out+warnings, path, err)
 			if got := readFile(t, path); got != before {
 				t.Error("native profile changed")

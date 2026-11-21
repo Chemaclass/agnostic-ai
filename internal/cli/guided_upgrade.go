@@ -90,7 +90,7 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 		check:         cachedUpgradeOffer,
 		manualInstall: guidedNPMUpgradeHint,
 		project: func() (string, error) {
-			if err := refuseGlobalHome(".", "upgrade global specs separately"); err != nil {
+			if err := refuseUserSource(".", "upgrade global specs separately"); err != nil {
 				return "", nil
 			}
 			path, _, err := config.ResolveConfigPath(".")

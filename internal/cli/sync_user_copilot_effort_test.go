@@ -1,0 +1,233 @@
+package cli
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+const userEffortAgent = `---
+name: reviewer
+description: Review code
+effort:
+  copilot: xhigh
+  default: high
+---
+Review carefully.
+`
+
+func readCopilotSettings(t *testing.T, home string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(home, ".copilot", "settings.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(data, &doc); err != nil {
+		t.Fatalf("parse settings.json: %v\n%s", err, data)
+	}
+	return doc
+}
+
+func copilotAgentEffort(doc map[string]any, name string) any {
+	subagents, _ := doc["subagents"].(map[string]any)
+	agents, _ := subagents["agents"].(map[string]any)
+	agent, _ := agents[name].(map[string]any)
+	return agent["effortLevel"]
+}
+
+func TestSyncUser_CopilotAgentEffortLandsInUserSettings(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userEffortAgent)
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	writeFile(t, settings, `{
+  "theme": "dark",
+  "subagents": {"agents": {"reviewer": {"model": "gpt-6-sol"}}}
+}`)
+
+	_, warnings, err := runUserAgentTest("--only", "copilot")
+	if err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+	if strings.Contains(warnings, "effort") {
+		t.Errorf("global sync writes the effort, so no coverage note is due:\n%s", warnings)
+	}
+	doc := readCopilotSettings(t, home)
+	if got := copilotAgentEffort(doc, "reviewer"); got != "xhigh" {
+		t.Errorf("effortLevel = %v, want xhigh", got)
+	}
+	agent := doc["subagents"].(map[string]any)["agents"].(map[string]any)["reviewer"].(map[string]any)
+	if doc["theme"] != "dark" || agent["model"] != "gpt-6-sol" {
+		t.Errorf("user settings must survive the merge: %v", doc)
+	}
+
+	first, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
+		t.Fatalf("second sync: %v", err)
+	}
+	second, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(first) != string(second) {
+		t.Errorf("second sync changed settings.json:\n%s\n---\n%s", first, second)
+	}
+	if _, _, err := runUserAgentTest("--only", "copilot", "--check"); err != nil {
+		t.Errorf("check after sync: %v", err)
+	}
+}
+
+func TestSyncUser_CopilotAgentEffortRemovalKeepsUserSettings(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	agent := filepath.Join(source, "agents", "reviewer.md")
+	writeFile(t, agent, userEffortAgent)
+	writeFile(t, filepath.Join(home, ".copilot", "settings.json"), `{"theme": "dark"}`)
+	if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
+		t.Fatal(err)
+	}
+
+	writeFile(t, agent, "---\nname: reviewer\ndescription: Review code\n---\nReview carefully.\n")
+	if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
+		t.Fatal(err)
+	}
+	doc := readCopilotSettings(t, home)
+	if _, ok := doc["subagents"]; ok {
+		t.Errorf("the managed effort and its now-empty parents must go: %v", doc)
+	}
+	if doc["theme"] != "dark" {
+		t.Errorf("user settings must survive removal: %v", doc)
+	}
+}
+
+func TestSyncUser_CopilotHandSetEffortStopsBeforeWrites(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userEffortAgent)
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	original := `{"subagents": {"agents": {"reviewer": {"effortLevel": "low"}}}}`
+	writeFile(t, settings, original)
+
+	_, _, err := runUserAgentTest("--only", "copilot")
+	if err == nil || !strings.Contains(err.Error(), "effortLevel") {
+		t.Fatalf("a hand-set effortLevel must stop the run, got %v", err)
+	}
+	data, readErr := os.ReadFile(settings)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(data) != original {
+		t.Errorf("settings.json changed despite the conflict:\n%s", data)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".copilot", "agents", "reviewer.agent.md")); !os.IsNotExist(err) {
+		t.Errorf("no other planned write may land after a conflict, stat err = %v", err)
+	}
+}
+
+func TestSyncUser_CopilotUnsupportedEffortKeepsNote(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), "---\nname: reviewer\ndescription: Review code\neffort: max\n---\nReview.\n")
+
+	_, warnings, err := runUserAgentTest("--only", "copilot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(warnings, "effort") {
+		t.Errorf("an effort Copilot does not accept must still raise a note:\n%s", warnings)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".copilot", "settings.json")); !os.IsNotExist(err) {
+		t.Errorf("nothing valid to write, so settings.json must not be created, stat err = %v", err)
+	}
+}
+
+func TestSyncUser_CopilotAgentEffortKeepsKeyOrderAndIndent(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userEffortAgent)
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	writeFile(t, settings, `{
+    "theme": "dark",
+    "subagents": {
+        "maxDepth": 3,
+        "agents": {
+            "scout": {"model": "gpt-6-sol"}
+        }
+    },
+    "model": "claude-opus-5-5"
+}
+`)
+
+	if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(data)
+	order := []string{`"theme"`, `"subagents"`, `"maxDepth"`, `"agents"`, `"scout"`, `"reviewer"`, `"effortLevel": "xhigh"`, `"model": "claude-opus-5-5"`}
+	last := -1
+	for _, key := range order {
+		at := strings.Index(body, key)
+		if at <= last {
+			t.Fatalf("%s is out of order; keys must keep their place and new ones append:\n%s", key, body)
+		}
+		last = at
+	}
+	if !strings.HasPrefix(body, "{\n    \"theme\"") {
+		t.Errorf("the file's four-space indent must survive:\n%s", body)
+	}
+}
+
+func TestSyncUser_CopilotCommentedSettingsStopBeforeRewrite(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userEffortAgent)
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	original := "{\n  // keep me\n  \"theme\": \"dark\"\n}\n"
+	writeFile(t, settings, original)
+
+	_, _, err := runUserAgentTest("--only", "copilot")
+	if err == nil || !strings.Contains(err.Error(), "comments") || !strings.Contains(err.Error(), "--backup") {
+		t.Fatalf("a rewrite that drops comments must stop and name --backup, got %v", err)
+	}
+	if data, _ := os.ReadFile(settings); string(data) != original {
+		t.Errorf("settings.json changed despite the stop:\n%s", data)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".copilot", "agents", "reviewer.agent.md")); !os.IsNotExist(err) {
+		t.Errorf("no planned write may land after the stop, stat err = %v", err)
+	}
+
+	if _, _, err := runUserAgentTest("--only", "copilot", "--backup"); err != nil {
+		t.Fatalf("--backup must rewrite: %v", err)
+	}
+	if backup, err := os.ReadFile(settings + ".bak"); err != nil || string(backup) != original {
+		t.Errorf("the backup must keep the commented original, err = %v:\n%s", err, backup)
+	}
+	if got := copilotAgentEffort(readCopilotSettings(t, home), "reviewer"); got != "xhigh" {
+		t.Errorf("effortLevel = %v, want xhigh", got)
+	}
+}
+
+func TestSyncUser_CopilotCommentedSettingsWithNothingToWriteSync(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeFile(t, filepath.Join(source, "agents", "reviewer.md"), userEffortAgent)
+	if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
+		t.Fatal(err)
+	}
+	settings := filepath.Join(home, ".copilot", "settings.json")
+	data, err := os.ReadFile(settings)
+	if err != nil {
+		t.Fatal(err)
+	}
+	commented := strings.Replace(string(data), "{\n", "{\n  // added by hand\n", 1)
+	writeFile(t, settings, commented)
+
+	if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
+		t.Fatalf("an unchanged effort needs no rewrite, so comments cannot block the sync: %v", err)
+	}
+	if after, _ := os.ReadFile(settings); string(after) != commented {
+		t.Errorf("an unchanged file must stay byte for byte:\n%s", after)
+	}
+}

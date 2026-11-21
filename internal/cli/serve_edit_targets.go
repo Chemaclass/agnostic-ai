@@ -17,18 +17,18 @@ const editTargetsPath = "/api/edit/targets"
 var errLastTarget = errors.New("keep at least one coding tool on")
 
 // supportedTargetNames are the tools a switch may name: every built-in
-// adapter in a project, the user-level ones with --global.
+// adapter in a project, the user-level ones with --scope user.
 func (h *editHandler) supportedTargetNames() []string {
-	if h.global {
-		return globalTargetNames()
+	if h.userLevel {
+		return userTargetNames()
 	}
 	return adapters.Names()
 }
 
 // defaultTargets is the list that applies when no config sets targets.
 func (h *editHandler) defaultTargets() []string {
-	if h.global {
-		return globalTargetNames()
+	if h.userLevel {
+		return userTargetNames()
 	}
 	return config.DefaultTargets()
 }
@@ -126,7 +126,7 @@ func (h *editHandler) targetsEdit(where editAudience, req targetsRequest) (strin
 		return "", nil, err
 	}
 	inherited := ""
-	if !h.global {
+	if !h.userLevel {
 		if inherited, err = inheritedPersonalMemory(h.root); err != nil {
 			return "", nil, err
 		}

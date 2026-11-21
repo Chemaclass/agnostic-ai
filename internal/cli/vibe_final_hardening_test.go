@@ -11,10 +11,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
+func TestSyncUser_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 	for _, scenario := range []string{"model-only", "model-and-hooks", "existing-mode"} {
 		t.Run(scenario, func(t *testing.T) {
-			home, source := globalAgentTestHome(t)
+			home, source := userAgentTestHome(t)
 			path := filepath.Join(home, ".vibe/config.toml")
 			original := ""
 			if scenario == "existing-mode" {
@@ -28,7 +28,7 @@ func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 			if scenario != "model-only" {
 				entries = append(entries, spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{"target": "vibe", "event": "pre_tool", "command": "echo '{}'"}})
 			}
-			writes, _, err := buildGlobalWrites(home, source, []string{"vibe"}, nil, spec.NewBundle(entries), globalState{Version: globalStateVersion}, nil, io.Discard, "warn")
+			writes, _, err := buildUserWrites(home, source, []string{"vibe"}, nil, spec.NewBundle(entries), userState{Version: userStateVersion}, nil, io.Discard, "warn")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -51,7 +51,7 @@ func TestSyncGlobal_VibeModelConfigIsPrivateFromFirstPlan(t *testing.T) {
 			if count != 1 {
 				t.Fatalf("planned %d config writes, want 1", count)
 			}
-			if _, err := applyGlobalChanges(writes, nil, false, nil); err != nil {
+			if _, err := applyUserChanges(writes, nil, false, nil); err != nil {
 				t.Fatal(err)
 			}
 			body := readFile(t, path)

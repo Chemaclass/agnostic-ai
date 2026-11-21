@@ -185,7 +185,7 @@ func TestProjectLifecycle_CloneAndWorktreeRestoreOutputsAndValidateTheIndex(t *t
 					t.Fatal(err)
 				}
 				for _, asJSON := range []bool{false, true} {
-					args := []string{"doctor", "--scope", "project"}
+					args := []string{"doctor", "--checks", "project"}
 					if asJSON {
 						args = append(args, "--json")
 					}

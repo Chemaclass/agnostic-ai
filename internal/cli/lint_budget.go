@@ -119,13 +119,13 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 	)
 	source := adapters.AgnosticEntryPointPath
 	var agentsPath string
-	if scope.global {
-		if budgets, err = loadGlobalLint(scope.source); err != nil {
+	if scope.userLevel {
+		if budgets, err = loadUserLint(scope.source); err != nil {
 			return nil, err
 		}
 		source = filepath.Join(scope.source, "AGNOSTIC_AI.md")
 		agentsPath = filepath.Join(scope.source, "agents")
-		loads, err = globalSessionLoads(scope.source, scope.targets, scope.models, scope.bundle)
+		loads, err = userSessionLoads(scope.source, scope.targets, scope.models, scope.bundle)
 	} else {
 		budgets = scope.cfg.Lint
 		agentsPath = scope.cfg.Sources.Agents
@@ -143,7 +143,7 @@ func lintBudgetFindings(scope checkScope) ([]lintFinding, error) {
 	} else {
 		findings = lintInstructionBudget(loads, budgets.InstructionsWordBudget())
 		findings = append(findings, lintAgentDescriptionBudget(loads, agentsPath)...)
-		if !scope.global {
+		if !scope.userLevel {
 			chain, chainErr := lintCodexChain(scope.cfg, scope.bundle, loads, budgets.CodexChainByteBudget())
 			if chainErr != nil {
 				chain = []lintFinding{{
@@ -234,10 +234,10 @@ func projectSessionLoads(cfg *config.Config, support kindSupport, b spec.Bundle)
 	return loads, nil
 }
 
-// globalSessionLoads measures each target sync --global writes. Every
+// userSessionLoads measures each target sync --scope user writes. Every
 // target with an instructions file gets the same managed block.
-func globalSessionLoads(source string, targets []string, tiers map[string]config.ModelTier, b spec.Bundle) ([]sessionLoad, error) {
-	layers, err := globalInstructionLayers(source, tiers, b.Rules)
+func userSessionLoads(source string, targets []string, tiers map[string]config.ModelTier, b spec.Bundle) ([]sessionLoad, error) {
+	layers, err := userInstructionLayers(source, tiers, b.Rules)
 	if err != nil {
 		return nil, err
 	}
@@ -246,11 +246,11 @@ func globalSessionLoads(source string, targets []string, tiers map[string]config
 		texts = append(texts, l.Text)
 	}
 	instructions := strings.Join(texts, "\n\n")
-	support := globalKindSupport()
+	support := userKindSupport()
 	loads := make([]sessionLoad, 0, len(targets))
 	for _, t := range targets {
 		load := sessionLoad{target: t, path: filepath.Join(source, "AGNOSTIC_AI.md")}
-		g := globalTargets[t]
+		g := userTargets[t]
 		switch {
 		case g.instructions != "":
 			load.setFile("instructions", instructions, layers)

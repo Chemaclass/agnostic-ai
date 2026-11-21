@@ -12,7 +12,7 @@ import (
 )
 
 // ProjectLocalEntryPointPath is the project-relative path of the
-// git-ignored instructions file in the project-user layer
+// git-ignored instructions file in the local layer
 // (`.agnostic-ai/local/`). Its text extends the shared
 // AgnosticEntryPointPath body in every entry-point file sync writes,
 // the same way `~/.agnostic-ai/local/AGNOSTIC_AI.md` extends the global

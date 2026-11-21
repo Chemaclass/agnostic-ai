@@ -81,7 +81,7 @@ Sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` fi
 - Fifteen events take a `matcher`: `preToolUse`, `postToolUse`, `postToolUseFailure` (tool name), `subagentStart`, `subagentStop` (subagent type), `beforeShellExecution`, `afterShellExecution` (full command string), `beforeReadFile`, `afterFileEdit` (tool name), and `beforeTabFileRead`, `afterTabFileEdit`, `beforeSubmitPrompt`, `stop`, `afterAgentResponse`, `afterAgentThought` (one fixed value each). `lint` flags a matcher on any other event, except `beforeMCPExecution` and `afterMCPExecution`.
 - When a command hook exists, sync adds a `sessionStart` hook that prints `{"env":{"AGNOSTIC_AI_TARGET":"cursor"}}`. Cursor passes that `env` to every later hook in the session, including loaded Claude Code hooks, and on Windows too. `sessionStart` hooks, and any hook that fires before this one returns, do not see the variable. See [which target ran a hook](@/docs/spec-format/hook-reference.md#hook-target).
 - A hook has only `command`, run through `$SHELL -c` (PowerShell on Windows). A spec's `args` fold into `command`, each in single quotes (`node 'guard.js'`).
-- A [portable](@/docs/spec-format/hook-reference.md#portable-events) `before-tool` hook lands on `preToolUse` and a `prompt-submit` hook on `beforeSubmitPrompt`, each through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes a deny reply with stderr as the message, and exit 0 an allow reply. `session-start` and `session-end` land on `sessionStart` and `sessionEnd`. `sync --global` writes the wrapper to `~/.cursor/hooks/`.
+- A [portable](@/docs/spec-format/hook-reference.md#portable-events) `before-tool` hook lands on `preToolUse` and a `prompt-submit` hook on `beforeSubmitPrompt`, each through `.cursor/hooks/agnostic-ai-portable-hook.sh`. Exit 2 becomes a deny reply with stderr as the message, and exit 0 an allow reply. `session-start` and `session-end` land on `sessionStart` and `sessionEnd`. `sync --scope user` writes the wrapper to `~/.cursor/hooks/`.
 
 ### MCP
 
@@ -129,7 +129,7 @@ The **Include Third-Party Plugins, Skills, and Other Configs** setting (Cursor S
 
 A settings spec's portable `allow` and `deny` lists become Cursor CLI rules in `permissions.allow` and `permissions.deny` of `.cursor/cli.json`, beside the protected-path rules. Sync writes only spellings the [CLI permissions](https://cursor.com/docs/cli/reference/permissions) page documents, and never widens a rule. The rules guard the Cursor CLI only, not the IDE agent.
 
-`approvals` set to `review` for Cursor makes `sync --global` write `approvalMode: "auto-review"` to cursor-agent's `cli-config.json`. It reaches `cursor-agent` only; set Auto-review in the desktop app by hand. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
+`approvals` set to `review` for Cursor makes `sync --scope user` write `approvalMode: "auto-review"` to cursor-agent's `cli-config.json`. It reaches `cursor-agent` only; set Auto-review in the desktop app by hand. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
 
 | Portable rule | Cursor rule | Notes |
 |---|---|---|

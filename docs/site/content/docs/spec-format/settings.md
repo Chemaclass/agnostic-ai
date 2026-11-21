@@ -48,11 +48,11 @@ Claude Code gets the permission in `.claude/settings.json`. Codex gets the model
 | `permissions.allow` | empty | Rules approved without prompting. |
 | `permissions.deny` | empty | Rules always blocked. |
 | `permissions.ask` | empty | Rules that prompt before running. |
-| `permissions.default-mode` | unset | Claude Code's starting mode for `sync --global`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other tools raise a sync note. |
+| `permissions.default-mode` | unset | Claude Code's starting mode for `sync --scope user`: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, or `bypassPermissions`. Other tools raise a sync note. |
 | `model` | empty | A string, a map per target with an optional `default` (like [agent `model`](@/docs/spec-format/agents.md#per-target-model-and-effort)), or a [tier](@/docs/spec-format/agents.md#model-tiers) name. A target with no entry and no `default` gets no model. |
 | `effort` | empty | A single value, or a map per target with an optional `default`. An agent's own `effort` is separate. See [effort by target](@/docs/spec-format/settings-reference.md#effort-by-target). |
-| `session-retention-days` | unset | Personal age limit for sessions, an integer of 1 or more. Only `sync --global` writes it. See [session retention](@/docs/spec-format/settings-reference.md#session-retention). |
-| `voice` | unset | Personal dictation: `enabled`, `mode` (`hold` or `tap`), `language`. Only `sync --global` writes it. See [voice dictation](@/docs/spec-format/settings-reference.md#voice-dictation). |
+| `session-retention-days` | unset | Personal age limit for sessions, an integer of 1 or more. Only `sync --scope user` writes it. See [session retention](@/docs/spec-format/settings-reference.md#session-retention). |
+| `voice` | unset | Personal dictation: `enabled`, `mode` (`hold` or `tap`), `language`. Only `sync --scope user` writes it. See [voice dictation](@/docs/spec-format/settings-reference.md#voice-dictation). |
 | `protected` | unset | Files agents must not edit without asking. See [protected paths](#protected-paths). |
 
 All fields are optional. Tool-specific keys go under `x-<target>` ([native keys](@/docs/spec-format/settings-reference.md#target-specific-keys)).
@@ -125,7 +125,7 @@ Protection covers the agent's edit tools; a shell command can still change the f
 - Each settings spec holds one block, so use one file per decision.
 - The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected. Claude Code's docs do not say whether `Edit` rules ignore case.
 - `lint` warns (LINT022) when a protected path covers a file sync writes, since sync rewrites it, and reports an invalid block as LINT023.
-- `sync --global` does not write protected paths.
+- `sync --scope user` does not write protected paths.
 
 </details>
 
@@ -138,14 +138,14 @@ Removing a rule from a spec removes it from Claude Code's `settings.json` on the
 <details>
 <summary>Details: compare and global sync</summary>
 
-- `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, output prerequisites, and that `permissions.default-mode` is written only by `sync --global`. It does not compare other settings fields.
-- `sync --global` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` lists. See [default model and effort](@/docs/global-configuration-reference.md#global-default-model-and-effort).
+- `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, output prerequisites, and that `permissions.default-mode` is written only by `sync --scope user`. It does not compare other settings fields.
+- `sync --scope user` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` lists. See [default model and effort](@/docs/global-configuration-reference.md#global-default-model-and-effort).
 
 </details>
 
 ## Edit scalar settings in the browser {#edit-scalar-settings-in-the-browser}
 
-Run `agnostic-ai ui` in a project, or `agnostic-ai ui --global` for user settings. In the Settings view, save or clear a `model` or `effort` value for every tool, or for one tool under **What each tool gets**. A browser save does not sync: run `agnostic-ai sync` (or `sync --global`) afterward.
+Run `agnostic-ai ui` in a project, or `agnostic-ai ui --scope user` for user settings. In the Settings view, save or clear a `model` or `effort` value for every tool, or for one tool under **What each tool gets**. A browser save does not sync: run `agnostic-ai sync` (or `sync --scope user`) afterward.
 
 <details>
 <summary>Details: which file it writes, what it cannot edit</summary>

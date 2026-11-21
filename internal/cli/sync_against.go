@@ -30,7 +30,7 @@ const (
 // repository takes longer than the 2 second budget of a status query.
 const againstGitTimeout = 60 * time.Second
 
-func validateAgainst(ref string, check, plan, watch, global bool) error {
+func validateAgainst(ref string, check, plan, watch, userLevel bool) error {
 	if ref == "" {
 		return nil
 	}
@@ -40,8 +40,8 @@ func validateAgainst(ref string, check, plan, watch, global bool) error {
 	if !check {
 		return errs.Coded(errs.CodeFlagConflict, "--against requires --check")
 	}
-	if plan || watch || global {
-		return errs.Coded(errs.CodeFlagConflict, "--against cannot be combined with --plan, --watch, or --global")
+	if plan || watch || userLevel {
+		return errs.Coded(errs.CodeFlagConflict, "--against cannot be combined with --plan, --watch, or --scope user")
 	}
 	return nil
 }

@@ -37,7 +37,7 @@ func userAgentCoverage(a Adapter, c emit.Capabilities) emit.Capabilities {
 	if c.AgentFieldReasons == nil {
 		c.AgentFieldReasons = map[string]string{}
 	}
-	c.AgentFieldReasons["mcpServers"] = fmt.Sprintf("sync --global writes no inline agent server; set x-%s.%s", c.Target, inliner.AgentMCPForm().Key)
+	c.AgentFieldReasons["mcpServers"] = fmt.Sprintf("sync --scope user writes no inline agent server; set x-%s.%s", c.Target, inliner.AgentMCPForm().Key)
 	return c
 }
 

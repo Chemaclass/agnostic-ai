@@ -321,13 +321,13 @@ func TestBuild_ShowsEachMCPServersCachedTools(t *testing.T) {
 			"edited": {Spec: mcpprobe.SpecFingerprint(map[string]any{"name": "edited", "command": "old-mcp"}), Tools: []mcpprobe.Tool{{Name: "old"}}},
 			"broken": {Error: "HTTP 401: the server needs authentication"},
 		}},
-		RefreshCommand: "agnostic-ai mcp tools --global",
+		RefreshCommand: "agnostic-ai mcp tools --scope user",
 	}
 	got := map[string]*ToolListing{}
 	for _, it := range sectionByID(t, Build(in), SectionTools).Items {
 		got[it.Name] = it.Tools
 	}
-	if l := got["fresh"]; l == nil || l.State != ToolsListed || len(l.Tools) != 1 || l.Tools[0].Name != "search" || l.Command != "agnostic-ai mcp tools --global" {
+	if l := got["fresh"]; l == nil || l.State != ToolsListed || len(l.Tools) != 1 || l.Tools[0].Name != "search" || l.Command != "agnostic-ai mcp tools --scope user" {
 		t.Errorf("fresh = %+v", l)
 	}
 	if l := got["edited"]; l == nil || l.State != ToolsStale || len(l.Tools) != 1 {
@@ -688,8 +688,8 @@ func TestBuild_ListsServersFoundOnlyInAToolsOwnConfig(t *testing.T) {
 		Bundle: spec.Bundle{MCPs: []spec.Entry{entry(spec.KindMCP, "github", ".agnostic-ai/mcps/github.yaml", map[string]any{"command": "gh"})}},
 		NativeMCPs: []NativeMCP{
 			{Name: "notion", Target: "claude", Path: ".mcp.json", Scope: NativeScopeProject, Transport: "http", Import: "agnostic-ai import claude"},
-			{Name: "GitHub", Target: "claude", Path: "~/.claude.json", Scope: NativeScopeUser, Transport: "stdio", Import: "agnostic-ai import --global claude"},
-			{Name: "notion", Target: "cursor", Path: "~/.cursor/mcp.json", Scope: NativeScopeUser, Transport: "remote", Import: "agnostic-ai import --global cursor"},
+			{Name: "GitHub", Target: "claude", Path: "~/.claude.json", Scope: NativeScopeUser, Transport: "stdio", Import: "agnostic-ai import --scope user claude"},
+			{Name: "notion", Target: "cursor", Path: "~/.cursor/mcp.json", Scope: NativeScopeUser, Transport: "remote", Import: "agnostic-ai import --scope user cursor"},
 			{Name: "db", Target: "claude", Path: "~/.claude.json", Scope: NativeScopeProject, Transport: "stdio"},
 		},
 	}
@@ -731,11 +731,11 @@ func TestBuild_ToolCatalogKeepsOrderAndLabelsEveryTool(t *testing.T) {
 	}
 }
 
-func TestBuild_KeepsAGlobalFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
+func TestBuild_KeepsAUserFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
 	in := Inputs{
 		Cfg:      &config.Config{Targets: []string{"claude"}},
 		Bundle:   spec.Bundle{MCPs: []spec.Entry{entry(spec.KindMCP, "db", "mcps/db.yaml", map[string]any{"command": "db-mcp"})}},
-		Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "mcps/db.yaml", Layer: LayerGlobal}},
+		Findings: []Finding{{Source: SourceLint, Code: "LINT999", Severity: "warn", Message: "m", Path: "mcps/db.yaml", Layer: LayerUser}},
 	}
 	v := Build(in)
 	for _, s := range v.Sections {
@@ -746,7 +746,7 @@ func TestBuild_KeepsAGlobalFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
 		}
 	}
 	got := sectionByID(t, v, SectionSettings).Findings
-	if len(got) != 1 || got[0].Layer != LayerGlobal {
+	if len(got) != 1 || got[0].Layer != LayerUser {
 		t.Errorf("settings findings = %+v, want the global finding with its layer", got)
 	}
 }

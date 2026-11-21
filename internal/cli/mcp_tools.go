@@ -34,7 +34,7 @@ func newMCPCmd() *cobra.Command {
 // list its tools, and cache the result for view and serve.
 func newMCPToolsCmd() *cobra.Command {
 	var dir string
-	var global, asJSON bool
+	var userLevel, asJSON bool
 	var timeout time.Duration
 	cmd := &cobra.Command{
 		Use:   "tools",
@@ -51,10 +51,10 @@ func newMCPToolsCmd() *cobra.Command {
   agnostic-ai mcp tools --scope user`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if global && cmd.Flags().Changed("dir") {
+			if userLevel && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--scope user and --dir cannot be combined")
 			}
-			root, entries, err := mcpToolsScope(dir, global)
+			root, entries, err := mcpToolsScope(dir, userLevel)
 			if err != nil {
 				return err
 			}
@@ -70,7 +70,7 @@ func newMCPToolsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", ".", "Project directory to read.")
-	addScopeFlag(cmd, &global, "Read the user-level configuration sync --scope user uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
+	addScopeFlag(cmd, &userLevel, "Read the user-level configuration sync --scope user uses, in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai).")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print the cached result as JSON.")
 	cmd.Flags().DurationVar(&timeout, "timeout", 20*time.Second, "How long to wait for each server.")
 	return cmd
@@ -79,8 +79,8 @@ func newMCPToolsCmd() *cobra.Command {
 // mcpToolsScope loads the MCP specs of the project in dir, or of the
 // user-level configuration, with the root the cache is keyed by: the
 // same root the overview reads.
-func mcpToolsScope(dir string, global bool) (string, []spec.Entry, error) {
-	if global {
+func mcpToolsScope(dir string, userLevel bool) (string, []spec.Entry, error) {
+	if userLevel {
 		scope, err := loadCheckScope(true)
 		if err != nil {
 			return "", nil, err

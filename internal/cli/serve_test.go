@@ -24,7 +24,7 @@ func TestServe_RejectsAPIOnlyWithClientFlags(t *testing.T) {
 	}
 }
 
-func TestServe_ListsCloudSessionsOnlyOnAGlobalServer(t *testing.T) {
+func TestServe_ListsCloudSessionsOnlyOnAUserServer(t *testing.T) {
 	cmd := newServeCmd()
 	cmd.SetArgs([]string{"--cloud-sessions", "--api-only"})
 	want := "--cloud-sessions needs --scope user: cloud sessions belong to no project folder"

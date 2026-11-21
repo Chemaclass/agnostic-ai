@@ -174,7 +174,7 @@ func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 		}
 	}
 	note := filepath.Join(opts.Root, agnosticMainFile)
-	if !isGlobalSourceDir(filepath.Dir(note)) {
+	if !isUserSourceDir(filepath.Dir(note)) {
 		if _, err := os.Lstat(note); os.IsNotExist(err) {
 			fmt.Printf("create: %s\n", note)
 		} else if err != nil {
@@ -280,11 +280,11 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 // writeStarterNote seeds AGNOSTIC_AI.md with the text sync would seed,
 // so a new project has a file to edit before its first sync. An existing
 // note is kept, and an import later replaces the seed. In the home folder
-// the file would be the global instructions `sync --global` shares, so it
+// the file would be the global instructions `sync --scope user` shares, so it
 // is left alone there.
 func writeStarterNote(root string) error {
 	path := filepath.Join(root, agnosticMainFile)
-	if isGlobalSourceDir(filepath.Dir(path)) {
+	if isUserSourceDir(filepath.Dir(path)) {
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
@@ -294,18 +294,18 @@ func writeStarterNote(root string) error {
 	return err
 }
 
-// isGlobalSourceDir reports whether dir is the global source folder,
-// which a project in the home folder shares with `sync --global`.
-func isGlobalSourceDir(dir string) bool {
-	global, err := globalSourceRoot()
+// isUserSourceDir reports whether dir is the global source folder,
+// which a project in the home folder shares with `sync --scope user`.
+func isUserSourceDir(dir string) bool {
+	source, err := userSourceRoot()
 	if err != nil {
 		return false
 	}
-	if filepath.Base(dir) == filepath.Base(global) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(global))) {
+	if filepath.Base(dir) == filepath.Base(source) && sameDir(resolvedDir(filepath.Dir(dir)), resolvedDir(filepath.Dir(source))) {
 		return true
 	}
 	a, errA := os.Stat(dir)
-	b, errB := os.Stat(global)
+	b, errB := os.Stat(source)
 	return errA == nil && errB == nil && os.SameFile(a, b)
 }
 
@@ -382,7 +382,7 @@ func printNextSteps(root, base string, targets []string, seeded bool) {
 	}
 	summaryf("\n")
 	summaryf("next steps:\n")
-	if regularFileInside(root, filepath.Join(root, agnosticMainFile)) && !isGlobalSourceDir(filepath.Join(root, defaultBaseDir)) {
+	if regularFileInside(root, filepath.Join(root, agnosticMainFile)) && !isUserSourceDir(filepath.Join(root, defaultBaseDir)) {
 		summaryf("  edit %s # the note every tool reads; commit it\n", agnosticMainFile)
 	}
 	if seeded {

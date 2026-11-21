@@ -212,7 +212,7 @@ func TestHookMemory_FallsBackToTheGitCheckout(t *testing.T) {
 }
 
 // The global source root holds a config but is never a project.
-func TestHookMemory_SkipsTheGlobalSourceRoot(t *testing.T) {
+func TestHookMemory_SkipsTheUserSourceRoot(t *testing.T) {
 	dir := testutil.TempCwd(t)
 	t.Setenv("AGNOSTIC_AI_HOME", dir)
 	writeFile(t, "agnostic-ai.yaml", "version: 1\n")

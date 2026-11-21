@@ -31,14 +31,14 @@ It exits non-zero on any drift, [lint](@/docs/cli-reference/check.md#lint) error
 | Flag | Description |
 |------|-------------|
 | `-t, --target <list>` | Comma-separated targets (default: all in config). An unknown name fails with AAI-301, as in `sync`. |
-| `--scope <all\|project>` | `all` (default) includes local Codex hook trust and your own Claude settings files. `project` skips them. |
+| `--checks <all\|project>` | `all` (default) includes local Codex hook trust and your own Claude settings files. `project` skips them. `--scope` is the older spelling, still accepted with a deprecation warning on stderr. |
 | `--fix` | Write missing files and overwrite stale or edited ones. Like `sync`, it first saves each hand-edited file as `<path>.bak`. See below. |
 | `--backup` | With `--fix`, copy every file to `<path>.bak` before it is overwritten or removed, not only hand-edited ones. |
 | `--check-globs` | Flag rules whose `globs:` match no files. Off by default. |
 | `--check-references` | Flag broken relative Markdown links in generated skills. Off by default. |
 | `--json` | Drift report as JSON, same schema as `sync --check --json`, plus the lists in the [reference](#reference). Fails on the same findings as text mode. Not with `--fix`. |
 
-On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references`.
+On a fresh CI runner, run `agnostic-ai doctor --checks project --check-references`.
 
 {% <details summary="Details: what --fix does, CI scope, and the packaging check"> %}
 - `--fix` also removes each nested `CLAUDE.md` whose text is already in a scoped rule.
@@ -47,8 +47,8 @@ On a fresh CI runner, run `agnostic-ai doctor --scope project --check-references
 - `--backup` also covers removing a confirmed orphan or confirmed skill overrides.
 - A hand-edited file whose `<path>.bak` already holds an earlier edit is kept, and `--fix` fails until you move both into `.agnostic-ai/` and delete the `.bak`.
 - An edit made through a symlinked output is handled as `sync` handles it. See [hand edits](@/docs/cli-reference/sync.md#hand-edits).
-- With `--scope project`, Codex hook trust shows `SKIPPED` in text. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and an empty `hook_trust`.
-- `--scope project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
+- With `--checks project`, Codex hook trust shows `SKIPPED` in text. JSON adds `hook_trust_check: {"status": "skipped", "reason": "project scope skips local runtime trust"}` and an empty `hook_trust`.
+- `--checks project --fix` repairs drift without reading or approving trust. `--json` stays read-only.
 - When sync removes unchanged managed keys from a shared settings file but keeps your keys and edits, doctor reports the file as out of date. JSON reports its action as `stale`.
 - A hand-written file that stops sync appears in JSON as `stale` with a `reason`: the text doctor prints for it, with the keep and replace steps on their own lines.
 - The packaging check handles literal paths, `*`, `?`, character classes, and `**` segments. Braces, extended globs, escaped patterns, and unsupported classes give a coverage-check warning, not an uncovered claim.
@@ -127,7 +127,7 @@ To re-enable skills, run `doctor --fix` in a terminal. It asks once per state, a
 - The shared file is team policy. Its line points to the [overlay](@/docs/spec-format/overlays.md) sync writes it from. When the overlay sets the same value, the line is a `~` note instead.
 - Below the git root, Claude Code also reads the local file at the root (or the main checkout in a worktree). Its value wins for a key both set. Doctor lists it first, labelled `(git root)` or `(main checkout)`.
 - Claude Code and doctor skip the root file on Windows and when the root is your home folder. Claude Code also skips it when you do not own the root or its `.git` or `.claude` entry. Doctor does not check ownership.
-- `--scope project` reads only the shared file. An empty settings file counts as no settings. Managed (enterprise) settings and `--settings` are not read.
+- `--checks project` reads only the shared file. An empty settings file counts as no settings. Managed (enterprise) settings and `--settings` are not read.
 - Claude Code reads settings as strict JSON, and so does doctor:
 
 | Case | Doctor reports | `--json` |

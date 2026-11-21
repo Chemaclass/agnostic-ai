@@ -9,8 +9,8 @@ test.describe('overview', () => {
     const contextSection = data.sections.find((section: { id: string }) => section.id === 'context')
     const instructions = { kind: 'instructions', name: 'AGNOSTIC_AI.md', label: 'AGNOSTIC_AI.md', description: 'Loaded at the start of every session: 120 words.', values: [], findings: [] }
     contextSection.items.push(
-      { ...instructions, path: 'AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/AGNOSTIC_AI.md', layer: 'global' },
-      { ...instructions, path: 'local/AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/local/AGNOSTIC_AI.md', layer: 'global-local' },
+      { ...instructions, path: 'AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/AGNOSTIC_AI.md', layer: 'user' },
+      { ...instructions, path: 'local/AGNOSTIC_AI.md', openPath: '/home/me/.agnostic-ai/local/AGNOSTIC_AI.md', layer: 'user-local' },
     )
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('/?view=context&tab=guidance')

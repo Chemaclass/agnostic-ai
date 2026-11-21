@@ -176,8 +176,8 @@ func TestImportFromContinue_RequestOptionsCredentialLeavesServerOut(t *testing.T
 	}
 }
 
-func TestImportGlobal_LeavesOutServersWithCredentials(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_LeavesOutServersWithCredentials(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
   "flag": {"command": "x", "args": ["--api-key", "GL0BALKEY"]},
   "env": {"command": "x", "env": {"NODE_ENV": "production", "GITHUB_TOKEN": "GL0BALENV"}},
@@ -186,13 +186,13 @@ func TestImportGlobal_LeavesOutServersWithCredentials(t *testing.T) {
   "plainhdr": {"url": "https://h/mcp", "headers": {"X-Region": "eu"}},
   "shell": {"command": "sh", "args": ["-c", "TOKEN=GL0BALSH exec srv"]},
   "ok": {"command": "y", "args": ["--port", "8080"]}}}`+"\n")
-	out, warnings, err := runImportGlobalTest("cursor")
+	out, warnings, err := runImportUserTest("cursor")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	for _, secret := range []string{"GL0BALKEY", "GL0BALSH", "GL0BALENV", "GL0BALHDR"} {
 		if strings.Contains(out+warnings, secret) {
-			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+			t.Errorf("import --scope user prints a credential value:\n%s%s", out, warnings)
 		}
 	}
 	for name, field := range map[string]string{"flag": "args[1]", "env": "env.GITHUB_TOKEN", "auth": "headers.Authorization", "shell": "args[1]"} {
@@ -312,20 +312,20 @@ func TestImportMCP_NonCredentialNamesAndValuesImportUnchanged(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_CredentialKeysAndReferenceValues(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_CredentialKeysAndReferenceValues(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
   "pg": {"command": "x", "env": {"PGPASSWORD": "GL0BALPGPW"}},
   "notion": {"command": "x", "env": {"OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ntn_GL0BALNOTION\"}"}},
   "ref": {"url": "https://h/mcp", "headers": {"Authorization": "Bearer ${env:GH_TOKEN}", "X-Token": "token ${env:X_TOKEN}"}},
   "paths": {"command": "x", "env": {"PWD": "/home/u", "PORT": "8080", "NODE_ENV": "production"}}}}`+"\n")
-	out, warnings, err := runImportGlobalTest("cursor")
+	out, warnings, err := runImportUserTest("cursor")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	for _, secret := range []string{"GL0BALPGPW", "GL0BALNOTION"} {
 		if strings.Contains(out+warnings, secret) {
-			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+			t.Errorf("import --scope user prints a credential value:\n%s%s", out, warnings)
 		}
 	}
 	for name, field := range map[string]string{"pg": "env.PGPASSWORD", "notion": "env.OPENAPI_MCP_HEADERS"} {
@@ -429,20 +429,20 @@ func TestImportMCP_FinalNonCredentialValuesImportUnchanged(t *testing.T) {
 	}
 }
 
-func TestImportGlobal_FinalCredentialKeys(t *testing.T) {
-	home, source := globalAgentTestHome(t)
+func TestImportUser_FinalCredentialKeys(t *testing.T) {
+	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(home, ".cursor", "mcp.json"), `{"mcpServers": {
   "openai": {"command": "x", "env": {"OPENAI_KEY": "GL0BALOAI1"}},
   "auth": {"command": "x", "env": {"X_AUTH": "GL0BALAUTH"}},
   "headers": {"command": "x", "env": {"MCP_HEADERS": "X-Api-Key: GL0BALHDR1"}},
   "sorted": {"command": "x", "env": {"SORT_KEY": "name", "MODE": "streamable-http"}}}}`+"\n")
-	out, warnings, err := runImportGlobalTest("cursor")
+	out, warnings, err := runImportUserTest("cursor")
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
 	for _, secret := range []string{"GL0BALOAI1", "GL0BALAUTH", "GL0BALHDR1"} {
 		if strings.Contains(out+warnings, secret) {
-			t.Errorf("import --global prints a credential value:\n%s%s", out, warnings)
+			t.Errorf("import --scope user prints a credential value:\n%s%s", out, warnings)
 		}
 	}
 	for name, field := range map[string]string{"openai": "env.OPENAI_KEY", "auth": "env.X_AUTH", "headers": "env.MCP_HEADERS"} {

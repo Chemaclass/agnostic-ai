@@ -216,8 +216,8 @@ func (h *editHandler) permissionPlan(req permissionEditRequest, where editAudien
 		after = slices.Clone(baseline.original)
 	}
 	view := permissionEditView{SchemaVersion: "permission-edit/v1", File: overviewDisplay(h.root, file), Key: req.Key, Audience: string(where), Before: before, Rules: rules, SyncCommand: "agnostic-ai sync"}
-	if h.global {
-		view.SyncCommand += " --global"
+	if h.userLevel {
+		view.SyncCommand += " --scope user"
 	}
 	view.Diff = previewDiff(view.File, view.File+" (before)", view.File+" (proposed)", string(original.data), string(after), original.info == nil, 2048)
 	if where == audiencePersonal && shared != nil && rules != nil && (req.Key == "permissions.deny" || req.Key == "permissions.ask") {

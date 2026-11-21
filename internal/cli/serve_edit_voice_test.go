@@ -15,7 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-func TestEditField_GlobalVoiceSavesAndClearsNestedMembers(t *testing.T) {
+func TestEditField_UserVoiceSavesAndClearsNestedMembers(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
@@ -70,7 +70,7 @@ func TestEditField_GlobalVoiceSavesAndClearsNestedMembers(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceRemovesEmptiedServerScaffold(t *testing.T) {
+func TestEditField_UserVoiceRemovesEmptiedServerScaffold(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
@@ -97,7 +97,7 @@ func TestEditField_GlobalVoiceRemovesEmptiedServerScaffold(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceRemovesPreviousServerScaffold(t *testing.T) {
+func TestEditField_UserVoiceRemovesPreviousServerScaffold(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
@@ -121,7 +121,7 @@ func TestEditField_GlobalVoiceRemovesPreviousServerScaffold(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceKeepsUserEditedServerScaffold(t *testing.T) {
+func TestEditField_UserVoiceKeepsUserEditedServerScaffold(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
@@ -139,7 +139,7 @@ func TestEditField_GlobalVoiceKeepsUserEditedServerScaffold(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceRejectsInvalidValuesWithoutWriting(t *testing.T) {
+func TestEditField_UserVoiceRejectsInvalidValuesWithoutWriting(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
@@ -163,7 +163,7 @@ func TestEditField_GlobalVoiceRejectsInvalidValuesWithoutWriting(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceRejectsPerToolTargets(t *testing.T) {
+func TestEditField_UserVoiceRejectsPerToolTargets(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	h := newEditHandler(source, true)
@@ -255,7 +255,7 @@ func TestEditField_ProjectVoiceCannotUseTheBooleanEndpoint(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
+func TestEditField_UserVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 	silence(t)
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
@@ -275,7 +275,7 @@ func TestEditField_GlobalVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceWritesEmptyDocuments(t *testing.T) {
+func TestEditField_UserVoiceWritesEmptyDocuments(t *testing.T) {
 	for _, original := range []string{" \n", "# My settings\n"} {
 		t.Run(original, func(t *testing.T) {
 			defer func() {
@@ -308,7 +308,7 @@ func TestEditField_GlobalVoiceWritesEmptyDocuments(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
+func TestEditField_UserVoiceRejectsWholePersonalClear(t *testing.T) {
 	source := editHome(t)
 	shared := filepath.Join(source, "settings", "native.yaml")
 	local := filepath.Join(source, "local", "settings", "native.yaml")
@@ -343,7 +343,7 @@ func TestEditField_GlobalVoiceRejectsWholePersonalClear(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceRestoresCommentOnlyDocument(t *testing.T) {
+func TestEditField_UserVoiceRestoresCommentOnlyDocument(t *testing.T) {
 	source := editHome(t)
 	file := filepath.Join(source, "settings", "native.yaml")
 	original := "# My settings\n"
@@ -368,7 +368,7 @@ func TestEditField_GlobalVoiceRestoresCommentOnlyDocument(t *testing.T) {
 	}
 }
 
-func TestEditField_GlobalVoiceClearBlocksOnlyItsOwnSpec(t *testing.T) {
+func TestEditField_UserVoiceClearBlocksOnlyItsOwnSpec(t *testing.T) {
 	source := editHome(t)
 	if err := os.Remove(filepath.Join(source, "settings", "native.yaml")); err != nil {
 		t.Fatal(err)

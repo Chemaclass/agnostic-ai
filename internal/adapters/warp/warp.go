@@ -63,7 +63,7 @@
 //
 // The Warp app and the Warp Agent CLI keep separate MCP files
 // (docs.warp.dev/agents/cli/configuration, #2580). This adapter and
-// `sync --global` write the app files, `.warp/.mcp.json` and
+// `sync --scope user` write the app files, `.warp/.mcp.json` and
 // `~/.warp/.mcp.json`. The CLI reads its own global file: documented
 // only on macOS, `~/.warp_cli/.mcp.json`; on other systems the path
 // (`cli/.mcp.json` in the Warp config directory) comes from vendor

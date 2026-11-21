@@ -289,7 +289,7 @@ func TestOverviewScopeLintFindings_MarksALintRunThatStopped(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "agnostic-ai.yaml"), "lint: [not, a, map]\n")
 
-	got := overviewScopeLintFindings(checkScope{global: true, source: dir}, "agnostic-ai.yaml", filepath.ToSlash)
+	got := overviewScopeLintFindings(checkScope{userLevel: true, source: dir}, "agnostic-ai.yaml", filepath.ToSlash)
 
 	if len(got) != 1 || got[0].Code != overview.CodeLintIncomplete || !strings.HasPrefix(got[0].Message, "Lint stopped before it finished") {
 		t.Fatalf("findings = %+v, want one %s finding", got, overview.CodeLintIncomplete)

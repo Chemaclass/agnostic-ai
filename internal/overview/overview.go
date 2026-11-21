@@ -20,9 +20,9 @@ import (
 // and builds the snapshot; Build only arranges what it is given, so the
 // same inputs always give the same view.
 type Inputs struct {
-	Cfg    *config.Config
-	Global bool
-	Bundle spec.Bundle
+	Cfg       *config.Config
+	UserLevel bool
+	Bundle    spec.Bundle
 	// Snapshot identifies the configuration the inputs came from.
 	Snapshot authority.Snapshot
 	// Instructions are the always-on instruction files, such as
@@ -263,13 +263,13 @@ func Build(in Inputs) *View {
 		Targets:       targets,
 		Tools:         toolCatalog(in.Tools, newLabeler()),
 		Health:        health,
-		Global:        in.Global,
+		UserLevel:     in.UserLevel,
 		Repository:    projectRepository(in),
 	}
 }
 
 func projectRepository(in Inputs) *Repository {
-	if in.Global {
+	if in.UserLevel {
 		return nil
 	}
 	return GitHubRepository(in.OriginURL)
@@ -305,7 +305,7 @@ func placeFindings(sections []Section, findings []Finding) {
 		// A global finding's path is relative to the global source, so it
 		// never names a project item.
 		for si := range sections {
-			if f.Layer == LayerGlobal {
+			if f.Layer == LayerUser {
 				break
 			}
 			for ii := range sections[si].Items {
@@ -437,7 +437,7 @@ func finishSection(s *Section, def sectionDef, in Inputs, caps map[string][]spec
 			}
 		}
 	}
-	s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.Global)
+	s.Fields = buildFields(def.id, fieldItems, in.Bundle.Settings, in.Cfg, in.Snapshot.Project.Root, in.UserLevel)
 	if def.id == SectionSettings {
 		labels := newLabeler()
 		for i := range s.Fields {
@@ -547,7 +547,7 @@ var builtinAbouts = map[string]BuiltinAbout{
 	"approvals": {
 		Summary: "Adds a hook to Claude Code and Codex that approves one tool call at a time when the approvals mode is yolo.",
 		Points: []string{
-			"Only the home config turns it on: sync --global writes the hook to ~/.claude/settings.json and ~/.codex/hooks.json. A project sync skips it.",
+			"Only the home config turns it on: sync --scope user writes the hook to ~/.claude/settings.json and ~/.codex/hooks.json. A project sync skips it.",
 			"Deleting, publishing, network, secrets and edits outside the project always ask. agnostic-ai approvals ask stops it on the next request.",
 			"Every decision goes to a log under $AGNOSTIC_AI_HOME/local/approvals/.",
 		},
@@ -676,8 +676,8 @@ func builtinItems(in Inputs) []SectionItem {
 	}
 	items := make([]SectionItem, 0, len(names))
 	for _, name := range names {
-		if name == config.ApprovalsBuiltin && !in.Global && !slices.Contains(enabled, name) {
-			// A project cannot turn it on: only sync --global writes its hooks.
+		if name == config.ApprovalsBuiltin && !in.UserLevel && !slices.Contains(enabled, name) {
+			// A project cannot turn it on: only sync --scope user writes its hooks.
 			continue
 		}
 		description := builtinDescriptions[name]
