@@ -22,19 +22,42 @@ Use the row menu to [stop a forgotten Claude Code shell](@/docs/cli-reference/co
 
 ## Install and start {#install}
 
-On macOS, download the `.dmg` for your Mac from the [latest release](https://github.com/Chemaclass/agnostic-ai/releases/latest): `arm64` for Apple silicon, `amd64` for Intel. Open it, drag **agnostic-ai companion** into **Applications**, eject the disk image, then open the app. It includes the matching CLI and needs no npm, Homebrew, Go or compiler.
+The disk image works on macOS 13 Ventura or later and includes the companion, the matching CLI, and the full web dashboard. You can open the app without setting up agnostic-ai or installing a separate CLI.
 
-The app is signed without an Apple Developer identity and is not notarized. If macOS blocks it, open **System Settings > Privacy & Security**, choose **Open Anyway**, and confirm the next prompt.
+1. Open **Apple menu > About This Mac**. An Apple chip uses the **Apple silicon** (`arm64`) download. An Intel processor uses **Intel** (`amd64`).
+2. Open the [latest stable release](https://github.com/Chemaclass/agnostic-ai/releases/latest) and download the matching `.dmg`. If the release has no disk image for your Mac, [install from the terminal](#install-from-terminal).
+3. Open the disk image, drag **agnostic-ai companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder.
+4. Click the floating circle to see your conversations. Use **Open the dashboard** in the list header to open the full web interface in your browser.
 
-Right-click the circle for **Install command line tool**. It links the bundled CLI into `/usr/local/bin` when that folder is on `PATH` and writable, otherwise `~/.local/bin`, and names the path. Add that folder to your shell's `PATH` if needed. An existing command is left in place, including npm and Homebrew installs. Keep the app in Applications: the command links to the copy inside it.
+The companion and dashboard use your [global settings](@/docs/global-configuration.md) in `~/.agnostic-ai` by default. Existing sessions from supported tools appear as they are discovered. If the list is empty, start a conversation in a supported tool such as Claude Code or Codex. See the [Companion list](@/docs/cli-reference/companion-list.md) for the conversations it can show.
 
-The app checks for a newer stable release on start and every 24 hours while it runs. **Check for updates** in the circle's right-click menu checks at once. Accept **Update and restart** to replace the app and its bundled CLI together. Downloads use the same checksum and build provenance checks as the CLI installer. A separate npm or Homebrew CLI keeps its own update path. Running `agnostic-ai upgrade` through the bundled CLI link directs you to the app menu. Update failures are recorded in `~/Library/Application Support/agnostic-ai/companion-update.log`.
+{% <details summary="First-launch checks and macOS permissions"> %}
+The app is signed without an Apple Developer ID and is not notarized. Gatekeeper may say it cannot verify the developer or check the app. [Verify the downloaded disk image](@/docs/verify-a-release.md) and see [Apple's guide to macOS alerts](https://support.apple.com/en-us/102445).
 
-If you already have the CLI, you can also install the companion from your terminal:
+macOS may ask for Automation when you [open a terminal chat](@/docs/cli-reference/companion-list.md#open-a-chat), or for Accessibility when you [paste into a terminal](@/docs/cli-reference/companion-list.md#send-copied-text). These permissions are for those actions.
+{% </details> %}
+
+{% <details summary="Use a different configuration folder or install the command line tool"> %}
+The app uses `AGNOSTIC_AI_HOME` when that variable is set in its environment. A Finder launch normally uses the default folder. An override in a shell startup file such as `.zshrc` applies to that shell and processes that inherit its environment.
+
+To use the command in a terminal, right-click the circle and choose **Install command line tool**. The app links the bundled CLI into `/usr/local/bin` when that folder is writable and on `PATH`, or into `~/.local/bin`. Add the reported folder to your shell's `PATH` if needed. Existing commands, including npm and Homebrew installs, stay in place. Keep the app in Applications so the link still works.
+{% </details> %}
+
+{% <details summary="Update the disk-image app"> %}
+The app checks for updates on start and every 24 hours while it runs. Use **Check for updates** in the circle's right-click menu to check now. **Update and restart** replaces the app and its bundled CLI together. The download uses the same checksum and build provenance checks as the CLI installer.
+
+Separate npm or Homebrew installs keep their own update path. Running `agnostic-ai upgrade` from the bundled CLI link directs you to the app menu. If an update fails, see `~/Library/Application Support/agnostic-ai/companion-update.log`.
+{% </details> %}
+
+### Install from the terminal {#install-from-terminal}
+
+Use an existing CLI to install and start the companion:
 
 1. Run `agnostic-ai companion install`. On macOS it downloads the build for your Mac. Elsewhere it builds the companion.
 2. Run `agnostic-ai companion`. It starts the companion and returns.
 3. Run it again to bring back a hidden companion and open its list.
+
+If a release ships without the companion archive, the installer builds the companion from source. That needs Go and the Xcode Command Line Tools on macOS.
 
 | System | Status |
 |--------|--------|
