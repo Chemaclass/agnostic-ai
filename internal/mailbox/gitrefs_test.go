@@ -34,7 +34,7 @@ func TestResolveReviewRefs_PinsTheWorktreeAndBothRenamePaths(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantRoot := reviewGitFixture(t, repo, "rev-parse", "--show-toplevel")
+	wantRoot := filepath.Clean(reviewGitFixture(t, repo, "rev-parse", "--show-toplevel"))
 	if refs.Worktree != wantRoot || refs.Commit != head || refs.Base != base || refs.Branch != "main" || refs.Uncommitted != 3 {
 		t.Errorf("review refs = %+v", refs)
 	}
@@ -55,7 +55,7 @@ func TestResolveReviewRefs_DefaultAndDetachedLinkedWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantRoot := reviewGitFixture(t, linked, "rev-parse", "--show-toplevel")
+	wantRoot := filepath.Clean(reviewGitFixture(t, linked, "rev-parse", "--show-toplevel"))
 	if refs.Worktree != wantRoot || refs.Commit != head || refs.Base != base || refs.Branch != "" {
 		t.Errorf("linked review refs = %+v", refs)
 	}
@@ -79,6 +79,15 @@ func TestResolveReviewRefs_RejectsMissingUnknownAndDivergentRevisions(t *testing
 	}
 	_, err := ResolveReviewRefs(context.Background(), t.TempDir(), base, "")
 	requireGuard(t, err, "refs")
+}
+
+func TestResolveReviewRefs_RejectsAnOptionInPlaceOfARevision(t *testing.T) {
+	repo, _ := newReviewRepo(t)
+	_, err := ResolveReviewRefs(context.Background(), repo, "--quiet", "HEAD")
+	requireGuard(t, err, "refs")
+	if err != nil && !strings.Contains(err.Error(), "leading dash") {
+		t.Errorf("unexpected refusal = %v", err)
+	}
 }
 
 func TestResolveReviewRefs_RefusesMoreThan200ChangedPaths(t *testing.T) {

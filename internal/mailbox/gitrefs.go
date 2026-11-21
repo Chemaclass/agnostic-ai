@@ -21,7 +21,10 @@ const (
 	reviewTimeout     = 10 * time.Second
 )
 
-var objectID = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
+var (
+	objectID       = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
+	reviewRevision = regexp.MustCompile(`^[^-\x00-\x20\x7f][^\x00-\x20\x7f]*$`)
+)
 
 func ResolveReviewRefs(ctx context.Context, folder, base, commit string) (ReviewRefs, error) {
 	if refused := checkReviewStrings(folder, base, commit); refused != nil {
@@ -110,6 +113,9 @@ func resolveReviewSend(ctx context.Context, folder string, input ReviewInput) (R
 }
 
 func reviewCommitID(ctx context.Context, root, ref string) (string, error) {
+	if !reviewRevision.MatchString(ref) {
+		return "", &Refusal{"refs", "The commit or base is not a valid Git reference.", "Use a branch, tag, or commit ID without whitespace or a leading dash."}
+	}
 	out, err := reviewGit(ctx, root, "rev-parse", "--verify", "--quiet", "--end-of-options", ref+"^{commit}")
 	id := strings.TrimSpace(string(out))
 	if err != nil || !objectID.MatchString(id) {
