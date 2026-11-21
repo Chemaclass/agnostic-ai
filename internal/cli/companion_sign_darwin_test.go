@@ -6,12 +6,14 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestSignCompanion_KeepsOneRequirementThatAnotherSignerFails(t *testing.T) {
+	useRealHome(t)
 	folder := t.TempDir()
 	app := filepath.Join(t.TempDir(), companionAppName+".app")
 	writeTestApp(t, app, "/usr/bin/true")
@@ -74,6 +76,7 @@ func writeTestApp(t *testing.T, app, program string) {
 }
 
 func TestSignCompanion_MakesTheCertificateAgainWhenTheKeychainLacksIt(t *testing.T) {
+	useRealHome(t)
 	folder := t.TempDir()
 	app := filepath.Join(t.TempDir(), companionAppName+".app")
 	writeTestApp(t, app, "/usr/bin/true")
@@ -134,6 +137,7 @@ func TestCompanionSigner_KeepsTheKeychainWhenTheCheckIsInterrupted(t *testing.T)
 }
 
 func TestSignCompanion_SignsInAFolderWhoseNameLooksLikeAPattern(t *testing.T) {
+	useRealHome(t)
 	folder := filepath.Join(t.TempDir(), "profile[12")
 	if err := os.MkdirAll(filepath.Join(folder, companionSignerScratch+"left"), 0o700); err != nil {
 		t.Fatal(err)
@@ -148,4 +152,17 @@ func TestSignCompanion_SignsInAFolderWhoseNameLooksLikeAPattern(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(folder, companionSignerScratch+"left")); err == nil {
 		t.Error("the scratch folder from a killed install is still there")
 	}
+}
+
+// useRealHome undoes TestMain's temporary HOME for one test. codesign
+// finds an identity through the user's keychain search list, which
+// security writes under HOME; under the temporary one, a CI runner's
+// codesign found none.
+func useRealHome(t *testing.T) {
+	t.Helper()
+	me, err := user.Current()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HOME", me.HomeDir)
 }

@@ -28,10 +28,10 @@ The two certificates differ, so a user who switches between the disk image and t
 ### Terminal installer
 
 1. On the first install, `makeCompanionSigner` runs the system `openssl` (`/usr/bin/openssl`) to make an RSA 2048 certificate valid for 100 years, with the code signing usage, and bundles it with its key into a `.p12`.
-2. It creates `signer.keychain-db` with an empty password, imports the bundle (`-T /usr/bin/codesign`), and deletes the scratch files. This is the same path the release signing takes. A certificate made with Go's `x509` package, or a key and certificate imported as two files, formed no signing identity on a CI runner, though they did on a Mac. The login keychain is not touched.
+2. It creates `signer.keychain-db` with an empty password, imports the bundle (`-T /usr/bin/codesign`), and deletes the scratch files. This is the same path the release signing takes. The login keychain is not touched.
 3. It writes `signer.cer` last. A keychain without `signer.cer`, or one that lacks the certificate `signer.cer` names, is deleted and made again. An interrupted check keeps both files.
 4. Each install unlocks the keychain, since it locks itself after five minutes and on sleep, and sets the key's partition list so `codesign` uses it without a dialog.
-5. It adds the keychain to the user's keychain search list, runs `codesign --force --keychain <path> --sign <sha1> --identifier dev.agnostic-ai.companion -r=<requirement>`, and puts the list back. Older macOS versions find a signing identity only in a listed keychain, whatever `--keychain` says; a macOS 26.7 CI runner failed with `no identity found` without it.
+5. It adds the keychain to the user's keychain search list, runs `codesign --force --keychain <path> --sign <sha1> --identifier dev.agnostic-ai.companion -r=<requirement>`, and puts the list back. Some macOS setups find a signing identity only in a listed keychain, whatever `--keychain` says: a macOS 26.7 CI runner failed with `no identity found` while `security find-identity` listed the identity. A Mac at macOS 27 signed without it. The search list lives under `HOME`, so the Go tests that sign switch back to the real home directory, which the package's `TestMain` replaces.
 
 The keychain has no password because the installer must sign without a prompt. A program running as the same user can read the key and sign a copy that macOS accepts. A password stored on the same Mac would not change that.
 

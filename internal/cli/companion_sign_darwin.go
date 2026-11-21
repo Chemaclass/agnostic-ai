@@ -138,10 +138,8 @@ extendedKeyUsage = critical,codeSigning
 
 // makeCompanionSigner makes the certificate with the system openssl and
 // imports it, with its key, as one .p12, the same way the release signs.
-// A certificate from Go's x509 package, or a key and certificate imported
-// apart, formed no signing identity on a CI runner. Go cannot write a
-// .p12; its password guards nothing, since the file is deleted at once,
-// and macOS refuses a .p12 without one.
+// The .p12 password guards nothing, since the file is deleted at once;
+// macOS refuses a .p12 without one.
 func makeCompanionSigner(ctx context.Context, folder, keychain string) ([]byte, error) {
 	scratch, err := os.MkdirTemp(folder, companionSignerScratch)
 	if err != nil {
