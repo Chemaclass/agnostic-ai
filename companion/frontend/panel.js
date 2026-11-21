@@ -1,8 +1,8 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopSession, stopShell } from '/api.js'
+import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -1782,6 +1782,8 @@ const settings = {
   preferences: undefined,
   /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}. */
   appearance: undefined,
+  /** The update entry: {state, version?}. */
+  update: { state: 'unavailable' },
   /** The id of the shortcut the next key press becomes; undefined otherwise. */
   recording: undefined,
   /** Why the last change was refused; shown until the next change. */
@@ -1817,6 +1819,10 @@ const MENU_ACTIONS = {
   startAtLogin: () => change('preferences', () => saveStartAtLogin(flip('startAtLogin'))),
   shortcut: () => record('shortcut'),
   sendShortcut: () => record('sendShortcut'),
+  update: () => {
+    closeMenu()
+    startUpdate().catch(sayFailure)
+  },
   hide: () => hideCompanion().catch(sayFailure),
   quit: () => {
     closeMenu()
@@ -1861,6 +1867,7 @@ function drawSettings() {
   for (const row of menuRowsOf(settings.items, settings, isMac)) {
     const control = settings.controls.get(row.id)
     if (row.kind === 'action') control.textContent = row.label
+    control.disabled = Boolean(row.disabled)
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
     if (row.kind !== 'shortcut') continue
     const recording = settings.recording === row.id
@@ -1886,13 +1893,14 @@ function closeMenu() {
 /** Opens the menu with the values in effect; `focus` names the row to focus. */
 async function openMenu(focus) {
   try {
-    const [items, preferences, appearance] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance()])
+    const [items, preferences, appearance, update] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readUpdate()])
     if (!settings.items) {
       settings.items = items
-      buildMenu(menuRowsOf(items, { preferences, appearance }, isMac))
+      buildMenu(menuRowsOf(items, { preferences, appearance, update }, isMac))
     }
     settings.preferences = preferences
     settings.appearance = appearance
+    showUpdate(update)
   } catch (error) {
     sayFailure(error)
     return
@@ -1902,6 +1910,16 @@ async function openMenu(focus) {
   menu.hidden = false
   menuButton.setAttribute('aria-expanded', 'true')
   if (focus) settings.controls.get(focus)?.focus()
+}
+
+/** Names the settings button after a known update, with a dot on it. */
+function showUpdate(update) {
+  settings.update = update
+  const badge = updateBadgeOf(update)
+  menuButton.setAttribute('aria-label', badge ?? 'Settings')
+  menuButton.title = badge ?? 'Settings'
+  if (badge) menuButton.dataset.update = update.version
+  else delete menuButton.dataset.update
 }
 
 /** A change made in the right-click menu shows in an open menu at once. */
@@ -1918,6 +1936,11 @@ document.addEventListener('mousedown', (event) => {
 })
 Events.On('appearance', (event) => heard('appearance', event.data))
 Events.On('preferences', (event) => heard('preferences', event.data))
+Events.On('update', (event) => {
+  showUpdate(event.data)
+  if (!menu.hidden && settings.items) drawSettings()
+})
+readUpdate().then(showUpdate, sayFailure)
 approvalsAsk.addEventListener('click', askAgain)
 const dashboardButton = document.getElementById('dashboard')
 dashboardButton.addEventListener('click', async () => {

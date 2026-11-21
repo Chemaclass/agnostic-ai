@@ -346,7 +346,7 @@ test('the menu list is served with the pages', async (t) => {
   t.after(preview.close)
   const menu = await fetch(preview.url + '/menu.json')
   assert.equal(menu.status, 200)
-  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'shortcut', 'sendShortcut', 'hide', 'quit'])
+  assert.deepEqual((await menu.json()).map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'startAtLogin', 'shortcut', 'sendShortcut', 'update', 'hide', 'quit'])
 })
 
 test('the list menu turns animation, dimming and the small circle on and off and answers the appearance', async (t) => {
@@ -392,4 +392,15 @@ test('the forgotten shell fixture refuses stale identities and changes only the 
   assert.deepEqual(await stopped.json(), { stillRunning: [{ pid: first.pid + 1, procStart: first.procStart }] })
   const after = await inbox(preview.url)
   assert.deepEqual(after.body.view.conversations.find((row) => row.id === body.id).stuckShells, [other])
+})
+
+test('the preview answers the update entry: none by default, a newer release in its fixture', async (t) => {
+  const plain = await startPreview({ port: 0 })
+  t.after(plain.close)
+  assert.deepEqual(await (await fetch(plain.url + '/api/update')).json(), { state: 'unavailable' })
+
+  const newer = await startPreview({ port: 0, fixture: 'update-available' })
+  t.after(newer.close)
+  assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'available', version: '0.97.0' })
+  assert.equal((await fetch(newer.url + '/api/update', { method: 'POST' })).status, 204)
 })

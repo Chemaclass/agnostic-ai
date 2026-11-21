@@ -92,6 +92,8 @@ const (
 	eventQuitAsked = "quit-asked"
 	// eventSendShown says the send shortcut opened the panel; its data is the corner nearest the bubble.
 	eventSendShown = "send-shown"
+	// eventUpdate says the update entry changed; its data is the new update status.
+	eventUpdate = "update"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -126,6 +128,7 @@ type shell struct {
 	login           autostart
 	tell            func(appearance)
 	tellPreferences func(preferences)
+	tellUpdate      func(updateStatus)
 	end             func()
 	endOnce         sync.Once
 	// placing keeps presence changes and opening the list from
@@ -671,6 +674,11 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/appearance/small-companion", s.setAppearanceSwitch(s.setSmallCompanion))
+	mux.HandleFunc("GET /api/update", s.getUpdate)
+	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, _ *http.Request) {
+		s.runUpdate()
+		w.WriteHeader(http.StatusNoContent)
+	})
 	mux.HandleFunc("POST /api/dashboard", s.dashboard)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
@@ -809,6 +817,9 @@ func main() {
 	s.login = s.app.Autostart
 	s.tellPreferences = func(prefs preferences) {
 		s.app.Event.Emit(eventPreferences, prefs)
+	}
+	s.tellUpdate = func(status updateStatus) {
+		s.app.Event.Emit(eventUpdate, status)
 	}
 	if err := s.bubbleMenu(); err != nil {
 		log.Fatal(err)

@@ -308,6 +308,7 @@ export const FIXTURES = {
   },
 
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
+  'update-available': { label: 'A newer release for the disk image app', conversations: mixed, update: { state: 'available', version: '0.97.0' } },
   empty: { label: 'Empty inbox', conversations: () => [] },
   many: { label: 'Many sessions', conversations: many },
   'long-names': { label: 'Long names', conversations: longNames },

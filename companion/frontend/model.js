@@ -1013,15 +1013,29 @@ export function hideLabelOf(label, preferences) {
   return preferences.shortcutProblem ? `${label} (agnostic-ai companion brings it back)` : label
 }
 
+/** The update entry's label in its state; the shell's updateLabel says the same. */
+export function updateLabelOf(label, update) {
+  if (update.state === 'checking') return 'Checking for updates…'
+  if (update.state === 'available' || update.state === 'failed') return `Update to v${update.version}`
+  if (update.state === 'updating') return `Updating to v${update.version}…`
+  return label
+}
+
+/** The settings button's name while an update is known, or undefined when there is none. */
+export function updateBadgeOf(update) {
+  if (update.state !== 'available' && update.state !== 'failed') return undefined
+  return `Settings: update to v${update.version} available`
+}
+
 /**
- * The settings menu's rows, from menu.json and the shell's two replies:
- * {id, label, kind, hint?, value}. A switch's value is its
+ * The settings menu's rows, from menu.json and the shell's three replies:
+ * {id, label, kind, hint?, value, disabled?}. A switch's value is its
  * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
- * Hide's label names the way back.
+ * Hide's label names the way back. The update entry shows only where the companion can update itself.
  */
-export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
+export function menuRowsOf(items, { preferences, appearance, update = { state: 'unavailable' } }, isMac = false) {
   const values = { ...appearance, ...preferences }
-  return items.map((item) => {
+  return items.filter((item) => item.id !== 'update' || update.state !== 'unavailable').map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
     if (item.kind === 'switch') {
@@ -1033,6 +1047,7 @@ export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
       value = preferences[item.id]
     }
     if (item.id === 'hide') return { ...item, label: hideLabelOf(item.label, preferences), value }
+    if (item.id === 'update') return { ...item, label: updateLabelOf(item.label, update), value, disabled: update.state === 'checking' || update.state === 'updating' }
     return { ...item, value }
   })
 }

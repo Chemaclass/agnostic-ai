@@ -15,8 +15,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 var companionExecutable = os.Executable
@@ -118,22 +116,108 @@ func latestCompanionRelease(ctx context.Context, client *http.Client, url, curre
 	return "", nil
 }
 
+// The states of the update entry both menus show.
+const (
+	updateUnavailable = "unavailable"
+	updateIdle        = "idle"
+	updateChecking    = "checking"
+	updateAvailable   = "available"
+	updateUpdating    = "updating"
+	updateFailed      = "failed"
+)
+
+// updateID is the update entry in menu.json.
+const updateID = "update"
+
+// updateStatus is what the update entry shows; Version names the newer release.
+type updateStatus struct {
+	State   string `json:"state"`
+	Version string `json:"version,omitempty"`
+}
+
+// updateLabel names the update entry in its state; model.js updateLabelOf says the same in the list.
+func updateLabel(base string, status updateStatus) string {
+	switch status.State {
+	case updateChecking:
+		return "Checking for updates…"
+	case updateAvailable, updateFailed:
+		return "Update to v" + status.Version
+	case updateUpdating:
+		return "Updating to v" + status.Version + "…"
+	}
+	return base
+}
+
+func (status updateStatus) busy() bool {
+	return status.State == updateChecking || status.State == updateUpdating
+}
+
 type appCommands struct {
 	shell        *shell
 	app, command string
 	busy         sync.Mutex
+	latest       func(context.Context) (string, error)
+
+	mu      sync.Mutex
+	current updateStatus
 }
 
-func (s *shell) addAppMenu(menu *application.Menu) *appCommands {
+func (s *shell) ownAppCommands() *appCommands {
 	app, command, ok := ownBundledCommand()
 	if !ok {
 		return nil
 	}
-	controls := &appCommands{shell: s, app: app, command: command}
-	menu.AddSeparator()
-	menu.Add("Install command line tool").OnClick(func(*application.Context) { go controls.installCommand() })
-	menu.Add("Check for updates").OnClick(func(*application.Context) { go controls.checkUpdates(context.Background(), true) })
-	return controls
+	return &appCommands{shell: s, app: app, command: command, current: updateStatus{State: updateIdle}, latest: func(ctx context.Context) (string, error) {
+		return latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version, updateImageName())
+	}}
+}
+
+// updateStatus is the update entry's state; a companion without a bundled command has none yet.
+func (s *shell) updateStatus() updateStatus {
+	if s.appCommands == nil {
+		return updateStatus{State: updateUnavailable}
+	}
+	return s.appCommands.status()
+}
+
+// runUpdate checks for updates, or offers the known one.
+func (s *shell) runUpdate() {
+	if s.appCommands != nil {
+		go s.appCommands.clicked()
+	}
+}
+
+func (s *shell) getUpdate(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, http.StatusOK, s.updateStatus())
+}
+
+func (c *appCommands) status() updateStatus {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.current
+}
+
+func (c *appCommands) setStatus(status updateStatus) {
+	c.mu.Lock()
+	c.current = status
+	c.mu.Unlock()
+	c.shell.refreshNative()
+	if c.shell.tellUpdate != nil {
+		c.shell.tellUpdate(status)
+	}
+}
+
+func (c *appCommands) clicked() {
+	status := c.status()
+	switch status.State {
+	case updateIdle:
+		c.checkUpdates(context.Background(), true)
+	case updateAvailable, updateFailed:
+		if c.busy.TryLock() {
+			defer c.busy.Unlock()
+			c.offer(context.Background(), status.Version)
+		}
+	}
 }
 
 func (c *appCommands) inform(title, message string) {
@@ -162,24 +246,37 @@ func (c *appCommands) checkUpdates(ctx context.Context, manual bool) {
 		return
 	}
 	defer c.busy.Unlock()
-	next, err := latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version, updateImageName())
+	known := c.status()
+	c.setStatus(updateStatus{State: updateChecking})
+	next, err := c.latest(ctx)
 	if ctx.Err() != nil {
+		c.setStatus(known)
 		return
 	}
 	if err != nil {
+		c.setStatus(known)
 		if manual {
-			c.inform("Check for updates", err.Error())
+			c.inform("Check for updates", "Could not check for updates. Check your connection and try again.")
 		} else {
 			log.Print(err)
 		}
 		return
 	}
 	if next == "" {
+		c.setStatus(updateStatus{State: updateIdle})
 		if manual {
-			c.inform("Check for updates", "No newer stable disk image is available for this Mac. Check again later.")
+			c.inform("Check for updates", fmt.Sprintf("You have the latest version (v%s).", version))
 		}
 		return
 	}
+	c.setStatus(updateStatus{State: updateAvailable, Version: next})
+	if manual {
+		c.offer(ctx, next)
+	}
+}
+
+// offer asks before updating to next; the caller holds busy.
+func (c *appCommands) offer(ctx context.Context, next string) {
 	dialog := c.shell.app.Dialog.Question().SetTitle("Update available").SetMessage(fmt.Sprintf("Agnostic AI %s is available. Update the app and its bundled command line tool, then restart?", next))
 	approved := make(chan bool, 1)
 	dialog.AddButton("Later").SetAsCancel().SetAsDefault().OnClick(func() { approved <- false })
@@ -195,10 +292,15 @@ func (c *appCommands) checkUpdates(ctx context.Context, manual bool) {
 }
 
 func (c *appCommands) update(next string) {
+	c.setStatus(updateStatus{State: updateUpdating, Version: next})
+	failed := func(message string) {
+		c.setStatus(updateStatus{State: updateFailed, Version: next})
+		c.inform("Update failed", message)
+	}
 	path := filepath.Join(filepath.Dir(c.shell.settingsPath), "companion-update.log")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
 	if err != nil {
-		c.inform("Update failed", fmt.Sprintf("%s: %v", path, err))
+		failed(fmt.Sprintf("%s: %v", path, err))
 		return
 	}
 	defer func() { _ = file.Close() }()
@@ -206,16 +308,16 @@ func (c *appCommands) update(next string) {
 	command := exec.Command(c.command, "companion", "update-app", "--app", c.app, "--version", next)
 	command.Stdout, command.Stderr = file, file
 	if err := command.Start(); err != nil {
-		c.inform("Update failed", err.Error())
+		failed(err.Error())
 		return
 	}
 	if err := command.Wait(); err != nil {
 		out, readErr := os.ReadFile(path)
-		message := fmt.Sprintf("The update failed: %v. Check for updates again to retry. Details: %s", err, path)
+		message := fmt.Sprintf("The update failed: %v. Choose Update to v%s to retry. Details: %s", err, next, path)
 		if readErr == nil {
 			message += "\n" + strings.TrimSpace(string(out))
 		}
-		c.inform("Update failed", message)
+		failed(message)
 	}
 }
 
