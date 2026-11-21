@@ -81,7 +81,7 @@ func (t *Thread) recordModel(ref conversations.Ref, name, statedBy string) {
 	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: statedBy}
 }
 
-func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
+func (t Thread) checkSend(from conversations.Ref, req SendRequest, by string) *Refusal {
 	if !t.includes(from) || !t.includes(req.To) {
 		return NewRefusal("not-in-thread")
 	}
@@ -89,8 +89,8 @@ func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
 		return refused
 	}
 	if req.Type == Done {
-		// One done that waits for approval is enough; more would only pile up.
-		if slices.ContainsFunc(t.Messages, func(m Message) bool { return m.Type == Done && m.State == Held }) {
+		// One agent done that waits for approval is enough; more would only pile up.
+		if by == "agent" && slices.ContainsFunc(t.Messages, func(m Message) bool { return m.Type == Done && m.State == Held }) {
 			return NewRefusal("closed")
 		}
 		return nil

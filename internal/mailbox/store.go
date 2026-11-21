@@ -21,7 +21,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
-const maxAudit = 500
+const (
+	maxAudit          = 500
+	maxThreadRefusals = 100
+)
 
 type Store struct {
 	Dir string
@@ -99,7 +102,7 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 		message.QueuedAt = time.Time{}
 	}
 
-	refused = thread.checkSend(from, req)
+	refused = thread.checkSend(from, req, by)
 	if gives != nil {
 		message.Handoff = Offered
 		if refused == nil {
@@ -204,6 +207,7 @@ func (s Store) recordRefusal(at time.Time, from conversations.Ref, req SendReque
 		record.From = &thread.Between[i]
 	}
 	thread.Refusals = append(thread.Refusals, record)
+	thread.Refusals = thread.Refusals[max(0, len(thread.Refusals)-maxThreadRefusals):]
 	return s.writeThread(thread)
 }
 

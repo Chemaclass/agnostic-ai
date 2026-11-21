@@ -79,7 +79,7 @@ agnostic-ai mailbox list
 agnostic-ai mailbox show <thread>
 ```
 
-Print the threads of this session, or one of them, as JSON. Each message shows its number, type, sender, reader, state and time. Its `body`, `refs` and `gives` show only when this session sent it or it was already delivered or staged. A message that waits for approval or delivery stays unread until the hook delivers it. `show` on a thread this session is not in is refused with `not-in-thread`.
+Print the threads of this session, or one of them, as JSON. Each message shows its number, type, sender, reader, state and time. Its `body`, `refs` and `gives` show only when this session sent it or it was already delivered or staged. The model a peer agent states shows once one of its messages was. A message that waits for approval or delivery stays unread until the hook delivers it. `show` on a thread this session is not in is refused with `not-in-thread`.
 
 This `list` runs in the reader's session while the question above is held:
 
@@ -95,9 +95,6 @@ This `list` runs in the reader's session while the question above is held:
         { "tool": "codex", "id": "0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50" },
         { "tool": "claude", "id": "11111111-1111-4111-8111-111111111111" }
       ],
-      "models": {
-        "codex:0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50": { "name": "gpt-5.5", "statedBy": "agent" }
-      },
       "messages": [
         {
           "n": 1,

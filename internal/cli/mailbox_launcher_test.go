@@ -2,6 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
@@ -47,5 +50,37 @@ func TestMailboxCommands_NeverReachALauncher(t *testing.T) {
 
 	if len(spy.calls) != 0 {
 		t.Errorf("mailbox commands called the launcher: %q", spy.calls)
+	}
+}
+
+// TestMailboxCommands_ReachNoTerminalCode keeps the spy honest: the agent
+// commands and the store must not name a launcher, the clipboard or a
+// process start, which a spy on systemLauncher alone would miss.
+func TestMailboxCommands_ReachNoTerminalCode(t *testing.T) {
+	files, err := filepath.Glob("mailbox*.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := filepath.Glob(filepath.Join("..", "mailbox", "*.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range append(files, store...) {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		banned := []string{"Launcher", "SendComposed", "Clipboard", "TypeInTab", "FocusTab"}
+		if filepath.Base(path) != "gitrefs.go" {
+			banned = append(banned, `"os/exec"`)
+		}
+		for _, word := range banned {
+			if strings.Contains(string(data), word) {
+				t.Errorf("%s names %s", path, word)
+			}
+		}
 	}
 }
