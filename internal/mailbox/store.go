@@ -94,7 +94,7 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 
 	message := Message{
 		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: by},
-		To: req.To, Body: conversations.CleanSendText(req.Body), Refs: refs, Gives: gives,
+		To: req.To, Body: conversations.CleanSendText(req.Body), Model: req.Model, Refs: refs, Gives: gives,
 		State: Waiting, At: at, QueuedAt: at,
 	}
 	if by == "agent" && s.Settings().ApproveAgentSends {
@@ -131,7 +131,9 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 		thread.recordModel(from, req.Models.From, "human")
 		thread.recordModel(req.To, req.Models.To, "human")
 	}
-	thread.recordModel(from, req.Model, "agent")
+	if message.State == Waiting {
+		thread.recordModel(from, message.Model, "agent")
+	}
 	action := "send"
 	if message.Type == Done && message.State == Waiting {
 		thread.Status = Closing

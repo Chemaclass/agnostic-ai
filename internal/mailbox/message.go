@@ -94,6 +94,7 @@ type Message struct {
 	From        Actor              `json:"from"`
 	To          conversations.Ref  `json:"to"`
 	Body        string             `json:"body,omitempty"`
+	Model       string             `json:"model,omitempty"`
 	Refs        *ReviewRefs        `json:"refs,omitempty"`
 	Gives       *Gives             `json:"gives,omitempty"`
 	Handoff     string             `json:"handoff,omitempty"`

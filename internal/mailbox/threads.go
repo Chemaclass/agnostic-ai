@@ -27,7 +27,7 @@ func (t Thread) valid(id string) bool {
 	}
 	for i, m := range t.Messages {
 		if m.N != i+1 || !t.includes(m.From.Ref) || !t.includes(m.To) || m.From.Ref == m.To ||
-			m.From.By != "human" && m.From.By != "agent" || !m.validType() {
+			m.From.By != "human" && m.From.By != "agent" || m.Model != "" && m.From.By != "agent" || !m.validType() {
 			return false
 		}
 		switch m.State {
@@ -401,6 +401,7 @@ func (s Store) Approve(ctx context.Context, id string, n int, action string) err
 	}
 	m.State = Waiting
 	m.QueuedAt = at
+	thread.recordModel(m.From.Ref, m.Model, "agent")
 	thread.addEvent(at, "approve", n)
 	if m.Type == Done {
 		thread.Status = Closing

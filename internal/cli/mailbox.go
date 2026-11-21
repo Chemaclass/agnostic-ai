@@ -88,6 +88,17 @@ func runMailboxAgent(cmd *cobra.Command, run func(context.Context, mailboxAgent)
 	return mailboxCommandError(run(ctx, agent))
 }
 
+// runListedMailboxAgent is runMailboxAgent for commands with no target,
+// so send's participant check does not cover the sender.
+func runListedMailboxAgent(cmd *cobra.Command, run func(context.Context, mailboxAgent) error) error {
+	return runMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
+		if err := agent.listed(ctx); err != nil {
+			return err
+		}
+		return run(ctx, agent)
+	})
+}
+
 func printMailboxJSON(out io.Writer, value any) error {
 	enc := json.NewEncoder(out)
 	enc.SetIndent("", "  ")

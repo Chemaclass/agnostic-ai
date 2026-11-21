@@ -34,6 +34,7 @@ func TestMailboxCommands_NeverReachALauncher(t *testing.T) {
 	run("", "mailbox", "list")
 	run("", "mailbox", "show", id)
 	f.as(agentCodex)
+	runHookMailbox(t, "codex", hookPayload(mailboxCodexID, "UserPromptSubmit", ""))
 	run(`{"thread":"`+id+`","type":"finding","body":"Yes."}`, "mailbox", "send")
 	run("", "mailbox", "accept", "--thread", id, "--n", "2")
 	run("", "mailbox", "release", "src")
@@ -45,6 +46,7 @@ func TestMailboxCommands_NeverReachALauncher(t *testing.T) {
 	offer := fmt.Sprintf(`{"thread":%q,"type":"handoff","body":"Take it back.","gives":{"worktree":%q,"paths":["src"]}}`, second, root)
 	run(offer, "mailbox", "send")
 	f.as(agentCodex)
+	runHookMailbox(t, "codex", hookPayload(mailboxCodexID, "UserPromptSubmit", ""))
 	run("", "mailbox", "decline", "--thread", second, "--n", "2")
 	run("", "mailbox", "done", "--thread", id)
 

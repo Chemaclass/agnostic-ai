@@ -968,6 +968,7 @@ test('says which messages an agent sent, the model it states and who answered a 
   assert.equal(statedModelOf({ models: { 'codex:a': { name: 'gpt-5.5', statedBy: 'agent' } } }, { from }), 'Says it runs gpt-5.5')
   assert.equal(statedModelOf({ models: { 'codex:a': { name: 'gpt-5.5', statedBy: 'human' } } }, { from }), undefined)
   assert.equal(statedModelOf({}, { from }), undefined)
+  assert.equal(statedModelOf({ models: { 'codex:a': { name: 'gpt-5.5', statedBy: 'agent' } } }, { from, model: 'gpt-5.6' }), 'Says it runs gpt-5.6')
   const thread = { events: [{ action: 'send', n: 2, by: 'agent' }, { action: 'accept', n: 2, by: 'agent' }, { action: 'decline', n: 3, by: 'human' }] }
   assert.equal(handoffAnswerOf(thread, { n: 2, handoff: 'accepted' }), 'Accepted by the agent')
   assert.equal(handoffAnswerOf(thread, { n: 3, handoff: 'declined' }), 'Declined by you')

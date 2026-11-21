@@ -68,6 +68,8 @@ func answererRefusal(thread Thread, m *Message, actor *conversations.Ref) *Refus
 		return NewRefusal("not-in-thread")
 	case *actor != m.To:
 		return &Refusal{"ownership", "Only the session this handoff was offered to can answer it.", "Wait for that session to accept or decline it."}
+	case m.State != Delivered && m.State != Staged:
+		return &Refusal{"format", "This handoff has not reached this session yet.", "Answer it after it arrives with a prompt."}
 	}
 	return nil
 }

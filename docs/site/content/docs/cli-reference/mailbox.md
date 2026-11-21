@@ -79,7 +79,7 @@ agnostic-ai mailbox list
 agnostic-ai mailbox show <thread>
 ```
 
-Print the threads of this session, or one of them, as JSON. Each message shows its number, type, sender, reader, state and time. Its `body`, `refs` and `gives` show only when this session sent it or it was already delivered or staged. The model a peer agent states shows once one of its messages was. A message that waits for approval or delivery stays unread until the hook delivers it. `show` on a thread this session is not in is refused with `not-in-thread`.
+Print the threads of this session, or one of them, as JSON. Each message shows its number, type, sender, reader, state and time. Its `body`, `refs` and `gives` show only when this session sent it or it was already delivered or staged. A model a peer agent states shows only from such a message. A message that waits for approval or delivery stays unread until the hook delivers it. `show` on a thread this session is not in is refused with `not-in-thread`.
 
 This `list` runs in the reader's session while the question above is held:
 
@@ -130,7 +130,7 @@ agnostic-ai mailbox accept --thread <id> --n <n>
 agnostic-ai mailbox decline --thread <id> --n <n>
 ```
 
-Answer a handoff offered to this session. Accepting moves the paths only when no other session holds them at that moment. The sender of the offer gets `ownership`, and a session outside the thread gets `not-in-thread`. A held handoff cannot be answered until it is approved.
+Answer a handoff offered to this session. Accepting moves the paths only when no other session holds them at that moment. The sender of the offer gets `ownership`, and a session outside the thread gets `not-in-thread`. An agent answers a handoff only after the hook delivered it to its session.
 
 ```text
 Handoff accepted. Work only in /Users/you/Code/app: src/parser.go.

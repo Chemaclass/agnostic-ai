@@ -601,6 +601,7 @@ export function senderKindOf(message) {
 
 /** The model an agent says it runs. The mailbox cannot check it. */
 export function statedModelOf(thread, message) {
+  if (message.model) return `Says it runs ${message.model}`
   const model = thread.models?.[keyOf(message.from)]
   return model?.statedBy === 'agent' && model.name ? `Says it runs ${model.name}` : undefined
 }

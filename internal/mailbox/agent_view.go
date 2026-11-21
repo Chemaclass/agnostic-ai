@@ -26,13 +26,21 @@ type AgentThreadList struct {
 
 func (t Thread) viewFor(me conversations.Ref) AgentThread {
 	view := AgentThread{ID: t.ID, Status: t.Status, Cap: t.Cap, Count: t.contentCount(), Between: t.Between}
-	shown := map[conversations.Ref]bool{me: true}
+	// A model an agent states is text it wrote, so it shows only from messages this session may read.
+	models := map[string]Model{}
+	for key, model := range t.Models {
+		if model.StatedBy != "agent" {
+			models[key] = model
+		}
+	}
 	view.Messages = make([]Message, len(t.Messages))
 	for i, m := range t.Messages {
 		if m.From.Ref == me || m.State == Delivered || m.State == Staged {
-			shown[m.From.Ref] = true
+			if m.Model != "" {
+				models[string(m.From.Tool)+":"+m.From.ID] = Model{Name: m.Model, StatedBy: "agent"}
+			}
 		} else {
-			m.Body, m.Refs = "", nil
+			m.Body, m.Refs, m.Model = "", nil, ""
 			// Paths a session accepted are its own claims now.
 			if m.Handoff != Accepted || m.AcceptedBy == nil || *m.AcceptedBy != me {
 				m.Gives = nil
@@ -40,16 +48,8 @@ func (t Thread) viewFor(me conversations.Ref) AgentThread {
 		}
 		view.Messages[i] = m
 	}
-	// A model an agent states is text it wrote, so it waits like a message body.
-	for key, model := range t.Models {
-		for _, ref := range t.Between {
-			if string(ref.Tool)+":"+ref.ID == key && (shown[ref] || model.StatedBy != "agent") {
-				if view.Models == nil {
-					view.Models = map[string]Model{}
-				}
-				view.Models[key] = model
-			}
-		}
+	if len(models) > 0 {
+		view.Models = models
 	}
 	return view
 }

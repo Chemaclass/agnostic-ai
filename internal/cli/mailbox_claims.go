@@ -20,13 +20,10 @@ func newMailboxClaimCmd() *cobra.Command {
 		Example: `  agnostic-ai mailbox claim internal/mailbox docs/site/content/docs/mailbox.md`,
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, paths []string) error {
-			return runMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
+			return runListedMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
 				gives, err := agent.gives(ctx, worktree, paths)
 				if err != nil {
 					return err
-				}
-				if row, found := agent.scanner.Find(ctx, agent.me.Tool, agent.me.ID, conversations.ScanOptions{}); !found || !canUseMailbox(row) {
-					return mailbox.NewRefusal("unknown-session")
 				}
 				if err := agent.store.Claim(ctx, agent.me, gives, agent.folder); err != nil {
 					return err
@@ -49,7 +46,7 @@ func newMailboxReleaseCmd() *cobra.Command {
 		Example: `  agnostic-ai mailbox release internal/mailbox`,
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, paths []string) error {
-			return runMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
+			return runListedMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
 				gives, err := agent.gives(ctx, worktree, paths)
 				if err != nil {
 					return err
@@ -64,6 +61,15 @@ func newMailboxReleaseCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&worktree, "worktree", "", "worktree that holds the paths (default: the Git root of the current folder)")
 	return cmd
+}
+
+// listed applies the companion's unknown-session rule to the sender:
+// it must be a local terminal session the conversation list shows.
+func (a mailboxAgent) listed(ctx context.Context) error {
+	if row, found := a.scanner.Find(ctx, a.me.Tool, a.me.ID, conversations.ScanOptions{}); !found || !canUseMailbox(row) {
+		return mailbox.NewRefusal("unknown-session")
+	}
+	return nil
 }
 
 func (a mailboxAgent) gives(ctx context.Context, worktree string, paths []string) (mailbox.Gives, error) {
@@ -91,7 +97,7 @@ func newMailboxAnswerCmd(action string) *cobra.Command {
 		Example: "  agnostic-ai mailbox " + action + " --thread th_20261121_7f3a9c10 --n 2",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
+			return runListedMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
 				if n < 1 {
 					return mailbox.NewRefusal("format")
 				}
@@ -125,7 +131,7 @@ func newMailboxListCmd() *cobra.Command {
 		Long:  "Print the threads of the session this runs in as JSON. A message's text, refs and paths show only when this session sent it or it was already delivered to this session; a message waiting for approval or delivery shows its type and state only.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return runMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
+			return runListedMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
 				list, err := agent.store.ThreadsFor(ctx, agent.me)
 				if err != nil {
 					return err
@@ -144,7 +150,7 @@ func newMailboxShowCmd() *cobra.Command {
 		Example: "  agnostic-ai mailbox show th_20261121_7f3a9c10",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
+			return runListedMailboxAgent(cmd, func(ctx context.Context, agent mailboxAgent) error {
 				thread, err := agent.store.ThreadFor(ctx, args[0], agent.me)
 				if err != nil {
 					return err

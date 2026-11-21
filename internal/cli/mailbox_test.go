@@ -395,8 +395,8 @@ func TestMailboxSend_ReviewRequestFromRefsOutput(t *testing.T) {
 	if m.Refs == nil || m.Refs.Base != base || m.Refs.Commit != commit || m.Body != "" {
 		t.Errorf("review message = %+v", m)
 	}
-	if model := thread.Models["claude:"+inProject]; model.Name != "claude-opus-5-5" || model.StatedBy != "agent" {
-		t.Errorf("stated model = %+v", thread.Models)
+	if m.Model != "claude-opus-5-5" {
+		t.Errorf("stated model = %q", m.Model)
 	}
 }
 
@@ -490,6 +490,7 @@ func TestMailboxAccept_MovesPathsOnlyWithoutAConflict(t *testing.T) {
 		return threadOf(t, f.mustSend(fmt.Sprintf(`{"to":"codex:%s","type":"handoff","body":"Take the parser.","gives":{"worktree":%q,"paths":["src/parser.go"]}}`, mailboxCodexID, root)))
 	}
 	first := offer()
+	runHookMailbox(t, "codex", hookPayload(mailboxCodexID, "UserPromptSubmit", ""))
 
 	f.as(agentClaude)
 	out, err := runRoot(t, "mailbox", "accept", "--thread", first, "--n", "1")
@@ -626,5 +627,20 @@ func TestMailboxAgentFlow_IsTheSameForEachTool(t *testing.T) {
 	}
 	if a.Status != b.Status || len(a.Events) != len(b.Events) {
 		t.Errorf("threads differ: %+v vs %+v", a, b)
+	}
+}
+
+func TestMailboxCommands_RefuseASessionTheListDoesNotShow(t *testing.T) {
+	f := newMailboxAgentFixture(t)
+	f.as(conversations.Ref{Tool: conversations.ToolClaude, ID: inWorktree})
+	for _, args := range [][]string{
+		{"mailbox", "list"}, {"mailbox", "show", "th_20261121_7f3a9c10"}, {"mailbox", "claim", "src"}, {"mailbox", "release", "src"},
+		{"mailbox", "accept", "--thread", "th_20261121_7f3a9c10", "--n", "1"},
+		{"mailbox", "decline", "--thread", "th_20261121_7f3a9c10", "--n", "1"},
+	} {
+		out, err := runRoot(t, args...)
+		if err == nil || !strings.Contains(err.Error(), "(guard: unknown-session)") {
+			t.Errorf("%v by an unlisted session = %q, %v", args, out, err)
+		}
 	}
 }
