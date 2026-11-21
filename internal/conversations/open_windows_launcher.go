@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"strings"
 	"unicode/utf16"
 )
@@ -20,6 +21,13 @@ type windowsLauncher struct {
 func (l windowsLauncher) OpenLink(ctx context.Context, link string) error {
 	if err := checkedLink(link); err != nil {
 		return err
+	}
+	// rundll32 succeeds even when no app takes the link, so an app's own
+	// scheme is looked up first.
+	if scheme, _, _ := strings.Cut(link, ":"); scheme != "https" {
+		if _, err := l.run(ctx, "reg.exe", "query", `HKCR\`+scheme, "/v", "URL Protocol"); err != nil {
+			return fmt.Errorf("no app on this computer opens %s:// links", scheme)
+		}
 	}
 	_, err := l.run(ctx, "rundll32.exe", "url.dll,FileProtocolHandler", link)
 	return err
