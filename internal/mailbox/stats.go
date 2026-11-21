@@ -64,7 +64,7 @@ type StateCounts struct {
 	Staged    int `json:"staged"`
 	Delivered int `json:"delivered"`
 	Rejected  int `json:"rejected"`
-	Cancelled int `json:"cancelled"` //nolint:misspell // mailbox/v1 spelling.
+	Canceled  int `json:"cancelled"` //nolint:misspell // mailbox/v1 spelling.
 }
 
 type SenderCounts struct {
@@ -266,7 +266,7 @@ func (stats *Stats) addMessage(thread Thread, m Message, delivery *[]float64, fi
 	case Rejected:
 		states.Rejected++
 	case Canceled:
-		states.Cancelled++
+		states.Canceled++
 	}
 	if m.From.By == "agent" {
 		stats.Messages.BySender.Agent++

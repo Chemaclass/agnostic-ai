@@ -84,7 +84,7 @@ func TestStats_AnEmptyOrMissingMailboxIsZeroAndNull(t *testing.T) {
 			want := `{"schemaVersion":"mailbox-stats/v1","since":null,` +
 				`"threads":{"total":0,"open":0,"paused":0,"closing":0,"closed":0,"reachedCapWithoutDone":0},` +
 				`"messages":{"total":0,"byType":{"question":0,"finding":0,"review_request":0,"handoff":0,"done":0},` +
-				`"byState":{"held":0,"waiting":0,"reserved":0,"staged":0,"delivered":0,"rejected":0,"cancelled":0},` +
+				`"byState":{"held":0,"waiting":0,"reserved":0,"staged":0,"delivered":0,"rejected":0,"cancelled":0},` + //nolint:misspell // mailbox/v1 spelling.
 				`"bySender":{"human":0,"agent":0}},` +
 				`"refusals":{"total":0,"withThread":0,"withoutThread":0,"byGuard":{},"perSendAttempt":null},` +
 				`"deliverySeconds":{"count":0,"median":null,"p90":null},` +
@@ -171,7 +171,7 @@ func TestStats_CountsEveryStateTypeGuardAndAction(t *testing.T) {
 	}
 	m := stats.Messages
 	if m.Total != 11 || m.ByType != (TypeCounts{Question: 4, Finding: 2, ReviewRequest: 1, Handoff: 3, Done: 1}) ||
-		m.ByState != (StateCounts{Held: 1, Waiting: 1, Reserved: 1, Staged: 1, Delivered: 5, Rejected: 1, Cancelled: 1}) ||
+		m.ByState != (StateCounts{Held: 1, Waiting: 1, Reserved: 1, Staged: 1, Delivered: 5, Rejected: 1, Canceled: 1}) ||
 		m.BySender != (SenderCounts{Human: 6, Agent: 5}) {
 		t.Errorf("messages = %+v", m)
 	}

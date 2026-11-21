@@ -718,7 +718,7 @@ func TestMailboxStats_PlainAndJSONShowTheSameKeysAndNumbers(t *testing.T) {
 		"humanActions.approve", "humanActions.pause", "humanActions.per10Threads", "humanActions.queue", "humanActions.raiseCap",
 		"humanActions.reject", "humanActions.resume", "humanActions.stop",
 		"messages.bySender.agent", "messages.bySender.human",
-		"messages.byState.cancelled", "messages.byState.delivered", "messages.byState.held", "messages.byState.rejected",
+		"messages.byState.cancelled", "messages.byState.delivered", "messages.byState.held", "messages.byState.rejected", //nolint:misspell // mailbox/v1 spelling.
 		"messages.byState.reserved", "messages.byState.staged", "messages.byState.waiting",
 		"messages.byType.done", "messages.byType.finding", "messages.byType.handoff", "messages.byType.question", "messages.byType.review_request",
 		"messages.total",
