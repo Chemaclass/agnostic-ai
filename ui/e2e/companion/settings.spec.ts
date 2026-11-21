@@ -33,6 +33,7 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('switch', { name: 'Dim when idle' }),
     menu.getByRole('switch', { name: 'Small companion' }),
     menu.getByRole('switch', { name: 'Start at login' }),
+    menu.getByRole('switch', { name: 'Ask me before an agent sends a message' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
     menu.getByRole('button', { name: 'Send copied text' }),
     menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
@@ -304,6 +305,20 @@ test('switching Dim when idle in the menu saves it', async ({ page }) => {
 
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'true')
   expect((await (await page.request.get('/api/appearance')).json()).dimWhenIdle).toBe(true)
+})
+
+test('the approval switch saves the mailbox setting and starts on', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const ask = settingsMenu(page).getByRole('switch', { name: 'Ask me before an agent sends a message' })
+  await expect(ask).toHaveAttribute('aria-checked', 'true')
+
+  const saved = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/mailbox/settings' && request.method() === 'POST')
+  await ask.click()
+  expect((await saved).postDataJSON()).toEqual({ approveAgentSends: false })
+
+  await expect(ask).toHaveAttribute('aria-checked', 'false')
+  expect((await (await page.request.get('/api/mailbox/settings')).json()).approveAgentSends).toBe(false)
 })
 
 test('switching Small companion in the menu saves it', async ({ page }) => {

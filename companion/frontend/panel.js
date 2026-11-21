@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopSession, stopShell } from '/api.js'
+import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
@@ -1782,6 +1782,8 @@ const settings = {
   preferences: undefined,
   /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}. */
   appearance: undefined,
+  /** The server's mailbox settings: {approveAgentSends}. */
+  mailbox: undefined,
   /** The id of the shortcut the next key press becomes; undefined otherwise. */
   recording: undefined,
   /** Why the last change was refused; shown until the next change. */
@@ -1815,6 +1817,7 @@ const MENU_ACTIONS = {
   dimWhenIdle: () => change('appearance', () => saveDimWhenIdle(flip('dimWhenIdle'))),
   smallCompanion: () => change('appearance', () => saveSmallCompanion(flip('smallCompanion'))),
   startAtLogin: () => change('preferences', () => saveStartAtLogin(flip('startAtLogin'))),
+  approveAgentSends: () => change('mailbox', () => saveMailboxSettings({ approveAgentSends: flip('approveAgentSends') })),
   shortcut: () => record('shortcut'),
   sendShortcut: () => record('sendShortcut'),
   hide: () => hideCompanion().catch(sayFailure),
@@ -1886,13 +1889,14 @@ function closeMenu() {
 /** Opens the menu with the values in effect; `focus` names the row to focus. */
 async function openMenu(focus) {
   try {
-    const [items, preferences, appearance] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance()])
+    const [items, preferences, appearance, mailbox] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readMailboxSettings()])
     if (!settings.items) {
       settings.items = items
-      buildMenu(menuRowsOf(items, { preferences, appearance }, isMac))
+      buildMenu(menuRowsOf(items, { preferences, appearance, mailbox }, isMac))
     }
     settings.preferences = preferences
     settings.appearance = appearance
+    settings.mailbox = mailbox
   } catch (error) {
     sayFailure(error)
     return

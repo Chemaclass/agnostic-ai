@@ -302,6 +302,28 @@ export const FIXTURES = {
       mailboxThread(now, { count: 1, status: 'closed', state: 'cancelled', id: 'th_20261107_00000004' }),
     ],
   },
+  'mailbox-delivery': {
+    label: 'Held, delivered, rejected and staged messages', conversations: mailboxSessions,
+    mailbox: (now) => {
+      const at = new Date(now).toISOString()
+      const message = (n, state, by, body) => ({
+        n, type: 'question', from: { ...MAILBOX_SOURCE, by }, to: MAILBOX_TARGET, body, state, at,
+        ...(state === 'held' ? {} : { queuedAt: at }), ...(state === 'delivered' ? { deliveredAt: at } : {}),
+      })
+      return [{
+        schemaVersion: 'mailbox/v1', id: 'th_20261107_00000005', status: 'open', cap: 8,
+        between: [MAILBOX_SOURCE, MAILBOX_TARGET], events: [],
+        messages: [
+          message(1, 'delivered', 'human', 'Did the parser tests pass?'),
+          message(2, 'staged', 'human', 'Run them again with the race flag.'),
+          message(3, 'rejected', 'agent', 'Merge it now.'),
+          message(4, 'held', 'agent', 'May I rebase the branch?'),
+          message(5, 'held', 'agent', 'Should I drop the old fixtures?'),
+        ],
+        refusals: [{ at, from: MAILBOX_SOURCE, type: 'question', guard: 'rejected', reason: 'You rejected this message.' }],
+      }]
+    },
+  },
   'mailbox-warning': {
     label: 'An unreadable mailbox thread', conversations: mailboxSessions,
     mailboxWarning: 'One mailbox thread could not be read.',

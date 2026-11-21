@@ -151,6 +151,20 @@ test('shows mailbox counts and only the thread controls available in its state',
   assert.deepEqual(threadActionsOf({ ...thread, status: 'closed' }), [])
 })
 
+test('labels message states and offers approve, reject and queue only where they apply', async () => {
+  const { messageActionsOf, messageStateLabelOf, threadLabelOf } = await import('../frontend/model.js')
+  assert.deepEqual(['held', 'delivered', 'rejected', 'reserved'].map(messageStateLabelOf), ['Held for you', 'Delivered', 'Rejected', 'Delivering'])
+  assert.equal(threadLabelOf({ count: 2, cap: 8, waiting: 0, held: 1 }), '2 of 8 messages, 1 held for you')
+  const open = { status: 'open' }
+  assert.deepEqual(messageActionsOf({ state: 'held' }, open), ['approve', 'reject'])
+  assert.deepEqual(messageActionsOf({ state: 'held' }, { status: 'paused' }), ['approve', 'reject'])
+  assert.deepEqual(messageActionsOf({ state: 'waiting' }, open), ['type', 'copy'])
+  assert.deepEqual(messageActionsOf({ state: 'waiting' }, { status: 'paused' }), [])
+  assert.deepEqual(messageActionsOf({ state: 'staged' }, open), ['queue'])
+  assert.deepEqual(messageActionsOf({ state: 'staged' }, { status: 'closed' }), [])
+  for (const state of ['delivered', 'rejected', 'reserved', 'cancelled']) assert.deepEqual(messageActionsOf({ state }, open), [])
+})
+
 test('offers Delete only on a chat under Archived that no process holds', () => {
   assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
   assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide'])

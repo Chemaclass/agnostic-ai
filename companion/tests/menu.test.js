@@ -6,9 +6,10 @@ import { escapeTarget, hideLabelOf, menuRowsOf } from '../frontend/model.js'
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
 const appearance = { animate: false, dimWhenIdle: true, smallCompanion: false, presence: 'shown' }
+const mailbox = { approveAgentSends: true }
 
-test('the menu shows the eight items in the list order, with the values in effect', () => {
-  const rows = menuRowsOf(items, { preferences, appearance })
+test('the menu shows the nine items in the list order, with the values in effect', () => {
+  const rows = menuRowsOf(items, { preferences, appearance, mailbox })
   assert.deepEqual(
     rows.map(({ id, kind, value }) => [id, kind, value]),
     [
@@ -16,6 +17,7 @@ test('the menu shows the eight items in the list order, with the values in effec
       ['dimWhenIdle', 'switch', true],
       ['smallCompanion', 'switch', false],
       ['startAtLogin', 'switch', true],
+      ['approveAgentSends', 'switch', true],
       ['shortcut', 'shortcut', 'Ctrl+Alt+Space'],
       ['sendShortcut', 'shortcut', 'Ctrl+Alt+V'],
       ['hide', 'action', undefined],
@@ -30,7 +32,7 @@ test('the menu shows the eight items in the list order, with the values in effec
 
 test('Hide stays plain while the shortcut works: the item above shows it', () => {
   assert.equal(hideLabelOf('Hide Agnostic AI companion', preferences), 'Hide Agnostic AI companion')
-  const rows = menuRowsOf(items, { preferences: { ...preferences, shortcut: 'Cmd+Shift+K' }, appearance }, true)
+  const rows = menuRowsOf(items, { preferences: { ...preferences, shortcut: 'Cmd+Shift+K' }, appearance, mailbox }, true)
   assert.equal(rows.find((row) => row.id === 'hide').label, 'Hide Agnostic AI companion')
 })
 

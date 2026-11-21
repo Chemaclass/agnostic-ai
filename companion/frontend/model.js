@@ -598,8 +598,28 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadLabelOf({ count, cap, waiting }) {
-  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}`
+export function threadLabelOf({ count, cap, waiting, held }) {
+  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}${held ? `, ${held} held for you` : ''}`
+}
+
+export function messageStateLabelOf(state) {
+  return {
+    held: 'Held for you', waiting: 'Waiting', reserved: 'Delivering', delivered: 'Delivered',
+    staged: 'Staged', rejected: 'Rejected', cancelled: 'Cancelled',
+  }[state]
+}
+
+export function messageActionsOf({ state }, { status }) {
+  switch (state) {
+    case 'held':
+      return ['approve', 'reject']
+    case 'waiting':
+      return status === 'paused' ? [] : ['type', 'copy']
+    case 'staged':
+      return status === 'open' || status === 'closing' ? ['queue'] : []
+    default:
+      return []
+  }
 }
 
 export function threadActionsOf({ status, count, cap }) {
@@ -1019,8 +1039,8 @@ export function hideLabelOf(label, preferences) {
  * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
  * Hide's label names the way back.
  */
-export function menuRowsOf(items, { preferences, appearance }, isMac = false) {
-  const values = { ...appearance, ...preferences }
+export function menuRowsOf(items, { preferences, appearance, mailbox }, isMac = false) {
+  const values = { ...appearance, ...preferences, ...mailbox }
   return items.map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value

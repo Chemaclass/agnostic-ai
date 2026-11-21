@@ -140,6 +140,15 @@ export function readClaims(owner, signal) {
 export const claimPaths = (claim) => change('/api/mailbox/claim', claim)
 export const releasePaths = (claim) => change('/api/mailbox/release', claim)
 export const answerHandoff = (thread, n, action) => change('/api/mailbox/handoff', { thread, n, action })
+/** action is `approve` or `reject`. */
+export const approveMessage = (thread, n, action) => change('/api/mailbox/approve', { thread, n, action })
+export const queueMessage = (thread, n) => change('/api/mailbox/queue', { thread, n })
+/** The mailbox's own settings: {approveAgentSends}. */
+export const readMailboxSettings = () => call('/api/mailbox/settings')
+export async function saveMailboxSettings(settings) {
+  await post('/api/mailbox/settings', settings)
+  return settings
+}
 
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
