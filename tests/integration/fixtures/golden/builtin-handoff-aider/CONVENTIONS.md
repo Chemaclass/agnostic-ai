@@ -17,7 +17,7 @@ _Write or resume a session handoff between AI tools._
 
 Write or resume a portable session handoff when the user requests it. Choose the mode from the request: "write a handoff" writes; "resume" or "continue where Codex left off" reads. An explicit argument can select the mode, but is never required. Do not read a handoff at session start without a request. The lead asks each delegate to "write a handoff for <branch>" before it returns. A handoff is for the next agent that continues the work; for a summary for people when the work ends, use the `wrap-up` skill if it is installed. To start a second task in its own conversation while this one goes on, use the `side-conversation` skill if it is installed. To continue this task in a cloud session that goes on without this computer, use the `cloud-handoff` skill if it is installed.
 
-Resolve the current project root, including when this skill is installed globally. For root lookup, use canonical paths for the current directory, candidate ancestors, and the effective global source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`). Find the nearest ancestor containing `agnostic-ai.yaml` or the legacy `agnostic.config.yaml`, but exclude the effective global source root: its home config never identifies a project. If none exists, use `git rev-parse --show-toplevel` for the current checkout. Do not replace a configured subproject root with its Git worktree root. Use portable Markdown.
+Resolve the current project root, including when this skill is installed globally. For root lookup, use canonical paths for the current directory, candidate ancestors, and the effective user source root (`AGNOSTIC_AI_HOME` when nonempty, otherwise `~/.agnostic-ai`). Find the nearest ancestor containing `agnostic-ai.yaml` or the legacy `agnostic.config.yaml`, but exclude the effective user source root: its home config never identifies a project. If none exists, use `git rev-parse --show-toplevel` for the current checkout. Do not replace a configured subproject root with its Git worktree root. Use portable Markdown.
 
 ##### Task store
 
@@ -62,14 +62,14 @@ worktree: /path/to/checkout | status: active | pr: none
    | --- | --- |
    | [project] | `.agnostic-ai/rules/learnings.md` |
    | [personal] | `.agnostic-ai/local/rules/learnings-local.md` |
-   | [global] | `~/.agnostic-ai/rules/learnings.md` |
+   | [user] | `~/.agnostic-ai/rules/learnings.md` |
 
-   Resolve project `learnings.md` under the effective `sources.rules` from the project config and any `agnostic-ai.local.yaml` override. Relative paths start at the project root; use absolute paths directly, without expanding `~`. The personal path stays fixed. If `AGNOSTIC_AI_HOME` is nonempty, put global `rules/learnings.md` beneath that directory. Global `sources` config does not change its fixed `rules/` folder. Show the actual resolved destination with each proposal.
+   Resolve project `learnings.md` under the effective `sources.rules` from the project config and any `agnostic-ai.local.yaml` override. Relative paths start at the project root; use absolute paths directly, without expanding `~`. The personal path stays fixed. If `AGNOSTIC_AI_HOME` is nonempty, put user `rules/learnings.md` beneath that directory. User `sources` config does not change its fixed `rules/` folder. Show the actual resolved destination with each proposal.
 
-   Global scope is available only when the user explicitly picks it for that item.
-3. Read each resolved destination if it exists and show one append-only diff per file, naming the actual path before requesting confirmation. Preserve existing entries and frontmatter. For a new file, include YAML frontmatter with `name`, `description`, and `alwaysApply: true` in the diff. Use `name: learnings` for project and global files, and `name: learnings-local` for the personal file so it does not replace the project rule. Global rules are unconditional: omit `scope`, `globs`, and `paths`.
+   User scope is available only when the user explicitly picks it for that item.
+3. Read each resolved destination if it exists and show one append-only diff per file, naming the actual path before requesting confirmation. Preserve existing entries and frontmatter. For a new file, include YAML frontmatter with `name`, `description`, and `alwaysApply: true` in the diff. Use `name: learnings` for project and user files, and `name: learnings-local` for the personal file so it does not replace the project rule. User rules are unconditional: omit `scope`, `globs`, and `paths`.
 4. Wait for confirmation of each item's content and scope. A handoff request alone does not approve learning writes. Append only approved items; never rewrite existing entries.
-5. After project or personal writes, run `agnostic-ai sync` from the project root. After approved global writes, run `agnostic-ai sync --scope user`. If the binary is not on PATH, print the relevant command for the user and mark it pending. Report failed syncs with their error and leave them as unfinished work.
+5. After project or personal writes, run `agnostic-ai sync` from the project root. After approved user writes, run `agnostic-ai sync --scope user`. If the binary is not on PATH, print the relevant command for the user and mark it pending. Report failed syncs with their error and leave them as unfinished work.
 6. After approved writes and sync attempts, gather the selected task's branch, HEAD, and working changes again using the commands above in its recorded worktree. Refresh the handoff header, Done, and Verify with the current git state, learning files changed, and sync results. Record failed or pending syncs separately from completed verification.
 
 ##### Resume

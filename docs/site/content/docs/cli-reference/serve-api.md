@@ -43,7 +43,7 @@ The routes below are the full reference. Edit and impact requests take JSON.
 Takes no input.
 
 - Returns `ok`, absolute `root`, `global`, `ui` (whether the web interface is served), and `version` (as `agnostic-ai --version` prints it). It does not load specs.
-- A global server started in a project adds that project's absolute `projectRoot`.
+- A user server started in a project adds that project's absolute `projectRoot`.
 - When the config sets [`requires`](@/docs/configuration.md#requires), it adds `requires` as written and `requiresMet`: `true` or `false`, or `null` for a build that is not a release. It reads both on each request.
 - While a conversation list is being read, it adds `scanningSince`: when that read began, in RFC 3339. The companion replaces a server whose read has run for over two minutes.
 
@@ -51,9 +51,9 @@ Takes no input.
 
 Body: `{}` with `Content-Type: application/json`. Any field is a 400.
 
-- Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a global server.
+- Finds or starts the server for the other configuration: the user configuration from a project, or `projectRoot` from a user server.
 - Returns `url`, `root`, `global`, and `started`.
-- Answers 404 on a global server with no `projectRoot`.
+- Answers 404 on a user server with no `projectRoot`.
 - Answers 409 with `{error, missing, root}` and no server when the user configuration folder has no setup.
 - Answers 503 with the command to run when no server could start.
 
@@ -170,9 +170,9 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 
 ## `POST /api/edit/spec/move`
 
-Body: `{action, kind, name, from, to, mode, overwrite?, expected?}`. Copies or moves one shared spec between the project and the global setup.
+Body: `{action, kind, name, from, to, mode, overwrite?, expected?}`. Copies or moves one shared spec between the project and the user setup.
 
-- `kind` is `rule`, `agent`, `skill`, `hook`, or `mcp`, since the global setup reads no other kind.
+- `kind` is `rule`, `agent`, `skill`, `hook`, or `mcp`, since the user setup reads no other kind.
 - `from` is the level this server reads and `to` is the other.
 - `mode` is `copy` or `move`.
 - A skill folder moves whole.
@@ -188,14 +188,14 @@ These return 409:
 - A destination that is the source itself (one setup's folder links to the other's).
 - A hook script the destination already holds with other content.
 - A skill the destination would read differently (under another skill's folder, or over a folder of other skills).
-- A project server whose global setup does not exist yet. The reply carries `missing: true` and `root`.
-- A global server that knows no project.
+- A project server whose user setup does not exist yet. The reply carries `missing: true` and `root`.
+- A user server that knows no project.
 
 These return 422:
 
 - A built-in, a pack spec, a local spec, a `SKILL.md` directly in the skills folder, or a destination folder that links outside its setup.
 - A hook that runs a shared script that does not exist.
-- A rule sent to the global setup with a scope, paths, or target condition, including one under an `x-<target>` key for a target the global setup selects.
+- A rule sent to the user setup with a scope, paths, or target condition, including one under an `x-<target>` key for a target the user setup selects.
 
 ## `POST /api/edit/permissions`
 
@@ -219,11 +219,11 @@ Body: `{action, audience, path?, protected, before?, expected?}`.
 - `before` is the selected audience's own block as shown, or `null`. A mismatch returns 409.
 - Preview returns `schemaVersion: "protected-edit/v1"`, `file`, `audience`, `before`, `protected`, `diff`, `expected`, and `syncCommand`, plus `cleared: true` when the file sets `protected: null`, which `protected: null` in the request removes.
 - Apply works as for `/api/edit/permissions`.
-- The global server returns 400, because `sync --scope user` does not write protected paths.
+- The user server returns 400, because `sync --scope user` does not write protected paths.
 
 ## `POST /api/edit/field`
 
-Body: `{audience, path?, key, target?, value, expected?}` for `model`, `effort`, and global `permissions.default-mode`, `session-retention-days`, `voice.enabled`, `voice.mode`, or `voice.language`.
+Body: `{audience, path?, key, target?, value, expected?}` for `model`, `effort`, and user `permissions.default-mode`, `session-retention-days`, `voice.enabled`, `voice.mode`, or `voice.language`.
 
 - `target` is `all` (the default) or a configured tool.
 - For one tool, the edit writes `model.<tool>` or `effort.<tool>`, turning `model: x` into `{default: x, <tool>: value}`. An effort level is checked against that tool only.
@@ -236,7 +236,7 @@ Body: `{audience, path?, key, target?, value, expected?}` for `model`, `effort`,
 - `expected` is the value the page showed at that address in the file being written, or `null` if that file did not set it.
 - If the file now holds another value, or a personal file now sets that address for a shared save, the answer is 409 and nothing is written.
 - A file that already holds the new value counts as saved.
-- Voice values are a boolean for `voice.enabled`, `hold` or `tap` for `voice.mode`, and a non-empty string for `voice.language`. Only the global view and target `all` are accepted.
+- Voice values are a boolean for `voice.enabled`, `hold` or `tap` for `voice.mode`, and a non-empty string for `voice.language`. Only the user view and target `all` are accepted.
 - For voice, `null` clears one member, removing an empty `voice` map.
 
 ## `GET /api/changes/builtin`

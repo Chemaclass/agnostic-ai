@@ -436,7 +436,7 @@ func TestConversationsHandler_ListsEveryConversationOnAUserServer(t *testing.T) 
 	h, _, _ := conversationsFixture(t, true)
 
 	if actual := ids(listConversations(t, h)); actual != inProject+","+inWorktree+","+elsewhere {
-		t.Errorf("global view = %s", actual)
+		t.Errorf("user view = %s", actual)
 	}
 }
 
@@ -923,7 +923,7 @@ func TestConversationsHandler_RefusesARenameItCannotKeep(t *testing.T) {
 func TestConversationsHandler_ARenameOnOneServerShowsOnAnother(t *testing.T) {
 	companion, _, _ := conversationsFixture(t, true)
 	companion.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
-	// The companion's global server and a project dashboard: two scanners, one marks file.
+	// The companion's user server and a project dashboard: two scanners, one marks file.
 	shared := companion.scanner
 	dashboard := &conversationsHandler{root: companion.root, scanner: &conversations.Scanner{
 		Stores: shared.Stores, SQLite: shared.SQLite, Processes: shared.Processes, Now: shared.Now, MarksPath: shared.MarksPath,

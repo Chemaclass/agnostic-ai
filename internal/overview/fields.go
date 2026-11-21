@@ -314,7 +314,7 @@ const PermissionModeKey = "permissions.default-mode"
 
 // PermissionModeProjectReason explains why a project cannot edit the
 // default mode: only sync --scope user writes Claude Code's defaultMode.
-const PermissionModeProjectReason = "Applies through global sync only. Set it in global settings."
+const PermissionModeProjectReason = "Applies through user sync only. Set it in user settings."
 
 // ProtectedKey is the settings block that lists protected paths.
 const ProtectedKey = "protected"
@@ -485,7 +485,7 @@ func SettingsValuePath(root string, e spec.Entry, key string, targets []string, 
 }
 
 // SettingsOverlayPath is the personal file, relative to the project or
-// global source root, that overlays the settings spec named name.
+// user source root, that overlays the settings spec named name.
 func SettingsOverlayPath(userLevel bool, name string) string {
 	dir := config.SourceBaseDir + "/local/settings"
 	if userLevel {

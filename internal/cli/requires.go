@@ -76,7 +76,7 @@ func requireUserVersion(source string, skipBroken io.Writer) error {
 		doc, err := readUserConfig(p)
 		if err != nil && skipBroken != nil {
 			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping it\n", err); werr != nil {
-				return fmt.Errorf("write global config warning: %w", werr)
+				return fmt.Errorf("write user config warning: %w", werr)
 			}
 			continue
 		}

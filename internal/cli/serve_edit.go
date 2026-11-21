@@ -36,7 +36,7 @@ const (
 // editHandler switches a built-in in the config file, or a boolean field
 // in a settings spec, then validates the configuration and restores the
 // file when the edit introduced a problem. root is the project root, or
-// the global source root with global set.
+// the user source root with user set.
 type editHandler struct {
 	root      string
 	userLevel bool
@@ -453,7 +453,7 @@ func requestOriginStatus(r *http.Request) int {
 // that then only names its spec.
 func (h *editHandler) settingsEdit(where editAudience, shown, key string, value *bool) (string, func([]byte) ([]byte, error), error) {
 	if voiceEditField(key) && !h.userLevel {
-		return "", nil, errors.New("voice is editable in the global view only")
+		return "", nil, errors.New("voice is editable in the user view only")
 	}
 	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {

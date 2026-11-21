@@ -248,7 +248,7 @@ func TestSyncUser_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 			t.Errorf("emitted filtered %s", name)
 		}
 	}
-	for _, want := range []string{"amp", "global agents", "excluded", "shared"} {
+	for _, want := range []string{"amp", "user agents", "excluded", "shared"} {
 		if !strings.Contains(warnings, want) {
 			t.Errorf("missing warning %q: %s", want, warnings)
 		}
@@ -259,7 +259,7 @@ func TestSyncUser_AgentFiltersAndUnsupportedWarnings(t *testing.T) {
 		}
 	}
 	if _, err := os.Stat(filepath.Join(home, ".amp", "agents")); !os.IsNotExist(err) {
-		t.Error("invented Cursor global path")
+		t.Error("invented Cursor user path")
 	}
 	_, warnings, err = runUserAgentTest("--target", "claude,amp", "--except", "amp")
 	if err != nil || warnings != "" {

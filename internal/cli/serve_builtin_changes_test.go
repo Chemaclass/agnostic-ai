@@ -542,7 +542,7 @@ func TestBuiltinChanges_RequestBoundaries(t *testing.T) {
 	userLevel := newBuiltinChangeHandler(t.TempDir(), true)
 	rec = postEdit(t, userLevel, builtinPreviewPath, `{"audience":"shared","name":"caveman","enabled":true}`, nil)
 	if rec.Code != http.StatusBadRequest {
-		t.Errorf("global mutation = %d", rec.Code)
+		t.Errorf("user mutation = %d", rec.Code)
 	}
 }
 

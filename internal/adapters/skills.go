@@ -114,7 +114,7 @@ func RenderSkillSidecars(target string, skill spec.Entry) (map[string]string, er
 	return nil, nil
 }
 
-// Losing a manual-only flag makes a global skill model-invocable.
+// Losing a manual-only flag makes a user skill model-invocable.
 func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) error {
 	adapter, err := Resolve(target)
 	if err != nil {
@@ -148,7 +148,7 @@ func NoteManualOnlySkillDrops(target string, skills []spec.Entry, shared bool) e
 			}
 		}
 	}
-	emit.NoteSkillFieldNoOp(target, "disable-model-invocation", dropped, "its global copy stays model-invocable", shared)
+	emit.NoteSkillFieldNoOp(target, "disable-model-invocation", dropped, "its user copy stays model-invocable", shared)
 	emit.NoteSkillFieldNoOp(target, "disable-model-invocation", omitted, "the skill file has no disable-model-invocation field", shared)
 	return nil
 }

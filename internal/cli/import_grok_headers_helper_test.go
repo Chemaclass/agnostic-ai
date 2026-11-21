@@ -48,7 +48,7 @@ func TestSyncUser_GrokHeadersHelperPreservesUserConfig(t *testing.T) {
 			}
 			got := readFile(t, path)
 			if !strings.Contains(got, `headers_helper = "sh headers.sh"`) {
-				t.Errorf("global helper lost:\n%s", got)
+				t.Errorf("user helper lost:\n%s", got)
 			}
 			if existing && !strings.HasPrefix(got, before) {
 				t.Errorf("native text changed:\n%s", got)

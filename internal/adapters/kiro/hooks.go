@@ -64,7 +64,7 @@ func emitHooks(sess *emit.Session, hooks []spec.Entry, dir string, dryRun bool) 
 	return sess.MaterializeNeutralHookScripts(hooks, target, emit.HookScriptsDir(target), dryRun)
 }
 
-// HookFile renders the native hook definition shared by project and global sync.
+// HookFile renders the native hook definition shared by project and user sync.
 func HookFile(h spec.Entry) ([]byte, error) {
 	entries, err := buildHookEntries(h)
 	if err != nil {

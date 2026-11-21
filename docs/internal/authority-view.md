@@ -113,12 +113,12 @@ The same comparison as `sync --check` sets each target's `sync` state: `in-sync`
 | POST | `/api/views/authority/impact` | `ImpactResult` for the posted `Proposal` |
 | GET | `/api/views/authority/schema` | the schema version and endpoint list |
 | GET | `/api/views/overview` | `overview.View` |
-| GET | `/api/health` | `{ok, root, global, ui, projectRoot?}`, without loading specs; `projectRoot` only on a global server started in a project |
+| GET | `/api/health` | `{ok, root, global, ui, projectRoot?}`, without loading specs; `projectRoot` only on a user server started in a project |
 | POST | `/api/switch` | finds or starts the server for the other configuration and returns `{url, root, global, started}`; 409 `{error, missing, root}`, with no server started, when the user configuration folder has no setup |
 | POST | `/api/global/create` | project servers only: `{git}` writes the starter files into the user configuration folder fixed at startup and replies `{root, created, git}`; 409 when a setup exists |
 | POST | `/api/edit/builtin` | `{audience, name, enabled}` switches a built-in in the team config (`audience: shared`) or the personal one (`audience: personal`); `{audience: "personal", reset: true}` drops the personal list. Replies `{ok, file}`, or 422 with `problems` when the edit adds a validation problem and was undone |
 | POST | `/api/edit/value` | `{audience, path, key, value}` sets a boolean at a dotted key in the shared settings spec or its personal overlay; `value: null` with `audience: personal` removes the personal value. Same replies |
-| POST | `/api/edit/field` | `{audience, path?, key, target?, value, expected?}` sets `model`, `effort`, or global `session-retention-days`. `target` is `all` or one configured tool, which writes `model.<tool>` or `effort.<tool>`. Same replies, and 409 when `expected` no longer matches the value at that address |
+| POST | `/api/edit/field` | `{audience, path?, key, target?, value, expected?}` sets `model`, `effort`, or user `session-retention-days`. `target` is `all` or one configured tool, which writes `model.<tool>` or `effort.<tool>`. Same replies, and 409 when `expected` no longer matches the value at that address |
 | GET | `/api/changes/builtin` | the current built-in or setting preview and undo state for this server session |
 | POST | `/api/changes/builtin/preview` | a project change plan for `{audience, name, enabled}`, `{audience: "personal", reset: true}`, or `{audience, setting: {path?, key, target?, value, expected?}}` for `model` or `effort`; the plan names its `audience` (and `scope`), and a setting plan its `key`, `target`, and `title` |
 | POST | `/api/changes/builtin/apply` | writes the reviewed config and generated files for `{id}` |
@@ -133,17 +133,17 @@ The change apply and undo endpoints also write generated files. See [prerequisit
 
 `serve` binds to an explicit loopback IP and reloads configuration per request. Every route checks Host and Origin. Other browser origins require an exact `--allow-origin`; CLI requests without Origin are allowed. Request bodies have size limits and are read before taking the adapter lock. Header, read, write, and idle deadlines limit stalled clients.
 
-`/api/switch` is the only route that starts a server. Its destination is fixed at startup: the user configuration for a project server, or the starting project for a global server. Requests carry no path, port, or argument. `/api/global/create` runs `git init` once in its fixed folder when asked.
+`/api/switch` is the only route that starts a server. Its destination is fixed at startup: the user configuration for a project server, or the starting project for a user server. Requests carry no path, port, or argument. `/api/global/create` runs `git init` once in its fixed folder when asked.
 
-Switching first looks on `127.0.0.1:4310` to `4319` for a server whose health names the destination configuration. A global server must also report the project it would find from the caller's project folder, or no project when none would be found. If none matches, the switch starts the same binary as `serve --addr <port> --scope user` or `serve --addr <port> --dir <project>`, with `--switch-back <this server's address>` and no `--allow-origin`. It stops the child when the parent stops, or on Linux when the parent dies. If two project pages compete for a port, the loser tries the next.
+Switching first looks on `127.0.0.1:4310` to `4319` for a server whose health names the destination configuration. A user server must also report the project it would find from the caller's project folder, or no project when none would be found. If none matches, the switch starts the same binary as `serve --addr <port> --scope user` or `serve --addr <port> --dir <project>`, with `--switch-back <this server's address>` and no `--allow-origin`. It stops the child when the parent stops, or on Linux when the parent dies. If two project pages compete for a port, the loser tries the next.
 
 A child validates `--switch-back` as a loopback IP and port and tries it before the port range. This lets it return to a parent on any `--addr`. The address comes from the parent's listener, never from a request.
 
 Server reuse trusts a local process that reports the expected root, as `ui` does. Another user on a shared machine could occupy the port first. Host/Origin checks prevent that process's page from calling this user's servers; requiring `Content-Type: application/json` also blocks cross-site forms.
 
-Each server edits one configuration. The global server has a separate origin, preventing a project tab from editing `~/.agnostic-ai`. Requests cannot choose a configuration path.
+Each server edits one configuration. The user server has a separate origin, preventing a project tab from editing `~/.agnostic-ai`. Requests cannot choose a configuration path.
 
-Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--scope user` reads the user-level configuration from any directory; its overview uses global lint and output comparisons, without project doctor checks.
+Installed comparisons use builtin adapters only. The web server never executes an external adapter or probes an MCP server. The `mcp tools` command fills the listing cache separately. `--scope user` reads the user-level configuration from any directory; its overview uses user lint and output comparisons, without project doctor checks.
 
 ## Uncertainty codes
 

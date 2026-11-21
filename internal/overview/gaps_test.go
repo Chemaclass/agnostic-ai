@@ -101,7 +101,7 @@ func TestBuild_ListsNoGapsForTheUserConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(data), `"health":{"gaps":[]}`) {
-		t.Errorf("global view: %s", data)
+		t.Errorf("user view: %s", data)
 	}
 }
 

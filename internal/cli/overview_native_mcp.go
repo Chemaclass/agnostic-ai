@@ -64,10 +64,10 @@ var projectNativeMCP = map[string]nativeMCPFile{
 var nativeMCPTransports = []string{"stdio", "http", "sse", "streamable-http"}
 
 // nativeMCPServers lists the MCP servers the targets' own config files
-// define: each target's user file and, unless global, its project file
+// define: each target's user file and, unless at user scope, its project file
 // under root and Claude Code's local servers for root. It reads names,
 // paths, and transport only, so no value from a server, such as an env
-// entry, a header, or a URL, leaves this function. A server a global
+// entry, a header, or a URL, leaves this function. A server a user
 // sync wrote, as state/global.json under source records, is left out. A
 // file that is missing or does not parse gives no servers.
 func nativeMCPServers(home, root, source string, cfg *config.Config, userLevel bool) []overview.NativeMCP {

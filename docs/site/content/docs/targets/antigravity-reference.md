@@ -54,7 +54,7 @@ One custom subagent at `.agents/agents/<name>/agent.md`, the nested form in [Ant
 
 ### Skills
 
-Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --scope user` writes `~/.gemini/config/skills/<name>/`, the [global path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
+Antigravity's [native skills layout](https://codelabs.developers.google.com/getting-started-with-antigravity-skills), shared with every tool that writes `.agents/skills/` (see [shared skills](@/docs/target-behavior.md)), so identical folders are written once. Frontmatter is cut to `name` and `description`. Files next to the skill are copied unchanged. `sync --scope user` writes `~/.gemini/config/skills/<name>/`, the [user path](https://antigravity.google/docs/skills?tab=ide) for the IDE and Antigravity app.
 
 Antigravity documents no field that keeps a skill user-only: the agent reads relevant skills on its own, and `/<skill-name>` runs one by hand ([Antigravity skills](https://antigravity.google/docs/skills)). Its `disable-slash-command: true` does the opposite, leaving the skill to the model. So `disable-model-invocation` is dropped with a note, and commands are skipped.
 
@@ -104,11 +104,11 @@ The public-preview docs do not confirm them, so they are skipped with a warning.
 | `outputs.antigravity.hooks-file` | `.agents/hooks.json` | |
 | `outputs.antigravity.rules-file` | unset | writes one legacy merged file and skips the instructions that point to source specs |
 
-## Global configuration
+## User configuration {#global-configuration}
 
 `agnostic-ai sync --scope user --only antigravity` adds your home MCP specs to `~/.gemini/config/mcp_config.json`, using the same fields as project output. A disabled server keeps `disabled: true`.
 
-`agnostic-ai import --scope user antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [global MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
+`agnostic-ai import --scope user antigravity` reads this file, maps `serverUrl` back to `url`, and keeps extra fields under `x-antigravity`. See [user MCP ownership and name conflicts](@/docs/global-configuration-reference.md#global-mcp-servers).
 
 ## Import
 

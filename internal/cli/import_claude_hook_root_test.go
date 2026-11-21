@@ -77,7 +77,7 @@ func TestSyncUser_HookRootUsesRuntimeProject(t *testing.T) {
 		t.Fatal(canonicalErr)
 	}
 	if err != nil || string(output) != filepath.ToSlash(canonical) {
-		t.Errorf("global hook bound wrong root: command=%s result=%q err=%v want=%s", command, output, err, canonical)
+		t.Errorf("user hook bound wrong root: command=%s result=%q err=%v want=%s", command, output, err, canonical)
 	}
 }
 
@@ -109,6 +109,6 @@ func TestSyncUser_WindowsHookRootWarnsAndHonorsError(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "on-unsupported: error\n")
 	if _, _, err := runUserAgentTest("--only", "codex"); err == nil || !strings.Contains(err.Error(), "windows-guard") {
-		t.Errorf("want named global Windows error, got %v", err)
+		t.Errorf("want named user Windows error, got %v", err)
 	}
 }

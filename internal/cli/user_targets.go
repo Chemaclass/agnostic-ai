@@ -47,7 +47,7 @@ const (
 // of that kind.
 type userTarget struct {
 	// instructions is the always-on context file the tool loads with no
-	// wiring. Global rules inline into it.
+	// wiring. User rules inline into it.
 	instructions        string
 	instructionsWindows string
 	instructionsRoot    func(home, goos string) (string, error)
@@ -401,7 +401,7 @@ var userTargets = map[string]userTarget{
 		agents:       userPathHome + ".gemini/config/agents",
 		instructions: userPathHome + ".gemini/GEMINI.md",
 		// antigravity.google/docs/skills?tab=ide rows the global scope
-		// as "`~/.gemini/config/skills/<skill-folder>/` | Global (all
+		// as "`~/.gemini/config/skills/<skill-folder>/` | User (all
 		// workspaces; legacy `~/.gemini/antigravity/skills/` is also
 		// supported)", and the Antigravity app section names the config
 		// path with no legacy alternative at all. The legacy tree still
@@ -517,7 +517,7 @@ func userTargetNames() []string {
 	return out
 }
 
-// userKindSupport maps each kind the global layers load to the targets
+// userKindSupport maps each kind the user layers load to the targets
 // with a user-level surface for it.
 func userKindSupport() kindSupport {
 	support := kindSupport{spec.KindAgent: {}, spec.KindSkill: {}, spec.KindRule: {}, spec.KindHook: {}, spec.KindSettings: {}, spec.KindMCP: {}}
@@ -576,7 +576,7 @@ func userLevelPath(home, p string) string {
 	return filepath.Join(home, filepath.FromSlash(strings.TrimPrefix(p, userPathHome)))
 }
 
-// userRoots returns every directory a global path can resolve under:
+// userRoots returns every directory a user path can resolve under:
 // the home, and each configuration root variable that is set.
 func userRoots(home string) []string {
 	return userRootsForOS(home, runtime.GOOS)

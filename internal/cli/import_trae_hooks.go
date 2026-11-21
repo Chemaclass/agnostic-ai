@@ -12,7 +12,7 @@ import (
 // traeHooksFile is Trae's project hook tier: "Project Hook |
 // `$PROJECT_FOLDER/.trae/hooks.json` | Applies only to the current
 // project or workspace" (docs.trae.ai/ide/hook-configuration-reference).
-// The global tier (`~/.trae/hooks.json`) is outside a project and not
+// The user tier (`~/.trae/hooks.json`) is outside a project and not
 // read here.
 const traeHooksFile = ".trae/hooks.json"
 

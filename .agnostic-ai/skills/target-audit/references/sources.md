@@ -171,7 +171,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 
 ## warp
 
-- docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/factories/factory-skills.md (versioned shared and per-agent factory procedures) · https://docs.warp.dev/agents/capabilities/mcp.md · https://docs.warp.dev/agents/capabilities/rules.md (project instruction discovery) · https://docs.warp.dev/agents/cli/configuration.md (CLI global instruction discovery)
+- docs: https://docs.warp.dev/terminal/entry/yaml-workflows.md · https://docs.warp.dev/agents/capabilities/skills.md · https://docs.warp.dev/factories/factory-skills.md (versioned shared and per-agent factory procedures) · https://docs.warp.dev/agents/capabilities/mcp.md · https://docs.warp.dev/agents/capabilities/rules.md (project instruction discovery) · https://docs.warp.dev/agents/cli/configuration.md (CLI user instruction discovery)
 - changelog: https://docs.warp.dev/changelog/2026.md (dated release entries; advance the year when a new annual page appears) · https://docs.warp.dev/changelog.md (year index, retained to detect new annual pages; the old getting-started path redirects here)
 - schema: https://www.schemastore.org/warp-workflows.json
 - watch: a native rules-dir surface (today: AGENTS.md, `.agents/skills/`, workflows, `.warp/.mcp.json`); another move of the MCP page (it 308s from `/knowledge-and-collaboration/mcp`); whether either MCP table gains `description`, `disabled` or `roots`.
@@ -189,7 +189,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - schema: https://opencode.ai/config.json
 - quirk: Former `docs.opencode.ai/docs/` routes now redirect to V2 (2026-11-20). Use the versioned V1 references for V1 permission and plugin checks.
 - watch: V1 and V2 plugin APIs and native `mcp.servers` compatibility; `agents/` (plural) dir; which foreign skill trees it scans; the `mcp` block shape; new entries in the V1 `/v1/docs/plugins/` "Events" section; `experimental.session.compacting` losing its prefix; a published full tool list.
-- trap: rules lookup is an upward walk for files named exactly `AGENTS.md` (`fs.up({ targets: ["AGENTS.md"] })` in `packages/core/src/instruction-context.ts`, branch `dev`). Nothing reads `.opencode/AGENTS.md`, so the entry point is root `AGENTS.md` (#623). Global `~/.config/opencode/AGENTS.md` is out of project scope.
+- trap: rules lookup is an upward walk for files named exactly `AGENTS.md` (`fs.up({ targets: ["AGENTS.md"] })` in `packages/core/src/instruction-context.ts`, branch `dev`). Nothing reads `.opencode/AGENTS.md`, so the entry point is root `AGENTS.md` (#623). User `~/.config/opencode/AGENTS.md` is out of project scope.
 - decision: agent `tools` is vendor-deprecated for `permission`, so sync does not write `tools`. A portable `can` or `tools` list becomes the agent `permission` map in `internal/adapters/opencode/agent.go`, as on Kilo: `*: deny` first, listed keys allowed, unmapped names noted; `x-opencode.permission` wins per key (#2236).
 - note: MCP `cwd` (local) and `timeout` (ms) emit (#641); remote `oauth` goes through `x-opencode`.
 - decision: hooks are codegen in `.opencode/plugins/`, two shapes (#892): a direct `"tool.execute.before"` key and one `event` hook switching on `event.type`. `experimental.session.compacting` and `shell.env` get a coverage note: they rewrite output, not run a command. Vendor tool names are lowercase (`bash`, `read`), so Claude-cased matchers get a coverage note.
@@ -209,7 +209,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - decision: a scoped rule emits to `<scope>/.agents/rules/<name>.md`, the vendor's own directory-scoped discovery; never nested deeper than one level (#1114).
 - trap: hooks (`.agents/hooks.json`) run in the IDE: `transcriptPath` resolves under `~/.gemini/antigravity-ide`. Do not re-open.
 - decision: subagents emit to nested `.agents/agents/<name>/agent.md` (#717). Never write a generic `tools`: the vocabulary (`view_file`, `run_command`) has zero Claude overlap and an unmapped name can hang the subagent. Use `x-antigravity.tools`.
-- decision: global skills go to `~/.gemini/config/skills/`; `~/.gemini/antigravity/skills/` is legacy (#896).
+- decision: user skills go to `~/.gemini/config/skills/`; `~/.gemini/antigravity/skills/` is legacy (#896).
 - note: `/docs/slash-commands` documents `/learn` proposing changes in `learning_proposal.md` before approved writes to `AGENTS.md`, `GEMINI.md`, `.agents/rules/*.md` or `.agents/skills/<name>/SKILL.md`. This is documented behavior, not a native execution check.
 - note: a rules file caps at 24,000 bytes and truncates over it, a coverage note (#1114, corrects the earlier 12,000-character/undocumented-outcome reading). A separate 20,000-token aggregate budget across `always_on` rules demotes the largest to a path-plus-description pointer; docs-only, no note.
 
@@ -347,7 +347,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 ## kilo
 
 - docs: https://kilo.ai/docs (client-rendered; use WebFetch) · /docs/customize/custom-rules · /docs/customize/agents-md · /docs/customize/agent-permissions (the `permission` map `x-kilo` reaches: actions, patterns and precedence, **no tool names**) · /docs/automate/tools (the closed tool vocabulary, mirrored at `packages/kilo-docs/pages/automate/tools/index.md`) · /docs/getting-started/settings/auto-approving-actions (the same names as `permission` keys in `kilo.jsonc`) · /docs/code-with-ai/agents/goals (the reserved `goal` agent name, #736) · /docs/customize/custom-subagents · /docs/customize/skills (the `skills.paths` / `skills.urls` config keys, the `/.github/skills` absolute-then-project-relative fallback, and the three default skill trees, target-audit 2026-09-18 #861, #865; mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/skills.md`) (raw source also mirrored at `Kilo-Org/kilocode`'s `packages/kilo-docs/pages/customize/custom-subagents.md`, useful when the rendered site defeats fetching; appending `.md` to a kilo.ai docs path used to serve that raw source directly but now 404s there, confirmed 2026-08-09, #590, so use the GitHub mirror instead).
-- code: https://github.com/Kilo-Org/kilocode/blob/main/packages/opencode/src/session/instruction.ts (the only place that states the global `~/.config/kilo/AGENTS.md` read and the project-root rule for `instructions`, added 2026-10-15)
+- code: https://github.com/Kilo-Org/kilocode/blob/main/packages/opencode/src/session/instruction.ts (the only place that states the user `~/.config/kilo/AGENTS.md` read and the project-root rule for `instructions`, added 2026-10-15)
 - changelog: https://github.com/Kilo-Org/kilocode/releases (kilo.ai defeats fetching, so cite the GitHub mirror under `packages/kilo-docs/pages/`)
 - schema: https://app.kilo.ai/config.json
 - quirk: kilo.ai `.md` paths 404. Use the GitHub mirror and try `<page>/index.md` before calling a page gone.
@@ -393,7 +393,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: the releases feed includes the separate TypeScript SDK. Compare CLI v-tags when choosing a CLI baseline; releases/latest can select the SDK.
 - decision: portable agent effort and permissionMode are unsupported. Explicit native agent approval fields belong under x-qwen.
 - decision: HTTP uses httpUrl, SSE uses url, MCP timeout is milliseconds, and command hook timeout is seconds.
-- decision: global commands and ignore files are outside the current global target table. Project command support does not imply global command sync.
+- decision: user commands and ignore files are outside the current user target table. Project command support does not imply user command sync.
 - trap: `hooks.enabled`, `hooks.disabled` and `hooks.notifications` are skipped metadata in the released registry. Top-level `disableAllHooks` is the active control.
 - decision: native skill `model` round-trips under x-qwen and is applied as modelOverride. Shared skill model is not promoted.
 - trap: `isMcpServerDisabled` checks `mcp.excluded` and extension preferences, not a settings server's `disabled` field, despite manager comments mentioning it. Portable disabled servers are omitted.
@@ -405,7 +405,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - code: https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/vibe_schema.py (stable release commit 338ad4bf0f73c4dd879d667cf7ab011555ae1751; native config schema) · https://github.com/mistralai/mistral-vibe/blob/v3.0.4/vibe/core/config/models.py (MCP transports, authentication, and defaults) · https://github.com/mistralai/mistral-vibe/blob/v3.1.1/vibe/core/hooks/models.py (stable release commit 97e31350d2adc15c8a33a091566e897cbe9f41bc; seven native hook events and strict restrictions)
 - watch: VIBE_HOME, trusted project loading, AGENTS.md hierarchy, agent_type and enabled_tools, skill flags, config.toml mcp_servers arrays and auth, hooks.toml JSON decisions and Windows shell selection.
 - trap: empty enabled_tools enables every tool; skills allowed-tools does not enforce restrictions; hook exit 2 is a failure, not a denial.
-- decision: native hooks only; v3.1.1 adds pre_agent, notification, session_start and session_end to pre_tool, post_tool and post_agent. Strict is valid only for pre_tool, post_tool and pre_agent. Project and global sync emit all seven native events; portable event translation and built-in target selection remain unchanged. Global TOML arrays are owned by native name and retain unrelated text.
+- decision: native hooks only; v3.1.1 adds pre_agent, notification, session_start and session_end to pre_tool, post_tool and post_agent. Strict is valid only for pre_tool, post_tool and pre_agent. Project and user sync emit all seven native events; portable event translation and built-in target selection remain unchanged. User TOML arrays are owned by native name and retain unrelated text.
 
 ## pi
 
@@ -415,7 +415,7 @@ Vendors move doc hosts often, so a 404 is itself a finding: record it as `docs-m
 - trap: badlogic/pi-mono redirects to earendil-works/pi. The current package is @earendil-works/pi-coding-agent; the old @mariozechner package is not the current behavior reference.
 - decision: instructions load without project trust; project settings, MCP, skills, and prompt templates require Pi's trust choice. Sync does not grant trust or set defaultProjectTrust.
 - decision: portable disabled becomes native enabled with the opposite value. SSE is unsupported; allowed-tools is skill metadata, not an enforced permission limit.
-- decision: commands sync only at project scope. Global instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.
+- decision: commands sync only at project scope. User instructions, skills, MCP, and settings use the whole PI_CODING_AGENT_DIR root.
 
 ## kimi
 

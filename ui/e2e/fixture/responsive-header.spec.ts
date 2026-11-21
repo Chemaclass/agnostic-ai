@@ -14,7 +14,7 @@ test('keeps the project path under its name and the configuration switch in the 
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/?view=context&tab=rules')
   const header = page.locator('.topbar')
-  await expect(header.getByRole('button', { name: 'Open global settings' })).toHaveCount(0)
+  await expect(header.getByRole('button', { name: 'Open user settings' })).toHaveCount(0)
   await expect(header.locator('.project-root')).toHaveText('/tmp/agnostic-ai')
   const title = (await header.locator('.project-title').boundingBox())!
   const path = (await header.locator('.project-root').boundingBox())!
@@ -22,7 +22,7 @@ test('keeps the project path under its name and the configuration switch in the 
   expect(path.x + path.width).toBeLessThanOrEqual((await page.locator('.rail').boundingBox())!.width)
 
   const footer = page.locator('.sidenav-footer')
-  const configuration = footer.getByRole('button', { name: 'Open global settings' })
+  const configuration = footer.getByRole('button', { name: 'Open user settings' })
   await expect(configuration).toBeInViewport({ ratio: 1 })
   const badge = (await footer.locator('.release-badge').boundingBox())!
   expect((await configuration.boundingBox())!.y).toBeLessThan(badge.y)
@@ -48,7 +48,7 @@ test('keeps the configuration switch reachable from the phone Menu', async ({ pa
     })).toBe(1)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
     const menu = await openMenu(page)
-    const configuration = menu.getByRole('button', { name: 'Open global settings' })
+    const configuration = menu.getByRole('button', { name: 'Open user settings' })
     await expect(configuration).toBeInViewport({ ratio: 1 })
     expect((await configuration.boundingBox())!.height).toBeGreaterThanOrEqual(44)
     await page.keyboard.press('Escape')
@@ -57,10 +57,10 @@ test('keeps the configuration switch reachable from the phone Menu', async ({ pa
   }
 })
 
-test('keeps global configuration context and the project switch compact on phones', async ({ page }) => {
+test('keeps user configuration context and the project switch compact on phones', async ({ page }) => {
   const overview = structuredClone(fixture)
   const root = '/Users/chema/Code/Chemaclass/agnostic-ai-home'
-  overview.snapshot.project.name = 'global (/Users/chema/.agnostic-ai)'
+  overview.snapshot.project.name = 'user (/Users/chema/.agnostic-ai)'
   overview.snapshot.project.root = root
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: overview }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root, global: true, ui: true, projectRoot: '/Users/chema/Code/Chemaclass/agnostic-ai' } }))
@@ -72,7 +72,7 @@ test('keeps global configuration context and the project switch compact on phone
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 })
     await expect(header.locator('.project-title .chip')).toBeInViewport({ ratio: 1 })
-    await expect(header.locator('.project-title .chip')).toHaveText('Global')
+    await expect(header.locator('.project-title .chip')).toHaveText('User')
     expect((await header.boundingBox())!.height).toBeLessThanOrEqual(64)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width)
     const menu = await openMenu(page)
@@ -85,20 +85,20 @@ test('keeps global configuration context and the project switch compact on phone
   }
 })
 
-test('opens the global setup panel from the rail above the page and returns focus on close', async ({ page }) => {
+test('opens the user setup panel from the rail above the page and returns focus on close', async ({ page }) => {
   const root = '/tmp/missing-global-home'
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
-  await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no global setup at ${root}`, missing: true, root } }))
+  await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no user setup at ${root}`, missing: true, root } }))
   await page.setViewportSize({ width: 1280, height: 500 })
   await page.goto('/?view=settings')
-  const configuration = page.locator('.sidenav').getByRole('button', { name: 'Open global settings' })
-  const panel = page.getByRole('dialog', { name: 'No global setup yet' })
+  const configuration = page.locator('.sidenav').getByRole('button', { name: 'Open user settings' })
+  const panel = page.getByRole('dialog', { name: 'No user setup yet' })
 
   for (const close of ['Escape', 'Cancel'] as const) {
     await configuration.click()
     await expect(panel).toBeVisible()
-    for (const part of [panel.getByRole('heading', { name: 'No global setup yet' }), panel.getByRole('button', { name: 'Create global setup' })]) {
+    for (const part of [panel.getByRole('heading', { name: 'No user setup yet' }), panel.getByRole('button', { name: 'Create user setup' })]) {
       expect(await part.evaluate((element) => {
         const box = element.getBoundingClientRect()
         const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
@@ -112,17 +112,17 @@ test('opens the global setup panel from the rail above the page and returns focu
   }
 })
 
-test('closes only the global setup panel on Escape inside the phone Menu', async ({ page }) => {
+test('closes only the user setup panel on Escape inside the phone Menu', async ({ page }) => {
   const root = '/tmp/missing-global-home'
   await page.route('**/api/views/overview', (route) => route.fulfill({ json: fixture }))
   await page.route('**/api/health', (route) => route.fulfill({ json: { ok: true, root: '/tmp/agnostic-ai', global: false, ui: true } }))
-  await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no global setup at ${root}`, missing: true, root } }))
+  await page.route('**/api/switch', (route) => route.fulfill({ status: 409, json: { error: `no user setup at ${root}`, missing: true, root } }))
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/?view=settings')
   const menu = await openMenu(page)
-  const configuration = menu.getByRole('button', { name: 'Open global settings' })
+  const configuration = menu.getByRole('button', { name: 'Open user settings' })
   await configuration.click()
-  const panel = page.getByRole('dialog', { name: 'No global setup yet' })
+  const panel = page.getByRole('dialog', { name: 'No user setup yet' })
   await expect(panel).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)

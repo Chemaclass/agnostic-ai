@@ -1229,7 +1229,7 @@ test('closing a mailbox thread keeps its file claim until Release', async ({ pag
   expect((await released.json()).claims).toEqual([])
 })
 
-test('the global mailbox claims card releases a stale owner with no conversation row', async ({ page }) => {
+test('the user mailbox claims card releases a stale owner with no conversation row', async ({ page }) => {
   await openPanel(page, 'mailbox-stale-claim')
   await expect(row(page, 'Handle the conflict')).toHaveCount(0)
   await page.getByRole('button', { name: 'File claims', exact: true }).click()

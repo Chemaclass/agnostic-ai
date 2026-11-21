@@ -83,7 +83,7 @@ The installed release does not satisfy the config's [`requires`](@/docs/configur
 | --- | --- |
 | Installed release is older | Run `agnostic-ai upgrade`, or `upgrade --version vX.Y.Z` for an exact pin or range. |
 | You want to keep an older pin | Install the release it names through your package manager or `upgrade --version`. |
-| Global home config | Edit `requires` in the named file. `upgrade --requires` changes project config only. |
+| User source config | Edit `requires` in the named file. `upgrade --requires` changes project config only. |
 | The version does not change | `agnostic-ai upgrade --check` shows which binary runs and any older copy that shadows it on PATH. |
 
 <details>
@@ -123,7 +123,7 @@ Choice [0]:
 - Use option 4 for another tool.
 - Enter or `0` exits without action.
 - Every option keeps the original error status and does not rerun the failed command, so `agnostic-ai sync && git push` stops either way. Review the changes and rerun your command after the fix.
-- The menu is skipped for redirected input or output, CI, quiet or JSON output, global commands, checks, previews, watch mode, hooks, and editor services.
+- The menu is skipped for redirected input or output, CI, quiet or JSON output, user commands, checks, previews, watch mode, hooks, and editor services.
 
 </details>
 

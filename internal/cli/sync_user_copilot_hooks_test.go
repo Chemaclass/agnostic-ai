@@ -250,10 +250,10 @@ func TestSyncUser_CopilotMemoryAndPortableHookUseUserPaths(t *testing.T) {
 	command, _ := before[0].(map[string]any)["command"].(string)
 	wrapper := filepath.ToSlash(filepath.Join(native, "hooks", "hooks", "agnostic-ai-portable-hook.sh"))
 	if !strings.Contains(command, wrapper) || strings.Contains(command, ".github/hooks/") {
-		t.Errorf("portable wrapper command does not use copied global file: %s", command)
+		t.Errorf("portable wrapper command does not use copied user file: %s", command)
 	}
 	if _, err := os.Stat(filepath.FromSlash(wrapper)); err != nil {
-		t.Errorf("missing global wrapper: %v", err)
+		t.Errorf("missing user wrapper: %v", err)
 	}
 	if _, _, err := runUserAgentTest("--only", "copilot", "--check"); err != nil {
 		t.Fatal(err)

@@ -83,7 +83,7 @@ A rule uses the [capability](@/docs/spec-format/agents.md#capabilities) names an
 - `validate`, `lint` (LINT036), and `sync` stop on a rule they cannot read, including one in a pack and an unquoted rule that YAML reads as a mapping, since a tool would drop it.
 - `agnostic-ai migrate --only capabilities` rewrites each Claude Code rule that has a capability of its own, and an adjacent `WebFetch, WebSearch` pair as `web`. The rest stay as aliases, and sync writes the same files.
 - `explain settings/<name>.yaml` lists the rules each tool gets and any extra access. `on-unsupported: error` fails when a rule widens, such as a Codex exact shell allow that becomes a command prefix.
-- Older releases matched lowercase bare capabilities to no tool, so an old spec now grants more: `lint` warns (LINT038, which `lint --strict` fails on) and `sync` prints a note once per run, naming the affected permissions. `on-unsupported: silent` or `sync --quiet` hides the note. Scoped rules, `deny` rules, tool-specific overrides that replace the rule, and global lists (written only for Claude Code) get no warning.
+- Older releases matched lowercase bare capabilities to no tool, so an old spec now grants more: `lint` warns (LINT038, which `lint --strict` fails on) and `sync` prints a note once per run, naming the affected permissions. `on-unsupported: silent` or `sync --quiet` hides the note. Scoped rules, `deny` rules, tool-specific overrides that replace the rule, and user lists (written only for Claude Code) get no warning.
 - `shell(git * main)` also approves options placed at the `*`, and Claude Code matches a mid-command `*` in a `deny` rule literally, so it blocks nothing. `lint` reports both as LINT009.
 
 </details>
@@ -136,7 +136,7 @@ Several settings files merge. Permission lists are joined in source order with d
 Removing a rule from a spec removes it from Claude Code's `settings.json` on the next sync. Rules you wrote there by hand stay ([Claude settings](@/docs/targets/claude-reference.md#claude-settings)).
 
 <details>
-<summary>Details: compare and global sync</summary>
+<summary>Details: compare and user sync</summary>
 
 - `agnostic-ai compare claude codex` reports each portable permission rule, including partial mappings, native overrides, output prerequisites, and that `permissions.default-mode` is written only by `sync --scope user`. It does not compare other settings fields.
 - `sync --scope user` also reads settings specs from your home folder, for `model`, `effort`, tool-specific keys, `permissions.default-mode`, and, for Claude Code only, the `permissions` lists. See [default model and effort](@/docs/global-configuration-reference.md#global-default-model-and-effort).
@@ -151,7 +151,7 @@ Run `agnostic-ai ui` in a project, or `agnostic-ai ui --scope user` for user set
 <summary>Details: which file it writes, what it cannot edit</summary>
 
 - A single-tool value writes `model.<tool>` or `effort.<tool>`.
-- Only the global view edits `session-retention-days`.
+- Only the user view edits `session-retention-days`.
 - The first save creates `settings/defaults.yaml` when no settings spec exists; with several, choose the file.
 - `x-*` keys, nested values, and a `model` that names a model tier need the source file.
 - A personal value for one tool writes only that tool's entry; the shared value still reaches the other tools (see [local overrides](@/docs/local-overrides.md)).

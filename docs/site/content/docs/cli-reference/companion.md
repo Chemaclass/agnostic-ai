@@ -29,7 +29,7 @@ The disk image works on macOS 13 Ventura or later and includes the companion, th
 3. Open the disk image, drag **agnostic-ai companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder.
 4. Click the floating circle to see your conversations. Use **Open the dashboard** in the list header to open the full web interface in your browser.
 
-The companion and dashboard use your [global settings](@/docs/global-configuration.md) in `~/.agnostic-ai` by default. Existing sessions from supported tools appear as they are discovered. If the list is empty, start a conversation in a supported tool such as Claude Code or Codex. See the [Companion list](@/docs/cli-reference/companion-list.md) for the conversations it can show.
+The companion and dashboard use your [user settings](@/docs/global-configuration.md) in `~/.agnostic-ai` by default. Existing sessions from supported tools appear as they are discovered. If the list is empty, start a conversation in a supported tool such as Claude Code or Codex. See the [Companion list](@/docs/cli-reference/companion-list.md) for the conversations it can show.
 
 {% <details summary="First-launch checks and macOS permissions"> %}
 The app is signed without an Apple Developer ID and is not notarized. Gatekeeper may say it cannot verify the developer or check the app. [Verify the downloaded disk image](@/docs/verify-a-release.md) and see [Apple's guide to macOS alerts](https://support.apple.com/en-us/102445).

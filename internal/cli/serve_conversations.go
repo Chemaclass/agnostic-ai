@@ -106,7 +106,7 @@ var deleteRefusalStatus = map[conversations.DeleteRefusal]int{
 
 // conversationsHandler lists the coding tools' conversations and
 // reopens one where it lives. A project server lists the conversations
-// started in the project or one of its Git worktrees; a global server
+// started in the project or one of its Git worktrees; a user server
 // lists them all.
 type conversationsHandler struct {
 	root      string

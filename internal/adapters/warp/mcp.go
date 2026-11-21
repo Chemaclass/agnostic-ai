@@ -49,7 +49,7 @@ func buildMCPDocument(mcps []spec.Entry) (string, error) {
 }
 
 func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
-	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.warp/.mcp.json, where global servers auto-spawn by default")
+	mcps = emit.DropMCPDisabled(target, mcps, "a disabled server is left out of ~/.warp/.mcp.json, where user servers auto-spawn by default")
 	return buildMCPServers(mcps)
 }
 

@@ -80,7 +80,7 @@ Read-only means no source, generated configuration, or GitHub changes. Write evi
    generic schema from documentation alone.
 10. Check shipped built-ins using
    `.agnostic-ai/skills/target-audit/references/builtins.md`, including
-   existing global output paths. Confirm target selection and native
+   existing user output paths. Confirm target selection and native
    behavior from the source and emitted output before classifying it.
 11. Compare another target only after opening that target's own vendor
    evidence and checking its semantics independently. Similar names are

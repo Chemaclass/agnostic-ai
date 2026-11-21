@@ -138,7 +138,7 @@ export function ConfigSwitch({ served, inRail = false }: { served: ServedConfig;
           </label>
           {error && <p className="config-switch-note" role="alert">{error}</p>}
           <div className="global-onboarding-actions">
-            <button ref={createButton} type="button" className="button button-primary" disabled={busy} onClick={() => { void create() }}>Create global setup</button>
+            <button ref={createButton} type="button" className="button button-primary" disabled={busy} onClick={() => { void create() }}>Create user setup</button>
             <button type="button" className="button button-quiet" disabled={busy} onClick={cancel}>Cancel</button>
           </div>
         </section>

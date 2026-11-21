@@ -141,7 +141,7 @@ Section links show their question above a live summary in small dim text. Conver
 
 Show the project path below its name in muted monospace. Truncate from the left and expose the full path on hover. Put the project GitHub icon at the end of the name row, labelled "owner/repo on GitHub".
 
-The rail foot contains Search and its shortcut, Open global settings or Open project, the theme button beside the agnostic-ai GitHub icon, then separate rows for the version and required release, Release notes, and Overview JSON.
+The rail foot contains Search and its shortcut, Open user settings or Open project, the theme button beside the agnostic-ai GitHub icon, then separate rows for the version and required release, Release notes, and Overview JSON.
 
 While the overview and server details load, preserve the rail layout with placeholder bars for the project, summaries, configuration switch, and version. Bars use `rail-dim` at 28% opacity, a 10px height, and pill corners. They pulse unless reduced motion is enabled.
 
@@ -157,7 +157,7 @@ At 760px and below, page links put icons above their short section names. Side p
 
 ## Components
 
-- **Verdict block:** an answer and up to three facts that affect a decision. **Tool support** opens the support table as an overlay; **Docs** sits at the right. Avoid "No findings", which the rail already communicates. Setup health adds one 14x22px bar with a 3px radius per supported improvement (`health.improvements`): accent-filled when used, outlined otherwise. A line states how many are in use. Hide the track when improvement data is absent, as in the global view.
+- **Verdict block:** an answer and up to three facts that affect a decision. **Tool support** opens the support table as an overlay; **Docs** sits at the right. Avoid "No findings", which the rail already communicates. Setup health adds one 14x22px bar with a 3px radius per supported improvement (`health.improvements`): accent-filled when used, outlined otherwise. A line states how many are in use. Hide the track when improvement data is absent, as in the user view.
 - **Finding card:** `surface`, 14px radius, and a 4px state-colored left border. Severity and section use 13px, weight 600, in the state color. The plain title uses Fraunces 22px; the source path uses body text. Keep the check message and suggested fix under Details unless two findings in one file share a title. Actions are **Copy prompt**, **Details**, and **Recheck** when a server is running.
 - **Finding details:** show the check code (for example `LINT038`) as a chip, the explanation, and the exact prompt. Limit long messages to three lines with **Show full message**. **Copy all fixes** sits beside **Fix first**. Recheck results appear below the card as a `Notice`: fixed, still there, or not confirmed.
 - **List rows:** hairline `line` separators without boxes. Names occupy a 180px lane; descriptions use `soft` and fill the available space; the primary action is an accent link in a fixed lane. Paths sit below in muted monospace. Secondary actions appear on hover or keyboard focus, with a `surface` background (`RowActions` in `ui.tsx`). Touch screens and widths of 760px or less use a 44px ⋯ menu.
@@ -171,11 +171,11 @@ At 760px and below, page links put icons above their short section names. Side p
 - **Overlays:** search, JSON inspector, change previews, and the rail sheet use `surface`, a 14px radius, a 1px `line` border, one soft shadow, and `backdrop` behind them.
 - **Empty states:** left-aligned Fraunces 22px sentence and one next-step line, without a box.
 - **Page frame:** verdict, section findings, toolbar, tabs, content. Errors appear as cards before the tabs. Warnings appear in the facts line with **Review**, which scrolls to and focuses the collapsed warnings heading. The toolbar contains search, a match count only while filtering, and Project | Local when the page supports editing.
-- **Scope selector:** Project | Local or Global | Local, once in the toolbar without a visible label. Explain the chosen scope in its tooltip and screen-reader status. The selected segment uses `ink` with `canvas` text.
+- **Scope selector:** Project | Local or User | Local, once in the toolbar without a visible label. Explain the chosen scope in its tooltip and screen-reader status. The selected segment uses `ink` with `canvas` text.
 - **Pick tray:** Setup health findings and suggestions have 20px accent checkboxes labelled "Add to prompt: <title>". A selection shows a sticky footer bar with `surface`, a 14px radius, the overlay border and shadow, a monospace live count, **Copy prompt**, and **Clear**. Keep it in page flow so it cannot cover the last row. Individual Copy prompt actions remain available.
 - **Change previews:** a `surface` overlay with monospace diffs on `sunken`. Added lines use a `permitted` left border and `+`; removed lines use `blocked` and `-`.
 - **Saved and error states:** `Notice` (`Banner.tsx`) uses a 4px state-colored left border on `surface`, with a title, body, actions, and **Dismiss**. Tones are info, success, warning, and error. Errors retain the raw message under **Details** with **Copy details**.
-- **Add hook, field resolution, and global setup:** forms and disclosures inside `surface` cards.
+- **Add hook, field resolution, and user setup:** forms and disclosures inside `surface` cards.
 - **Tool logos:** 18px in a fixed 24px lane, always beside the tool name.
 - **Focus ring:** 2px `focus` outline with a 2px offset on every focusable element (4.8:1 on canvas). Use `rail-ink` on the rail.
 - **Forced colors:** add borders to cards, chips, pills, and feature bars. Use `Highlight` for the current rail row and `CanvasText` for state borders, preserving their width.

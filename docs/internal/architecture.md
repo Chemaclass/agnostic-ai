@@ -27,7 +27,7 @@ agnostic-ai/
 
 ## Data flow
 
-The CLI loads configuration and source specs, selects targets, and calls each adapter to write files. Project specs combine pack defaults, project sources, and personal project overrides. Native global sync is a separate path. See [layered specs](../site/content/docs/configuration-reference.md#layered-specs).
+The CLI loads configuration and source specs, selects targets, and calls each adapter to write files. Project specs combine pack defaults, project sources, and personal project overrides. Native user sync is a separate path. See [layered specs](../site/content/docs/configuration-reference.md#layered-specs).
 
 ### Config layer
 

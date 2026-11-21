@@ -93,7 +93,7 @@ type provenanceBatch struct {
 // provenanceBatches partitions target indices by their provenance-header
 // setting, preserving target order within each batch. Concurrent emission
 // runs one batch at a time and pins the toggle to the batch's value, so no
-// target sees another's setting through the shared global (see
+// target sees another's setting through the shared user (see
 // internal/adapters/internal/emit/header.go). The common case — every
 // target on the default — is a single batch, i.e. full fan-out.
 func provenanceBatches(cfg *config.Config, targets []string) []provenanceBatch {

@@ -63,7 +63,7 @@ func TestServeContext_ExplainsThatUserScopeHasNoProjectContext(t *testing.T) {
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{UserLevel: true}, serveMuxOptions{compareInstalled: true}))
 	defer srv.Close()
 	if view := getContextView(t, srv.URL+contextViewPath, http.StatusOK); view.Supported || view.Reason == "" || view.Report != nil || view.Targets == nil {
-		t.Errorf("global view: %+v", view)
+		t.Errorf("user view: %+v", view)
 	}
 }
 

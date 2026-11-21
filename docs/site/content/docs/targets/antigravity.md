@@ -30,7 +30,7 @@ import = "@/docs/targets/antigravity-reference.md"
 
 ## Config keys {#config-keys .legacy-anchor}
 
-## Global configuration {#global-configuration .legacy-anchor}
+## User configuration {#global-configuration .legacy-anchor}
 
 ## Import {#import .legacy-anchor}
 
@@ -78,7 +78,7 @@ With `builtins: [memory]`, sync writes `antigravity-memory-index.md` as an alway
 - Paths resolve from the generated rule file, including when `outputs.antigravity.rules-dir` changes.
 - Sync writes the same rule whether the indexes exist or not. It reads existing indexes to check the expanded size and never creates empty ones.
 - With `memory.personal: repo` in local configuration, only project memory is included. The shared policy finds personal memory through `agnostic-ai memory path`.
-- Global sync keeps that policy and omits project-file includes.
+- User sync keeps that policy and omits project-file includes.
 - Antigravity expands includes before checking its 24,000-byte rule limit.
 - All always-on rules share a 20,000-token budget, which can replace large rules with pointers.
 - Missing-index behavior is not documented. See the [official include and size rules](https://www.antigravity.google/docs/rules/).

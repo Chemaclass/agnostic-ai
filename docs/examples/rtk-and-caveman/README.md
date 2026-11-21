@@ -37,7 +37,7 @@ Do not add `decision: stdout`: RTK returns the JSON format Claude uses to replac
 
 ## Keep or replace an existing installation
 
-Before adding RTK, review project and global `.claude/settings.json` hooks, `.claude/skills/caveman/`, and `~/.claude/skills/caveman/`. A script such as `bash .claude/hooks/rtk-rewrite.sh` and a direct `rtk hook claude` command can both run RTK. agnostic-ai preserves handwritten hooks, so adding the pack alongside an existing RTK hook can run RTK twice.
+Before adding RTK, review project and user `.claude/settings.json` hooks, `.claude/skills/caveman/`, and `~/.claude/skills/caveman/`. A script such as `bash .claude/hooks/rtk-rewrite.sh` and a direct `rtk hook claude` command can both run RTK. agnostic-ai preserves handwritten hooks, so adding the pack alongside an existing RTK hook can run RTK twice.
 
 To keep an RTK-managed hook, leave the RTK pack out and add only Caveman. To keep a Caveman-managed skill, leave the Caveman pack out and add only RTK. Neither choice changes the existing installation.
 
@@ -68,7 +68,7 @@ agnostic-ai sync --all
 agnostic-ai sync --check
 ```
 
-Global RTK hooks and global Caveman skills are separate installations. These project commands do not remove them. Leave out the matching project pack while a global installation supplies the same hook or skill. To move it to agnostic-ai instead, first remove the global installation using the tool that created it.
+User RTK hooks and user Caveman skills are separate installations. These project commands do not remove them. Leave out the matching project pack while a global installation supplies the same hook or skill. To move it to agnostic-ai instead, first remove the global installation using the tool that created it.
 
 <a id="remove-a-component"></a>
 

@@ -556,7 +556,7 @@ func TestDecide_ShellEvasions(t *testing.T) {
 		`pipx run evil`,
 		`pip3.11 install evil`,
 		`dotnet nuget push pkg.nupkg`,
-		`composer global require evil/x`,
+		`composer user require evil/x`,
 		`sqlite3 x.db '.shell rm -rf src'`,
 		`m4 x`,
 		`fish -C 'rm -rf src' x.fish`,

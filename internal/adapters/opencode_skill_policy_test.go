@@ -19,7 +19,7 @@ func TestOpenCodeSkillRendererKeepsInvocationPolicyWithoutChangingSibling(t *tes
 		}
 		policy, present := native.Meta["disable-model-invocation"]
 		if target == "opencode" && (!present || policy != true) {
-			t.Errorf("OpenCode global policy lost: %#v", native.Meta)
+			t.Errorf("OpenCode user policy lost: %#v", native.Meta)
 		}
 		if target == "amp" && present {
 			t.Errorf("Amp gained an unsupported field: %#v", native.Meta)

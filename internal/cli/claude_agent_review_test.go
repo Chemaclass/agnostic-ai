@@ -100,7 +100,7 @@ func TestLintAgentDescriptions_NamesClaudeOnlyWhenTheAgentGoesThere(t *testing.T
 	}
 }
 
-// An agent sync leaves out of Claude Code does not hide a global agent
+// An agent sync leaves out of Claude Code does not hide a user agent
 // of the same name there.
 func TestSync_NoNameClashForAnAgentClaudeLeavesOut(t *testing.T) {
 	userNameClashProject(t, "claude",

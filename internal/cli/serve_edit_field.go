@@ -50,13 +50,13 @@ func (h *editHandler) fieldEdit(where editAudience, shown string, addr fieldAddr
 		return "", nil, errors.New("session retention has no per-tool value; send target all")
 	}
 	if key == "session-retention-days" && !h.userLevel {
-		return "", nil, errors.New("session retention is editable in the global view only")
+		return "", nil, errors.New("session retention is editable in the user view only")
 	}
 	if voiceEditField(key) && addr.target != "" {
 		return "", nil, errors.New("voice has no per-tool value; send target all")
 	}
 	if voiceEditField(key) && !h.userLevel {
-		return "", nil, errors.New("voice is editable in the global view only")
+		return "", nil, errors.New("voice is editable in the user view only")
 	}
 	scope, err := loadCheckScope(h.userLevel)
 	if err != nil {

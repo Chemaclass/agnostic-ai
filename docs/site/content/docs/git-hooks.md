@@ -232,7 +232,7 @@ post-rewrite:
       run: node_modules/.bin/agnostic-ai project
 ```
 
-`post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend`. Git hooks do not put `node_modules/.bin` on `PATH`, so these commands name the binary by path. If it is missing, run the package install, or a global `agnostic-ai project --bootstrap` with a version that supports the command. `--quiet` hides the summary but still reports `~ kept <path>`.
+`post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend`. Git hooks do not put `node_modules/.bin` on `PATH`, so these commands name the binary by path. If it is missing, run the package install, or a user `agnostic-ai project --bootstrap` with a version that supports the command. `--quiet` hides the summary but still reports `~ kept <path>`.
 
 ### First pull
 
@@ -249,7 +249,7 @@ name: dev
 setup: agnostic-ai project --bootstrap
 ```
 
-This needs a global agnostic-ai that supports `project`, installed before worktree setup. Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes hooks that run it once in each new worktree. Delete any hand-written `bootstrap.yaml` hook from an earlier version of this recipe, because Claude Code runs matching hooks in parallel. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
+This needs a user agnostic-ai that supports `project`, installed before worktree setup. Codex and Cursor run `setup` in a new worktree from their own files. For Claude Code, sync writes hooks that run it once in each new worktree. Delete any hand-written `bootstrap.yaml` hook from an earlier version of this recipe, because Claude Code runs matching hooks in parallel. See [Claude Code worktree setup](@/docs/spec-format/environments.md#claude-code-worktree-setup).
 
 Claude Code copies the gitignored files that `.worktreeinclude` lists into each new worktree. When `claude` is a target, sync keeps its block there (see [gitignore](@/docs/sync-settings.md#gitignore)), so the ignored `.claude/settings.json` and the setup script reach the worktree. Otherwise, commit both so a new worktree has them before any sync runs. In `agnostic-ai.yaml`:
 

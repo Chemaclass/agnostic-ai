@@ -130,7 +130,7 @@ References work in bodies only, with the `$` and an uppercase keyword. `lint` fa
 - **Bodies only**, with the `$` and an uppercase keyword, like path variables. `{{AGENT:reviewer}}` stays untouched.
 - **A tool with no documented form gets a neutral phrase** and one sync note.
 - **A shared file gets the neutral phrase**: a rule or review in the rules block of `AGENTS.md` or a nested `AGENTS.md` (so a Codex rule always does), and a skill, agent, or command in a directory two enabled tools write, such as `.agents/skills` for Codex and Windsurf.
-- **`lint` fails with LINT033** on an unknown name, or on a name whose spec does not sync to every target the referring spec reaches, and lists the known names. Only project specs count, since a teammate lacks your global agents.
+- **`lint` fails with LINT033** on an unknown name, or on a name whose spec does not sync to every target the referring spec reaches, and lists the known names. Only project specs count, since a teammate lacks your user agents.
 
 </details>
 

@@ -129,7 +129,7 @@ func TestBuiltinHandoff(t *testing.T) {
 		}{
 			{filepath.Join(dir, "guidance", "rules", "learnings.md"), "learnings", "Keep the configured project learning."},
 			{filepath.Join(dir, ".agnostic-ai", "local", "rules", "learnings-local.md"), "learnings-local", "Keep the fixed personal learning."},
-			{filepath.Join(userSource, "rules", "learnings.md"), "learnings", "Keep the configured global learning."},
+			{filepath.Join(userSource, "rules", "learnings.md"), "learnings", "Keep the configured user learning."},
 		} {
 			must(t, os.MkdirAll(filepath.Dir(rule.path), 0o755))
 			must(t, os.WriteFile(rule.path, []byte("---\nname: "+rule.name+"\nalwaysApply: true\n---\n\n"+rule.body+"\n"), 0o644))
@@ -142,7 +142,7 @@ func TestBuiltinHandoff(t *testing.T) {
 		)
 		run(t, dir, "sync", "--check", "--gitignore=off")
 		run(t, dir, "sync", "--scope", "user")
-		assertContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Keep the configured global learning.")
+		assertContains(t, filepath.Join(home, ".claude", "CLAUDE.md"), "Keep the configured user learning.")
 		run(t, dir, "sync", "--scope", "user", "--check")
 	})
 
@@ -411,14 +411,14 @@ func TestBuiltinHandoff(t *testing.T) {
 		dir := t.TempDir()
 		run(t, dir, "sync", "--scope", "user")
 		if _, err := os.Stat(filepath.Join(home, paths[0])); err != nil {
-			t.Errorf("global skill missing: %v", err)
+			t.Errorf("user skill missing: %v", err)
 		}
 		for _, args := range [][]string{{"list", "--scope", "user"}, {"explain", "builtin:handoff", "--scope", "user"}} {
 			if out := run(t, dir, args...); !strings.Contains(out, "builtin:handoff (agnostic-ai v0.80.0)") {
-				t.Errorf("%v missing global provenance: %s", args, out)
+				t.Errorf("%v missing user provenance: %s", args, out)
 			}
 			if out := run(t, dir, append(args, "--json")...); !json.Valid([]byte(out)) || !strings.Contains(out, `"builtin"`) || !strings.Contains(out, `"path": ""`) {
-				t.Errorf("%v missing global JSON provenance: %s", args, out)
+				t.Errorf("%v missing user JSON provenance: %s", args, out)
 			}
 		}
 	})

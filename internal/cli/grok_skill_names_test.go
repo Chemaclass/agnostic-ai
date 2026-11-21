@@ -19,7 +19,7 @@ func TestSyncUser_GrokRejectsInvalidSkillBeforeNativeWrites(t *testing.T) {
 	name := strings.Repeat("a", 65)
 	writeFile(t, filepath.Join(source, "skills", name+".md"), "---\nname: "+name+"\ndescription: Inspect a diff.\n---\nRead the diff.\n")
 	if _, _, err := runUserAgentTest("--only", "grok"); err == nil || !strings.Contains(err.Error(), "64") {
-		t.Fatalf("invalid global native identity accepted: %v", err)
+		t.Fatalf("invalid user native identity accepted: %v", err)
 	}
 	if got := readFile(t, instructions); got != before {
 		t.Errorf("instructions changed before validation: %q", got)

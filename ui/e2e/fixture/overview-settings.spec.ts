@@ -228,7 +228,7 @@ test.describe('overview', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   })
 
-  test('keeps global built-ins source-only with one sync instruction', async ({ page }) => {
+  test('keeps user built-ins source-only with one sync instruction', async ({ page }) => {
     let memory = false
     let refuse = false
     const posted: unknown[] = []
@@ -517,7 +517,7 @@ test.describe('overview', () => {
     await expect(retention.locator('.field-source')).toContainText(`from ${team}`)
   })
 
-  test('edits global voice with a switch, mode menu, and language box', async ({ page }) => {
+  test('edits user voice with a switch, mode menu, and language box', async ({ page }) => {
     await sourceOnly(page)
     const data = structuredClone(fixture)
     const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
@@ -579,7 +579,7 @@ test.describe('overview', () => {
     }
   })
 
-  test('starts a field edit on the spec in effect and links global instructions only for retention', async ({ page }) => {
+  test('starts a field edit on the spec in effect and links user instructions only for retention', async ({ page }) => {
     await sourceOnly(page)
     const data = structuredClone(fixture)
     const fields = data.sections.find((section: { id: string }) => section.id === 'settings').fields
@@ -615,8 +615,8 @@ test.describe('overview', () => {
     await expect.poll(() => edit).toEqual({ audience: 'shared', path: paths[1], key: 'model', value: 'haiku', expected: 'opus' })
     const effort = page.locator('.field-row').filter({ has: page.getByText('Reasoning effort', { exact: true }) })
     await expect(effort).toContainText('edit the spec directly')
-    await expect(effort.locator('a', { hasText: 'Global view instructions' })).toHaveCount(0)
+    await expect(effort.locator('a', { hasText: 'User view instructions' })).toHaveCount(0)
     const retention = page.locator('.field-row').filter({ has: page.getByText('Session retention', { exact: true }) })
-    await expect(retention.locator('a', { hasText: 'Global view instructions' })).toHaveCount(1)
+    await expect(retention.locator('a', { hasText: 'User view instructions' })).toHaveCount(1)
   })
 })

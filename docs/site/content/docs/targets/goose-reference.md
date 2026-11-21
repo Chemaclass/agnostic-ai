@@ -42,8 +42,8 @@ Start with the [Goose setup](@/docs/targets/goose.md). Output keys are listed un
 - `x-goose.on_failure` takes `allow` or `block` for `PreToolUse` failures.
 - [`agnostic-ai hook run`](@/docs/cli-reference/hook-diagnostics.md#hook-run) tests hooks with Goose's event data, shell, and timeout.
 - `sync --scope user` writes a separate package to `~/.agents/plugins/agnostic-ai-global/`, which Goose loads for every project.
-- The global name differs because Goose keeps only the first plugin of a name, and a project `disabledPlugins` entry would turn off both.
-- Global sync ignores `outputs.goose.hooks-file` and an absolute `GOOSE_PATH_ROOT`, for hooks and agents, and writes under `~`.
+- The user name differs because Goose keeps only the first plugin of a name, and a project `disabledPlugins` entry would turn off both.
+- User sync ignores `outputs.goose.hooks-file` and an absolute `GOOSE_PATH_ROOT`, for hooks and agents, and writes under `~`.
 
 ### Plugin skills
 

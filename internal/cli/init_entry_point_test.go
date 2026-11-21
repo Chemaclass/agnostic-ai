@@ -138,7 +138,7 @@ func TestImportAll_ReplacesTheStarterNoteWithARootAgentsMainFile(t *testing.T) {
 	}
 }
 
-// In the home folder, .agnostic-ai/AGNOSTIC_AI.md is the global
+// In the home folder, .agnostic-ai/AGNOSTIC_AI.md is the user
 // instructions file, which sync --scope user shares with every project.
 func TestInitCmd_LeavesTheUserNoteAloneInTheHomeFolder(t *testing.T) {
 	dir := t.TempDir()
@@ -153,7 +153,7 @@ func TestInitCmd_LeavesTheUserNoteAloneInTheHomeFolder(t *testing.T) {
 		t.Fatalf("init: %v", err)
 	}
 	if _, err := os.Stat(adapters.AgnosticEntryPointPath); !os.IsNotExist(err) {
-		t.Errorf("init wrote the global note (stat err: %v)", err)
+		t.Errorf("init wrote the user note (stat err: %v)", err)
 	}
 }
 
@@ -176,6 +176,6 @@ func TestInitCmd_DryRunLeavesTheUserNoteOutThroughALinkedHome(t *testing.T) {
 		t.Fatalf("init --dry-run: %v", err)
 	}
 	if strings.Contains(out, "AGNOSTIC_AI.md") {
-		t.Errorf("dry run listed the global note, got:\n%s", out)
+		t.Errorf("dry run listed the user note, got:\n%s", out)
 	}
 }

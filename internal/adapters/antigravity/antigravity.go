@@ -50,7 +50,7 @@
 // at that scope, `<scope>/.agents/rules/<name>.md`, rather than dropping
 // with a coverage note. Antigravity "discovers rules in two scopes: your
 // workspace, including parent folders up to the repository root, and
-// your global configuration", and it "doesn’t load rules from subfolders
+// your user configuration", and it "doesn’t load rules from subfolders
 // below the workspace folder" (antigravity.google/docs/rules), so the
 // nested file loads only when the workspace is opened at the scope or
 // below it; the target page says so. The frontmatter is the

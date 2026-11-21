@@ -53,7 +53,7 @@ func emitSkill(sess *emit.Session, s spec.Entry, skillsDir string, dryRun bool) 
 }
 
 // skillSidecars returns the files Codex reads beside SKILL.md, keyed by
-// path relative to the skill folder. Project and global sync both write
+// path relative to the skill folder. Project and user sync both write
 // them, so a policy set once reaches Codex from either scope.
 func skillSidecars(s spec.Entry) (map[string]string, error) {
 	yamlBody, err := emit.OpenAIYAML(s)

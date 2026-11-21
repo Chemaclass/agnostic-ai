@@ -127,7 +127,7 @@ func TestSwitch_StartsItsOwnUserServerWhenTheRunningOneLinksToAnotherProject(t *
 func TestPeerServerCommand_UsesFixedArguments(t *testing.T) {
 	args, dir := peerServerCommand(switchPeer{root: "/home/.agnostic-ai", userLevel: true, dir: "/work/repo"}, "127.0.0.1:4311")
 	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4311", "--scope", "user"}) || dir != "/work/repo" {
-		t.Errorf("global = %v in %q", args, dir)
+		t.Errorf("user = %v in %q", args, dir)
 	}
 	args, dir = peerServerCommand(switchPeer{root: "/work/repo"}, "127.0.0.1:4312")
 	if !slices.Equal(args, []string{"serve", "--addr", "127.0.0.1:4312", "--dir", "/work/repo"}) || dir != "" {
@@ -345,7 +345,7 @@ func fakeChild(t *testing.T, addr string, identity viewServer, exitsAtOnce bool)
 	return &peerProcess{done: done, stop: exit}
 }
 
-// seededHome is a global home that counts as set up, so a switch to it
+// seededHome is a user source that counts as set up, so a switch to it
 // starts a server instead of offering to create it.
 func seededHome(t *testing.T) string {
 	t.Helper()

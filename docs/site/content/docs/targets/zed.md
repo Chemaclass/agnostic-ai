@@ -38,7 +38,7 @@ Existing files? Check [what `import zed` reads](@/docs/targets/zed-reference.md#
 | MCP servers | `.zed/settings.json`, when entries exist (merged with your config) |
 | Hooks as tasks | `.zed/tasks.json`, one task per hook, only when `tasks-file` is set |
 
-Field mappings, config keys, and global instructions: [native reference](@/docs/targets/zed-reference.md).
+Field mappings, config keys, and user instructions: [native reference](@/docs/targets/zed-reference.md).
 
 ## Verify
 

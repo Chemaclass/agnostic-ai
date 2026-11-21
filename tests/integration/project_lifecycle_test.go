@@ -33,7 +33,7 @@ func TestProjectLifecycle_BootstrapsOnceAndUsesLocalHooks(t *testing.T) {
 	write(".agnostic-ai/memory/MEMORY.md", "Local-memory-marker.\n", 0o644)
 	bin := t.TempDir()
 	old := filepath.Join(bin, "agnostic-ai")
-	if err := os.WriteFile(old, []byte("#!/bin/sh\necho 'older global must not run' >&2\nexit 91\n"), 0o755); err != nil {
+	if err := os.WriteFile(old, []byte("#!/bin/sh\necho 'older user must not run' >&2\nexit 91\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	installer := "#!/bin/sh\nprintf '%s marker=%s\\n' \"$*\" \"$AGNOSTIC_AI_PROJECT_BOOTSTRAP\" >> installs.log\nmkdir -p node_modules/.bin\ncp \"$PROJECT_TEST_BINARY\" node_modules/.bin/agnostic-ai\n# Simulate the normal postinstall script, with bootstrap requested again.\nnode_modules/.bin/agnostic-ai project --bootstrap\nprintf 'normal scripts ran\\n' >> scripts.log\n"

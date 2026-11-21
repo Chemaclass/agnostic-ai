@@ -40,7 +40,7 @@ var userNameWinners = map[spec.Kind]map[string]bool{
 	spec.KindAgent: {"claude": false},
 }
 
-// userNameClash is a project spec whose name a global spec also uses,
+// userNameClash is a project spec whose name a user spec also uses,
 // with the targets where each copy wins.
 type userNameClash struct {
 	project     spec.Entry
@@ -76,17 +76,17 @@ func (c userNameClash) message() string {
 	userLevel := homeRelative(c.userLevel.Path)
 	if c.userLevel.Layer == layerNameBuiltin {
 		userLevel = entrySourceText(c.userLevel)
-		return fmt.Sprintf("%s also exists in %s; %s; rename the project spec to load both, or remove %s from the global home config's builtins list and run `agnostic-ai sync --scope user`", c.head(), userLevel, c.winners(), c.userLevel.Name)
+		return fmt.Sprintf("%s also exists in %s; %s; rename the project spec to load both, or remove %s from the user source config's builtins list and run `agnostic-ai sync --scope user`", c.head(), userLevel, c.winners(), c.userLevel.Name)
 	}
 	if c.content == contentIdentical {
 		if c.project.Layer == layerNameBuiltin {
-			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom global copy and run `agnostic-ai sync --scope user`, or remove %s from the project's builtins list", c.head(), userLevel, c.project.Name)
+			return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete the custom user copy and run `agnostic-ai sync --scope user`, or remove %s from the project's builtins list", c.head(), userLevel, c.project.Name)
 		}
-		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the global one", c.head(), userLevel)
+		return fmt.Sprintf("%s is identical in %s, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the user-level one", c.head(), userLevel)
 	}
 	fix := "rename one to load both"
 	if len(c.userWins) > 0 {
-		fix = fmt.Sprintf("to load both, rename the global one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`", c.userLevel.Name)
+		fix = fmt.Sprintf("to load both, rename the user-level one (such as %s-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`", c.userLevel.Name)
 	}
 	differs := ""
 	if c.content == contentDiffers {
@@ -126,12 +126,12 @@ func (c userNameClash) head() string {
 func (c userNameClash) winners() string {
 	var winners []string
 	if len(c.userWins) > 0 {
-		winners = append(winners, loaders(c.userWins)+" the global one, which exists only on this machine")
+		winners = append(winners, loaders(c.userWins)+" the user-level one, which exists only on this machine")
 	}
 	if len(c.projectWins) > 0 {
 		loads := loaders(c.projectWins) + " this one"
 		if len(c.userWins) == 0 {
-			loads += ", so the global one is unused here"
+			loads += ", so the user-level one is unused here"
 		}
 		winners = append(winners, loads)
 	}
@@ -300,7 +300,7 @@ func homeLoads(kind spec.Kind, target string, g spec.Entry, written []string) bo
 }
 
 // sameFile is true when both paths name one file, as they do when the
-// project is the global home or the home links to the project's specs.
+// project is the user source or the home links to the project's specs.
 func sameFile(a, b string) bool {
 	infoA, errA := os.Stat(a)
 	infoB, errB := os.Stat(b)
@@ -308,7 +308,7 @@ func sameFile(a, b string) bool {
 }
 
 // userNameClashes compares the project's skills and agents with the
-// global home's, for the targets both write. A missing or broken global
+// user source's, for the targets both write. A missing or broken user
 // home reports nothing: project sync never depends on it.
 func userNameClashes(b spec.Bundle, targets []string) []userNameClash {
 	source, err := userSourceRoot()
@@ -382,7 +382,7 @@ func reportUserNameClashes(cmd *cobra.Command, b spec.Bundle, cfg *config.Config
 		return
 	}
 	cmd.Println()
-	cmd.Println("Global names:")
+	cmd.Println("User names:")
 	for _, c := range clashes {
 		if by := c.silencedBy(cfg.Sync); by != "" {
 			cmd.Printf("  ~ %s\n", c.silenced(by))

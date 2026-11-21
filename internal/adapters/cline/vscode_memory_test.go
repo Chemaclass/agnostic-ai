@@ -54,7 +54,7 @@ func TestUserHooks_ExcludeVSCodeOnlyMemoryHook(t *testing.T) {
 	}
 	files := UserHookFiles(hooks, "/cline-global/hook-scripts")
 	if len(files) != 1 || files[0].Path != "PreToolUse" {
-		t.Fatalf("VS Code-only memory hook must not reach SDK global hooks: %+v", files)
+		t.Fatalf("VS Code-only memory hook must not reach SDK user hooks: %+v", files)
 	}
 }
 

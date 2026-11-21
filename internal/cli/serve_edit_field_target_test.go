@@ -377,7 +377,7 @@ func TestEditFieldTarget_UserPerToolEffortSaves(t *testing.T) {
 	source := editHome(t)
 	rec := postEdit(t, newEditHandler(source, true), editFieldPath, `{"audience":"shared","key":"effort","target":"claude","value":"high"}`, nil)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("global claude effort = %d %s", rec.Code, rec.Body)
+		t.Fatalf("user claude effort = %d %s", rec.Code, rec.Body)
 	}
 	if got := readProjectFile(t, filepath.Join(source, "settings", "native.yaml")); !strings.Contains(got, "claude: high") {
 		t.Fatalf("native.yaml = %q", got)

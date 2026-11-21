@@ -40,7 +40,7 @@ func TestJustMe_PersonalWritesStayInTheLocalFolder(t *testing.T) {
 			t.Helper()
 			link(t, "agnostic-ai.yaml", "agnostic-ai.local.yaml")
 		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},
-		{name: "global local folder linked to the source", userLevel: true, setup: func(t *testing.T, root string) {
+		{name: "user local folder linked to the source", userLevel: true, setup: func(t *testing.T, root string) {
 			t.Helper()
 			link(t, ".", filepath.Join(root, "local"))
 		}, path: editBuiltinPath, body: `{"audience":"personal","name":"handoff","enabled":true}`, guarded: "agnostic-ai.yaml"},

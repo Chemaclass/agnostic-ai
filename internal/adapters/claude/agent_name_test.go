@@ -23,7 +23,7 @@ func TestEmitAgents_RejectsNamesClaudeCodeSkips(t *testing.T) {
 			}
 			err = New().EmitAgents(emit.NewSession(), agents, dir+"/global/agents", false)
 			if err == nil || !strings.Contains(err.Error(), name) {
-				t.Fatalf("global emit error = %v", err)
+				t.Fatalf("user emit error = %v", err)
 			}
 			if _, statErr := os.Stat(".claude/agents"); !os.IsNotExist(statErr) {
 				t.Errorf("agents written despite the error: %v", statErr)

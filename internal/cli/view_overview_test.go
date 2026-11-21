@@ -126,15 +126,15 @@ func TestView_DefaultSourceDoesNotMixProjectAndUserTargets(t *testing.T) {
 		userLevel     bool
 	}{
 
-		{name: "global local root", cwd: local, targets: []string{"codex"}, userLevel: true},
-		{name: "global local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
-		{name: "global local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
-		{name: "project inside global local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
+		{name: "user local root", cwd: local, targets: []string{"codex"}, userLevel: true},
+		{name: "user local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
+		{name: "user local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
+		{name: "project inside user local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
 		{name: "explicit local directory as project", cwd: outside, args: []string{"--dir", local}, targets: []string{"codex"}},
-		{name: "global source root", cwd: source, targets: []string{"codex"}, userLevel: true},
-		{name: "global source child", cwd: userNested, targets: []string{"codex"}, userLevel: true},
-		{name: "project inside global source", cwd: nestedProject, targets: []string{"cursor", "opencode"}},
-		{name: "explicit global directory as project", cwd: outside, args: []string{"--dir", source}, targets: []string{"claude", "codex"}},
+		{name: "user source root", cwd: source, targets: []string{"codex"}, userLevel: true},
+		{name: "user source child", cwd: userNested, targets: []string{"codex"}, userLevel: true},
+		{name: "project inside user source", cwd: nestedProject, targets: []string{"cursor", "opencode"}},
+		{name: "explicit user directory as project", cwd: outside, args: []string{"--dir", source}, targets: []string{"claude", "codex"}},
 		{name: "PWD symlink to nested directory", cwd: alias, targets: []string{"cursor", "opencode"}},
 		{name: "outside", cwd: outside, targets: []string{"codex"}, userLevel: true},
 		{name: "project", cwd: project, targets: []string{"cursor", "opencode"}},
@@ -242,15 +242,15 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 		userLevel     bool
 	}{
 
-		{name: "global local root", cwd: local, targets: []string{"codex"}, userLevel: true},
-		{name: "global local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
-		{name: "global local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
-		{name: "project inside global local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
+		{name: "user local root", cwd: local, targets: []string{"codex"}, userLevel: true},
+		{name: "user local child", cwd: filepath.Join(local, "rules"), targets: []string{"codex"}, userLevel: true},
+		{name: "user local physical alias", cwd: localAlias, targets: []string{"codex"}, userLevel: true},
+		{name: "project inside user local layer", cwd: localProject, targets: []string{"cursor", "opencode"}},
 		{name: "explicit local directory as project", cwd: outside, args: []string{"--dir", local}, targets: []string{"codex"}},
-		{name: "global source root", cwd: source, targets: []string{"codex"}, userLevel: true},
-		{name: "global source child", cwd: userNested, targets: []string{"codex"}, userLevel: true},
-		{name: "project inside global source", cwd: nestedProject, targets: []string{"cursor", "opencode"}},
-		{name: "explicit global directory as project", cwd: outside, args: []string{"--dir", source}, targets: []string{"claude", "codex"}},
+		{name: "user source root", cwd: source, targets: []string{"codex"}, userLevel: true},
+		{name: "user source child", cwd: userNested, targets: []string{"codex"}, userLevel: true},
+		{name: "project inside user source", cwd: nestedProject, targets: []string{"cursor", "opencode"}},
+		{name: "explicit user directory as project", cwd: outside, args: []string{"--dir", source}, targets: []string{"claude", "codex"}},
 		{name: "PWD symlink to nested directory", cwd: alias, targets: []string{"cursor", "opencode"}},
 		{name: "outside", cwd: outside, targets: []string{"codex"}, userLevel: true},
 		{name: "project", cwd: project, targets: []string{"cursor", "opencode"}},
@@ -349,8 +349,8 @@ func TestView_BrowserFailureKeepsURLAvailable(t *testing.T) {
 }
 
 func checkViewDiscoveryScope(view overview.View, targets []string, userLevel bool) error {
-	if !slices.Equal(view.Snapshot.Targets, targets) || strings.HasPrefix(view.Snapshot.Project.Name, "global (") != userLevel {
-		return fmt.Errorf("snapshot = %+v, want targets %v, global %v", view.Snapshot, targets, userLevel)
+	if !slices.Equal(view.Snapshot.Targets, targets) || strings.HasPrefix(view.Snapshot.Project.Name, "user (") != userLevel {
+		return fmt.Errorf("snapshot = %+v, want targets %v, user %v", view.Snapshot, targets, userLevel)
 	}
 	shared, local := false, false
 	for _, section := range view.Sections {
@@ -391,7 +391,7 @@ func TestView_ReusesOnlyMatchingServer(t *testing.T) {
 		{name: "other project", server: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: other, wantProbe: true},
 		{name: "other scope", server: &viewServer{OK: true, Root: project, UserLevel: true, UI: true}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
 		{name: "same global", server: &viewServer{OK: true, Root: userRoot, UserLevel: true, UI: true}, args: []string{"--scope", "user"}, wantOpen: true, wantProbe: true},
-		{name: "project on global port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--scope", "user", "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
+		{name: "project on user port", server: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--scope", "user", "--addr", defaultServeAddr}, wantError: project, wantProbe: true},
 		{name: "api-only server", server: &viewServer{OK: true, Root: project}, args: []string{"--dir", project, "--addr", defaultServeAddr}, wantError: "without the web interface", wantProbe: true},
 		{name: "no server", args: []string{"--dir", project, "--addr", "127.0.0.1:0"}, wantOpen: true, wantProbe: true},
 	} {
@@ -631,7 +631,7 @@ func TestView_OpensAnotherConfigurationOnTheNextFreePort(t *testing.T) {
 		running *viewServer
 		args    []string
 	}{
-		{name: "global after a project", running: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--scope", "user"}},
+		{name: "user after a project", running: &viewServer{OK: true, Root: project, UI: true}, args: []string{"--scope", "user"}},
 		{name: "project after global", running: &viewServer{OK: true, Root: userRoot, UserLevel: true, UI: true}, args: []string{"--dir", project}},
 		{name: "second project", running: &viewServer{OK: true, Root: other, UI: true}, args: []string{"--dir", project}},
 		{name: "api-only server of the same project", running: &viewServer{OK: true, Root: project}, args: []string{"--dir", project}},
@@ -973,7 +973,7 @@ func TestView_CompanionOpensOnlyItsOwnVersion(t *testing.T) {
 
 func TestView_CompanionServesFreshHomeWithoutCreatingConfig(t *testing.T) {
 	home := t.TempDir()
-	source := filepath.Join(home, "my global config")
+	source := filepath.Join(home, "my user config")
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("AGNOSTIC_AI_HOME", source)
@@ -1011,6 +1011,6 @@ func TestView_CompanionServesFreshHomeWithoutCreatingConfig(t *testing.T) {
 		t.Errorf("dashboard health = %+v; want version %s serving %s", health, cmd.Version, source)
 	}
 	if _, err := os.Stat(source); !os.IsNotExist(err) {
-		t.Errorf("global source was created or unreadable: %v", err)
+		t.Errorf("user source was created or unreadable: %v", err)
 	}
 }

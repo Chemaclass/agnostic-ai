@@ -222,7 +222,7 @@ func TestImportGemini_UnbracedOAuthReferenceRoundTrip(t *testing.T) {
 					}
 				}
 				if got := readFile(t, path); got != native {
-					t.Error("global adoption changed native OAuth reference bytes")
+					t.Error("user adoption changed native OAuth reference bytes")
 				}
 			} else {
 				for _, args := range [][]string{{"sync"}, {"sync", "--check"}, {"lint"}} {
@@ -299,7 +299,7 @@ func TestSyncUser_VibeSamplingDefaultControlsOwnership(t *testing.T) {
 				t.Fatal(err)
 			}
 			if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
-				t.Error("global sync widened private file permissions")
+				t.Error("user sync widened private file permissions")
 			}
 		})
 	}

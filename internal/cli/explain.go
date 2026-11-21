@@ -84,7 +84,7 @@ func newExplainCmd() *cobra.Command {
   # Which sources replace or extend a spec
   agnostic-ai explain rules/conventional-commits.md --layers
 
-  # Where sync --scope user places a global spec, per target
+  # Where sync --scope user places a user spec, per target
   agnostic-ai explain --scope user settings/defaults.yaml
 
   # Look up an error code
@@ -259,7 +259,7 @@ func computeContributions(e spec.Entry, b spec.Bundle, cfg *config.Config) ([]co
 	}
 	// Each adapter's two captures are independent of every other
 	// adapter's. As in sync's parallel emit, adapters run in batches that
-	// share the provenance-header setting, the one global they toggle.
+	// share the provenance-header setting, the one user they toggle.
 	// Each worker keeps only what it found, not its captures, and results
 	// merge in name order.
 	results := make([]emitted, len(names))

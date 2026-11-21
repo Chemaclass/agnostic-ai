@@ -22,7 +22,7 @@ import (
 // every value field a server can carry.
 var nativeMCPSecrets = []string{"ghp_synthetic123", "synthetic-bearer", "synthetic-pass", "synthetic-q", "synthetic-arg"}
 
-// nativeMCPHome makes an empty user home with the global source under
+// nativeMCPHome makes an empty user home with the user source under
 // it, so no file of the real home is read, and returns the home.
 func nativeMCPHome(t *testing.T) string {
 	t.Helper()
@@ -99,11 +99,11 @@ func TestNativeMCPServers_ReadsEachTargetsProjectAndUserFiles(t *testing.T) {
 	userLevel := nativeMCPServers(home, ".", "", cfg, true)
 	for _, s := range userLevel {
 		if s.Scope != overview.NativeScopeUser {
-			t.Errorf("global page lists a %s server: %+v", s.Scope, s)
+			t.Errorf("user page lists a %s server: %+v", s.Scope, s)
 		}
 	}
 	if len(userLevel) != 3 {
-		t.Errorf("global servers = %+v, want the three user servers", userLevel)
+		t.Errorf("user servers = %+v, want the three user servers", userLevel)
 	}
 }
 
@@ -310,11 +310,11 @@ func TestUserOverviewNativeMCPs_ListsUserServersOnly(t *testing.T) {
 	}
 	want := "GitHub:user:~/.claude.json,linear:user:~/.cursor/mcp.json,notion:user:~/.claude.json"
 	if strings.Join(got, ",") != want {
-		t.Errorf("global native rows = %v, want %s", got, want)
+		t.Errorf("user native rows = %v, want %s", got, want)
 	}
 	for _, secret := range nativeMCPSecrets {
 		if strings.Contains(out, secret) {
-			t.Errorf("global view contains %q", secret)
+			t.Errorf("user view contains %q", secret)
 		}
 	}
 }

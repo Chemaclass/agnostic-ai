@@ -29,7 +29,7 @@ func TestSettingsFields_ExposeEditContract(t *testing.T) {
 	fields = buildFields(SectionSettings, nil, nil, cfg, "", true)
 	for _, f := range fields {
 		if f.Key == "session-retention-days" && (f.Editable == nil || f.Editable.Path != "settings/defaults.yaml" || f.Editable.DisabledReason != "") {
-			t.Fatalf("global retention = %+v", f.Editable)
+			t.Fatalf("user retention = %+v", f.Editable)
 		}
 	}
 }
@@ -55,7 +55,7 @@ func TestAuthorityFields_EditTheSpecThePermissionListsUse(t *testing.T) {
 	}
 	for _, field := range buildFields(SectionAuthority, nil, nil, cfg, "", true) {
 		if field.Key == ProtectedKey && (field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "sync --scope user does not write protected paths")) {
-			t.Errorf("global protected = %+v", field.Editable)
+			t.Errorf("user protected = %+v", field.Editable)
 		}
 		if field.Key == PermissionModeKey && (field.Editable == nil || field.Editable.DisabledReason != "") {
 			t.Errorf("global mode = %+v", field.Editable)
@@ -188,7 +188,7 @@ func TestSettingsFields_DefaultPathAndSyncCommandFollowTheScope(t *testing.T) {
 	}
 	for _, f := range buildFields(SectionSettings, nil, nil, cfg, root, true) {
 		if f.Key == "model" && f.Editable.SyncCommand != "agnostic-ai sync --scope user" {
-			t.Fatalf("global model = %+v", f.Editable)
+			t.Fatalf("user model = %+v", f.Editable)
 		}
 	}
 }
@@ -609,7 +609,7 @@ func TestSettingsOverride_SkipsALaterClaudeModelForToolsThatDropIt(t *testing.T)
 		t.Errorf("claude override = %d, want 1", got)
 	}
 	if got := SettingsOverride(settings, 0, "model", []string{"codex"}, true); got != 1 {
-		t.Errorf("global codex override = %d, want 1", got)
+		t.Errorf("user codex override = %d, want 1", got)
 	}
 }
 

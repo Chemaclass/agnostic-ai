@@ -51,7 +51,7 @@ Have an existing setup? [Import it](@/docs/targets/qwen-reference.md#import) bef
 | MCP, hooks, and settings | `.qwen/settings.json` |
 | Ignore patterns | `.qwenignore` |
 
-Field mappings, global configuration, and config keys: [native reference](@/docs/targets/qwen-reference.md).
+Field mappings, user configuration, and config keys: [native reference](@/docs/targets/qwen-reference.md).
 
 ## Verify
 
@@ -69,7 +69,7 @@ Field mappings, global configuration, and config keys: [native reference](@/docs
 {% <details summary="More limits"> %}
 - From Qwen Code 0.26.7, interactive sessions skip hooks from `.qwen/settings.json`, agent and skill hooks, and skill permission grants until you set `security.folderTrust.enabled` to `true` and trust the folder. Folder trust is off by default.
 - From 0.26.8, runs with `-p`, piped input, or ACP and SDK clients follow the same rule for `.qwen/settings.json` hooks. With folder trust off, those hooks also run once you approve that exact hooks block.
-- Global hook specs emit command handlers. Reviews and environment specs have no native output.
+- User hook specs emit command handlers. Reviews and environment specs have no native output.
 - Portable agent effort has no equivalent.
 - Qwen's approval modes differ from Claude's `permissionMode` names, so sync leaves `permissionMode` out with a note. Set `x-qwen.approvalMode` instead.
 - Agent `background` and `hooks` are written as given. A `Stop` hook becomes `SubagentStop`, since Qwen does not treat one as the other in an agent file. An event outside Qwen's [hook events](https://qwenlm.github.io/qwen-code-docs/en/users/features/hooks/) raises a note.
@@ -98,7 +98,7 @@ x-qwen:
     excluded: [server-name]
 ```
 
-Qwen combines this exclusion list across trusted settings scopes. Project and global sync merge entries individually, so removing a source exclusion keeps user entries and other MCP settings.
+Qwen combines this exclusion list across trusted settings scopes. Project and user sync merge entries individually, so removing a source exclusion keeps user entries and other MCP settings.
 {% </details> %}
 
 ## Protected paths

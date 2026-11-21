@@ -39,7 +39,7 @@ func TestResolveLayers_DoesNotLoadUserHome(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(layers) != 1 || layers[0].Name != layerNameProject {
-		t.Fatalf("global home joined project layers: %+v", layers)
+		t.Fatalf("user source joined project layers: %+v", layers)
 	}
 }
 
@@ -88,7 +88,7 @@ func TestResolveLayers_ProjectAndProjectUserPrecedenceOrder(t *testing.T) {
 }
 
 // The local layer lives inside the source dir, the same shape as the
-// global ~/.agnostic-ai/local/. The old sibling folder is not read.
+// user ~/.agnostic-ai/local/. The old sibling folder is not read.
 func TestResolveLayers_ReadsLocalInsideTheSourceDirOnly(t *testing.T) {
 	root := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(root, ".agnostic-ai.local"), 0o755); err != nil {

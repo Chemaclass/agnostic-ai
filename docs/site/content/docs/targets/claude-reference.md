@@ -10,7 +10,7 @@ group = "Reference"
 
 # Claude Code native reference
 
-Start with the [Claude Code setup](@/docs/targets/claude.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Claude Code setup](@/docs/targets/claude.md). For home configuration and ownership, see [user configuration](@/docs/global-configuration.md).
 
 ## Rules and instruction loading
 
@@ -36,7 +36,7 @@ Legacy `rules-mode: import` is for versions without native rules loading. `rules
 
 A declared `disallowedTools` or `x-claude.disallowedTools` wins over `readonly`. A null override omits it. Claude Code skips names starting with `-` or containing `:`; sync rejects them before writing, including names from `x-claude`.
 
-For global agents and user settings, see [global configuration](@/docs/global-configuration.md).
+For user agents and user settings, see [user configuration](@/docs/global-configuration.md).
 
 ## Hook mappings
 
@@ -123,7 +123,7 @@ Claude Code creates the directory on first use. Subagent memory is part of auto 
 
 ## Claude settings
 
-`sync --scope user --only claude` maps a home settings spec's `permissions.default-mode` to `permissions.defaultMode` in `~/.claude/settings.json`. It merges the home's `allow`, `ask`, and `deny` rules into the lists there. `import --scope user claude` copies user-level rules into the home. See [global settings and rule ownership](@/docs/global-configuration-reference.md#global-default-model-and-effort).
+`sync --scope user --only claude` maps a home settings spec's `permissions.default-mode` to `permissions.defaultMode` in `~/.claude/settings.json`. It merges the home's `allow`, `ask`, and `deny` rules into the lists there. `import --scope user claude` copies user-level rules into the home. See [user settings and rule ownership](@/docs/global-configuration-reference.md#global-default-model-and-effort).
 
 With no `permissions.default-mode` in a home settings spec, `approvals` set to `review` for Claude Code writes `permissions.defaultMode: "auto"` there instead. Claude Code takes auto mode only from user, managed, or command-line settings, never from a project file. See [review through the tool's own reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
 

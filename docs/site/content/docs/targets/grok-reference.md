@@ -1,6 +1,6 @@
 +++
 title = "Grok Build native reference"
-description = "Native field mappings, import coverage, and global configuration for grok."
+description = "Native field mappings, import coverage, and user configuration for grok."
 weight = 266
 
 [extra]
@@ -42,7 +42,7 @@ Start with the [Grok setup](@/docs/targets/grok.md).
 - `startup_timeout_sec` and `tool_timeout_sec` stay in seconds.
 - Environment references stay as text for Grok to expand.
 - `x-grok` carries native extras, such as authentication and timeouts.
-- `x-grok.headers_helper` keeps a string command that supplies dynamic HTTP request headers, supported since [Grok Build 1.0.88](https://x.ai/changelog/build). Import keeps the native `headers_helper` under `x-grok`; project and global sync write it back.
+- `x-grok.headers_helper` keeps a string command that supplies dynamic HTTP request headers, supported since [Grok Build 1.0.88](https://x.ai/changelog/build). Import keeps the native `headers_helper` under `x-grok`; project and user sync write it back.
 - Portable `description` and `timeout` give coverage notes (no exact mapping).
 
 ### Project settings
@@ -74,16 +74,16 @@ Run `agnostic-ai import grok` before the first sync of a native project. It uses
 - An unsupported hook handler type fails import.
 - Standalone MCP credentials become environment references through the shared credential filter.
 - MCP `description` is left out with a note, because Grok ignores it. The same server imported from Claude Code or Cursor keeps its description.
-- Global sync preserves the original native file.
+- User sync preserves the original native file.
 - Inline agent MCP and hook metadata keep their native form. Literal credentials there and in standalone hooks are refused before any write ([setting value rule](@/docs/spec-format/mcp-import.md#setting-values)). Errors name the path, never the value.
 - Hook `env` values pass through literally, so `${TOKEN}` there reads nothing. Use it in the hook `command` or `url`, where Grok expands variables.
 - Adapter tests cover the round trip: import, sync, lint, `sync --check`.
 
-## Global configuration
+## User configuration {#global-configuration}
 
 - `agnostic-ai sync --scope user --only grok` writes `$GROK_HOME/AGENTS.md`, `skills/`, `agents/`, `hooks/`, `hook-scripts/`, and `config.toml`.
 - `GROK_HOME` defaults to `~/.grok` and must be absolute when set.
-- Global commands and permission lists are not written. Global effort is unsupported.
-- The global model maps to `[models].default`.
+- User commands and permission lists are not written. User effort is unsupported.
+- The user model maps to `[models].default`.
 - MCP servers and the model share one planned write of the config file. Sync owns individual servers and the model key, keeps other text and private file modes, checks for concurrent edits, and removes only unchanged owned values.
 - `agnostic-ai import --scope user grok` reads supported settings, MCP, and hooks. It skips literal credentials.

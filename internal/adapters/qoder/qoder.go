@@ -239,7 +239,7 @@ func (Adapter) EmitAgents(sess *emit.Session, agents []spec.Entry, dir string, d
 // `memory` passes through too (#953). Qoder's field reference gives it
 // this project's exact enum, "| `memory` | No | `user`, `project`,
 // `local` | Persistent memory scope for this Subagent. Only active
-// when global automatic memory is enabled", and reaches it only
+// when user automatic memory is enabled", and reaches it only
 // through this file: "Use Markdown configuration when you need
 // `timeoutMins`, `temperature`, `hooks`, `memory`, `background`, or
 // `isolation`". No translation, the values match. The vendor's

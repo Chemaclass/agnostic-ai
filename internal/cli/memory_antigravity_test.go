@@ -66,13 +66,13 @@ func TestSyncUser_AntigravityMemoryIncludeStaysProjectOnly(t *testing.T) {
 	home, source := userAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [antigravity]\nbuiltins: [memory]\n")
 	if _, notes, err := runUserAgentTest(); err != nil {
-		t.Fatalf("global sync: %v\n%s", err, notes)
+		t.Fatalf("user sync: %v\n%s", err, notes)
 	}
 	body := readFile(t, filepath.Join(home, ".gemini", "GEMINI.md"))
 	if strings.Contains(body, "antigravity-memory-index") || strings.Contains(body, "@[Project memory]") {
-		t.Error("project includes reached global instructions")
+		t.Error("project includes reached user instructions")
 	}
 	if !strings.Contains(body, "shared-memory-policy") {
-		t.Error("global memory lookup fallback missing")
+		t.Error("user memory lookup fallback missing")
 	}
 }

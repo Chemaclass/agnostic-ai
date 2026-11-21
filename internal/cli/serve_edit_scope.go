@@ -257,7 +257,7 @@ func inheritedPersonalMemory(root string) (string, error) {
 	return git.Personal, err
 }
 
-// teamBuiltins is the committed builtins list; a global source without a
+// teamBuiltins is the committed builtins list; a user source without a
 // config turns none on.
 func (h *editHandler) teamBuiltins() ([]string, error) {
 	if team, _ := h.builtinsConfigFiles(); h.userLevel {

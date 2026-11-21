@@ -59,7 +59,7 @@ The route lists Claude Code, Codex and Cursor conversations, and ChatGPT chats w
 - A page asked for with `before` holds the week before that time, and reaches past weeks with no conversation.
 - The page returns `from` and `to`, and `next`, the `before` value of the following page, absent when no older conversation remains.
 - A `before` that is not an RFC 3339 time is a 400.
-- A project server lists the conversations started in the project or one of its Git worktrees. A global server lists them all.
+- A project server lists the conversations started in the project or one of its Git worktrees. A user server lists them all.
 - Runs a program started (Claude Code SDK sessions, `codex exec`) are left out. A `codex exec` run that a local Claude Code session started shows in that session's `helpers` instead while it runs.
 - A Claude Code session or Codex thread that was opened and never typed in is left out: it has no title and no prompt to show. A Codex thread stays when the agent replied, or when you named it with `POST /api/conversations/rename`. A left-out one is not counted in `needsYou` or a tool's `count`.
 
@@ -72,7 +72,7 @@ Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?, needs?}`. `count` is every conversation the tool holds, `shown` those on this page, `note` why a store was not read, `needs` the missing command (`sqlite3`).
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, open}`.
-- `approvalsMode` is the loosest active mode for the project or global list, `review` or `yolo`. It is omitted when inactive.
+- `approvalsMode` is the loosest active mode for the project or user list, `review` or `yolo`. It is omitted when inactive.
 - [Mailbox routes](@/docs/mailbox.md#mailbox-api).
 
 Conversation fields:

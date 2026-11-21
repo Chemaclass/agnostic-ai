@@ -43,7 +43,7 @@ func readUserConfig(path string) (map[string]yaml.Node, error) {
 }
 
 // loadUserTargets reads the targets the home configs select. It
-// returns nil when neither file sets targets. Global mode reads only
+// returns nil when neither file sets targets. User scope reads only
 // targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations.
 func loadUserTargets(source string, warn io.Writer) ([]string, error) {
 	var targets []string
@@ -61,8 +61,8 @@ func loadUserTargets(source string, warn io.Writer) ([]string, error) {
 		}
 		if len(ignored) > 0 {
 			slices.Sort(ignored)
-			if _, err := fmt.Fprintf(warn, "warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
-				return nil, fmt.Errorf("write global config warning: %w", err)
+			if _, err := fmt.Fprintf(warn, "warning: %s: user scope reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring %s\n", path, strings.Join(ignored, ", ")); err != nil {
+				return nil, fmt.Errorf("write user config warning: %w", err)
 			}
 		}
 		node, ok := doc["targets"]
@@ -93,7 +93,7 @@ func loadUserTargets(source string, warn io.Writer) ([]string, error) {
 		}
 		if len(skipped) > 0 {
 			if _, err := fmt.Fprintf(warn, "warning: %s: sync --scope user cannot write %s; skipping them\n", path, strings.Join(skipped, ", ")); err != nil {
-				return nil, fmt.Errorf("write global config warning: %w", err)
+				return nil, fmt.Errorf("write user config warning: %w", err)
 			}
 		}
 		if len(kept) == 0 {
@@ -157,7 +157,7 @@ func loadUserModels(source string, skipBroken io.Writer) (map[string]config.Mode
 				return nil, nil, err
 			}
 			if _, werr := fmt.Fprintf(skipBroken, "warning: %v; skipping the models in %s\n", err, path); werr != nil {
-				return nil, nil, fmt.Errorf("write global config warning: %w", werr)
+				return nil, nil, fmt.Errorf("write user config warning: %w", werr)
 			}
 			for i := 0; i+1 < len(node.Content); i += 2 {
 				unloaded = append(unloaded, node.Content[i].Value)
@@ -202,7 +202,7 @@ func applyUserTiers(b *spec.Bundle, tiers map[string]config.ModelTier, unloaded 
 				continue
 			}
 			if _, err := fmt.Fprintf(warn, "warning: %s: model %q names a tier that did not load; omitting model\n", e.Path, name); err != nil {
-				return fmt.Errorf("write global config warning: %w", err)
+				return fmt.Errorf("write user config warning: %w", err)
 			}
 			e.Meta = maps.Clone(e.Meta)
 			delete(e.Meta, "model")
@@ -267,7 +267,7 @@ const (
 	userHomeMigrateRemedy = "run `agnostic-ai migrate --scope user`"
 )
 
-// refuseUserSource stops a project command in the global source root or
+// refuseUserSource stops a project command in the user source root or
 // any directory inside it. Read as a project, the home config would send
 // native files and project scaffolding into the home or its local/ layer.
 // Walking the resolved path and comparing with os.SameFile sees through
@@ -306,9 +306,9 @@ func refuseUserSource(dir, remedy string) error {
 	if len(inside) > 0 && isUserHome(root) {
 		return nil
 	}
-	where := source + " is the global home"
+	where := source + " is the user source"
 	if len(inside) > 0 {
-		where = filepath.Join(append([]string{source}, inside...)...) + " is inside the global home " + source
+		where = filepath.Join(append([]string{source}, inside...)...) + " is inside the user source " + source
 	}
 	if os.Getenv(envUserRoot) != "" {
 		return fmt.Errorf("%s (%s); %s, or unset %s if this is a project", where, envUserRoot, remedy, envUserRoot)

@@ -186,7 +186,7 @@ func TestAgentPermission_EqualsProjectWithinTheList(t *testing.T) {
 		{"partial overlap ask", "", map[string]any{"bash": map[string]any{"* --force": "ask"}}, []string{"Bash(git *)"}, []grant{{"bash", "git *"}}, nil, nil},
 		{"global ask with a named key", "", map[string]any{"*": "ask", "bash": map[string]any{"rm *": "deny"}}, []string{"Bash(git *)", "Read"}, []grant{{"bash", "git *"}, {"read", "*"}}, nil, nil},
 		{"global ask, scoped agent", "", map[string]any{"*": "ask"}, []string{"Bash(git diff *)", "Read"}, []grant{{"bash", "git diff *"}, {"read", "*"}}, nil, nil},
-		{"global and doom_loop deny", "", map[string]any{"*": "deny", "doom_loop": "deny"}, []string{"Read"}, []grant{{"read", "*"}}, nil, nil},
+		{"user and doom_loop deny", "", map[string]any{"*": "deny", "doom_loop": "deny"}, []string{"Read"}, []grant{{"read", "*"}}, nil, nil},
 		{"global deny, tool scoped deny", "", map[string]any{"*": "deny", "bash": map[string]any{"rm *": "deny"}}, []string{"Bash"}, []grant{{"bash", "*"}}, nil, nil},
 		{"tool allow with scoped deny", "", map[string]any{"bash": map[string]any{"*": "allow", "rm *": "deny"}}, []string{"Bash"}, []grant{{"bash", "*"}}, nil, nil},
 		{"scoped read deny", "", map[string]any{"read": map[string]any{"/secrets/**": "deny"}}, []string{"Read(src/**)", "Read"}, []grant{{"read", "*"}}, nil, nil},

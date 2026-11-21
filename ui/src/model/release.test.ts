@@ -30,7 +30,7 @@ describe('required release', () => {
     expect(requiredRelease({ userLevel: true, version: '0.81.0', requires: '>=0.81.0', requiresMet: true })).toEqual({
       label: 'requires >=0.81.0',
       state: 'met',
-      title: 'The global setup needs agnostic-ai >=0.81.0; v0.81.0 meets it.',
+      title: 'The user setup needs agnostic-ai >=0.81.0; v0.81.0 meets it.',
     })
   })
 

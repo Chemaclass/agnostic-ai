@@ -37,7 +37,7 @@ func TestEmit_Agent_NativeV2ProjectPermissions(t *testing.T) {
 		{"native wildcard after legacy aliases", `{"permission":{"bash":"deny","task":"ask"},"permissions":[{"action":"she*","resource":"git *","effect":"allow"},{"action":"subagent","resource":"private*","effect":"deny"}]}`, []any{"shell", "Task"}, []probe{
 			{"shell", "git status", "allow"}, {"shell", "rm file", "deny"}, {"subagent", "review", "ask"}, {"subagent", "private-review", "deny"},
 		}},
-		{"global native wildcard", `{"permissions":[{"action":"*","resource":"*","effect":"ask"},{"action":"shell","resource":"git status *","effect":"allow"}]}`, []any{"read", "shell"}, []probe{
+		{"user native wildcard", `{"permissions":[{"action":"*","resource":"*","effect":"ask"},{"action":"shell","resource":"git status *","effect":"allow"}]}`, []any{"read", "shell"}, []probe{
 			{"read", "src/main.go", "ask"}, {"shell", "git status", "allow"}, {"shell", "git push main", "ask"}, {"edit", "src/main.go", "deny"},
 		}},
 		{"wildcard native aliases", `{"permissions":[{"action":"she*","resource":"git *","effect":"ask"},{"action":"shell","resource":"git push *","effect":"deny"},{"action":"sub*","resource":"private*","effect":"deny"}]}`, []any{"shell(git *)", "Task"}, []probe{

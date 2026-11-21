@@ -137,7 +137,7 @@ func TestEditTargets_UserWritesTheHomeConfigAndRefusesProjectOnlyTools(t *testin
 		t.Fatalf("enable = %d %s", rec.Code, rec.Body)
 	}
 	data, _ := os.ReadFile(source + "/agnostic-ai.yaml")
-	if !strings.Contains(string(data), "# Global targets.") || !strings.Contains(string(data), "- codex") {
+	if !strings.Contains(string(data), "# User targets.") || !strings.Contains(string(data), "- codex") {
 		t.Errorf("after enabling:\n%s", data)
 	}
 	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"ellipsis","enabled":true,"expected":false}`, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --scope user cannot write") {
@@ -160,7 +160,7 @@ func TestEditTargets_LastSupportedToolStaysOn(t *testing.T) {
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, aider]\n")
 	rec = postEdit(t, newEditHandler(source, true), editTargetsPath, `{"audience":"shared","name":"claude","enabled":false,"expected":true}`, nil)
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "keep at least one coding tool on") {
-		t.Errorf("global = %d, want 400 naming the rule: %s", rec.Code, rec.Body)
+		t.Errorf("user = %d, want 400 naming the rule: %s", rec.Code, rec.Body)
 	}
 }
 

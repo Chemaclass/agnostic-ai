@@ -77,12 +77,12 @@ Kimi merges the user MCP file, repository-root `.mcp.json`, then working-directo
 
 ## Selected settings and hooks {#selected-profile}
 
-Global sync:
+User sync:
 
 - Maps `model` to an existing native `default_model` alias.
 - Accepts boolean `x-kimi.default_plan_mode` and `x-kimi.telemetry`.
 - Edits only those owned scalar keys and native hook records. Other user text and tables stay.
-- Does not support global effort, because it does not track ownership of `[thinking].effort`. Set it in an explicit profile export.
+- Does not support user effort, because it does not track ownership of `[thinking].effort`. Set it in an explicit profile export.
 
 To export settings and hooks, opt into a separate Kimi data root:
 
@@ -130,8 +130,8 @@ It keeps safe native fields under `x-kimi`, including empty restrictions and dis
 
 `agnostic-ai import kimi --scope user` imports the selected user's model, hooks, and MCP connections.
 
-- Project and global hook imports check native records, and commands inside generated wrappers, for literal credentials before writing hook specs.
-- Global sync records ownership. Removing the specs restores user text and leaves unrelated hooks and tables intact.
+- Project and user hook imports check native records, and commands inside generated wrappers, for literal credentials before writing hook specs.
+- User sync records ownership. Removing the specs restores user text and leaves unrelated hooks and tables intact.
 
 ## Sources
 

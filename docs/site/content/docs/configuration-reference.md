@@ -103,7 +103,7 @@ Per-spec overrides and which value wins: [model tiers](@/docs/spec-format/agents
 - `lint` warns with LINT025 when a tier is named like a Claude model.
 - `lint` warns with LINT026 when a tier's `default` is a Claude model another target cannot load.
 - A tier in `agnostic-ai.local.yaml` replaces the whole shared tier of the same name, `description` included.
-- The [global home config](#global-configuration) accepts the key too.
+- The [user source config](#global-configuration) accepts the key too.
 
 </details>
 
@@ -179,7 +179,7 @@ lint:
 - A missing key or `0` keeps the default. A negative value fails as AAI-004.
 - The defaults follow vendor limits: Claude Code's [200 lines](https://code.claude.com/docs/en/memory) for `CLAUDE.md`, and the [Agent Skills specification](https://agentskills.io/specification) for descriptions.
 - Whatever the word budget, lint also warns past Codex's [32 KiB](https://developers.openai.com/codex/guides/agents-md) `AGENTS.md` cap and Antigravity's [24,000-byte](https://antigravity.google/docs/rules) rule cap.
-- The [global home config](#global-configuration) accepts the key too.
+- The [user source config](#global-configuration) accepts the key too.
 - See [`lint`](@/docs/cli-reference/check.md#lint).
 
 ## `doctor`
@@ -385,9 +385,9 @@ Specs load from four layers, lowest first. A higher layer overrides a spec with 
 - Only `project` uses custom `sources` paths.
 - `$AGNOSTIC_AI_HOME` is not a project layer.
 
-## Global configuration
+## User configuration {#global-configuration}
 
-`agnostic-ai sync --scope user` installs your own instructions, skills, hooks, settings, agents, and MCP servers for every project. It reads `~/.agnostic-ai/`, not the current project's specs. [Global configuration](@/docs/global-configuration.md) covers the source layout, target selection, ownership, and recovery.
+`agnostic-ai sync --scope user` installs your own instructions, skills, hooks, settings, agents, and MCP servers for every project. It reads `~/.agnostic-ai/`, not the current project's specs. [User configuration](@/docs/global-configuration.md) covers the source layout, target selection, ownership, and recovery.
 
 ```bash
 agnostic-ai sync --scope user --only claude,codex --dry-run

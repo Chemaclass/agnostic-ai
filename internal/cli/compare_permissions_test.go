@@ -215,7 +215,7 @@ func TestCompare_PermissionDefaultModeRemainsUserOnly(t *testing.T) {
 	}
 	for _, target := range cfg.Targets {
 		got := findCompareResult(t, out, entry.Path, "permissions.default-mode", target)
-		if got.Status != statusUnsupported || len(got.Paths) != 0 || !strings.Contains(got.Reason, "global sync") {
+		if got.Status != statusUnsupported || len(got.Paths) != 0 || !strings.Contains(got.Reason, "user sync") {
 			t.Errorf("%s raw or native mode must not prove portable project mapping: %+v", target, got)
 		}
 	}

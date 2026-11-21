@@ -681,7 +681,7 @@ func settingsValues(path, format string, data []byte) (map[string]any, error) {
 	return out, nil
 }
 
-// lintUserSettings reports invalid values that global sync would drop with a note.
+// lintUserSettings reports invalid values that user sync would drop with a note.
 func lintUserSettings(settings []spec.Entry, targets []string) []validationIssue {
 	var out []validationIssue
 	for _, entry := range settings {

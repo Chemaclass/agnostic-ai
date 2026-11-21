@@ -321,11 +321,11 @@ func TestUserSync_NewerReleaseNamesTheHomeConfig(t *testing.T) {
 	}
 	for _, want := range []string{path, "update `requires`", "0.77.0"} {
 		if !strings.Contains(err.Error(), want) {
-			t.Errorf("global advice misses %q: %v", want, err)
+			t.Errorf("user advice misses %q: %v", want, err)
 		}
 	}
 	if strings.Contains(err.Error(), "upgrade --requires") || strings.Contains(err.Error(), "upgrade --version") {
-		t.Errorf("global advice must name a manual home-config reconciliation: %v", err)
+		t.Errorf("user advice must name a manual home-config reconciliation: %v", err)
 	}
 }
 
@@ -404,7 +404,7 @@ func TestListUser_WarnsOnUnparsableHomeConfig(t *testing.T) {
 		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)
 	}
 	if !strings.Contains(out, "rule\tsafe\tuser") {
-		t.Errorf("expected the global rule listed, got:\n%s", out)
+		t.Errorf("expected the user rule listed, got:\n%s", out)
 	}
 }
 
@@ -606,6 +606,6 @@ func TestUserCommands_ExactPinHintsAtMinimum(t *testing.T) {
 		t.Fatalf("want %s, got %v", errs.CodeRequiresUnmet, err)
 	}
 	if !strings.Contains(err.Error(), config+" requires agnostic-ai 0.88.0") || !strings.Contains(err.Error(), wantMinimumHint) {
-		t.Errorf("a global exact pin must hint at a minimum: %v", err)
+		t.Errorf("a user exact pin must hint at a minimum: %v", err)
 	}
 }

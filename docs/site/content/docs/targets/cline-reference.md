@@ -79,13 +79,13 @@ Cline's workflows doc page now redirects to the [rules page](https://docs.cline.
 | `outputs.cline.hooks-dir` | `.clinerules/hooks` | the VS Code extension reads only `.clinerules/hooks`; the Cline CLI also reads `.cline/hooks` |
 | `outputs.cline.workflows-dir` | empty | opt-in; set it to `.clinerules/workflows`, the only path both hosts read |
 
-## Global hooks
+## User hooks {#global-hooks}
 
-`agnostic-ai sync --scope user --only cline` writes one executable `~/.cline/hooks/<Event>` for each event in the global hook specs. `CLINE_DIR` moves that root. Commands for the same event share one script. Shared command bodies and portable wrappers live in `~/.cline/hook-scripts/`, outside the hook discovery folder.
+`agnostic-ai sync --scope user --only cline` writes one executable `~/.cline/hooks/<Event>` for each event in the user hook specs. `CLINE_DIR` moves that root. Commands for the same event share one script. Shared command bodies and portable wrappers live in `~/.cline/hook-scripts/`, outside the hook discovery folder.
 
-These user hooks run in the Cline SDK and CLI. The VS Code extension reads global hooks from the system Documents folder's `Cline/Hooks/`, which sync does not write. The [config reference](https://docs.cline.bot/getting-started/config) lists both locations; the [SDK path resolver](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/storage/paths.ts) and [extension loader](https://github.com/cline/cline/blob/main/apps/vscode/src/core/storage/disk.ts) show the reader difference.
+These user hooks run in the Cline SDK and CLI. The VS Code extension reads user hooks from the system Documents folder's `Cline/Hooks/`, which sync does not write. The [config reference](https://docs.cline.bot/getting-started/config) lists both locations; the [SDK path resolver](https://github.com/cline/cline/blob/main/sdk/packages/shared/src/storage/paths.ts) and [extension loader](https://github.com/cline/cline/blob/main/apps/vscode/src/core/storage/disk.ts) show the reader difference.
 
-Global sync preserves unrelated event files and stops on a conflicting hand-written event file. Removing a global spec removes its unchanged generated script. `import --scope user cline` does not import hook scripts.
+User sync preserves unrelated event files and stops on a conflicting hand-written event file. Removing a user spec removes its unchanged generated script. `import --scope user cline` does not import hook scripts.
 
 ## Import
 

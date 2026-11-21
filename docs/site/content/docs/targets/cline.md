@@ -24,7 +24,7 @@ vs-code-memory-startup = "@/docs/targets/cline-reference.md"
 
 ## Config keys {#config-keys .legacy-anchor}
 
-## Global hooks {#global-hooks .legacy-anchor}
+## User hooks {#global-hooks .legacy-anchor}
 
 ## Import {#import .legacy-anchor}
 

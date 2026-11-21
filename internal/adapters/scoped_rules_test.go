@@ -193,7 +193,7 @@ func TestScopedRules_RejectIncompatibleReaders(t *testing.T) {
 		targets []string
 		meta    map[string]any
 	}{
-		{"global AGENTS reader", []string{"codex", "kiro"}, nil},
+		{"user AGENTS reader", []string{"codex", "kiro"}, nil},
 		{"raw Cursor reader", []string{"cursor", "crush"}, nil},
 		{"excluded shared reader", []string{"codex", "amp"}, map[string]any{"target": "codex"}},
 		{"different shared scope", []string{"codex", "amp"}, map[string]any{"x-amp": map[string]any{"scope": "catalog"}}},

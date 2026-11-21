@@ -164,7 +164,7 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 	rootInstructions, _, _ := strings.Cut(skill.Body, "\n## Write\n")
 	for _, rule := range []string{
 		"canonical", "AGNOSTIC_AI_HOME", "~/.agnostic-ai",
-		"exclude the effective global source root", "git rev-parse --show-toplevel",
+		"exclude the effective user source root", "git rev-parse --show-toplevel",
 	} {
 		if !strings.Contains(rootInstructions, rule) {
 			t.Errorf("skill root lookup is missing rule %q", rule)
@@ -172,7 +172,7 @@ func TestMaterialize_LoadsTheFullHandoffAsAnOrdinaryLayer(t *testing.T) {
 	}
 	for _, rule := range []string{
 		"Write the file before proposing learnings",
-		"[project]", "[personal]", "[global]",
+		"[project]", "[personal]", "[user]",
 		"append-only diff per file", "YAML frontmatter", "alwaysApply: true",
 		"name: learnings-local", "omit `scope`, `globs`, and `paths`",
 		"confirmation of each item's content and scope", "only approved items",

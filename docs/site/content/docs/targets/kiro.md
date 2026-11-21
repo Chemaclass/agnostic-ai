@@ -26,7 +26,7 @@ global-voice-language = "@/docs/targets/kiro-reference.md"
 
 ## Import {#import .legacy-anchor}
 
-## Global voice language {#global-voice-language .legacy-anchor}
+## User voice language {#global-voice-language .legacy-anchor}
 
 ## Set up this tool {#set-up-this-tool .legacy-anchor}
 
@@ -67,6 +67,6 @@ For field mappings, output overrides, and import coverage, see the [Kiro native 
 
 ## Protected paths
 
-Not enforced. Sync prints a note for a `protected` block; Kiro has no edit guard it writes. Global voice language uses the separate [home settings mapping](@/docs/targets/kiro-reference.md#global-voice-language). See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
+Not enforced. Sync prints a note for a `protected` block; Kiro has no edit guard it writes. User voice language uses the separate [home settings mapping](@/docs/targets/kiro-reference.md#global-voice-language). See [protected-path alternatives](@/docs/spec-format/settings.md#protected-paths).
 
 Next, [add a skill](@/docs/spec-format/skills.md).

@@ -41,7 +41,7 @@ func TestSyncUser_CopilotImportKeepsExistingUserScriptSpec(t *testing.T) {
 				t.Fatal(err)
 			}
 			if len(specs) != 1 {
-				t.Errorf("import duplicated existing global source spec: %v", specs)
+				t.Errorf("import duplicated existing user source spec: %v", specs)
 			}
 			if _, _, err := runUserAgentTest("--only", "copilot"); err != nil {
 				t.Fatalf("resync: %v", err)
@@ -49,7 +49,7 @@ func TestSyncUser_CopilotImportKeepsExistingUserScriptSpec(t *testing.T) {
 			got := readUserJSON(t, managed)
 			handlers := got["hooks"].(map[string]any)["PreToolUse"].([]any)
 			if len(handlers) != 1 {
-				t.Errorf("global sync/import/sync emitted %d handlers, want one", len(handlers))
+				t.Errorf("user sync/import/sync emitted %d handlers, want one", len(handlers))
 			}
 			if after := readFile(t, managed); after != before {
 				t.Errorf("import changed emitted command or wrapper: before %s\nafter %s", before, after)
@@ -169,7 +169,7 @@ func TestSyncUser_CopilotMemoryWindowsCommandUsesCopilotReplyFormat(t *testing.T
 	t.Setenv("COPILOT_HOME", native)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [copilot]\nbuiltins: [memory]\n")
 	if _, warnings, err := runUserAgentTest("--only", "copilot"); err != nil {
-		t.Fatalf("global memory sync: %v\n%s", err, warnings)
+		t.Fatalf("user memory sync: %v\n%s", err, warnings)
 	}
 	assertTarget := func(path string) {
 		t.Helper()

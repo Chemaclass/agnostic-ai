@@ -84,7 +84,7 @@ func TestProjectSkillPriority_ReportsNativeLimitWithoutChangingHome(t *testing.T
 	sync := run("sync")
 	doctor := run("doctor")
 	for _, output := range []string{sync, doctor} {
-		for _, text := range []string{"claude loads the global one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
+		for _, text := range []string{"claude loads the user-level one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
 			if !strings.Contains(output, text) {
 				t.Errorf("missing selection result %q: %s", text, output)
 			}

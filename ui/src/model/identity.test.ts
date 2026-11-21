@@ -22,7 +22,7 @@ describe('entry identity', () => {
     expect(id(finding)).toMatch(/^finding:LINT038:[0-9a-z]+$/)
   })
 
-  it('tells a global finding from the same project finding, and keeps project ids', () => {
+  it('tells a user finding from the same project finding, and keeps project ids', () => {
     expect(findingKey({ ...finding, layer: 'user' })).not.toBe(findingKey(finding))
     expect(findingKey(finding)).toBe(['lint', 'LINT038', '.agnostic-ai/settings/permissions.yaml', 'Bare read covers every file.'].join('\u0000'))
     const [project, userLevel] = findingEntryIds([finding, { ...finding, layer: 'user' }])

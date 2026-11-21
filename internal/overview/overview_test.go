@@ -741,12 +741,12 @@ func TestBuild_KeepsAUserFindingOffTheProjectItemOfTheSamePath(t *testing.T) {
 	for _, s := range v.Sections {
 		for _, item := range s.Items {
 			if len(item.Findings) > 0 {
-				t.Errorf("global finding placed on project item %s: %+v", item.Path, item.Findings)
+				t.Errorf("user finding placed on project item %s: %+v", item.Path, item.Findings)
 			}
 		}
 	}
 	got := sectionByID(t, v, SectionSettings).Findings
 	if len(got) != 1 || got[0].Layer != LayerUser {
-		t.Errorf("settings findings = %+v, want the global finding with its layer", got)
+		t.Errorf("settings findings = %+v, want the user finding with its layer", got)
 	}
 }

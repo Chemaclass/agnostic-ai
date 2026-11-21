@@ -133,7 +133,7 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT010": {
 		Severity: lintError,
-		Title:    "Conditional rule in global specs",
+		Title:    "Conditional rule in user specs",
 		Cause:    "With `--scope user`, a rule has scope, path, glob, or target conditions, which `sync --scope user` rejects.",
 		Fix:      "Remove the conditions, or move the rule into a project's `.agnostic-ai/`.",
 	},
@@ -159,7 +159,7 @@ var lintCodes = map[string]lintCode{
 	},
 	"LINT014": {
 		Severity: lintError,
-		Title:    "Global setting a target cannot take",
+		Title:    "User setting a target cannot take",
 		Cause:    "With `--scope user`, a settings `effort` or `permissions.default-mode` holds a value a target's user settings cannot take, such as effort `max` for Claude or Copilot. `sync --scope user` drops it with a note. The finding names the field and the values the target accepts.",
 		Fix:      "Use one of the values the finding lists, or set the field per target.",
 	},

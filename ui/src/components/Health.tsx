@@ -156,7 +156,7 @@ function FeatureTrack({ improvements }: { improvements?: Improvements }) {
   )
 }
 
-// Section findings name their section on the card, so only items and the global setup get a name above.
+// Section findings name their section on the card, so only items and the user setup get a name above.
 function HealthPlace({ entry }: { entry: HealthEntry }) {
   const label = placeLabel(entry)
   const kind = entry.item ? entry.section.kinds.find((k) => k.kind === entry.item!.kind)?.label ?? entry.item.kind : undefined

@@ -76,11 +76,11 @@ Run `agnostic-ai import vibe` before syncing handwritten project files.
 
 ### Ownership
 
-- Global sync adopts equal handwritten entries without rewriting them.
+- User sync adopts equal handwritten entries without rewriting them.
 - An omitted `sampling_enabled` compares as `false`, Vibe's native default. A handwritten `true` conflicts unless the spec sets `x-vibe.sampling_enabled: true`.
 - If an earlier sync adopted `sampling_enabled: true` from a spec that omitted it, sync stops before changing the file. Set `x-vibe.sampling_enabled` to `true` to keep it or `false` to turn it off.
 - Sync changes and removes only its recorded MCP and hook entries. Other entries, comments, and file permissions stay.
 - A hand-edited owned entry stops sync.
 - An equivalent inline array can be adopted. Changes need native `[[mcp_servers]]` or `[[hooks]]` tables.
 - `import --scope user vibe` keeps unmanaged connections and hooks and skips entries still equal to managed state.
-- Source layout and commands: [global configuration](@/docs/global-configuration.md).
+- Source layout and commands: [user configuration](@/docs/global-configuration.md).

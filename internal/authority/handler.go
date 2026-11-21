@@ -45,7 +45,7 @@ type HandlerOptions struct {
 	Now func() time.Time
 	// UserLevel serves the user-level configuration, as Options.UserLevel.
 	UserLevel bool
-	// ProjectRoot is the project a global server started in, so the
+	// ProjectRoot is the project a user server started in, so the
 	// page can offer the way back. Empty for a project server.
 	ProjectRoot string
 	// Version is the agnostic-ai release that serves, as --version
@@ -92,7 +92,7 @@ type serverIdentity struct {
 	Root      string `json:"root"`
 	UserLevel bool   `json:"global"`
 	UI        bool   `json:"ui"`
-	// ProjectRoot is set only on a global server started in a project.
+	// ProjectRoot is set only on a user server started in a project.
 	ProjectRoot string `json:"projectRoot,omitempty"`
 	// Version is the agnostic-ai release that serves this page.
 	Version string `json:"version,omitempty"`
@@ -116,7 +116,7 @@ var endpoints = []endpoint{
 	{Method: http.MethodGet, Path: pathView + "?agentId=<id>&target=<tool>", Description: "The Authority view for one subject on one coding tool."},
 	{Method: http.MethodPost, Path: pathImpact, Description: "The impact of a proposed permission change, computed on a copy of the specs; nothing is written."},
 	{Method: http.MethodGet, Path: pathSchema, Description: "The schema version and these endpoints."},
-	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, the config's requires and whether that version meets it, when the running conversation scan began, and for a global server the project it started in."},
+	{Method: http.MethodGet, Path: pathHealth, Description: "The project root and scope this server reads, whether it serves the web interface, the agnostic-ai version that serves it, the config's requires and whether that version meets it, when the running conversation scan began, and for a user server the project it started in."},
 }
 
 // NewHandler serves the Authority view as JSON, and the built client

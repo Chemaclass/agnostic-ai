@@ -17,14 +17,14 @@ import (
 // newUserOverviewHandler serves the overview of the
 // user-level configuration sync --scope user reads, built afresh on every
 // request. Unlike the project handler it runs from any working
-// directory: every path comes from $HOME and the global source root.
+// directory: every path comes from $HOME and the user source root.
 func newUserOverviewHandler(compareInstalled bool) http.Handler {
 	return overview.NewHandler(func() (overview.Inputs, error) {
 		return userOverviewInputsWith(compareInstalled)
 	})
 }
 
-// userOverviewInputs loads the global and user-local layers as
+// userOverviewInputs loads the user and user-local layers as
 // lint --scope user does, runs the read-only checks that apply to them, and
 // builds the snapshot the overview names. The snapshot uses the options
 // the served Authority view uses for --scope user, so both report one
@@ -102,14 +102,14 @@ func userRequires(source string) string {
 	return requires
 }
 
-// runUserOverviewChecks runs the read-only checks the global overview
+// runUserOverviewChecks runs the read-only checks the user overview
 // reads: every finding lint --scope user reports, and drift between the
 // files sync --scope user would write and the files on disk. The doctor
 // checks read a project's generated files and do not run.
 func runUserOverviewChecks(scope checkScope, compareInstalled bool) overviewChecks {
 	overviewChecksMu.Lock()
 	defer overviewChecksMu.Unlock()
-	// Planning the global writes prints capability warnings and buffers
+	// Planning the user writes prints capability warnings and buffers
 	// coverage notes; a read-only view reports neither.
 	defer adapters.SetAsideNotes()()
 	adapters.SetWarner(io.Discard)
@@ -155,7 +155,7 @@ func userSyncedTargets(all []string) (targets, skipped []string) {
 	return targets, skipped
 }
 
-// userOverviewPath shows a path under the global source relative to
+// userOverviewPath shows a path under the user source relative to
 // it, as the Authority view lists the specs, and any other path, such
 // as a generated file under $HOME, as it is.
 func userOverviewPath(source, path string) string {
@@ -170,7 +170,7 @@ func userOverviewPath(source, path string) string {
 // write for each target with the files on disk, as sync --scope user --check
 // does, and credits each file to the targets whose surfaces it carries.
 // A missing file is "not generated" and a differing one is "stale". The
-// sync ledger is left out, because no tool reads it. A target global
+// sync ledger is left out, because no tool reads it. A target user
 // sync does not support, or whose configuration root cannot be
 // resolved, is skipped, as a default sync skips it. Nothing is written:
 // the writes are planned in memory and compared.
@@ -224,7 +224,7 @@ func planUserWrites(home string, scope checkScope, targets []string) ([]userWrit
 	return writes, err
 }
 
-// userOverviewEvidenceNote states which checks ran for the global
+// userOverviewEvidenceNote states which checks ran for the user
 // configuration and which did not.
 func userOverviewEvidenceNote(checks overviewChecks) string {
 	var parts []string
@@ -235,7 +235,7 @@ func userOverviewEvidenceNote(checks overviewChecks) string {
 		parts = append(parts, "The files sync --scope user would write were compared with disk for "+strings.Join(checks.compared, ", ")+".")
 	}
 	if len(checks.skipped) > 0 {
-		parts = append(parts, "Not compared, because global sync does not support the tool, its configuration root could not be resolved, or the plan failed: "+strings.Join(checks.skipped, ", ")+".")
+		parts = append(parts, "Not compared, because user sync does not support the tool, its configuration root could not be resolved, or the plan failed: "+strings.Join(checks.skipped, ", ")+".")
 	}
 	parts = append(parts, "The doctor checks read a project and did not run.", "Runtime enforcement is not observed.")
 	return strings.Join(parts, " ")

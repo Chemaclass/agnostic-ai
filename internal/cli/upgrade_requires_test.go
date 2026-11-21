@@ -291,11 +291,11 @@ func TestUpgradeRequires_RefusesUserHome(t *testing.T) {
 	writeFile(t, config.ConfigFileName, "requires: \"0.76.0\"\n")
 	before := readUpgradeRequiresFile(t, config.ConfigFileName)
 	err := executeUpgradeRequiresForTest(t, "v0.77.0")
-	if err == nil || !strings.Contains(err.Error(), "global home") {
+	if err == nil || !strings.Contains(err.Error(), "user source") {
 		t.Errorf("global-home reconciliation: got %v", err)
 	}
 	if after := readUpgradeRequiresFile(t, config.ConfigFileName); !bytes.Equal(before, after) {
-		t.Error("project reconciliation changed global config")
+		t.Error("project reconciliation changed user config")
 	}
 	assertAbsent(t, filepath.Join(".agnostic-ai", projectLockName))
 }

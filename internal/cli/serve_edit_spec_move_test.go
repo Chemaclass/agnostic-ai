@@ -28,7 +28,7 @@ type specMoveTestReply struct {
 	Warning      string   `json:"warning"`
 }
 
-// moveProject is a project server's working folder with a global setup
+// moveProject is a project server's working folder with a user setup
 // beside it, both under a fake home.
 func moveProject(t *testing.T) (project, userLevel string) {
 	t.Helper()
@@ -104,7 +104,7 @@ func TestSpecMove_MovesASkillFolderToUser(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !slices.ContainsFunc(b.Skills, func(e spec.Entry) bool { return e.Name == "review-pr" && e.Layer == layerNameUser }) {
-		t.Errorf("global setup does not load the skill: %+v", b.Skills)
+		t.Errorf("user setup does not load the skill: %+v", b.Skills)
 	}
 }
 
@@ -175,7 +175,7 @@ func TestSpecMove_Refusals(t *testing.T) {
 		{"local layer", moveBody("agent", "mine", "project", "global", "copy"), http.StatusUnprocessableEntity, "local"},
 		{"command", moveBody("command", "ship", "project", "global", "copy"), http.StatusBadRequest, "kind"},
 		{"settings", moveBody("settings", "defaults", "project", "global", "copy"), http.StatusBadRequest, "kind"},
-		{"scoped rule to global", moveBody("rule", "api", "project", "global", "copy"), http.StatusUnprocessableEntity, "global rules"},
+		{"scoped rule to global", moveBody("rule", "api", "project", "global", "copy"), http.StatusUnprocessableEntity, "user rules"},
 		{"unknown spec", moveBody("agent", "nobody", "project", "global", "copy"), http.StatusNotFound, "nobody"},
 		{"from another level", moveBody("agent", "guard", "global", "project", "copy"), http.StatusBadRequest, "from"},
 		{"same level", moveBody("agent", "guard", "project", "project", "copy"), http.StatusBadRequest, "to"},
@@ -270,7 +270,7 @@ func TestServeMux_RoutesSpecMoveToThePeer(t *testing.T) {
 		t.Fatalf("apply = %d %+v", code, reply)
 	}
 	if readOptional(t, filepath.Join(userLevel, "agents", "guard.md")) == "" || readOptional(t, filepath.Join(project, ".agnostic-ai", "agents", "guard.md")) != "" {
-		t.Error("the served move did not reach the global setup")
+		t.Error("the served move did not reach the user setup")
 	}
 }
 
@@ -300,7 +300,7 @@ func symlinkOrSkip(t *testing.T, target, link string) {
 
 func TestSpecMove_RefusesWhenSourceAndDestinationAreTheSameFile(t *testing.T) {
 	project, _ := moveProject(t)
-	// The global setup is the project's own .agnostic-ai folder.
+	// The user setup is the project's own .agnostic-ai folder.
 	h := projectMoveHandler(project, filepath.Join(project, ".agnostic-ai"))
 	for _, request := range []map[string]any{
 		moveBody("agent", "guard", "project", "global", "move"),
@@ -335,7 +335,7 @@ func TestSpecMove_RefusesASkillAtTheSkillsFolderRoot(t *testing.T) {
 		t.Errorf("= %d %+v, want 422", code, reply)
 	}
 	if readOptional(t, filepath.Join(userLevel, "skills", "other", "SKILL.md")) == "" {
-		t.Error("the global skills folder lost a skill")
+		t.Error("the user skills folder lost a skill")
 	}
 }
 
@@ -356,7 +356,7 @@ func TestSpecMove_RefusesARuleWithATargetCondition(t *testing.T) {
 	project, userLevel := moveProject(t)
 	writeFile(t, ".agnostic-ai/rules/web.md", "---\nname: web\ndescription: Web.\nx-claude:\n  paths: [\"web/**\"]\n---\n\nWeb.\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, userLevel), moveBody("rule", "web", "project", "global", "move"))
-	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "global rules") {
+	if code != http.StatusUnprocessableEntity || !strings.Contains(reply.Error, "user rules") {
 		t.Errorf("= %d %+v", code, reply)
 	}
 	if readOptional(t, filepath.Join(project, ".agnostic-ai", "rules", "web.md")) == "" {
@@ -403,7 +403,7 @@ func TestSpecMove_StagesOutsideTheSkillsFolderAndWarnsOnLeftovers(t *testing.T) 
 		t.Fatal(err)
 	}
 	if len(b.Skills) != 1 || b.Skills[0].Name != "review-pr" {
-		t.Errorf("the global setup loads %d skills: %+v", len(b.Skills), b.Skills)
+		t.Errorf("the user setup loads %d skills: %+v", len(b.Skills), b.Skills)
 	}
 	entries, err := os.ReadDir(filepath.Join(userLevel, "skills"))
 	if err != nil {
@@ -416,7 +416,7 @@ func TestSpecMove_StagesOutsideTheSkillsFolderAndWarnsOnLeftovers(t *testing.T) 
 
 func TestSpecMove_RefusesADestinationInsideTheSourceSkill(t *testing.T) {
 	project, _ := moveProject(t)
-	// The global setup sits inside the skill being moved.
+	// The user setup sits inside the skill being moved.
 	nested := filepath.Join(project, ".agnostic-ai", "skills", "review-pr")
 	writeFile(t, ".agnostic-ai/skills/review-pr/agnostic-ai.yaml", "targets: [claude]\n")
 	code, reply := postSpecMove(t, projectMoveHandler(project, nested), moveBody("skill", "review-pr", "project", "global", "move"))
@@ -500,7 +500,7 @@ func TestSpecMove_RefusesAHookWhoseScriptDiffersOrIsMissing(t *testing.T) {
 		t.Errorf("missing script = %d %+v, want 422", code, reply)
 	}
 	if got := readOptional(t, filepath.Join(userLevel, "scripts", "guard-push.sh")); got != "#!/bin/sh\nexit 1\n" {
-		t.Errorf("refusal changed the global script: %q", got)
+		t.Errorf("refusal changed the user script: %q", got)
 	}
 }
 

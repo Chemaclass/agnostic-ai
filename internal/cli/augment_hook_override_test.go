@@ -33,7 +33,7 @@ func TestSyncUser_AugmentLocalHookKeepsInheritedBuiltinScript(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(data), "hook memory --target augment") {
-		t.Errorf("inherited global script does not load memory: %s", data)
+		t.Errorf("inherited user script does not load memory: %s", data)
 	}
 	if _, _, err := runUserAgentTest("--only", "augment", "--check"); err != nil {
 		t.Fatal(err)

@@ -10,7 +10,7 @@ group = "Reference"
 
 # Codex native reference
 
-Start with the [Codex setup](@/docs/targets/codex.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Codex setup](@/docs/targets/codex.md). For home configuration and ownership, see [user configuration](@/docs/global-configuration.md).
 
 ## Rule placement and discovery
 

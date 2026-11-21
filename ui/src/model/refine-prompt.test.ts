@@ -4,7 +4,7 @@ import { instructionsRefinePrompt } from './refine-prompt'
 describe('instructions refine prompt', () => {
   it('names the file and limits the work to it', () => {
     const prompt = instructionsRefinePrompt('/home/me/.agnostic-ai/AGNOSTIC_AI.md')
-    expect(prompt).toContain('global agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
+    expect(prompt).toContain('user agent instructions in /home/me/.agnostic-ai/AGNOSTIC_AI.md')
     expect(prompt).toContain('edit that file alone')
   })
 

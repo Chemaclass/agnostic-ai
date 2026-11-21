@@ -1,6 +1,6 @@
 +++
 title = "Qwen Code native reference"
-description = "Native field mappings, global configuration, config keys, and import coverage for qwen."
+description = "Native field mappings, user configuration, config keys, and import coverage for qwen."
 weight = 33
 
 [extra]
@@ -87,7 +87,7 @@ See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configurati
 - Sync keeps unrelated settings, including the active `disableAllHooks`.
 - Legacy `hooks.enabled`, `hooks.disabled`, and `hooks.notifications` metadata is kept but does not disable hooks in this release.
 
-## Global configuration
+## User configuration {#global-configuration}
 
 - Portable [voice settings](@/docs/spec-format/settings-reference.md#voice-dictation) write `general.voice.enabled`, `general.voice.mode`, and `general.voice.language`. Choose a native `voiceModel` before using dictation.
 - `agnostic-ai sync --scope user -t qwen` writes instructions, agents, skills, MCP, hooks, and settings under `~/.qwen/`.
@@ -95,7 +95,7 @@ See [Qwen settings](https://qwenlm.github.io/qwen-code-docs/en/users/configurati
 - `approvals` set to `yolo`, with the `approvals` built-in in the home config, makes `sync --scope user` write a `PermissionRequest` hook to `~/.qwen/settings.json` that approves safe shell commands, reads, edits and writes. Any `permissions.ask` rule turns it off. See [Approvals](@/docs/approvals.md).
 - `QWEN_HOME` replaces that whole directory. `QWEN_RUNTIME_DIR` moves runtime state, not configuration.
 - `agnostic-ai import --scope user qwen` reads the user model, effort, permission lists, and MCP servers.
-- See [global configuration](@/docs/global-configuration.md).
+- See [user configuration](@/docs/global-configuration.md).
 
 ## Config keys
 

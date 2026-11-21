@@ -16,7 +16,7 @@ func editGrokTOML(path string, data []byte, order []string, set map[string]any, 
 	for _, key := range append(append([]string{}, order...), remove...) {
 		member, ui := strings.CutPrefix(key, "ui.")
 		if key != "models.default" && key != "ui" && (!ui || member == "" || strings.Contains(member, ".")) {
-			return nil, nil, fmt.Errorf("%s: global Grok settings support models.default and direct ui keys only", path)
+			return nil, nil, fmt.Errorf("%s: user Grok settings support models.default and direct ui keys only", path)
 		}
 	}
 	containers := grokTableSeparators(previous[grokModelsContainer])

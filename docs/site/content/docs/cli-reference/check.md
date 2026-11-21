@@ -43,7 +43,7 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | `--fix` | Rewrite source spec files to repair issues it can fix. |
 | `--scope user` | Validate the specs in `$AGNOSTIC_AI_HOME` (default `~/.agnostic-ai`) and its `local/` overrides. Works outside a project. |
 
-{% <details summary="Details: what validate checks, and global mode"> %}
+{% <details summary="Details: what validate checks, and user scope"> %}
 | Check | Reports |
 |-------|------------|
 | Hook events | A hook with neither `on:` nor `event:`, or an event no target the hook emits to supports, after its `x-<target>` event. The report lists the supported events. |
@@ -52,8 +52,8 @@ Load all specs and report parse errors. On success it prints `loaded 12 entries.
 | Case-only output clashes | On a filesystem where letter case does not count, such as macOS or Windows: outputs that differ only in letter case, such as the files of rules `b` and `B`, which land on one file. Validate fails with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) and names both paths, as `sync` would. To find them it renders every target, which makes validate slower on those filesystems. |
 | Declared sources | A `sources.<kind>` path in `agnostic-ai.yaml` with no directory. It prints a `note:` on stderr, loads the kind empty, and passes. |
 | Tool-specific instruction blocks | A `::target` or `::targets` name in `.agnostic-ai/AGNOSTIC_AI.md` that is neither a built-in target nor an external adapter listed in `targets`. Also a tool that reads no entry-point file (`cursor`, or any target with `outputs.<target>.rules-file`). |
-| Global rules | With `--scope user`: a rule with scope, path, glob, or target conditions, which `sync --scope user` rejects. |
-| Global settings | With `--scope user`: a settings `effort` that a tool cannot take, such as `max` for Claude. |
+| User rules | With `--scope user`: a rule with scope, path, glob, or target conditions, which `sync --scope user` rejects. |
+| User settings | With `--scope user`: a settings `effort` that a tool cannot take, such as `max` for Claude. |
 
 - With `--scope user`, hook events are checked against the tools `sync --scope user` writes hooks for, narrowed by a `targets` list in the home config.
 - For event names, see [portable hook events](@/docs/spec-format/hook-reference.md#portable-events) and each [target page](@/docs/targets/_index.md). Use `on:` to share an event across tools.

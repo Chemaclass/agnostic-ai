@@ -113,7 +113,7 @@ func classifyPermissions(cfg *config.Config, settings []spec.Entry, e spec.Entry
 		r := compareResult{Target: target}
 		if field == "permissions.default-mode" {
 			permissions, _ := e.Meta["permissions"].(map[string]any)
-			r.Status, r.Reason = statusUnsupported, fmt.Sprintf("permissions.default-mode %v maps during global sync; project comparison has no portable mode mapping", permissions["default-mode"])
+			r.Status, r.Reason = statusUnsupported, fmt.Sprintf("permissions.default-mode %v maps during user sync; project comparison has no portable mode mapping", permissions["default-mode"])
 			results[field] = r
 			continue
 		}

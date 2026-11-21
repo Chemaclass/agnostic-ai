@@ -103,7 +103,7 @@ func TestValidateUser_ReportsEventOnlyANonHookTargetKnows(t *testing.T) {
 
 	out, _, err := runUserCheck("validate")
 	if err == nil {
-		t.Fatalf("validate --scope user must reject an event no hook-writing global target fires:\n%s", out)
+		t.Fatalf("validate --scope user must reject an event no hook-writing user target fires:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, `unknown hook event "PostCompaction"`) {
 		t.Errorf("expected the Devin-only event reported on %s, got:\n%s", hook, out)
@@ -131,7 +131,7 @@ func TestLintUser_EmptyHintNamesResolvedSourceRoot(t *testing.T) {
 
 	_, errOut, err := runUserCheck("lint")
 	if err != nil {
-		t.Fatalf("an empty global home must exit 0 like sync --scope user: %v", err)
+		t.Fatalf("an empty user source must exit 0 like sync --scope user: %v", err)
 	}
 	if !strings.Contains(errOut, missing) || strings.Contains(errOut, "$AGNOSTIC_AI_HOME") {
 		t.Errorf("expected the hint to name %s, got:\n%s", missing, errOut)
