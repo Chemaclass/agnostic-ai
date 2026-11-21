@@ -140,7 +140,7 @@ func newConversationsHandler(root string, userLevel bool) *conversationsHandler 
 		root:          root,
 		userLevel:     userLevel,
 		scanner:       scanner,
-		launcher:      conversations.SystemLauncher(),
+		launcher:      systemLauncher(),
 		worktrees:     gitWorktrees,
 		renameInTool:  conversations.NewRenamer(scanner.Stores, scanner.Processes).Rename,
 		logOut:        os.Stderr,

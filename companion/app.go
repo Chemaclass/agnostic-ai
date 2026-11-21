@@ -85,6 +85,9 @@ const (
 // updateID is the update entry in menu.json.
 const updateID = "update"
 
+// checkForUpdatesID is the switch for the check the companion makes on its own.
+const checkForUpdatesID = "checkForUpdates"
+
 // The steps of an update, from the lines companion update-app prints.
 const (
 	updateDownloading = "downloading"
@@ -118,6 +121,17 @@ type updateStatus struct {
 	Command string `json:"command,omitempty"`
 	// Terminal says the companion was installed from the terminal and updates through agnostic-ai upgrade.
 	Terminal bool `json:"terminal,omitempty"`
+	// OlderCLI is a separate agnostic-ai command older than the disk image app.
+	OlderCLI *olderCLI `json:"olderCLI,omitempty"`
+}
+
+// olderCLI is an agnostic-ai command installed apart from the disk image
+// app, such as with Homebrew, that is older than the app. Command upgrades
+// it the way it was installed; the companion never runs it.
+type olderCLI struct {
+	Path    string `json:"path"`
+	Version string `json:"version"`
+	Command string `json:"command"`
 }
 
 // upgradeCommand updates a terminal install, the CLI and the companion together.
@@ -133,6 +147,9 @@ type release struct {
 // terminalCommand finds the agnostic-ai command of a companion installed
 // from the terminal.
 var terminalCommand = findBinary
+
+// separateCommand finds an agnostic-ai command installed apart from the disk image app.
+var separateCommand = separateBinary
 
 // terminalOneClick says agnostic-ai upgrade can replace and restart the
 // companion here; elsewhere the panel shows the command to copy.
@@ -209,8 +226,9 @@ type appCommands struct {
 	// ask opens the list on the question whether to update.
 	ask func()
 
-	mu      sync.Mutex
-	current updateStatus
+	mu       sync.Mutex
+	current  updateStatus
+	olderCLI *olderCLI
 }
 
 func (s *shell) ownAppCommands() *appCommands {
@@ -308,6 +326,30 @@ func (s *shell) runUpdate() {
 	}
 }
 
+// releasesURL is the project's release page; only stable releases are offered.
+const releasesURL = "https://github.com/Chemaclass/agnostic-ai/releases"
+
+// openReleasePage answers the list's Release page: the known release, or the
+// latest one, where the companion cannot update itself.
+func (s *shell) openReleasePage(w http.ResponseWriter, _ *http.Request) {
+	c := s.appCommands
+	if c == nil {
+		writeJSON(w, http.StatusNotFound, apiError{Error: "this companion has no update entry; open " + releasesURL + "/latest"})
+		return
+	}
+	page := releasesURL + "/latest"
+	if named := c.status().Version; named != "" {
+		if _, ok := stableReleaseVersion(named); ok {
+			page = releasesURL + "/tag/v" + named
+		}
+	}
+	if err := s.openPage(page); err != nil {
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: fmt.Sprintf("open %s: %v", page, err)})
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *shell) getUpdate(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.updateStatus())
 }
@@ -360,9 +402,10 @@ func (c *appCommands) status() updateStatus {
 func (c *appCommands) setStatus(status updateStatus) {
 	status.Current = version
 	status.Terminal = c.app == ""
+	c.mu.Lock()
+	status.OlderCLI = c.olderCLI
 	kept := status
 	kept.Result = ""
-	c.mu.Lock()
 	c.current = kept
 	c.mu.Unlock()
 	c.shell.refreshNative()
@@ -403,7 +446,63 @@ func (c *appCommands) checkUpdates(ctx context.Context) {
 		return
 	}
 	defer c.busy.Unlock()
-	c.check(ctx, false)
+	if c.shell.autoUpdateCheck() {
+		c.check(ctx, false)
+		return
+	}
+	c.noteOlderCLI(ctx)
+	c.setStatus(c.status())
+}
+
+func (s *shell) autoUpdateCheck() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.settings.checksForUpdates()
+}
+
+// noteOlderCLI looks for a separate agnostic-ai command older than the
+// disk image app; the caller holds busy.
+func (c *appCommands) noteOlderCLI(ctx context.Context) {
+	if c.app == "" {
+		return
+	}
+	found := findOlderCLI(ctx)
+	c.mu.Lock()
+	c.olderCLI = found
+	c.mu.Unlock()
+}
+
+func findOlderCLI(ctx context.Context) *olderCLI {
+	path, err := separateCommand()
+	if err != nil {
+		return nil
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil {
+		return nil
+	}
+	// Any app's bundled command refuses upgrade and points to its menu.
+	if strings.HasSuffix(filepath.Dir(resolved), filepath.Join(".app", "Contents", "Resources")) {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	ask := exec.CommandContext(ctx, path, "--version")
+	withoutConsoleWindow(ask)
+	out, err := ask.Output()
+	if err != nil {
+		return nil
+	}
+	named := strings.TrimPrefix(strings.TrimSpace(string(out)), "agnostic-ai version ")
+	if !newerRelease(version, named) {
+		return nil
+	}
+	return &olderCLI{Path: path, Version: named, Command: shellQuote(path) + " upgrade"}
+}
+
+// shellQuote writes path as one word for a POSIX shell.
+func shellQuote(path string) string {
+	return "'" + strings.ReplaceAll(path, "'", `'\''`) + "'"
 }
 
 // check looks for a newer release; the caller holds busy. Only a check
@@ -412,9 +511,12 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 	known := c.status()
 	// A failure stays until someone retries or checks again.
 	if !asked && known.State == updateFailed {
+		c.noteOlderCLI(ctx)
+		c.setStatus(known)
 		return
 	}
 	c.setStatus(updateStatus{State: updateChecking, Version: known.Version})
+	c.noteOlderCLI(ctx)
 	next, err := c.latest(ctx, asked)
 	if ctx.Err() != nil {
 		c.setStatus(known)

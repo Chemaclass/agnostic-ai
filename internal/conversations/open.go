@@ -198,32 +198,10 @@ func openRoute(ctx context.Context, c Conversation, processes Processes, launche
 		if held, ok := heldNow(c, processes); ok {
 			return focusTerminal(ctx, held, processes, launcher)
 		}
-		if mayStillRun(c, processes, time.Now()) {
-			return OpenReply{Message: mayStillRunMessage, Command: c.Open.Command}
-		}
 		return resumeTerminal(ctx, c, launcher)
 	default:
 		return OpenReply{Message: fmt.Sprintf("No way to open a %s conversation here.", toolLabels[c.Tool])}
 	}
-}
-
-// mayStillRunMessage is the reply for a terminal session that may
-// still run on a system whose processes cannot be checked.
-const mayStillRunMessage = "agnostic-ai cannot tell on Windows whether this session still runs, and a second copy would compete with it. If it ended, run this command in a terminal."
-
-// mayStillRun reports whether a terminal session was written within
-// activeSpan, or at an unknown time, on a system whose processes cannot
-// be checked. One quiet for longer is dormant, and counts as ended.
-func mayStillRun(c Conversation, processes Processes, now time.Time) bool {
-	written := lastWritten(c)
-	return cannotCheckProcesses(processes, runtime.GOOS) && c.Open.Command != "" && (written.IsZero() || now.Sub(written) < activeSpan)
-}
-
-// cannotCheckProcesses reports whether the processes are this system's
-// own on Windows, where none can be checked: they are read with ps.
-func cannotCheckProcesses(processes Processes, goos string) bool {
-	_, system := processes.(SystemProcesses)
-	return system && goos == "windows"
 }
 
 // subagentGone is the reply for a subagent its chat no longer lists:
@@ -265,8 +243,7 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	}
 	// Another program with the store open, such as a database viewer,
 	// must not stop an ended chat from resuming.
-	command, _, _ := strings.Cut(processes.Args([]int{pid})[pid], " ")
-	if !agentCommands[filepath.Base(command)] {
+	if !agentCommands[commandName(processes.Args([]int{pid})[pid])] {
 		return c, false
 	}
 	c.Live = true
@@ -329,7 +306,7 @@ func openCloud(ctx context.Context, c Conversation, launcher Launcher) OpenReply
 
 // tabApps are the terminal apps whose tabs the server selects by tty
 // and opens new tabs in.
-var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true, "kitty": true}
+var tabApps = map[string]bool{"Terminal": true, "Ghostty": true, "iTerm": true, "WezTerm": true, "kitty": true, "Konsole": true}
 
 // editorTerminals are the editors whose window on a folder holds the
 // terminal, by the name hostOf gives them, with their macOS name.
@@ -384,6 +361,8 @@ func notOpenedInTab(opened tabOpening, command string) OpenReply {
 		return byHand("Could not open a Terminal window. Run this command in a terminal.")
 	case errors.Is(opened.err, context.DeadlineExceeded):
 		return byHand(waitingForPrompt(opened.app))
+	case errors.Is(opened.err, errKonsoleCommandsOff):
+		return byHand("Opened a new Konsole tab in its folder, but " + opened.err.Error() + ", or run this command there.")
 	default:
 		return byHand(fmt.Sprintf("Could not open a %s tab. Run this command in a terminal.", opened.app))
 	}
@@ -432,6 +411,16 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 		return resumeTerminal(ctx, c, launcher)
 	}
 	placed := c.placed
+	// Windows places no process in a terminal, and no window comes forward.
+	// Nor can it tell a thread Codex's background service keeps, which no
+	// resume command may compete with.
+	if placed == nil && shellSystem == "windows" {
+		resume := c.Open.Command
+		if c.Tool == ToolCodex {
+			resume = ""
+		}
+		return resumeElsewhere(fmt.Sprintf("It is open in another window (process %d), and agnostic-ai cannot bring a window forward on Windows. Switch to it there.", c.process.PID), resume)
+	}
 	// A thread the Codex daemon holds is live even with no client in
 	// front of it, so the reply never offers to resume it again.
 	if c.Tool == ToolCodex && (placed == nil || len(placed.ttys) > 0) {
@@ -482,14 +471,17 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		app = ""
 	}
 	cannot := "its tab cannot be selected from outside"
+	setupNeeded := false
 	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
 		var setup tabSetupError
 		switch {
 		case errors.As(err, &setup):
-			cannot = setup.Error()
+			cannot, setupNeeded = setup.Error(), true
 		case errors.Is(err, errNoTabCommand):
 			// Without its command the app still comes forward below.
+		case ok && errors.Is(err, errNotInFront):
+			return switchThere(fmt.Sprintf("Selected the %s tab that runs it. Its window may be behind other windows.", app))
 		case errors.Is(err, errAutomationDenied):
 			return switchThere(allowControl("switching to", app, "then click again"))
 		case errors.Is(err, context.DeadlineExceeded):
@@ -510,6 +502,9 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		return resumeElsewhere(fmt.Sprintf("It runs on %s (process %d) in an app this version cannot switch to. Switch to it there.", tty, pid), resume)
 	}
 	if err := launcher.ActivateApp(ctx, app); err != nil {
+		if setupNeeded {
+			return switchThere(fmt.Sprintf("It runs in %s on %s (process %d), but %s. Switch to it there.", app, tty, pid, cannot))
+		}
 		return switchThere(fmt.Sprintf("It runs in %s on %s (process %d). Switch to it there.", app, tty, pid))
 	}
 	return switchThere(fmt.Sprintf("Brought %s to the front, but %s. It runs on %s (process %d).", app, cannot, tty, pid))
@@ -851,8 +846,10 @@ func (macLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) 
 	if driver, ok := commandTabs[app]; ok {
 		return driver.focus(ctx, tty)
 	}
+	// Konsole is driven only on Linux; elsewhere it comes forward as an
+	// app without its command does.
 	if _, ok := tabScripts[app]; !ok {
-		return false, errNotHere
+		return false, errNoTabCommand
 	}
 	out, err := run(ctx, "osascript", focusTabArgs(app, tty)...)
 	if err != nil {
@@ -900,7 +897,7 @@ func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 		return driver.newTab(ctx, command)
 	}
 	if _, ok := newTabLines[app]; !ok {
-		return errNotHere
+		return errNoTabCommand
 	}
 	_, err := run(ctx, "osascript", runInNewTabArgs(app, command)...)
 	return err
@@ -963,21 +960,35 @@ func (l linuxLauncher) RunInNewTerminal(_ context.Context, command string) error
 	return err
 }
 
-func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
+func (linuxLauncher) FocusTab(ctx context.Context, app, tty string) (bool, error) {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.focus(ctx, tty)
+	}
 	return false, errNotHere
 }
 
-func (linuxLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
-
-func (linuxLauncher) ShowTmuxPane(context.Context, int, string) (int, error) {
-	return 0, errNotHere
+func (linuxLauncher) RunInNewTab(ctx context.Context, app, command string) error {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.newTab(ctx, command)
+	}
+	return errNotHere
 }
 
-func (linuxLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
+func (linuxLauncher) ShowTmuxPane(ctx context.Context, server int, tty string) (int, error) {
+	return tmuxServers{run: run, path: tmuxPath, sockets: tmuxSockets}.show(ctx, server, tty)
+}
+
+func (linuxLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, error) {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.title(ctx, tty, title)
+	}
 	return false, errNotHere
 }
 
-func (linuxLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
+func (linuxLauncher) TypeInTab(ctx context.Context, app, tty, text string, _ bool) (bool, error) {
+	if driver, ok := linuxCommandTabs[app]; ok {
+		return driver.typeIn(ctx, tty, text)
+	}
 	return false, errNotHere
 }
 

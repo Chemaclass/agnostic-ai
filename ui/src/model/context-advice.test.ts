@@ -65,6 +65,7 @@ describe('context advice', () => {
     expect(builtinOwner('builtin:side-conversation')).toBe('side-conversation')
     expect(builtinOwner('builtin:wrap-up')).toBe('wrap-up')
     expect(builtinOwner('builtin:cloud-handoff')).toBe('cloud-handoff')
+    expect(builtinOwner('builtin:mailbox')).toBe('mailbox')
     expect(builtinOwner('builtin:unknown-thing')).toBeUndefined()
     expect(builtinOwner('.agnostic-ai/rules/testing.md')).toBeUndefined()
     const advice = contextAdvice(row('builtin:shared-memory-policy', 'always-on rule', 'startup', 270), report)

@@ -587,6 +587,25 @@ export function handoffLabelOf(status) {
   return { offered: 'Offered', accepted: 'Accepted', declined: 'Declined' }[status]
 }
 
+/** Who answered a handoff, read from its accept or decline event. */
+export function handoffAnswerOf(thread, message) {
+  const answer = { accepted: 'accept', declined: 'decline' }[message.handoff]
+  const event = (thread.events ?? []).findLast((e) => e.n === message.n && e.action === answer)
+  if (!event) return handoffLabelOf(message.handoff)
+  return `${handoffLabelOf(message.handoff)} by ${event.by === 'agent' ? 'the agent' : 'you'}`
+}
+
+export function senderKindOf(message) {
+  return message.from?.by === 'agent' ? 'Sent by the agent' : undefined
+}
+
+/** The model an agent says it runs. The mailbox cannot check it. */
+export function statedModelOf(thread, message) {
+  if (message.model) return `Says it runs ${message.model}`
+  const model = thread.models?.[keyOf(message.from)]
+  return model?.statedBy === 'agent' && model.name ? `Says it runs ${model.name}` : undefined
+}
+
 export function claimStatusOf(claim) {
   return claim.stale ? 'Stale claim' : 'Active claim'
 }
@@ -1071,29 +1090,39 @@ const UPDATE_STEPS = {
 }
 
 /**
- * What the panel says about the update: {text, retry?, log?}, or undefined when there is nothing to say.
+ * What the panel says about the update: {text, retry?, log?, command?, releasePage?}, or undefined when there is nothing to say.
  * A check the companion made on its own says nothing once it ends.
  */
 export function updateMessageOf(update) {
-  if (update.result === 'unreachable') return { text: 'Could not check for updates. Check your connection and try again.' }
-  if (update.result === 'latest') return { text: `No newer version is available for this Mac. You have v${update.current}.` }
+  const note = olderCLINoteOf(update)
+  const withNote = (text) => (note ? { text: `${text} ${note.text}`, command: note.command } : { text })
+  if (update.result === 'unreachable') return withNote('Could not check for updates. Check your connection and try again.')
+  if (update.result === 'latest') return withNote(`No newer version is available for this Mac. You have v${update.current}.`)
   if (update.state === 'checking') return { text: 'Checking for updates…' }
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
   if (update.state === 'failed') {
     const failed = { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
-    return update.command ? { ...failed, command: update.command } : failed
+    return update.command ? { ...failed, command: update.command, releasePage: true } : failed
   }
-  return undefined
+  return note
 }
 
-/** The question before an update: {title, body, go, command?}; with a command, the person runs it in a terminal. */
+/** The note about a separate agnostic-ai command older than the disk image app, or undefined. */
+function olderCLINoteOf(update) {
+  if (!update.olderCLI) return undefined
+  const { path, version, command } = update.olderCLI
+  return { text: `The agnostic-ai command at ${path} is v${version}, older than this app (v${update.current}). Run this in a terminal to upgrade it.`, command }
+}
+
+/** The question before an update: {title, body, go, command?, releasePage?}; with a command, the person runs it in a terminal; the release page says what changed. */
 export function updateConfirmOf(update) {
   if (update.command && update.state !== 'failed') {
     return {
       title: `Update to v${update.version}`,
-      body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together.',
+      body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together. The release page lists what changed.',
       go: 'Copy command',
       command: update.command,
+      releasePage: true,
     }
   }
   const body = update.terminal
@@ -1116,7 +1145,8 @@ export function updateBadgeOf(update) {
  */
 export function menuRowsOf(items, { preferences, appearance, mailbox, update = { state: 'unavailable' } }, isMac = false) {
   const values = { ...appearance, ...preferences, ...mailbox }
-  return items.filter((item) => item.id !== 'update' || update.state !== 'unavailable').map((item) => {
+  const updates = new Set(['update', 'checkForUpdates'])
+  return items.filter((item) => !updates.has(item.id) || update.state !== 'unavailable').map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
     if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }

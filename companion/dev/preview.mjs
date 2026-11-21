@@ -48,7 +48,7 @@ function fixtureState(name, now) {
     knownClosed: new Set(fixture.knownClosed),
     /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */
     polled: structuredClone(conversations),
-    preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false },
+    preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false, checkForUpdates: true },
     appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
     /** The update entry; a terminal install has none yet. */
     update: fixture.update ?? { state: 'unavailable' },
@@ -520,9 +520,19 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       sendJSON(response, 200, state.preferences)
       emit('preferences', state.preferences)
     },
+    'POST /api/preferences/check-for-updates': async (request, response) => {
+      state.preferences.checkForUpdates = (await bodyOf(request)).enabled === true
+      sendJSON(response, 200, state.preferences)
+      emit('preferences', state.preferences)
+    },
     'GET /api/update': (request, response) => sendJSON(response, 200, state.update),
     'POST /api/update': (request, response) => {
       logCall('/api/update')
+      noContent(response)
+    },
+    'POST /api/update/release-page': (request, response) => {
+      logCall('/api/update/release-page')
+      if (state.update.state === 'unavailable') return sendJSON(response, 404, { error: 'this companion has no update entry' })
       noContent(response)
     },
     // Like the shell: only a known release can start, and the panel follows the first step.

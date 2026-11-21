@@ -181,6 +181,8 @@ To add one:
 2. Teach `internal/cli/hook_mailbox.go` the target's reply shape in `mailboxHookReply` and its name in `mailboxHookRuns`, and accept its sessions in `internal/mailbox` (`supportedRef`).
 3. Add a row per event to `TestHookMailbox_Replies` in `internal/cli/hook_mailbox_test.go` with the exact bytes, and extend `tests/integration/builtin_mailbox_test.go` and its golden files.
 
+For agents of the new tool to send, add it to `targets:` in `internal/builtins/data/mailbox/skills/mailbox/SKILL.md`, and make `CurrentSession` in `internal/conversations/current.go` name its session from inside a command it runs.
+
 A tool with no such hook still gets messages by hand: the companion's **Type into session** and **Copy message** work for any session it can list.
 
 ## 10. Keeping the adapter true

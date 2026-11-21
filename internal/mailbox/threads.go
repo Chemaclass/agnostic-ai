@@ -27,7 +27,7 @@ func (t Thread) valid(id string) bool {
 	}
 	for i, m := range t.Messages {
 		if m.N != i+1 || !t.includes(m.From.Ref) || !t.includes(m.To) || m.From.Ref == m.To ||
-			m.From.By != "human" && m.From.By != "agent" || !m.validType() {
+			m.From.By != "human" && m.From.By != "agent" || m.Model != "" && m.From.By != "agent" || !m.validType() {
 			return false
 		}
 		switch m.State {
@@ -70,7 +70,7 @@ func (m Message) validType() bool {
 	}
 }
 
-func (t *Thread) recordModel(ref conversations.Ref, name string) {
+func (t *Thread) recordModel(ref conversations.Ref, name, statedBy string) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return
@@ -78,10 +78,10 @@ func (t *Thread) recordModel(ref conversations.Ref, name string) {
 	if t.Models == nil {
 		t.Models = map[string]Model{}
 	}
-	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: "human"}
+	t.Models[string(ref.Tool)+":"+ref.ID] = Model{Name: name, StatedBy: statedBy}
 }
 
-func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
+func (t Thread) checkSend(from conversations.Ref, req SendRequest, by string) *Refusal {
 	if !t.includes(from) || !t.includes(req.To) {
 		return NewRefusal("not-in-thread")
 	}
@@ -89,6 +89,10 @@ func (t Thread) checkSend(from conversations.Ref, req SendRequest) *Refusal {
 		return refused
 	}
 	if req.Type == Done {
+		// One agent done that waits for approval is enough; more would only pile up.
+		if by == "agent" && slices.ContainsFunc(t.Messages, func(m Message) bool { return m.Type == Done && m.State == Held }) {
+			return NewRefusal("closed")
+		}
 		return nil
 	}
 	if t.contentCount() >= t.Cap {
@@ -397,6 +401,7 @@ func (s Store) Approve(ctx context.Context, id string, n int, action string) err
 	}
 	m.State = Waiting
 	m.QueuedAt = at
+	thread.recordModel(m.From.Ref, m.Model, "agent")
 	thread.addEvent(at, "approve", n)
 	if m.Type == Done {
 		thread.Status = Closing

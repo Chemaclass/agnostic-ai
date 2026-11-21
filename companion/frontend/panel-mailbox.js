@@ -1,5 +1,5 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, reviewModelsOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
+import { claimCountOf, claimStatusOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, reviewModelsOf, senderKindOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
   approve: 'Approve',
@@ -567,7 +567,8 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
     for (const message of thread.messages) {
       const entry = element('article', 'mailbox-message')
-      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), TYPES[message.type] ?? message.type, messageStateLabelOf(message.state), handoffLabelOf(message.handoff), sentAt(message.at)].filter(Boolean).join(' · ')))
+      const model = message.refs ? undefined : statedModelOf(thread, message)
+      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), senderKindOf(message), model, TYPES[message.type] ?? message.type, messageStateLabelOf(message.state), handoffAnswerOf(thread, message), sentAt(message.at)].filter(Boolean).join(' · ')))
       if (message.body) entry.append(element('p', 'mailbox-body', message.body))
       if (message.refs) {
         const models = thread.models ?? {}

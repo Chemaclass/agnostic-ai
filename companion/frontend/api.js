@@ -154,11 +154,12 @@ export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')
 
-/** The settings menu's values: {shortcut, shortcutProblem?, sendShortcut, sendShortcutProblem?, startAtLogin, startAtLoginProblem?}. */
+/** The settings menu's values: {shortcut, shortcutProblem?, sendShortcut, sendShortcutProblem?, startAtLogin, startAtLoginProblem?, checkForUpdates}. */
 export const readPreferences = () => call('/api/preferences')
 export const saveShortcut = (shortcut) => post('/api/preferences/shortcut', { shortcut })
 export const saveSendShortcut = (shortcut) => post('/api/preferences/send-shortcut', { shortcut })
 export const saveStartAtLogin = (enabled) => post('/api/preferences/start-at-login', { enabled })
+export const saveCheckForUpdates = (enabled) => post('/api/preferences/check-for-updates', { enabled })
 
 /** How the pages look: {animate, dimWhenIdle, smallCompanion, presence}: presence is shown, hidden or faded. */
 export const readAppearance = () => call('/api/appearance')
@@ -171,6 +172,7 @@ export const readUpdate = () => call('/api/update')
 export const checkForUpdates = () => post('/api/update')
 /** Updates to the known release and restarts; the update event follows the steps. */
 export const startUpdate = () => post('/api/update/start')
+export const openReleasePage = () => post('/api/update/release-page')
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 

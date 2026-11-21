@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -114,11 +113,10 @@ func reserveMailbox(ctx context.Context, target string, in io.Reader) mailboxRes
 	if mailbox.ValidateRef(to) != nil {
 		return mailboxReservation{}
 	}
-	marks := conversations.DefaultMarksPath()
-	if marks == "" {
+	store, ok := mailboxStoreAt(conversations.DefaultMarksPath())
+	if !ok {
 		return mailboxReservation{}
 	}
-	store := mailbox.Store{Dir: filepath.Join(filepath.Dir(marks), "mailbox")}
 	delivery, err := store.Reserve(ctx, to)
 	if err != nil {
 		return mailboxReservation{}

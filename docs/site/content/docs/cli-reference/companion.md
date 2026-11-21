@@ -44,7 +44,7 @@ To use the command in a terminal, right-click the circle and choose **Install co
 {% </details> %}
 
 {% <details summary="Update the disk-image app"> %}
-The app checks for updates on start and every 24 hours while it runs, through its bundled CLI. A check it makes on its own runs at most once a day, even across restarts, keeps the last answer when offline, and opens no window: when a newer stable release has a disk image for this Mac, the update entry in both menus reads **Update to vX.Y.Z** and a dot appears on the list's ⋯ button. Choose **Check for updates** in either menu to check now; the list says what it found. Choose **Update to vX.Y.Z** to update: the list asks once, then **Update and restart** replaces the app and its bundled CLI together. The list shows each step: downloading and checking the checksum, checking the downloaded app, restarting. The download uses the same checksum and build provenance checks as the CLI installer. Before it replaces anything, the new app must also be signed with the same project certificate as the app that runs, so an update works without `gh`. After a certificate change, download the next disk image by hand once.
+The app checks for updates on start and every 24 hours while it runs, through its bundled CLI. A check it makes on its own runs at most once a day, even across restarts, keeps the last answer when offline, and opens no window: when a newer stable release has a disk image for this Mac, the update entry in both menus reads **Update to vX.Y.Z** and a dot appears on the list's ⋯ button. Choose **Check for updates** in either menu to check now; the list says what it found. Choose **Update to vX.Y.Z** to update: the list asks once, then **Update and restart** replaces the app and its bundled CLI together. The list shows each step: downloading and checking the checksum, checking the downloaded app, restarting. The download uses the same checksum and build provenance checks as the CLI installer. Before it replaces anything, the new app must also be signed with the same project certificate as the app that runs, so an update works without `gh`. After a certificate change, download the next disk image by hand once. Turn off **Check for updates automatically** in either menu to stop the check it makes on its own; **Check for updates** still works. When a separate `agnostic-ai` command, such as one from Homebrew or npm, is older than the app, the list shows both versions and its upgrade command to copy. The app does not run it for you.
 
 Separate npm or Homebrew installs keep their own update path. Running `agnostic-ai upgrade` from the bundled CLI link directs you to the app menu. If an update fails, your current version keeps running. The list names the reason, such as a download that did not match its checksum or was not signed by this project, and the log, `~/Library/Application Support/agnostic-ai/companion-update.log`. **Retry** starts the update again. A failure while the app is replaced shows the next time the companion starts. An app opened from the disk image, or from a folder you cannot write, stops before downloading and says to move it to Applications.
 {% </details> %}
@@ -119,7 +119,7 @@ Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/
 - Not run: GNOME, KDE or any desktop with a real screen; a Wayland shortcut, which the desktop asks you to approve; a new shortcut; **Start at login** across a real login; a monitor unplugged; Codex and Cursor chats; working and waiting states; a real Claude Code sign-in; a cloud session opened in the browser.
 - On Wayland the desktop places windows, not the program. Under Sway the circle opened in the middle of the screen as a floating window with a title bar, and its saved place was not used. This Sway rule puts it back in a corner without the title bar: `for_window [app_id="org.wails.agnostic-ai_companion"] border none, sticky enable, move position 1170 690`.
 - Wayland has no standard way to keep a window over the others. Under Sway a floating window stays over tiled ones.
-- A chat that still runs in a terminal cannot be switched to on Linux. The list says where it runs.
+- A running chat's tab is selected in WezTerm, kitty, and `tmux` inside them, on X11 and under Sway (kitty only: WezTerm 20240203 opened no window under headless Sway). Each step ran in a container with stand-in sessions, not a real `claude`: selecting the tab, naming it, resuming an ended chat in a new tab, and `conversations start`. Other terminals are named, as GNOME Terminal and Alacritty were. agnostic-ai does not bring the window forward on Linux, so the reply says it may be behind.
 {% </details> %}
 
 ### What ran on Windows {#windows-runs}
@@ -138,7 +138,9 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | The list says Codex chats are missing without `sqlite3` | Pass |
 | `winget install SQLite.SQLite` puts `sqlite3` on `PATH` | Pass: SQLite 3.54.1 |
 | A click on an ended chat resumes it in a new PowerShell window, in the chat's folder | Pass |
-| A click on a chat written in the last day offers its command, for PowerShell, instead | Pass |
+| A running Claude Code chat (`claude.exe` 2.1.330) and Codex thread (0.171.0) show as open, and a click starts no second copy | Pass |
+| Once ended, each shows as closed, and a click starts its resume command in a new PowerShell window | Pass |
+| A running chat cannot be deleted; an archived ended chat can | Pass |
 | A `codex://` link opens the app registered for it | Pass, with a stand-in app |
 | The Claude Code cloud sign-in is read from `~/.claude/.credentials.json` | Pass with a fake token: the API refused it, as it should |
 | **Start at login** writes its `Run` value, and `companion stop` | Pass |
@@ -146,10 +148,9 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | `companion uninstall` leaves no process, `Run` value, program or companion folder | Pass |
 
 {% <details summary="Details: what did not run on Windows"> %}
-- Not run: Windows 11 or any desktop a person uses; a standard (not administrator) account; **Start at login** across a real login; a new shortcut; more than one screen; Codex and Cursor chats; working and waiting states; a real Claude Code sign-in; a cloud session opened in the browser; a real `claude` or `codex` resumed (neither is installed on the runner).
+- Not run: Windows 11 or any desktop a person uses; a standard (not administrator) account; **Start at login** across a real login; a new shortcut; more than one screen; Cursor chats; working and waiting states; a real Claude Code or Codex sign-in; a cloud session opened in the browser.
 - `agnostic-ai serve`, which the companion starts, has a console window of its own, hidden.
-- The server does not read processes on Windows yet, so it cannot tell whether a terminal chat still runs. A chat written in the last day is not resumed; its command shows instead. A chat left open but quiet for over a day is resumed as a second copy.
-- A chat that still runs in a terminal cannot be switched to on Windows, and a chat cannot be deleted there.
+- A chat that still runs in a terminal shows as open, but the server cannot bring its window forward on Windows.
 {% </details> %}
 
 ## Commands {#commands}
@@ -269,7 +270,18 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --scope
 
 `agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. When the CLI is already current, as after a direct Homebrew or npm upgrade, it still replaces a companion built for another release.
 
-The companion installed from the terminal offers the same update in its menus. It asks its CLI for the latest stable release on start and every 24 hours, without opening a window. On macOS, **Update to vX.Y.Z** then **Update and restart** runs `agnostic-ai upgrade` for you, which upgrades the CLI by its install method and then replaces and restarts the companion. When it cannot run from the app, such as an unknown install method or a package manager the app cannot find, and on other systems, the list shows `agnostic-ai upgrade` with **Copy command** to run in a terminal. When Homebrew or npm does not serve the new release yet, the list says so; choose **Retry** later.
+The companion installed from the terminal offers the same update in its menus. It asks its CLI for the latest stable release on start and every 24 hours, without opening a window. On macOS, **Update to vX.Y.Z** then **Update and restart** runs `agnostic-ai upgrade` for you, which upgrades the CLI by its install method and then replaces and restarts the companion. When it cannot run from the app, such as an unknown install method or a package manager the app cannot find, and on other systems, the list shows `agnostic-ai upgrade` with **Copy command** to run in a terminal, and **Release page** to open that release on GitHub. When Homebrew or npm does not serve the new release yet, the list says so; choose **Retry** later.
+
+Turn off **Check for updates automatically** in either menu to stop that check here too. On macOS, a companion started from Finder or at login gets a short `PATH`, so the terminal-installed companion also looks for the package manager in `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. An npm that comes from a Node version manager such as nvm is not in those folders, so the update fails with "the package manager could not run from the companion" and shows the command to copy.
+
+{% <details summary="Details: what ran for updates"> %}
+- Ran on macOS 27 (arm64): `agnostic-ai companion update-status --json --refresh` with the short `PATH` a Finder launch gets and an empty home folder. It read the latest release, v0.96.0, and reported no disk image, as the release page shows.
+- Ran with the same short `PATH` plus the folders above: Homebrew was found and ran; an npm installed through nvm was not found.
+- The companion's Go tests cover each update state, both install kinds and each failure reason. Its node tests and the Playwright suite cover what the list shows in each state.
+- Not run: a whole update from one released disk image to the next, since no release ships a disk image yet. That covers the download, build provenance, the signer check, the swap and the restart.
+- Not run: that the updated app opens without a Gatekeeper dialog, and that Accessibility access survives a real update.
+- Not run: a certificate rotation, and a restart of a terminal-installed companion started from a terminal window.
+{% </details> %}
 
 {% <details summary="Details: failures and version mismatch"> %}
 - The companion is downloaded or built as `companion install` does, and progress is printed.

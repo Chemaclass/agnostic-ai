@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -77,9 +76,13 @@ func ps(args ...string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func (SystemProcesses) Alive(pid int, procStart string) bool {
+func (s SystemProcesses) Alive(pid int, procStart string) bool {
 	if pid <= 0 {
 		return false
+	}
+	if nativeProcesses != nil {
+		alive, _ := s.AliveAmong([]ProcessRef{{PID: pid, ProcStart: procStart}})
+		return alive[pid]
 	}
 	process, err := os.FindProcess(pid)
 	if err != nil {
@@ -99,6 +102,23 @@ func (SystemProcesses) Alive(pid int, procStart string) bool {
 // that runs, and exits 1 when some or all of them do not.
 func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) {
 	alive := map[int]bool{}
+	if nativeProcesses != nil {
+		table, err := nativeProcesses.processes()
+		if err != nil {
+			return alive, err
+		}
+		started := map[int]ProcessInfo{}
+		for _, process := range table {
+			started[process.PID] = process
+		}
+		for _, process := range processes {
+			listed, runs := started[process.PID]
+			if runs && process.PID > 0 && (process.ProcStart == "" || hidesClaudeStart(listed) || listed.Started == strings.TrimSpace(process.ProcStart)) {
+				alive[process.PID] = true
+			}
+		}
+		return alive, nil
+	}
 	// Asked about no pid, it still checks ps exists, so a system without it does not pass for one where nothing runs.
 	if err := canRead("ps"); err != nil {
 		return alive, err
@@ -126,15 +146,8 @@ func (SystemProcesses) AliveAmong(processes []ProcessRef) (map[int]bool, error) 
 	return alive, nil
 }
 
-// errNoProcessRead: Windows has no ps or lsof that answers like the
-// Unix ones. Git for Windows ships a ps that rejects -o lstart.
-var errNoProcessRead = errors.New("running processes cannot be read on Windows")
-
 // canRead says whether the command can answer which processes run.
 func canRead(command string) error {
-	if runtime.GOOS == "windows" {
-		return errNoProcessRead
-	}
 	_, err := exec.LookPath(command)
 	return err
 }
@@ -170,8 +183,8 @@ func psStartTimes(out string) map[int]string {
 }
 
 func (SystemProcesses) Table() ([]ProcessInfo, error) {
-	if runtime.GOOS == "windows" {
-		return nil, errNoProcessRead
+	if nativeProcesses != nil {
+		return nativeProcesses.processes()
 	}
 	out, err := ps("-axo", "pid=,ppid=,pgid=,stat=,tty=,lstart=,comm=")
 	if err != nil {
@@ -192,6 +205,9 @@ func (SystemProcesses) Args(pids []int) map[int]string {
 	args := map[int]string{}
 	if len(pids) == 0 {
 		return args
+	}
+	if nativeProcesses != nil {
+		return nativeProcesses.args(pids)
 	}
 	out, err := ps("-ww", "-o", "pid=,args=", "-p", pidList(pids))
 	if !answered(err) {
@@ -227,6 +243,9 @@ func (SystemProcesses) Cwds(pids []int) map[int]string {
 }
 
 func (SystemProcesses) Holders(paths []string) (map[string]int, error) {
+	if nativeProcesses != nil {
+		return nativeProcesses.holders(paths)
+	}
 	if err := canRead("lsof"); err != nil {
 		return map[string]int{}, err
 	}
@@ -276,6 +295,9 @@ func readHolders(paths []string) (map[string]int, error) {
 // HoldersUnder asks lsof once for the open files under dir, so its cost
 // follows the running processes, not how many files the folder keeps.
 func (SystemProcesses) HoldersUnder(dir string) (map[string]int, error) {
+	if nativeProcesses != nil {
+		return nativeHoldersUnder(dir)
+	}
 	if err := canRead("lsof"); err != nil {
 		return map[string]int{}, err
 	}
@@ -346,6 +368,10 @@ var agentCommands = map[string]bool{"node": true, "cursor-agent": true}
 // on macOS its command is the full path inside the app bundle, such as
 // /Applications/Cursor.app/Contents/MacOS/Cursor; elsewhere, its name.
 func (SystemProcesses) AppRunning(name string) bool {
+	if nativeProcesses != nil {
+		table, err := nativeProcesses.processes()
+		return err == nil && nativeAppRunning(table, name)
+	}
 	commands, err := ps("-axo", "comm=")
 	if err != nil {
 		return false
@@ -400,7 +426,7 @@ func (e *environmentError) Unwrap() error { return e.cause }
 // system that can read another process's environment sets
 // environmentReader in its own file; on any other it is nil.
 //
-// A reader keeps only the entries claudeEntries keeps, and only entries
+// A reader keeps only the entries keptEntries keeps, and only entries
 // whose boundaries it read from the environment itself: never words
 // split out of a command line, whose arguments or values could hold
 // such a name.
@@ -426,13 +452,14 @@ func (SystemProcesses) ClaudeParents(pids []int) (map[int]string, error) {
 	return parents, nil
 }
 
-// claudeEntries keeps the entries of an environment that name the
-// Claude Code session, and drops every other, credentials among them.
-func claudeEntries(entries []string) []string {
+// keptEntries keeps the entries of an environment that name the Claude
+// Code session or the Konsole tab, and drops every other, credentials
+// among them.
+func keptEntries(entries []string) []string {
 	var kept []string
 	for _, entry := range entries {
 		name, _, _ := strings.Cut(entry, "=")
-		if name == claudeSessionVar || name == claudeChildVar {
+		if name == claudeSessionVar || name == claudeChildVar || name == konsoleServiceVar || name == konsoleSessionVar {
 			kept = append(kept, entry)
 		}
 	}

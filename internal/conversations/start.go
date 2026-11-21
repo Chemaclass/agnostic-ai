@@ -162,6 +162,8 @@ func notOpened(opened tabOpening, line string) error {
 	switch {
 	case errors.Is(opened.err, errNotHere):
 		return errors.New("this system cannot open a terminal tab; " + byHand)
+	case errors.Is(opened.err, errKonsoleCommandsOff):
+		return errors.New("opened a Konsole tab in its folder, but " + opened.err.Error() + "; or run this line there: " + line)
 	case errors.Is(opened.err, errAutomationDenied):
 		return fmt.Errorf("macOS blocked opening %s; allow the terminal that runs this command to control %s in System Settings › Privacy & Security › Automation, or %s", opened.app, opened.app, byHand)
 	case errors.Is(opened.err, context.DeadlineExceeded):

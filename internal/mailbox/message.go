@@ -42,6 +42,8 @@ type SendRequest struct {
 	Refs   *ReviewInput      `json:"refs,omitempty"`
 	Models *ModelInput       `json:"models,omitempty"`
 	Gives  *Gives            `json:"gives,omitempty"`
+	// Model is the name an agent states for itself; only the command line sets it.
+	Model string `json:"-"`
 }
 
 type Gives struct {
@@ -92,6 +94,7 @@ type Message struct {
 	From        Actor              `json:"from"`
 	To          conversations.Ref  `json:"to"`
 	Body        string             `json:"body,omitempty"`
+	Model       string             `json:"model,omitempty"`
 	Refs        *ReviewRefs        `json:"refs,omitempty"`
 	Gives       *Gives             `json:"gives,omitempty"`
 	Handoff     string             `json:"handoff,omitempty"`

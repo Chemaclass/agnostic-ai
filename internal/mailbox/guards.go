@@ -19,9 +19,13 @@ const (
 	maxReviewPaths     = 200
 	maxReviewPathBytes = 400
 	maxModelNameBytes  = 400
+	maxStatedModel     = 80
 )
 
-var threadID = regexp.MustCompile(`^th_[0-9]{8}_[0-9a-f]{8}$`)
+var (
+	threadID    = regexp.MustCompile(`^th_[0-9]{8}_[0-9a-f]{8}$`)
+	statedModel = regexp.MustCompile(`^[A-Za-z0-9._:/ -]+$`)
+)
 
 type Refusal struct {
 	Guard  string
@@ -125,6 +129,32 @@ func ValidateSend(from conversations.Ref, req SendRequest) *Refusal {
 		return validateReviewInput(req.Refs, req.Models)
 	default:
 		return &Refusal{"format", "This mailbox accepts questions, findings, review requests, handoffs and done messages.", "Choose a supported message type."}
+	}
+	return nil
+}
+
+// checkSender keeps the stated model to agents and the companion's model pair to people.
+func checkSender(req SendRequest, by string) *Refusal {
+	if by != "agent" {
+		if req.Model != "" {
+			return NewRefusal("format")
+		}
+		return nil
+	}
+	if req.Models != nil {
+		return NewRefusal("format")
+	}
+	if req.Model == "" {
+		return nil
+	}
+	if refused := checkStrings(req.Model); refused != nil {
+		return refused
+	}
+	if len(req.Model) > maxStatedModel {
+		return &Refusal{"size", "A model name exceeds 80 characters.", "Shorten the model name or leave it out."}
+	}
+	if !statedModel.MatchString(req.Model) {
+		return &Refusal{"format", "A model name uses letters, digits, spaces and . _ : / - only.", "Remove the other characters or leave the model out."}
 	}
 	return nil
 }

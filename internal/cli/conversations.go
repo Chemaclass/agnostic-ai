@@ -19,13 +19,14 @@ import (
 const briefReadLimit = 1 << 20
 
 // startConversation and runBrief reach the process table, the tools'
-// stores and the terminal; tests replace them.
+// stores and the terminal; tests replace them, and systemLauncher.
 var (
+	systemLauncher    = conversations.SystemLauncher
 	startConversation = func(ctx context.Context, req conversations.StartRequest) (conversations.StartReply, error) {
 		starter := conversations.Starter{
 			Stores:    conversations.DefaultStores(),
 			Processes: conversations.SystemProcesses{},
-			Launcher:  conversations.SystemLauncher(),
+			Launcher:  systemLauncher(),
 			LookPath:  exec.LookPath,
 			Getenv:    os.Getenv,
 			BriefsDir: conversations.DefaultBriefsDir(),
