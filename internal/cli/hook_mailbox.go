@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -51,6 +53,8 @@ func newHookMailboxCmd() *cobra.Command {
 			if target == "" {
 				target = os.Getenv(adapters.HookTargetEnv)
 			}
+			// A closed stdout must fail the write, not end the process before PutBack.
+			signal.Ignore(syscall.SIGPIPE)
 			deliverMailbox(cmd.Context(), target, cmd.InOrStdin(), cmd.OutOrStdout())
 			return nil
 		},

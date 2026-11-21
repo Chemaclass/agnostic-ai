@@ -163,6 +163,7 @@ test('labels message states and offers approve, reject and queue only where they
   assert.deepEqual(messageActionsOf({ state: 'staged' }, open), ['queue'])
   assert.deepEqual(messageActionsOf({ state: 'staged' }, { status: 'closed' }), [])
   assert.deepEqual(messageActionsOf({ state: 'reserved' }, open), ['type', 'copy'])
+  assert.deepEqual(messageActionsOf({ state: 'reserved' }, { status: 'closed' }), [])
   for (const state of ['delivered', 'rejected', 'cancelled']) assert.deepEqual(messageActionsOf({ state }, open), [])
 })
 

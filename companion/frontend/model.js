@@ -614,8 +614,9 @@ export function messageActionsOf({ state }, { status }) {
     case 'held':
       return ['approve', 'reject']
     case 'waiting':
-    case 'reserved':
       return status === 'paused' ? [] : ['type', 'copy']
+    case 'reserved':
+      return status === 'open' || status === 'closing' ? ['type', 'copy'] : []
     case 'staged':
       return status === 'open' || status === 'closing' ? ['queue'] : []
     default:

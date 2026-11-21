@@ -343,3 +343,30 @@ func TestDeliver_AnExpiredReservationCanStillBeStagedByHand(t *testing.T) {
 		t.Errorf("staged message = %+v", m)
 	}
 }
+
+func TestDeliver_StopDuringAPrintLetsTheHookSettleTheMessage(t *testing.T) {
+	ctx := t.Context()
+	for name, settle := range map[string]func(Store, Delivery) error{
+		"printed": func(s Store, d Delivery) error { return s.Confirm(ctx, d) },
+		"failed":  func(s Store, d Delivery) error { return s.PutBack(ctx, d) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := Store{Dir: t.TempDir()}
+			first := sendQuestion(t, s, "")
+			delivery := reserve(t, s)
+			if err := s.Change(ctx, first.Thread, "stop"); err != nil {
+				t.Fatal(err)
+			}
+			if got := onlyThread(t, s).Messages[0].State; got != Reserved {
+				t.Fatalf("stop changed a reserved message to %q", got)
+			}
+			if err := settle(s, delivery); err != nil {
+				t.Fatal(err)
+			}
+			want := map[string]string{"printed": Delivered, "failed": Canceled}[name]
+			if m := onlyThread(t, s).Messages[0]; m.State != want || m.ReservedAt != nil {
+				t.Errorf("message after %s = %+v, want %s", name, m, want)
+			}
+		})
+	}
+}

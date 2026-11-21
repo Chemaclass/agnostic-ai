@@ -267,7 +267,7 @@ export function mailboxChange(state, ask, now) {
   else if (ask.action === 'raise-cap' && thread.status === 'open') thread.cap += 8
   else if (ask.action === 'stop' && thread.status !== 'closed') {
     thread.status = 'closed'
-    for (const message of thread.messages) if (['held', 'waiting', 'reserved'].includes(message.state)) message.state = 'cancelled'
+    for (const message of thread.messages) if (['held', 'waiting'].includes(message.state)) message.state = 'cancelled'
   } else return refused('format', thread, now)
   thread.events.push({ at: now.toISOString(), by: 'human', action: ask.action })
   return changed({})

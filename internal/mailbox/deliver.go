@@ -130,8 +130,11 @@ func (s Store) Confirm(ctx context.Context, d Delivery) error {
 }
 
 func (s Store) PutBack(ctx context.Context, d Delivery) error {
-	return s.settleDelivery(ctx, d, func(_ *Thread, m *Message, _ time.Time) {
+	return s.settleDelivery(ctx, d, func(t *Thread, m *Message, _ time.Time) {
 		m.State = Waiting
+		if t.Status == Closed {
+			m.State = Canceled
+		}
 	})
 }
 

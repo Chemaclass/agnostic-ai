@@ -9,7 +9,9 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -292,4 +294,40 @@ func treeSnapshot(t *testing.T, root, skip string) string {
 		t.Fatal(err)
 	}
 	return b.String()
+}
+
+func TestHookMailbox_AClosedStdoutPutsMessagesBackAndExitsZero(t *testing.T) {
+	if home := os.Getenv("HOOK_MAILBOX_CLOSED_STDOUT"); home != "" {
+		// TestMain gives the child its own HOME; point it back at the parent's.
+		t.Setenv("HOME", home)
+		t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+		root := NewRootCmd("test")
+		root.SetArgs([]string{"hook", "mailbox", "--target", "claude"})
+		if err := root.Execute(); err != nil {
+			os.Exit(3)
+		}
+		os.Exit(0)
+	}
+	if runtime.GOOS == "windows" {
+		t.Skip("SIGPIPE is a Unix signal")
+	}
+	home, s := hookMailboxHome(t)
+	receipt := sendHookMessage(t, s, hookCodex, hookClaude)
+	read, write, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = read.Close()
+	child := exec.Command(os.Args[0], "-test.run=^TestHookMailbox_AClosedStdoutPutsMessagesBackAndExitsZero$")
+	child.Env = append(os.Environ(), "HOOK_MAILBOX_CLOSED_STDOUT="+home)
+	child.Stdin = strings.NewReader(hookPayload(hookClaude.ID, "UserPromptSubmit", ""))
+	child.Stdout = write
+	err = child.Run()
+	_ = write.Close()
+	if err != nil {
+		t.Errorf("hook with a closed stdout = %v, want exit 0", err)
+	}
+	if state := hookMessageState(t, s, receipt); state != mailbox.Waiting {
+		t.Errorf("message = %q, want waiting", state)
+	}
 }

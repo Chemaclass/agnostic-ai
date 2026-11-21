@@ -177,10 +177,10 @@ func (s Store) Change(ctx context.Context, id, action string) error {
 		}
 		thread.Status = Closed
 		for i := range thread.Messages {
+			// A reserved message may be printing now; its hook settles it.
 			switch thread.Messages[i].State {
-			case Held, Waiting, Reserved:
+			case Held, Waiting:
 				thread.Messages[i].State = Canceled
-				thread.Messages[i].ReservedAt = nil
 			}
 		}
 	case "raise-cap":
