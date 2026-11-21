@@ -4,22 +4,15 @@ package cli
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha1" //nolint:gosec // codesign names a certificate by its SHA-1 hash.
-	"crypto/x509"
-	"crypto/x509/pkix"
 	"encoding/hex"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
-	"math/big"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // The companion is signed with a certificate made on this Mac, kept in a
@@ -54,7 +47,9 @@ func signCompanion(ctx context.Context, folder, app string) error {
 	return withKeychainSearched(ctx, keychain, func() error {
 		out, err := exec.CommandContext(ctx, "codesign", "--force", "--keychain", keychain, "--sign", hash, "--identifier", companionBundleID, requirement, app).CombinedOutput()
 		if err != nil {
-			return withWhatItSaid(err, out)
+			// What security sees explains a "no identity found".
+			found, _ := exec.CommandContext(ctx, "security", "find-identity", "-p", "codesigning", keychain).CombinedOutput()
+			return fmt.Errorf("%w\n%s", withWhatItSaid(err, out), strings.TrimSpace(string(found)))
 		}
 		return nil
 	})
@@ -127,59 +122,56 @@ func companionSigner(ctx context.Context, folder string) (hash, keychain string,
 	return certHash(der), keychain, nil
 }
 
+// companionSignerConfig asks openssl for a self-signed certificate that
+// can sign code, valid for 100 years.
+const companionSignerConfig = `[req]
+distinguished_name = dn
+x509_extensions = ext
+prompt = no
+[dn]
+CN = ` + companionSignerCN + `
+[ext]
+basicConstraints = critical,CA:false
+keyUsage = critical,digitalSignature
+extendedKeyUsage = critical,codeSigning
+`
+
+// makeCompanionSigner makes the certificate with the system openssl and
+// imports it, with its key, as one .p12, the same way the release signs.
+// A certificate from Go's x509 package, or a key and certificate imported
+// apart, formed no signing identity on a CI runner. Go cannot write a
+// .p12; its password guards nothing, since the file is deleted at once,
+// and macOS refuses a .p12 without one.
 func makeCompanionSigner(ctx context.Context, folder, keychain string) ([]byte, error) {
-	key, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return nil, err
-	}
-	serial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 127))
-	if err != nil {
-		return nil, err
-	}
-	now := time.Now()
-	template := &x509.Certificate{
-		SerialNumber:          serial,
-		Subject:               pkix.Name{CommonName: companionSignerCN},
-		NotBefore:             now.Add(-time.Hour),
-		NotAfter:              now.AddDate(100, 0, 0),
-		KeyUsage:              x509.KeyUsageDigitalSignature,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
-		BasicConstraintsValid: true,
-	}
-	der, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
-	if err != nil {
-		return nil, err
-	}
 	scratch, err := os.MkdirTemp(folder, companionSignerScratch)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(scratch) }()
-	keyFile := filepath.Join(scratch, "key.pem")
-	certPEM := filepath.Join(scratch, "cert.pem")
-	if err := os.WriteFile(keyFile, pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(key)}), 0o600); err != nil {
+	file := func(name string) string { return filepath.Join(scratch, name) }
+	if err := os.WriteFile(file("cert.cnf"), []byte(companionSignerConfig), 0o600); err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(certPEM, pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der}), 0o600); err != nil {
-		return nil, err
-	}
-	// Imported as one .p12, the key and certificate form a signing
-	// identity; imported apart, a CI runner's macOS found none. Go cannot
-	// write a .p12, so the system openssl does. Its password guards nothing:
-	// the file is deleted at once, and macOS refuses a .p12 without one.
-	bundle := filepath.Join(scratch, "id.p12")
-	if out, err := exec.CommandContext(ctx, "/usr/bin/openssl", "pkcs12", "-export", "-inkey", keyFile, "-in", certPEM, "-out", bundle, "-passout", "pass:agnostic-ai").CombinedOutput(); err != nil {
-		return nil, fmt.Errorf("openssl pkcs12: %w", withWhatItSaid(err, out))
+	for _, args := range [][]string{
+		{"req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", file("key.pem"), "-out", file("cert.pem"), "-days", "36500", "-config", file("cert.cnf")},
+		{"pkcs12", "-export", "-inkey", file("key.pem"), "-in", file("cert.pem"), "-out", file("id.p12"), "-passout", "pass:agnostic-ai"},
+		{"x509", "-in", file("cert.pem"), "-outform", "der", "-out", file("cert.der")},
+	} {
+		if out, err := exec.CommandContext(ctx, "/usr/bin/openssl", args...).CombinedOutput(); err != nil {
+			return nil, fmt.Errorf("openssl %s: %w", args[0], withWhatItSaid(err, out))
+		}
 	}
 	for _, args := range [][]string{
 		{"create-keychain", "-p", "", keychain},
-		{"import", bundle, "-k", keychain, "-P", "agnostic-ai", "-T", "/usr/bin/codesign"},
+		{"set-keychain-settings", keychain},
+		{"unlock-keychain", "-p", "", keychain},
+		{"import", file("id.p12"), "-k", keychain, "-P", "agnostic-ai", "-T", "/usr/bin/codesign"},
 	} {
 		if err := runSecurity(ctx, args...); err != nil {
 			return nil, err
 		}
 	}
-	return der, nil
+	return os.ReadFile(file("cert.der"))
 }
 
 // removeSignerScratch deletes the key folders an install that was killed
