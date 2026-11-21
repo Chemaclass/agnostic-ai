@@ -39,6 +39,7 @@ Click a row to reach its chat.
 | Chat | What a click does |
 |------|-------------------|
 | Running in Terminal, Ghostty, iTerm, WezTerm or kitty | Selects its tab. |
+| Running in tmux | Selects its pane, then the tab that shows its tmux session. |
 | Ended terminal chat | Resumes it in a new tab. |
 | Claude Code `--bg` session | Selects the tab that runs `claude attach`, or opens one. |
 | Anything else | Opens its app, editor or browser. |

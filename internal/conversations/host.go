@@ -76,6 +76,8 @@ type terminalHost struct {
 	App string `json:"app"`
 	// TTY is the terminal device of the session's process.
 	TTY string `json:"tty"`
+	// tmuxServer is the pid of the tmux server when App is "tmux".
+	tmuxServer int
 }
 
 // terminalApps maps a fragment of an ancestor's command path to the app
@@ -120,6 +122,12 @@ func hostOf(table []ProcessInfo, pid int) (host terminalHost, ok bool) {
 				host.App = known.app
 				return host, true
 			}
+		}
+		// The tmux server leaves the terminal that started it, so its
+		// panes have no app above them; a tmux client shows them.
+		if filepath.Base(parent.Command) == "tmux" && parent.TTY == "" {
+			host.App, host.tmuxServer = "tmux", parent.PID
+			return host, true
 		}
 		child = parent
 	}

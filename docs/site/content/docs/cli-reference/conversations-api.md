@@ -103,7 +103,7 @@ Conversation fields:
 - Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
-  - `focus` switches to the tab (and pane) that runs it in a tab app: Terminal, Ghostty, iTerm, WezTerm or kitty. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
+  - `focus` switches to the tab (and pane) that runs it in a tab app: Terminal, Ghostty, iTerm, WezTerm or kitty. Inside tmux it selects the pane first. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
   - `terminal` runs `command` in a new tab of the app the session last ran in. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then says it resumes, such as `Resume in Ghostty`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 {% </details> %}
@@ -172,7 +172,7 @@ Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from
 
 - For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
-- Not supported yet: tmux and Warp. kitty needs [remote control](@/docs/cli-reference/conversations.md#kitty-remote-control).
+- kitty needs [remote control](@/docs/cli-reference/conversations.md#kitty-remote-control).
 - The route comes from the server's own scan, never from the request.
 - macOS asks once for Automation access to each app the server controls: Terminal, Ghostty and iTerm. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
 - The tab each running session uses is kept in `conversation-tabs.json`, beside the marks file: the app and the terminal device. It holds no conversation text.

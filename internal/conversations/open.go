@@ -42,6 +42,11 @@ type Launcher interface {
 	// text there first only when setClipboard is true; otherwise it
 	// pastes only when the clipboard holds exactly text.
 	TypeInTab(ctx context.Context, app, tty, text string, setClipboard bool) (ok bool, err error)
+	// ShowTmuxPane selects the pane on tty of the tmux server with pid
+	// server in its window, and returns the pid of the tmux client that
+	// shows it, or 0 when none does. It never moves a client to another
+	// session.
+	ShowTmuxPane(ctx context.Context, server int, tty string) (client int, err error)
 }
 
 // errNotHere means this OS has no supported way to run the route.
@@ -415,7 +420,7 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	if placed.claudeBackground {
 		return openClaudeBackground(ctx, c, processes, launcher)
 	}
-	return switchToHost(ctx, c.Folder, *placed, launcher, c.Open.Command)
+	return switchToHost(ctx, c.Folder, *placed, processes, launcher, c.Open.Command)
 }
 
 // resumeElsewhere is the reply for a session a process holds where no
@@ -431,11 +436,21 @@ func resumeElsewhere(message, resume string) OpenReply {
 // switchToHost brings forward the terminal placed shows: the exact tab
 // in a tab app, else the app, or the editor window open on folder.
 // resume, when set, is offered when no tab shows the terminal.
-func switchToHost(ctx context.Context, folder string, placed placement, launcher Launcher, resume string) OpenReply {
+func switchToHost(ctx context.Context, folder string, placed placement, processes Processes, launcher Launcher, resume string) OpenReply {
 	switchThere := func(message string) OpenReply {
 		return OpenReply{Message: message}
 	}
 	app, pid, tty := placed.host.App, placed.process.PID, shortTTY(placed.host.TTY)
+	if app == "tmux" {
+		if client, err := launcher.ShowTmuxPane(ctx, placed.host.tmuxServer, placed.host.TTY); err == nil && client != 0 {
+			if table, err := processes.Table(); err == nil {
+				if outer, _ := hostOf(table, client); outer.TTY != "" && outer.App != "tmux" {
+					return switchToHost(ctx, folder, placement{process: placed.process, host: outer}, processes, launcher, resume)
+				}
+			}
+		}
+		app = ""
+	}
 	cannot := "its tab cannot be selected from outside"
 	if tabApps[app] {
 		ok, err := launcher.FocusTab(ctx, app, placed.host.TTY)
@@ -864,6 +879,10 @@ func (macLauncher) RunInNewTab(ctx context.Context, app, command string) error {
 // linuxTerminal is the terminal Debian and Ubuntu let the person choose.
 const linuxTerminal = "x-terminal-emulator"
 
+func (macLauncher) ShowTmuxPane(ctx context.Context, server int, tty string) (int, error) {
+	return tmuxServers{run: run, path: tmuxPath, sockets: tmuxSockets}.show(ctx, server, tty)
+}
+
 type linuxLauncher struct {
 	getenv func(string) string
 	// start starts a program and returns without waiting for it.
@@ -920,6 +939,10 @@ func (linuxLauncher) FocusTab(context.Context, string, string) (bool, error) {
 
 func (linuxLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
 
+func (linuxLauncher) ShowTmuxPane(context.Context, int, string) (int, error) {
+	return 0, errNotHere
+}
+
 func (linuxLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
 	return false, errNotHere
 }
@@ -943,6 +966,10 @@ func (unsupportedLauncher) FocusTab(context.Context, string, string) (bool, erro
 }
 
 func (unsupportedLauncher) RunInNewTab(context.Context, string, string) error { return errNotHere }
+
+func (unsupportedLauncher) ShowTmuxPane(context.Context, int, string) (int, error) {
+	return 0, errNotHere
+}
 
 func (unsupportedLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
 	return false, errNotHere
