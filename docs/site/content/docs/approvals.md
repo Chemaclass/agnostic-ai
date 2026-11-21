@@ -132,7 +132,7 @@ At 5 MB the log rotates to `decisions.jsonl.1`. It keeps one older file and asks
 | Kiro (`kiro`) | Kiro Approve for me | PermissionRequest hook | For `review`, IDE or interactive CLI V3 2.36 or later where offered. For `yolo`, CLI V3 3.4.0 or later or IDE 1.4.236 or later. |
 | Mistral Vibe (`vibe`) | Vibe smart-approve | asks | `bypass_tool_permissions` off |
 | Qoder (`qoder`) | Qoder auto mode | PermissionRequest hook | With `yolo`, no `permissions.ask` rule |
-| Qwen Code (`qwen`) | Qwen Code auto mode | PermissionRequest hook | With `yolo`, the hook needs `default` or `auto_edit` and no `permissions.ask` rule. |
+| Qwen Code (`qwen`) | Qwen Code auto mode | PermissionRequest hook | With `yolo`, the hook needs `default` or `auto-edit` and no `permissions.ask` rule. |
 | Every other tool | asks | asks | |
 
 On Windows, `yolo` always asks because the hook has no Windows command. `agnostic-ai approvals status` reports how each tool handles prompts and why.
@@ -166,7 +166,7 @@ For `yolo`, accept Claude Code's workspace trust prompt and trust Codex's hook i
 
 {% <details summary="Qwen Code modes, ask rules, and environment"> %}
 - Sync writes `~/.qwen/settings.json` or `$QWEN_HOME/settings.json`. This is a user hook. Qwen's approval prompt for project hooks does not apply.
-- Set `tools.approvalMode` to `default` or `auto_edit`. The hook can approve `run_shell_command` calls without a `directory`, file reads, edits, and writes. Other tools and modes ask. If the mode is unset, trusted folders use auto mode.
+- Set `tools.approvalMode` to `default` or `auto-edit`. The hook can approve `run_shell_command` calls without a `directory`, file reads, edits, and writes. Other tools and modes ask. If the mode is unset, trusted folders use auto mode.
 - `disableAllHooks`, `--safe-mode`, and `--bare` turn the hook off. So does a `permissions.ask` rule in user, project, or system settings. A hook allow could skip that prompt and the hook cannot match Qwen's rules.
 - A `.env` or `.qwen/.env` in the session folder or a parent, or a settings `env` block, also turns the hook off when it sets `HOME`, `AGNOSTIC_AI_HOME`, `CLAUDE_CONFIG_DIR`, or `USERPROFILE`. Qwen passes those values to the hook, and a repository could redirect the policy the hook reads.
 {% </details> %}
