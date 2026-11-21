@@ -255,7 +255,29 @@ func TestCheckUpdates_FailedAutomaticCheckKeepsTheLastAnswerSilently(t *testing.
 	if got := s.updateStatus(); got != (updateStatus{State: updateAvailable, Version: "0.97.0"}) {
 		t.Errorf("after a failed check, status = %+v; want the last answer", got)
 	}
+	if checking := (*told)[len(*told)-2]; checking != (updateStatus{State: updateChecking, Version: "0.97.0"}) {
+		t.Errorf("while checking again, the pages were told %+v; want the known version kept", checking)
+	}
 	if last := (*told)[len(*told)-1]; last.State != updateAvailable {
 		t.Errorf("the pages were last told %+v", last)
+	}
+}
+
+func TestRunUpdate_ManualCheckSaysWhenItCouldNotReachTheRelease(t *testing.T) {
+	s, _, _ := updateShell(t, "", errors.New("offline"))
+	said := make(chan string, 1)
+	s.appCommands.inform = func(_, message string) { said <- message }
+
+	rec := httptest.NewRecorder()
+	s.routes(&inbox{}, fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/update", nil))
+
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("POST /api/update = %d", rec.Code)
+	}
+	if got := <-said; got != "Could not check for updates. Check your connection and try again." {
+		t.Errorf("the manual check said %q", got)
+	}
+	if got := s.updateStatus(); got.State != updateIdle {
+		t.Errorf("after a failed manual check, status = %+v; want idle", got)
 	}
 }

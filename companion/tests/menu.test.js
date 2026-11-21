@@ -46,6 +46,7 @@ test('the settings button shows a badge only while an update is known', () => {
   assert.equal(updateBadgeOf({ state: 'checking' }), undefined)
   assert.equal(updateBadgeOf({ state: 'available', version: '0.97.0' }), 'Settings: update to v0.97.0 available')
   assert.equal(updateBadgeOf({ state: 'failed', version: '0.97.0' }), 'Settings: update to v0.97.0 available')
+  assert.equal(updateBadgeOf({ state: 'checking', version: '0.97.0' }), 'Settings: update to v0.97.0 available')
   assert.equal(updateBadgeOf({ state: 'updating', version: '0.97.0' }), undefined)
 })
 

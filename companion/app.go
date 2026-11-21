@@ -157,6 +157,7 @@ type appCommands struct {
 	app, command string
 	busy         sync.Mutex
 	latest       func(context.Context) (string, error)
+	inform       func(title, message string)
 
 	mu      sync.Mutex
 	current updateStatus
@@ -167,9 +168,15 @@ func (s *shell) ownAppCommands() *appCommands {
 	if !ok {
 		return nil
 	}
-	return &appCommands{shell: s, app: app, command: command, current: updateStatus{State: updateIdle}, latest: func(ctx context.Context) (string, error) {
+	controls := &appCommands{shell: s, app: app, command: command, current: updateStatus{State: updateIdle}, latest: func(ctx context.Context) (string, error) {
 		return latestCompanionRelease(ctx, &http.Client{Timeout: 15 * time.Second}, "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest", version, updateImageName())
 	}}
+	controls.inform = func(title, message string) {
+		dialog := s.app.Dialog.Info().SetTitle(title).SetMessage(message)
+		dialog.AddButton("OK").SetAsDefault()
+		dialog.Show()
+	}
+	return controls
 }
 
 // updateStatus is the update entry's state; a companion without a bundled command has none yet.
@@ -220,12 +227,6 @@ func (c *appCommands) clicked() {
 	}
 }
 
-func (c *appCommands) inform(title, message string) {
-	dialog := c.shell.app.Dialog.Info().SetTitle(title).SetMessage(message)
-	dialog.AddButton("OK").SetAsDefault()
-	dialog.Show()
-}
-
 func (c *appCommands) installCommand() {
 	if !c.busy.TryLock() {
 		return
@@ -247,7 +248,7 @@ func (c *appCommands) checkUpdates(ctx context.Context, manual bool) {
 	}
 	defer c.busy.Unlock()
 	known := c.status()
-	c.setStatus(updateStatus{State: updateChecking})
+	c.setStatus(updateStatus{State: updateChecking, Version: known.Version})
 	next, err := c.latest(ctx)
 	if ctx.Err() != nil {
 		c.setStatus(known)
@@ -265,7 +266,7 @@ func (c *appCommands) checkUpdates(ctx context.Context, manual bool) {
 	if next == "" {
 		c.setStatus(updateStatus{State: updateIdle})
 		if manual {
-			c.inform("Check for updates", fmt.Sprintf("You have the latest version (v%s).", version))
+			c.inform("Check for updates", "No newer stable disk image is available for this Mac. Check again later.")
 		}
 		return
 	}

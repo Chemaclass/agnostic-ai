@@ -1866,6 +1866,7 @@ function buildMenu(rows) {
 function drawSettings() {
   for (const row of menuRowsOf(settings.items, settings, isMac)) {
     const control = settings.controls.get(row.id)
+    if (!control) continue
     if (row.kind === 'action') control.textContent = row.label
     control.disabled = Boolean(row.disabled)
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
@@ -1936,11 +1937,13 @@ document.addEventListener('mousedown', (event) => {
 })
 Events.On('appearance', (event) => heard('appearance', event.data))
 Events.On('preferences', (event) => heard('preferences', event.data))
+let updateHeard = false
 Events.On('update', (event) => {
+  updateHeard = true
   showUpdate(event.data)
   if (!menu.hidden && settings.items) drawSettings()
 })
-readUpdate().then(showUpdate, sayFailure)
+readUpdate().then((update) => updateHeard || showUpdate(update), sayFailure)
 approvalsAsk.addEventListener('click', askAgain)
 const dashboardButton = document.getElementById('dashboard')
 dashboardButton.addEventListener('click', async () => {

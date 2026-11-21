@@ -1023,7 +1023,7 @@ export function updateLabelOf(label, update) {
 
 /** The settings button's name while an update is known, or undefined when there is none. */
 export function updateBadgeOf(update) {
-  if (update.state !== 'available' && update.state !== 'failed') return undefined
+  if (!update.version || update.state === 'updating') return undefined
   return `Settings: update to v${update.version} available`
 }
 
