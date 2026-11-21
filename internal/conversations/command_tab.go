@@ -39,6 +39,16 @@ var commandTabs = map[string]commandTab{
 var linuxCommandTabs = map[string]commandTab{
 	"WezTerm": weztermTab{run: run, path: func() (string, error) { return commandOnPath("wezterm") }, noRaising: true},
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return commandOnPath("kitty") }, table: SystemProcesses{}.Table, socket: ownSocket, noRaising: true},
+	"Konsole": konsoleTab{run: run, table: SystemProcesses{}.Table, environ: readEnvironments},
+}
+
+// readEnvironments reads the kept entries of each pid's environment, on
+// a system with a reader.
+func readEnvironments(pids []int) (map[int][]string, error) {
+	if environmentReader == nil {
+		return nil, errNoProcessRead
+	}
+	return environmentReader(pids)
 }
 
 func commandOnPath(name string) (string, error) {

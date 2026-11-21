@@ -400,7 +400,7 @@ func (e *environmentError) Unwrap() error { return e.cause }
 // system that can read another process's environment sets
 // environmentReader in its own file; on any other it is nil.
 //
-// A reader keeps only the entries claudeEntries keeps, and only entries
+// A reader keeps only the entries keptEntries keeps, and only entries
 // whose boundaries it read from the environment itself: never words
 // split out of a command line, whose arguments or values could hold
 // such a name.
@@ -426,13 +426,14 @@ func (SystemProcesses) ClaudeParents(pids []int) (map[int]string, error) {
 	return parents, nil
 }
 
-// claudeEntries keeps the entries of an environment that name the
-// Claude Code session, and drops every other, credentials among them.
-func claudeEntries(entries []string) []string {
+// keptEntries keeps the entries of an environment that name the Claude
+// Code session or the Konsole tab, and drops every other, credentials
+// among them.
+func keptEntries(entries []string) []string {
 	var kept []string
 	for _, entry := range entries {
 		name, _, _ := strings.Cut(entry, "=")
-		if name == claudeSessionVar || name == claudeChildVar {
+		if name == claudeSessionVar || name == claudeChildVar || name == konsoleServiceVar || name == konsoleSessionVar {
 			kept = append(kept, entry)
 		}
 	}

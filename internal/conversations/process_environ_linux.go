@@ -25,7 +25,7 @@ func procEnvironments(pids []int) (map[int][]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		environments[pid] = claudeEntries(strings.Split(string(raw), "\x00"))
+		environments[pid] = keptEntries(strings.Split(string(raw), "\x00"))
 	}
 	return environments, nil
 }
