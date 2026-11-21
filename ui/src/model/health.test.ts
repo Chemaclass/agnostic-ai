@@ -128,9 +128,9 @@ describe('setup health', () => {
     const ids = findingEntryIds([sectionError, userWarning])
     const [errors, warnings] = healthGroups(overview)
     expect(errors.sections[0].entries[0]).toMatchObject({ place: 'health:error:section:settings', ids: [ids[0]] })
-    const userLevel = warnings.sections[0].entries[0]
-    expect(userLevel).toMatchObject({ place: 'health:warning:global:section:settings', ids: [ids[1]], userLevel: true, findings: [userWarning] })
-    expect(placeLabel(userLevel)).toBe('Global setup')
+    const userEntry = warnings.sections[0].entries[0]
+    expect(userEntry).toMatchObject({ place: 'health:warning:global:section:settings', ids: [ids[1]], userLevel: true, findings: [userWarning] })
+    expect(placeLabel(userEntry)).toBe('Global setup')
     expect(placeLabel(errors.sections[0].entries[0])).toBe('Other findings')
   })
 

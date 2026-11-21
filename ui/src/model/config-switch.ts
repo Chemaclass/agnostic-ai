@@ -88,7 +88,7 @@ export class UserSetupError extends Error {
   readonly root: string
   constructor(root: string, message: string) {
     super(message)
-    this.name = 'GlobalSetupError'
+    this.name = 'UserSetupError'
     this.root = root
   }
 }

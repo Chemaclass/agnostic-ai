@@ -1154,7 +1154,7 @@ export interface ConversationOpenReply {
 //   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet?, scanningSince? }; scanningSince is when the running conversation read began, set only while one runs
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no global setup
-//   POST /api/global/create                               → GlobalCreateReply (body: { git })
+//   POST /api/global/create                               → UserCreateReply (body: { git })
 //   POST /api/edit/spec/move                              → SpecMovePreview (body: SpecMoveRequest); 409 { missing, root } when there is no global setup
 export const API = {
   view: '/api/views/authority',
