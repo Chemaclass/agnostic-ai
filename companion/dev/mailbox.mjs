@@ -18,10 +18,13 @@ const REFUSALS = {
   'unknown-session': ['The selected session is unavailable.', 'Choose a local session.'],
   ownership: ['The sender must hold the offered paths.', 'Claim those paths before offering them.'],
   'not-in-thread': ['The selected sessions do not belong to this thread.', 'Open the thread from one of its participants.'],
+  rejected: ['You rejected this message.', 'Send a new message if it is still needed.'],
 }
 
 const countOf = (thread) => thread.messages.filter(({ type, state }) => type !== 'done' && state !== 'rejected').length
 const waitingOf = (thread) => thread.messages.filter(({ state }) => state === 'waiting').length
+const heldOf = (thread) => thread.messages.filter(({ state }) => state === 'held').length
+const pendingOf = (thread) => thread.messages.some(({ state }) => ['held', 'waiting', 'reserved'].includes(state))
 
 function refused(guard, thread, now, count) {
   const [reason, next] = guard === 'cap'
@@ -60,7 +63,7 @@ export function mailboxRows(state, conversations) {
       const conflicts = state.claimConflicts.filter((conflict) => conflict.thread === thread.id)
       return {
         id: thread.id, with: other, withTitle, status: thread.status, count: countOf(thread), conflicts,
-        waiting: waitingOf(thread), cap: thread.cap, lastType: thread.messages.at(-1)?.type,
+        waiting: waitingOf(thread), held: heldOf(thread), cap: thread.cap, lastType: thread.messages.at(-1)?.type,
       }
     })
     const claimCount = state.claims.filter((claim) => same(claim.owner, row)).length
@@ -264,7 +267,7 @@ export function mailboxChange(state, ask, now) {
   else if (ask.action === 'raise-cap' && thread.status === 'open') thread.cap += 8
   else if (ask.action === 'stop' && thread.status !== 'closed') {
     thread.status = 'closed'
-    for (const message of thread.messages) if (message.state === 'waiting') message.state = 'cancelled'
+    for (const message of thread.messages) if (['held', 'waiting'].includes(message.state)) message.state = 'cancelled'
   } else return refused('format', thread, now)
   thread.events.push({ at: now.toISOString(), by: 'human', action: ask.action })
   return changed({})
@@ -283,6 +286,56 @@ export function mailboxStage(state, ask, now) {
   if (ask.how !== 'copy' && ask.how !== 'type') return refused('format', thread, now)
   message.state = 'staged'
   thread.events.push({ at: now.toISOString(), by: 'human', action: 'stage' })
-  if (thread.status === 'closing' && !waitingOf(thread)) thread.status = 'closed'
+  if (thread.status === 'closing' && !pendingOf(thread)) thread.status = 'closed'
   return changed({ staged: true, message: ask.how === 'copy' ? 'Message copied.' : 'Typed into the existing session. Press Enter there to send it.' })
+}
+
+export function mailboxApprove(state, ask, now) {
+  const thread = state.mailbox.find(({ id }) => id === ask?.thread)
+  const message = thread?.messages.find(({ n }) => n === ask.n)
+  if (!message) return refused('not-in-thread', thread, now)
+  const at = now.toISOString()
+  if (ask.action === 'reject') {
+    if (message.state === 'rejected') return changed({})
+    if (message.state !== 'held') return refused('format', thread, now)
+    message.state = 'rejected'
+    const [reason] = REFUSALS.rejected
+    thread.refusals.push({ at, from: refOf(message.from), type: message.type, guard: 'rejected', reason })
+    thread.events.push({ at, by: 'human', action: 'reject', n: message.n })
+    if (thread.status === 'closing' && !pendingOf(thread)) thread.status = 'closed'
+    return changed({})
+  }
+  if (ask.action !== 'approve') return refused('format', thread, now)
+  if (message.state === 'rejected') return refused('rejected', thread, now)
+  if (message.state === 'cancelled') return refused('closed', thread, now)
+  if (message.state !== 'held') return changed({})
+  if (thread.status === 'paused') return refused('paused', thread, now)
+  if (thread.status === 'closed') return refused('closed', thread, now)
+  message.state = 'waiting'
+  message.queuedAt = at
+  thread.events.push({ at, by: 'human', action: 'approve', n: message.n })
+  if (message.type === 'done') thread.status = 'closing'
+  return changed({})
+}
+
+export function mailboxQueue(state, ask, now) {
+  const thread = state.mailbox.find(({ id }) => id === ask?.thread)
+  const message = thread?.messages.find(({ n }) => n === ask.n)
+  if (!message) return refused('not-in-thread', thread, now)
+  if (message.state === 'waiting') return changed({})
+  if (message.state !== 'staged') return refused('format', thread, now)
+  if (thread.status === 'paused') return refused('paused', thread, now)
+  if (thread.status === 'closed') return refused('closed', thread, now)
+  message.state = 'waiting'
+  message.queuedAt = now.toISOString()
+  thread.events.push({ at: message.queuedAt, by: 'human', action: 'queue', n: message.n })
+  return changed({})
+}
+
+export function mailboxSaveSettings(state, ask) {
+  if (!ask || typeof ask.approveAgentSends !== 'boolean' || Object.keys(ask).length !== 1) {
+    return { status: 422, body: { error: 'Not sent (guard: format). The mailbox could not read the supplied fields.', guard: 'format' } }
+  }
+  state.mailboxSettings.approveAgentSends = ask.approveAgentSends
+  return { status: 204 }
 }

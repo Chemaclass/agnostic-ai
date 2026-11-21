@@ -1,0 +1,31 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'd=$(pwd); until [ -x \"$d/node_modules/.bin/agnostic-ai\" ] || [ -f \"$d/agnostic-ai.yaml\" ] || [ -f \"$d/agnostic.config.yaml\" ] || [ \"$d\" = \"$(dirname \"$d\")\" ]; do d=$(dirname \"$d\"); done; bin=\"$d/node_modules/.bin/agnostic-ai\"; [ -x \"$bin\" ] || bin=agnostic-ai; command -v \"$bin\" >/dev/null || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 \"$bin\" project --help >/dev/null 2>&1 || { echo \"agnostic-ai: this version has no project command; upgrade to 0.83.0 or newer\" >&2; exit 1; }; exec \"$bin\" project -- hook mailbox --target claude'",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'd=$(pwd); until [ -x \"$d/node_modules/.bin/agnostic-ai\" ] || [ -f \"$d/agnostic-ai.yaml\" ] || [ -f \"$d/agnostic.config.yaml\" ] || [ \"$d\" = \"$(dirname \"$d\")\" ]; do d=$(dirname \"$d\"); done; bin=\"$d/node_modules/.bin/agnostic-ai\"; [ -x \"$bin\" ] || bin=agnostic-ai; command -v \"$bin\" >/dev/null || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 \"$bin\" project --help >/dev/null 2>&1 || { echo \"agnostic-ai: this version has no project command; upgrade to 0.83.0 or newer\" >&2; exit 1; }; exec \"$bin\" project -- hook mailbox --target claude'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "AGNOSTIC_AI_TARGET": "claude"
+  }
+}

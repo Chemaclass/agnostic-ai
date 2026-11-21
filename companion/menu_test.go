@@ -59,11 +59,14 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 9 {
-		t.Fatalf("menu.json has %d items; want 9", len(items))
+	if len(items) != 10 {
+		t.Fatalf("menu.json has %d items; want 10", len(items))
 	}
 	actions := shellWith(t, &fakeShortcuts{}).menuActions()
 	for _, item := range items {
+		if item.Page {
+			continue
+		}
 		if actions[item.ID] == nil {
 			t.Errorf("no handler for %q", item.ID)
 		}

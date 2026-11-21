@@ -111,7 +111,10 @@ func TestInstallCompanion_BuildsTheCommitThisBinaryCameFromAndSaysHowFarItIs(t *
 	want := "Building the companion for agnostic-ai 1.2.3 on this machine.\n" +
 		"✓ Go found\n" +
 		"✓ a C compiler found\n" +
-		"✓ GTK 4, WebKitGTK 6.0 and X11 for developers found\n" +
+		"✓ pkg-config found\n" +
+		"✓ GTK 4 for developers found\n" +
+		"✓ WebKitGTK 6.0 for developers found\n" +
+		"✓ X11 for developers found\n" +
 		"→ Fetching and compiling. The first build takes a few minutes.\n" +
 		"  2 modules fetched, 3 packages compiled\n" +
 		"✓ Installed " + installed + "\n" +
@@ -133,9 +136,9 @@ func TestInstallCompanion_NamesWhatTheMachineLacks(t *testing.T) {
 		missing string
 		want    string
 	}{
-		"no Go":              {"darwin", "go", "the companion needs Go to build. Install Go from https://go.dev/dl/, then run this again"},
-		"no Xcode tools":     {"darwin", "xcode-select", "the companion needs the Xcode Command Line Tools to build. Run: xcode-select --install, then run this again"},
-		"no Linux libraries": {"linux", "pkg-config", "the companion needs GTK 4, WebKitGTK 6.0 and X11 for developers to build. Install them (Debian and Ubuntu: sudo apt install pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libx11-dev), then run this again"},
+		"no Go":               {"darwin", "go", "the companion needs Go to build. Install Go from https://go.dev/dl/, then run this again"},
+		"no Xcode tools":      {"darwin", "xcode-select", "the companion needs the Xcode Command Line Tools to build. Run: xcode-select --install, then run this again"},
+		"no Linux C compiler": {"linux", "cc", "the companion needs a C compiler to build. Run: sudo apt install build-essential, then run this again"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			tools := builtTools(t)
@@ -151,6 +154,56 @@ func TestInstallCompanion_NamesWhatTheMachineLacks(t *testing.T) {
 				t.Errorf("err = %v", err)
 			}
 		})
+	}
+}
+
+func TestInstallCompanion_NamesEveryMissingLinuxPackageForThisPackageManager(t *testing.T) {
+	for name, tc := range map[string]struct {
+		manager string
+		want    string
+	}{
+		"apt":    {"apt", "the companion needs GTK 4 for developers and WebKitGTK 6.0 for developers to build. Run: sudo apt install libgtk-4-dev libwebkitgtk-6.0-dev, then run this again"},
+		"dnf":    {"dnf", "the companion needs GTK 4 for developers and WebKitGTK 6.0 for developers to build. Run: sudo dnf install gtk4-devel webkitgtk6.0-devel, then run this again"},
+		"pacman": {"pacman", "the companion needs GTK 4 for developers and WebKitGTK 6.0 for developers to build. Run: sudo pacman -S gtk4 webkitgtk-6.0, then run this again"},
+		"none": {"", "the companion needs GTK 4 for developers and WebKitGTK 6.0 for developers to build. " +
+			"Install them (Debian and Ubuntu: sudo apt install libgtk-4-dev libwebkitgtk-6.0-dev; Fedora: sudo dnf install gtk4-devel webkitgtk6.0-devel; Arch: sudo pacman -S gtk4 webkitgtk-6.0), then run this again"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			tools := builtTools(t)
+			tools.succeeds = func(_ context.Context, program string, args ...string) bool {
+				switch program {
+				case "apt", "dnf", "pacman":
+					return program == tc.manager
+				case "pkg-config":
+					return !slices.Contains(args, "gtk4") && !slices.Contains(args, "webkitgtk-6.0")
+				}
+				return true
+			}
+			tools.build = func(context.Context, string, []string, func(string), ...string) error {
+				t.Error("the build started on a machine that lacks something")
+				return nil
+			}
+
+			err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, t.TempDir(), companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+			if err == nil || err.Error() != tc.want {
+				t.Errorf("err = %v\nwant  %s", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestInstallCompanion_WithoutPkgConfigNamesOnlyPkgConfig(t *testing.T) {
+	tools := builtTools(t)
+	tools.succeeds = func(_ context.Context, program string, args ...string) bool {
+		return program != "pkg-config" && program != "dnf" && program != "pacman"
+	}
+
+	err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, t.TempDir(), companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
+
+	want := "the companion needs pkg-config to build. Run: sudo apt install pkg-config, then run this again"
+	if err == nil || err.Error() != want {
+		t.Errorf("err = %v\nwant  %s", err, want)
 	}
 }
 

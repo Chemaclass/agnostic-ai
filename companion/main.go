@@ -402,8 +402,9 @@ func (s *shell) showPanelWhileShown() {
 // so a Hide cannot land between the presence it checked and the show.
 func (s *shell) showPanelOn(event string) {
 	nearest := corner("")
-	if work, ok := s.workArea(); ok {
-		var x, y int
+	work, placed := s.workArea()
+	var x, y int
+	if placed {
 		x, y, nearest = placePanel(windowRect(s.bubble), work, panelWidth, panelHeight)
 		s.panel.SetPosition(x, y)
 	}
@@ -411,6 +412,10 @@ func (s *shell) showPanelOn(event string) {
 	s.panelAsked = true
 	s.mu.Unlock()
 	s.panel.Show()
+	// On X11 a window the system has not shown yet ignores a move.
+	if px, py := s.panel.Position(); placed && (px != x || py != y) {
+		s.panel.SetPosition(x, y)
+	}
 	s.panel.Focus()
 	s.panel.EmitEvent(event, string(nearest))
 }
@@ -653,6 +658,10 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST "+serverMailboxClaimPath, in.pass(serverMailboxClaimPath))
 	mux.HandleFunc("POST "+serverMailboxReleasePath, in.pass(serverMailboxReleasePath))
 	mux.HandleFunc("POST "+serverMailboxHandoffPath, in.pass(serverMailboxHandoffPath))
+	mux.HandleFunc("POST "+serverMailboxApprovePath, in.pass(serverMailboxApprovePath))
+	mux.HandleFunc("POST "+serverMailboxQueuePath, in.pass(serverMailboxQueuePath))
+	mux.HandleFunc("GET "+serverMailboxSettingsPath, in.readMailbox(serverMailboxSettingsPath))
+	mux.HandleFunc("POST "+serverMailboxSettingsPath, in.pass(serverMailboxSettingsPath))
 	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
 		s.togglePanel()
 		w.WriteHeader(http.StatusNoContent)
@@ -858,6 +867,7 @@ func main() {
 	updateContext, stopUpdates := context.WithCancel(context.Background())
 	defer stopUpdates()
 	s.app.Event.OnApplicationEvent(events.Common.ApplicationStarted, func(*application.ApplicationEvent) {
+		seeThrough()
 		s.placeBubble(saved.Bubble)
 		watchPointer(s.bubble.NativeWindow(), func(over bool) {
 			s.app.Event.Emit(eventPointer, over)

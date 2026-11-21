@@ -74,6 +74,22 @@ func TestSend_TypesOnlyIntoALiveSessionInATabApp(t *testing.T) {
 			reply:        SendReply{Sent: true, Message: "Typed into the iTerm tab that runs it. Press Enter there to send it."},
 			calls:        "type iTerm /dev/ttys040 one\ntwo",
 		},
+		"WezTerm tab": {
+			conversation: at(ToolClaude, terminalHost{App: "WezTerm", TTY: "/dev/ttys041"}),
+			text:         "one\ntwo",
+			processes:    holding("S+", "/dev/ttys041"),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Sent: true, Message: "Typed into the WezTerm tab that runs it. Press Enter there to send it."},
+			calls:        "type WezTerm /dev/ttys041 one\ntwo",
+		},
+		"kitty tab": {
+			conversation: at(ToolClaude, terminalHost{App: "kitty", TTY: "/dev/ttys041"}),
+			text:         "C:\\new\ntwo",
+			processes:    holding("S+", "/dev/ttys041"),
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        SendReply{Sent: true, Message: "Typed into the kitty tab that runs it. Press Enter there to send it."},
+			calls:        "type kitty /dev/ttys041 C:\\new\ntwo",
+		},
 		"control characters removed before typing": {
 			conversation: at(ToolClaude, ghostty),
 			text:         "fix\x1b[201~\x03 it\r\n",

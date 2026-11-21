@@ -143,12 +143,12 @@ export function takesText(conversation) {
 }
 
 /** The apps whose tabs the server can type into, as a live row's route names them: "Switch to Ghostty". */
-const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm'])
+const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm', 'Switch to WezTerm', 'Switch to kitty'])
 /** The tools the server types into: they say when they wait for an answer. */
 const TYPED_TOOLS = new Set(['claude', 'codex'])
 
 /**
- * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty or iTerm tab, under
+ * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty, iTerm, WezTerm or kitty tab, under
  * Needs you, Working or Active. Like the server, it leaves out a chat that waits for an answer, where typed text
  * could answer it, a Cursor chat, which does not say when it waits, and a working chat whose tool may drop typed text:
  * only Claude Code keeps it.
@@ -599,8 +599,30 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadLabelOf({ count, cap, waiting }) {
-  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}`
+export function threadLabelOf({ count, cap, waiting, held }) {
+  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}${held ? `, ${held} held for you` : ''}`
+}
+
+export function messageStateLabelOf(state) {
+  return {
+    held: 'Held for you', waiting: 'Waiting', reserved: 'Delivering', delivered: 'Delivered',
+    staged: 'Staged', rejected: 'Rejected', cancelled: 'Cancelled',
+  }[state]
+}
+
+export function messageActionsOf({ state }, { status }) {
+  switch (state) {
+    case 'held':
+      return ['approve', 'reject']
+    case 'waiting':
+      return status === 'paused' ? [] : ['type', 'copy']
+    case 'reserved':
+      return status === 'open' || status === 'closing' ? ['type', 'copy'] : []
+    case 'staged':
+      return status === 'open' || status === 'closing' ? ['queue'] : []
+    default:
+      return []
+  }
 }
 
 export function threadActionsOf({ status, count, cap }) {
@@ -1092,11 +1114,12 @@ export function updateBadgeOf(update) {
  * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
  * Hide's label names the way back. The update entry shows only where the companion can update itself.
  */
-export function menuRowsOf(items, { preferences, appearance, update = { state: 'unavailable' } }, isMac = false) {
-  const values = { ...appearance, ...preferences }
+export function menuRowsOf(items, { preferences, appearance, mailbox, update = { state: 'unavailable' } }, isMac = false) {
+  const values = { ...appearance, ...preferences, ...mailbox }
   return items.filter((item) => item.id !== 'update' || update.state !== 'unavailable').map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
+    if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
     if (item.kind === 'switch') {
       if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
       value = values[item.id]

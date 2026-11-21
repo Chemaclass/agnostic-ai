@@ -1469,3 +1469,5 @@ func TestServeMux_ASendSkipsTheAPIQueue(t *testing.T) {
 	}
 	_ = resp.Body.Close()
 }
+
+func (*recordingLauncher) ShowTmuxPane(context.Context, int, string) (int, error) { return 0, nil }

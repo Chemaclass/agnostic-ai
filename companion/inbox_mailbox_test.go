@@ -295,3 +295,63 @@ func TestMailboxProxy_ForwardsClaimsAndRefreshesAnOwnershipConflict(t *testing.T
 		t.Errorf("claims and list reads = %d and %d", claimsReads.Load(), listReads.Load())
 	}
 }
+
+func TestMailboxProxy_ForwardsApprovalQueueAndSettings(t *testing.T) {
+	var listReads atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/mailbox/settings":
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(`{"approveAgentSends":true}`))
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case "/api/mailbox/approve", "/api/mailbox/queue":
+			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
+				t.Errorf("mutation = %s %s", r.Method, r.URL)
+			}
+			w.WriteHeader(http.StatusNoContent)
+		case serverListPath:
+			listReads.Add(1)
+			w.Header().Set("ETag", `"after-approve"`)
+			writeJSON(w, http.StatusOK, map[string]any{"needsYou": 0})
+		default:
+			t.Errorf("unexpected upstream path %s", r.URL)
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer upstream.Close()
+	server := newServer()
+	server.base, server.health.Version = upstream.URL, "1.2.3"
+	in := newInbox(server, "1.2.3", func() {})
+	routes := (&shell{}).routes(in, fstest.MapFS{})
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/mailbox/settings", nil))
+	if rec.Code != http.StatusOK || rec.Body.String() != `{"approveAgentSends":true}` {
+		t.Errorf("settings = %d %s", rec.Code, rec.Body)
+	}
+	for _, action := range []string{"approve", "queue", "settings"} {
+		req := httptest.NewRequest(http.MethodPost, "/api/mailbox/"+action, strings.NewReader(`{}`))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("%s = %d %s", action, rec.Code, rec.Body)
+		}
+		refreshed := rec.Header().Get(listVersionHeader) == `"after-approve"`
+		if refreshed != (action != "settings") {
+			t.Errorf("%s list refresh = %t", action, refreshed)
+		}
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/mailbox/approve", strings.NewReader(`{}`))
+	req.Header.Set("Content-Type", "text/plain")
+	rec = httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnsupportedMediaType {
+		t.Errorf("approve without JSON = %d", rec.Code)
+	}
+	if listReads.Load() != 2 {
+		t.Errorf("list reads = %d", listReads.Load())
+	}
+}

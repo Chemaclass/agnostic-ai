@@ -1,6 +1,13 @@
-import { CallError, GivenUp, answerHandoff, changeThread, claimPaths, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf, keyOf, mailboxSessionOf, reviewModelsOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
+import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
+import { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, reviewModelsOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
 
+const MESSAGE_ACTIONS = {
+  approve: 'Approve',
+  reject: 'Reject',
+  queue: 'Queue for delivery',
+  type: 'Type into session',
+  copy: 'Copy message',
+}
 const ACTIONS = {
   reply: 'Reply',
   pause: 'Pause',
@@ -13,7 +20,7 @@ const REVIEW = 'review_request'
 const HANDOFF = 'handoff'
 const REF_PREVIEW_DELAY = 220
 const TYPES = { question: 'Question', finding: 'Finding', done: 'Done', [REVIEW]: 'Review request', [HANDOFF]: 'Handoff' }
-const STATES = { open: 'Open', paused: 'Paused', closing: 'Closing', closed: 'Closed', waiting: 'Waiting', staged: 'Staged', cancelled: 'Cancelled' }
+const STATES = { open: 'Open', paused: 'Paused', closing: 'Closing', closed: 'Closed' }
 const refOf = ({ tool, id }) => ({ tool, id })
 
 function element(tag, className, text) {
@@ -74,7 +81,8 @@ function pathDetails({ worktree, paths, except }) {
 function threadCount({ cap, messages }) {
   const count = messages.filter(({ type, state }) => type !== 'done' && state !== 'rejected').length
   const waiting = messages.filter(({ state }) => state === 'waiting').length
-  return { cap, count, waiting }
+  const held = messages.filter(({ state }) => state === 'held').length
+  return { cap, count, waiting, held }
 }
 
 function sentAt(when) {
@@ -559,7 +567,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
     for (const message of thread.messages) {
       const entry = element('article', 'mailbox-message')
-      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), TYPES[message.type] ?? message.type, STATES[message.state], handoffLabelOf(message.handoff), sentAt(message.at)].filter(Boolean).join(' · ')))
+      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), TYPES[message.type] ?? message.type, messageStateLabelOf(message.state), handoffLabelOf(message.handoff), sentAt(message.at)].filter(Boolean).join(' · ')))
       if (message.body) entry.append(element('p', 'mailbox-body', message.body))
       if (message.refs) {
         const models = thread.models ?? {}
@@ -569,19 +577,19 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       }
       if (message.gives) {
         entry.append(...pathDetails(message.gives))
-        if (message.handoff === 'offered' && message.state !== 'cancelled' && thread.status !== 'paused' && keyOf(current.from) === keyOf(message.to)) {
+        if (message.handoff === 'offered' && !['held', 'rejected', 'cancelled'].includes(message.state) && thread.status !== 'paused' && keyOf(current.from) === keyOf(message.to)) {
           const controls = element('div', 'mailbox-actions')
           if (thread.status !== 'closed') controls.append(button('Accept', `accept-${message.n}`, () => respondHandoff(current, message.n, 'accept')))
           controls.append(button('Decline', `decline-${message.n}`, () => respondHandoff(current, message.n, 'decline')))
           entry.append(controls)
         }
       }
-      if (message.state === 'waiting' && thread.status !== 'paused') {
+      const offered = messageActionsOf(message, thread)
+      if (offered.length) {
         const controls = element('div', 'mailbox-actions')
-        controls.append(
-          button('Type into session', `type-${message.n}`, () => stage(current, message.n, 'type')),
-          button('Copy message', `copy-${message.n}`, () => stage(current, message.n, 'copy')),
-        )
+        for (const action of offered) {
+          controls.append(button(MESSAGE_ACTIONS[action], `${action}-${message.n}`, () => messageAction(current, message.n, action)))
+        }
         entry.append(controls)
       }
       messages.append(entry)
@@ -646,6 +654,37 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       const { version } = action === 'close'
         ? await sendMessage({ from: current.from, to: current.to, type: 'done', thread: id })
         : await changeThread(id, action)
+      await afterChange(version)
+    } catch (error) {
+      if (!(error instanceof CallError)) throw error
+      current.result = refusalText(error)
+      say(current.result, 'error')
+    } finally {
+      current.pending = false
+      await load(current)
+    }
+  }
+
+  function messageAction(current, n, action) {
+    switch (action) {
+      case 'type':
+      case 'copy':
+        return stage(current, n, action)
+      case 'queue':
+        return answer(current, () => queueMessage(current.summary.id, n), 'Message queued for delivery.')
+      default:
+        return answer(current, () => approveMessage(current.summary.id, n, action), action === 'approve' ? 'Message approved.' : 'Message rejected.')
+    }
+  }
+
+  async function answer(current, change, done) {
+    if (current.pending) return
+    current.pending = true
+    current.result = undefined
+    render(current)
+    try {
+      const { version } = await change()
+      current.result = done
       await afterChange(version)
     } catch (error) {
       if (!(error instanceof CallError)) throw error

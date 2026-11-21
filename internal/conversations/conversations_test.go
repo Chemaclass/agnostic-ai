@@ -500,7 +500,16 @@ type fakeLauncher struct {
 	err       error
 	folderErr error
 	newTabErr error
+	focusErr  error
 	focusOK   bool
+	// tmuxClient is the pid of the tmux client that ShowTmuxPane finds.
+	tmuxClient int
+	tmuxErr    error
+}
+
+func (f *fakeLauncher) ShowTmuxPane(_ context.Context, server int, tty string) (int, error) {
+	f.calls = append(f.calls, "tmux "+strconv.Itoa(server)+" "+tty)
+	return f.tmuxClient, f.tmuxErr
 }
 
 func (f *fakeLauncher) OpenFolder(_ context.Context, app, folder string) error {
@@ -525,6 +534,9 @@ func (f *fakeLauncher) RunInNewTerminal(_ context.Context, command string) error
 
 func (f *fakeLauncher) FocusTab(_ context.Context, app, tty string) (bool, error) {
 	f.calls = append(f.calls, "focus "+app+" "+tty)
+	if f.focusErr != nil {
+		return false, f.focusErr
+	}
 	return f.focusOK, f.err
 }
 

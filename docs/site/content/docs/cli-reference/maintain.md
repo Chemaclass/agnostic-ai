@@ -195,6 +195,32 @@ agnostic-ai hook memory --target codex
 - It finds the project as the `shared-memory` skill does.
 {% </details> %}
 
+## hook mailbox
+
+Print the mailbox messages waiting for a session, for a prompt or session-start hook to add to the model's context. The [`mailbox` built-in](@/docs/mailbox.md#deliver-with-the-next-prompt) sets this up for Claude Code and Codex.
+
+```bash
+agnostic-ai hook mailbox --target codex
+```
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Tool that runs the hook: `claude` or `codex`. Defaults to `AGNOSTIC_AI_TARGET`. |
+
+{% <details summary="Details: input, output and limits"> %}
+It reads `session_id`, `hook_event_name` and `source` from the hook's JSON on stdin. It runs on `UserPromptSubmit`, and on `SessionStart` only when `source` is `startup` or `resume`.
+
+| Tool | Output |
+|------|--------|
+| Claude Code | The `<agnostic-ai-mailbox>` block as plain text |
+| Codex | `{"hookSpecificOutput": {"hookEventName": ..., "additionalContext": ...}}` with the same block |
+
+- The block stays under 6,000 bytes. Messages that do not fit wait for the next run.
+- It reads at most 64 KB of stdin, waits at most 500 ms for the mailbox lock and finishes within 2 seconds.
+- It marks printed messages delivered. A failed or short write leaves them waiting.
+- With nothing to deliver, or on any failure, it prints nothing and exits 0.
+{% </details> %}
+
 ## hook approve
 
 Answer a permission prompt from inside a `PermissionRequest` hook. The [`approvals` built-in](@/docs/approvals.md) sets this up for Claude Code, Codex, Kiro, Qwen Code and Qoder through `sync --global`.

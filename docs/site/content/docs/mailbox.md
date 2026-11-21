@@ -18,7 +18,7 @@ Keep a question or finding beside the two chats it concerns. The [companion](@/d
 3. Select a destination row or paste its [session ID](@/docs/cli-reference/companion-list.md#copy-a-session-id).
 4. Send it, then open the thread to see the waiting message.
 
-Choose **Type into session** to put it in the existing terminal tab. Press Enter in that tab when you are ready to send it. The Terminal app uses the clipboard to paste it. **Copy message** lets you paste it yourself in any app. A message marked **Staged** has been typed or copied by you. A failed attempt leaves it waiting.
+Choose **Type into session** to put it in the existing terminal tab. Press Enter in that tab when you are ready to send it. The Terminal app uses the clipboard to paste it. **Copy message** lets you paste it yourself in any app. A message marked **Staged** has been typed or copied by you. A failed attempt leaves it waiting. With the [mailbox built-in](#deliver-with-the-next-prompt) on, a waiting message also reaches the session with your next prompt.
 
 ## Request a code review
 
@@ -57,6 +57,32 @@ Closing or stopping a thread keeps its claims. Open **File claims** to find and 
 
 {% </details> %}
 
+## Deliver with the next prompt
+
+Turn on the `mailbox` built-in in the project where the sessions run, then sync:
+
+```yaml
+builtins: [mailbox]
+```
+
+It adds two hooks to Claude Code and Codex. A session gets its waiting messages with your next prompt, and when it starts or resumes. Compacting or clearing a session delivers nothing, so a message always waits for you.
+
+A message marked **Delivered** was printed in full into the session's context. That does not mean the model read it or acted on it. If the hook stops after printing and before saving, the message prints again a minute later. Each message carries its thread ID and number, so a repeat is easy to spot.
+
+The hook skips messages that are held, rejected, cancelled or staged, and every message of a paused or closed thread. A closing thread delivers what it already accepted, then closes. One delivery prints at most 6,000 bytes. Messages that do not fit wait for the next prompt, oldest first. **Queue for delivery** on a staged message hands it back to the hook.
+
+The hook never blocks a prompt. When the mailbox is missing, busy or broken, it prints nothing and the messages keep waiting.
+
+### Codex: trust the hooks
+
+Codex runs a new hook only after you review and trust it. Open `/hooks` in Codex after the sync and trust both mailbox hooks. Codex asks again whenever a hook's command changes, for example after an upgrade changes the built-in. Until then, Codex sessions get no messages.
+
+## Approve agent messages
+
+A message an agent sends waits as **Held for you** until you approve it. **Approve** checks the thread again: a paused thread refuses it, and a handoff whose paths changed owner is refused. A stopped thread has already cancelled it. **Reject** records the refusal in the thread, and the message no longer counts toward the limit. Messages you write in the companion are never held.
+
+Approval is on by default. Turn off **Ask me before an agent sends a message** in the companion settings to let agent messages queue at once. A missing or unreadable setting keeps approval on.
+
 ## Manage a thread
 
 | Action | What happens |
@@ -76,7 +102,7 @@ A refusal gives the guard, reason and next step. For example, `cap` means the th
 
 {% <details summary="Local storage and trust"> %}
 
-The mailbox lives beside the conversation marks in the app’s configuration folder. It stores each thread separately and keeps a short record of refusals without message bodies. On macOS the folder is `~/Library/Application Support/agnostic-ai/mailbox/`.
+The mailbox lives beside the conversation marks in the app’s configuration folder. It stores each thread separately, keeps the approval setting in `settings.json`, and keeps a short record of refusals without message bodies. On macOS the folder is `~/Library/Application Support/agnostic-ai/mailbox/`.
 
 The controls govern normal mailbox use. Any process running as your OS user can access files you own. A model may still act on text you paste, so read each message before submitting it.
 
@@ -98,11 +124,14 @@ The local global server provides these routes to the companion. The conversation
 | `GET /api/mailbox/claims?tool=&id=` | Read `{claims, conflicts, worktree?}` for a session. Omit the query to see all claims, including stale owners. |
 | `POST /api/mailbox/claim` and `/api/mailbox/release` | Send `{tool, id, worktree, paths}` for the owner. |
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
+| `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
+| `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |
+| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. |
 
 Questions and findings take `body`. A `review_request` takes `refs: {worktree, base, commit?, paths?}` and optional `models: {from?, to?}`. Pass the preview’s commit, base and paths to keep the selection pinned. The server checks the worktree against the source chat and verifies any supplied paths against Git. A review request with a `body`, verdict or unknown field is refused with `echo`. An invalid base, commit or path selection is refused with `refs`.
 
 A `handoff` takes `body` and `gives: {worktree, paths}`. Sending creates an offer. Acceptance checks the same paths again before moving them. An overlap or missing claim is refused with `ownership`.
 
-A refused send or review preview answers HTTP 422 with `{error, guard}`. The error says what stopped it and what to do next.
+A request that sets a field the store owns, such as `from.by`, `state`, a time stamp or `cap`, is refused with `format`. A refused send or review preview answers HTTP 422 with `{error, guard}`. The error says what stopped it and what to do next.
 
 {% </details> %}

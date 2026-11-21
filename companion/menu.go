@@ -25,6 +25,8 @@ type menuItem struct {
 	// Kind is switch, shortcut or action.
 	Kind string `json:"kind"`
 	Hint string `json:"hint,omitempty"`
+	// Page items show in the list's menu only: the server holds their value.
+	Page bool `json:"page,omitempty"`
 }
 
 // readMenu reads the shared menu list from the companion's pages.
@@ -115,6 +117,9 @@ func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
 	addSettingsHeader(menu)
 	afterAction := false
 	for i, item := range items {
+		if item.Page {
+			continue
+		}
 		act := actions[item.ID]
 		if act == nil {
 			return fmt.Errorf("the menu item %q has no handler", item.ID)

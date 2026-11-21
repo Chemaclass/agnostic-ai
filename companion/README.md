@@ -80,8 +80,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   for you stays under Needs you, even when its parent is active or archived.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click,
   on the name too. **F2** renames the selected chat.
-  A running chat comes up in the Terminal, Ghostty or iTerm tab that runs it, ready
-  for typing. When only the app can come forward, the list comes back and
+  A running chat comes up in the Terminal, Ghostty, iTerm, WezTerm or kitty tab that runs it, ready
+  for typing. Inside tmux, its pane is selected first. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
   The reason stays above the list until you dismiss it or open another chat.
   When a chat could not be resumed, **Copy resume command** copies the command
@@ -99,7 +99,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   **F2** to give the chat your own name. **Enter** saves it and **Esc** keeps
   the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
-  A running chat's Terminal or Ghostty tab takes the name too, in place of
+  A running chat's Terminal, Ghostty, WezTerm or kitty tab takes the name too, in place of
   the title the tool sets. In iTerm the name goes on the chat's pane.
 - Right-click a chat and choose **Copy session ID** to copy its exact ID.
   A cloud chat gives you its cloud ID. Use the tool that owns the chat to
@@ -107,6 +107,10 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - Choose **Send to session…** on a local Claude Code or Codex chat to start
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). The thread appears under both chats.
   Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
+  A message an agent sends shows as **Held for you** until you choose **Approve** or **Reject**.
+  **Queue for delivery** hands a staged message back to the
+  [mailbox built-in](https://agnostic-ai.org/docs/mailbox/#deliver-with-the-next-prompt),
+  which delivers it with the session's next prompt.
 - Choose **Claim files…** to record which paths a session is working on. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
 - On a chat in Needs you, the same menu offers **Mark as read**. It takes the
   chat out of Needs you without opening it, for a reply you already read in
@@ -155,7 +159,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   - The first chat the text can be typed into is selected. Nothing is sent
     until you press Enter or click.
   - A click on a subagent row sends the text to the chat it runs in.
-  - A live chat in a Terminal, Ghostty or iTerm tab gets the text typed in, and the
+  - A live chat in a Terminal, Ghostty, iTerm, WezTerm or kitty tab gets the text typed in, and the
     list hides. For any other chat, the companion switches to it and says to
     paste with Cmd+V: the clipboard still holds the text.
   - A chat that ended is never resumed and typed into. A Cursor chat or a
@@ -231,6 +235,9 @@ change made in one shows in the other.
   companion where it is now, so turn it off and on again after you move the
   file. A change made in System Settings shows in the right-click menu once
   the ⋯ menu was opened or another setting changed.
+- **Ask me before an agent sends a message** holds each mailbox message an
+  agent sends until you approve it. It is on by default, and only the list's
+  ⋯ menu shows it, because the server keeps the setting.
 - **Open from anywhere** shows the shortcut. In the ⋯ menu, click it, then
   press the new keys: at least one of Ctrl, Alt or Cmd (the Windows or Super
   key elsewhere), and a letter, digit, Space, Enter, Tab, Backspace, Delete,

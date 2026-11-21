@@ -36,6 +36,9 @@ type fakeWindow struct {
 	events []string
 	// screenless makes GetScreen fail, as before Wails lists the screens.
 	screenless bool
+	// dropsHiddenMoves ignores a move while the window is off the screen,
+	// as an X11 window does before the system first shows it.
+	dropsHiddenMoves bool
 }
 
 func newFakeWindow() *fakeWindow {
@@ -107,6 +110,9 @@ func (w *fakeWindow) SetPosition(x, y int) {
 	defer w.mu.Unlock()
 	w.moves++
 	w.reportedMoves++
+	if w.dropsHiddenMoves && !w.visible {
+		return
+	}
 	w.x, w.y = x, y
 }
 func (w *fakeWindow) EmitEvent(name string, _ ...any) bool {
@@ -544,6 +550,20 @@ func TestBubbleMoved_KeepsAnOpenListBesideTheCircle(t *testing.T) {
 	}
 	x, y := panel.Position()
 	if x != 296 || y != 100 {
+		t.Errorf("list at (%d, %d), want (296, 100) beside the circle", x, y)
+	}
+}
+
+func TestTogglePanel_OpensTheListBesideTheCircleWhereAHiddenWindowCannotMove(t *testing.T) {
+	s, _ := placedShell(t)
+	panel := s.panel.(*fakeWindow)
+	panel.x, panel.y = 0, 0
+	panel.dropsHiddenMoves = true
+	s.bubble.SetPosition(200, 100)
+
+	s.togglePanel()
+
+	if x, y := panel.Position(); x != 296 || y != 100 {
 		t.Errorf("list at (%d, %d), want (296, 100) beside the circle", x, y)
 	}
 }

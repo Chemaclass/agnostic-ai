@@ -408,3 +408,7 @@ func TestMailboxHTTP_ReportsTypingThatCouldNotBeRecorded(t *testing.T) {
 		t.Errorf("typed message whose receipt could not be saved = %d %s", rec.Code, rec.Body)
 	}
 }
+
+func (*mailboxTerminalLauncher) ShowTmuxPane(context.Context, int, string) (int, error) {
+	return 0, nil
+}

@@ -1002,6 +1002,8 @@ export interface ConversationThreadSummary {
   count: number
   cap: number
   waiting: number
+  /** Messages an agent sent that wait for your approval; absent when none. */
+  held?: number
   lastType?: string
   conflicts?: ConversationMailboxConflict[]
 }
@@ -1120,7 +1122,7 @@ export interface ConversationSendRequest {
   html?: string
 }
 
-/** sent is true only when the text was typed into a live Terminal, Ghostty or iTerm session; otherwise message says why, or to paste with Cmd+V. For Terminal, the clipboard holds what was pasted afterwards. */
+/** sent is true only when the text was typed into a live Terminal, Ghostty, iTerm, WezTerm or kitty session; otherwise message says why, or to paste with Cmd+V. For Terminal, the clipboard holds what was pasted afterwards. */
 export interface ConversationSendReply {
   sent: boolean
   message: string

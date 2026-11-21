@@ -151,6 +151,22 @@ test('shows mailbox counts and only the thread controls available in its state',
   assert.deepEqual(threadActionsOf({ ...thread, status: 'closed' }), [])
 })
 
+test('labels message states and offers approve, reject and queue only where they apply', async () => {
+  const { messageActionsOf, messageStateLabelOf, threadLabelOf } = await import('../frontend/model.js')
+  assert.deepEqual(['held', 'delivered', 'rejected', 'reserved'].map(messageStateLabelOf), ['Held for you', 'Delivered', 'Rejected', 'Delivering'])
+  assert.equal(threadLabelOf({ count: 2, cap: 8, waiting: 0, held: 1 }), '2 of 8 messages, 1 held for you')
+  const open = { status: 'open' }
+  assert.deepEqual(messageActionsOf({ state: 'held' }, open), ['approve', 'reject'])
+  assert.deepEqual(messageActionsOf({ state: 'held' }, { status: 'paused' }), ['approve', 'reject'])
+  assert.deepEqual(messageActionsOf({ state: 'waiting' }, open), ['type', 'copy'])
+  assert.deepEqual(messageActionsOf({ state: 'waiting' }, { status: 'paused' }), [])
+  assert.deepEqual(messageActionsOf({ state: 'staged' }, open), ['queue'])
+  assert.deepEqual(messageActionsOf({ state: 'staged' }, { status: 'closed' }), [])
+  assert.deepEqual(messageActionsOf({ state: 'reserved' }, open), ['type', 'copy'])
+  assert.deepEqual(messageActionsOf({ state: 'reserved' }, { status: 'closed' }), [])
+  for (const state of ['delivered', 'rejected', 'cancelled']) assert.deepEqual(messageActionsOf({ state }, open), [])
+})
+
 test('offers Delete only on a chat under Archived that no process holds', () => {
   assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
   assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide'])
@@ -501,12 +517,14 @@ test('pick mode keeps the selected row while it is offered, else selects the fir
   assert.equal(pickKeyOf([], [], 'gone'), undefined)
 })
 
-test('only live rows in a Terminal, Ghostty or iTerm tab, outside Archived, can be typed into', () => {
+test('only live rows in a Terminal, Ghostty, iTerm, WezTerm or kitty tab, outside Archived, can be typed into', () => {
   const tab = (app) => ({ live: true, open: { kind: 'focus', label: 'Switch to ' + app } })
   const rows = [
     row('ghostty', 'unread', tab('Ghostty')),
     row('terminal', 'working', tab('Terminal')),
     row('iterm', 'active', tab('iTerm')),
+    row('wezterm', 'active', tab('WezTerm')),
+    row('kitty', 'active', tab('kitty')),
     row('warp', 'active', tab('Warp')),
     row('ended', 'active', { open: { kind: 'terminal', label: 'Open in Ghostty' } }),
     row('not-live', 'active', { ...tab('Ghostty'), live: false }),
@@ -518,8 +536,8 @@ test('only live rows in a Terminal, Ghostty or iTerm tab, outside Archived, can 
     row('codex-idle', 'active', { ...tab('Ghostty'), tool: 'codex' }),
     row('cursor-idle', 'active', { ...tab('Ghostty'), tool: 'cursor' }),
   ]
-  assert.deepEqual(typableRows(rows).map((r) => r.id), ['ghostty', 'terminal', 'iterm', 'codex-idle'])
-  assert.deepEqual(typableRows([rows[1], rows[3]]).map((r) => r.id), ['terminal'])
+  assert.deepEqual(typableRows(rows).map((r) => r.id), ['ghostty', 'terminal', 'iterm', 'wezterm', 'kitty', 'codex-idle'])
+  assert.deepEqual(typableRows([rows[1], rows[5]]).map((r) => r.id), ['terminal'])
   assert.deepEqual(typableRows([]), [])
 })
 
