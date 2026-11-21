@@ -20,7 +20,7 @@ The companion needs Accessibility access to paste into a terminal. macOS stores 
 
 | Install path | Certificate | Where the key lives | Code |
 |---|---|---|---|
-| `agnostic-ai companion install` | One made on each Mac on the first install, named `agnostic-ai companion (this Mac)` | `signer.keychain-db` in the companion folder (`~/Library/Application Support/agnostic-ai/companion/`), with `signer.cer` beside it | `internal/cli/companion_sign.go` |
+| `agnostic-ai companion install` | One made on each Mac on the first install, named `agnostic-ai companion (this Mac)` | `signer.keychain-db` in the companion folder (`~/Library/Application Support/agnostic-ai/companion/`), with `signer.cer` beside it | `internal/cli/companion_sign_darwin.go` |
 | Release disk image (`.dmg`) | The project certificate, named `agnostic-ai companion release` | The GitHub secret `COMPANION_SIGNING_P12`, and private copies kept by maintainers | `scripts/companion-release.sh`, `.github/workflows/release.yml` |
 
 The two certificates differ, so a user who switches between the disk image and the terminal installer grants Accessibility once more. Uninstalling the companion deletes the per-Mac certificate; the next install makes a new one.

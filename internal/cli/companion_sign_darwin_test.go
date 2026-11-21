@@ -1,3 +1,5 @@
+//go:build darwin
+
 package cli
 
 import (
@@ -5,15 +7,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
 
 func TestSignCompanion_KeepsOneRequirementThatAnotherSignerFails(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("codesign runs on macOS only")
-	}
 	folder := t.TempDir()
 	app := filepath.Join(t.TempDir(), companionAppName+".app")
 	writeTestApp(t, app, "/usr/bin/true")
@@ -72,9 +70,6 @@ func writeTestApp(t *testing.T, app, program string) {
 }
 
 func TestSignCompanion_MakesTheCertificateAgainWhenTheKeychainLacksIt(t *testing.T) {
-	if runtime.GOOS != "darwin" {
-		t.Skip("codesign runs on macOS only")
-	}
 	folder := t.TempDir()
 	app := filepath.Join(t.TempDir(), companionAppName+".app")
 	writeTestApp(t, app, "/usr/bin/true")
