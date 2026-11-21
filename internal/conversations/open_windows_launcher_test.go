@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"slices"
 	"testing"
+	"time"
 	"unicode/utf16"
 )
 
@@ -79,15 +80,16 @@ func TestWindowsLauncher_OpensALinkWithTheRegisteredApp(t *testing.T) {
 }
 
 func TestMayStillRun_OnlyARecentSessionOnWindowsSystemProcesses(t *testing.T) {
-	recent := Conversation{State: StateActive, Open: Route{Command: "claude --resume x"}}
-	quiet := Conversation{State: StateDormant, Open: Route{Command: "claude --resume x"}}
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	recent := Conversation{UpdatedAt: "2026-11-21T08:00:00Z", Open: Route{Command: "claude --resume x"}}
+	quiet := Conversation{UpdatedAt: "2026-11-19T08:00:00Z", Open: Route{Command: "claude --resume x"}}
 	if !cannotCheckProcesses(SystemProcesses{}, "windows") || cannotCheckProcesses(SystemProcesses{}, "linux") || cannotCheckProcesses(fakeProcesses{}, "windows") {
 		t.Error("only Windows' own processes cannot be checked")
 	}
-	if mayStillRun(quiet, SystemProcesses{}) {
+	if mayStillRun(quiet, SystemProcesses{}, now) {
 		t.Error("a dormant session may still run")
 	}
-	if got := mayStillRun(recent, SystemProcesses{}); got != (runtime.GOOS == "windows") {
+	if got := mayStillRun(recent, SystemProcesses{}, now); got != (runtime.GOOS == "windows") {
 		t.Errorf("a recent session may still run = %v on %s", got, runtime.GOOS)
 	}
 }

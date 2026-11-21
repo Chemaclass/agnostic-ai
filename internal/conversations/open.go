@@ -192,7 +192,7 @@ func Open(ctx context.Context, c Conversation, processes Processes, launcher Lau
 		if held, ok := heldNow(c, processes); ok {
 			return focusTerminal(ctx, held, processes, launcher)
 		}
-		if mayStillRun(c, processes) {
+		if mayStillRun(c, processes, time.Now()) {
 			return OpenReply{Message: mayStillRunMessage, Command: c.Open.Command}
 		}
 		return resumeTerminal(ctx, c, launcher)
@@ -205,11 +205,12 @@ func Open(ctx context.Context, c Conversation, processes Processes, launcher Lau
 // still run on a system whose processes cannot be checked.
 const mayStillRunMessage = "agnostic-ai cannot tell on Windows whether this session still runs, and a second copy would compete with it. If it ended, run this command in a terminal."
 
-// mayStillRun reports whether a terminal session was written lately on
-// a system whose processes cannot be checked. One quiet for longer is
-// dormant and counts as ended.
-func mayStillRun(c Conversation, processes Processes) bool {
-	return cannotCheckProcesses(processes, runtime.GOOS) && c.Open.Command != "" && c.State != StateDormant
+// mayStillRun reports whether a terminal session was written within
+// activeSpan, or at an unknown time, on a system whose processes cannot
+// be checked. One quiet for longer is dormant, and counts as ended.
+func mayStillRun(c Conversation, processes Processes, now time.Time) bool {
+	written := lastWritten(c)
+	return cannotCheckProcesses(processes, runtime.GOOS) && c.Open.Command != "" && (written.IsZero() || now.Sub(written) < activeSpan)
 }
 
 // cannotCheckProcesses reports whether the processes are this system's
