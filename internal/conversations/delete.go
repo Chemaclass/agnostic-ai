@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 )
@@ -182,9 +181,6 @@ func findIn(results []sourceResult, tool Tool, id string) (Conversation, bool) {
 // deleteUnsupported says why a conversation's store cannot be deleted
 // from here; empty for a local Claude Code session.
 func (s *Scanner) deleteUnsupported(c Conversation) string {
-	if cannotCheckProcesses(s.Processes, runtime.GOOS) {
-		return "agnostic-ai cannot tell on Windows whether a session still runs, so it deletes none."
-	}
 	switch {
 	case c.App == AppCloud:
 		return "This conversation is stored in the tool's cloud, not on this computer. Delete it there."
