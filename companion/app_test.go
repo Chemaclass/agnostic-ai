@@ -313,7 +313,10 @@ func TestCheckNow_SaysWhatTheCheckFound(t *testing.T) {
 
 			waitFor(t, "the check", func() bool { return feed.last().Result != "" })
 			if got := feed.last(); got.State != updateIdle || got.Result != tc.result {
-				t.Errorf("after the check, status = %+v; want idle with %s", got, tc.result)
+				t.Errorf("after the check, the pages were told %+v; want idle with %s", got, tc.result)
+			}
+			if kept := s.updateStatus(); kept.Result != "" {
+				t.Errorf("the result is kept for later reads: %+v", kept)
 			}
 		})
 	}
@@ -388,7 +391,11 @@ func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 		{"x.dmg: build provenance did not verify: gh said no", updateDownloading, "the download's build provenance did not verify"},
 		{"codesign: exit status 1", updateVerifying, "the downloaded app failed its signature check"},
 		{`/A.app: companion version "0.96.0", expected 0.97.0`, updateVerifying, "the download is not the version it should be"},
-		{"checksums.txt: dial tcp: no such host", updateDownloading, "the release could not be downloaded. Check your connection"},
+		{`checksums.txt: Get "https://github.com/x/checksums.txt": dial tcp: lookup github.com: no such host`, updateDownloading, "the release could not be downloaded. Check your connection"},
+		{"x.dmg: download: 404 Not Found", updateDownloading, "the release could not be downloaded. Check your connection"},
+		{"/Volumes/agnostic-ai/agnostic-ai companion.app: stage update: read-only file system", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
+		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
+		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},
 		{"replace /A.app: permission denied", updateRestarting, "the update command failed"},
 	} {
 		if got := updateFailureReason(tc.log, tc.step); got != tc.want {

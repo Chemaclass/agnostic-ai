@@ -475,7 +475,7 @@ test('a failed update names the reason and the log, and Retry starts it again', 
   expect(starts).toEqual(['/api/update/start'])
 })
 
-test('Dismiss hides the update message', async ({ page }) => {
+test('Dismiss hides the update message until the update changes', async ({ page }) => {
   const reset = await page.request.post('/dev/fixture', { data: { name: 'update-failed' } })
   expect(reset.ok()).toBe(true)
   await page.goto('/panel.html')
@@ -485,6 +485,8 @@ test('Dismiss hides the update message', async ({ page }) => {
   await status.getByRole('button', { name: 'Dismiss' }).click()
 
   await expect(status).toBeHidden()
+  await status.page().request.post('/api/update/start')
+  await expect(status.getByRole('status')).toHaveText('Downloading v0.97.0…')
 })
 
 test('a companion that cannot update itself shows no update entry and no badge', async ({ page }) => {

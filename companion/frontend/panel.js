@@ -1965,6 +1965,7 @@ holdTab(updateConfirm)
 /** Names the settings button after a known update, with a dot on it, and says the step. */
 function showUpdate(update) {
   settings.update = update
+  if (JSON.stringify(update) !== updateDismissed) updateDismissed = undefined
   drawUpdateStatus()
   const badge = updateBadgeOf(update)
   menuButton.setAttribute('aria-label', badge ?? 'Settings')
@@ -2157,7 +2158,7 @@ Events.On('update-asked', async (event) => {
     sayFailure(error)
     return
   }
-  if (settings.update.version) openUpdateConfirm()
+  if (settings.update.state === 'available' || settings.update.state === 'failed') openUpdateConfirm()
 })
 // Open from anywhere in the right-click menu: the list opens on its menu, ready to change the keys.
 Events.On('settings-shown', (event) => {

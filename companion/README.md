@@ -50,7 +50,7 @@ with `make companion-run`.
 
 ## Upgrade
 
-The disk image app checks for a newer release on start and every 24 hours, without opening a window. The update entry in the right-click menu and the list's ⋯ menu then reads **Update to vX.Y.Z**, and a dot shows on the ⋯ button. Choose it, then **Update and restart** in the list, to update the app and its bundled CLI. The list shows each step, and on failure the reason, the log and **Retry**; the current version keeps running. **Check for updates** checks now and says what it found. A companion installed from the terminal has no update entry yet; use `agnostic-ai upgrade`.
+The disk image app checks for a newer release on start and every 24 hours, without opening a window. The update entry in the right-click menu and the list's ⋯ menu then reads **Update to vX.Y.Z**, and a dot shows on the ⋯ button. Choose it, then **Update and restart** in the list, to update the app and its bundled CLI. The list shows each step, and on a failure before the restart the reason, the log and **Retry**; the current version keeps running. **Check for updates** checks now and says what it found. A companion installed from the terminal has no update entry yet; use `agnostic-ai upgrade`.
 
 `agnostic-ai upgrade` also replaces an installed companion through the updated CLI, downloaded or built as `install` does. It prints each step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
 

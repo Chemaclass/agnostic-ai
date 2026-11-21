@@ -184,7 +184,11 @@ func updateFailureReason(log, step string) string {
 		return "the downloaded app failed its signature check"
 	case strings.Contains(log, "companion version") || strings.Contains(log, ", got "):
 		return "the download is not the version it should be"
-	case step == updateDownloading:
+	case strings.Contains(log, ": stage update: "):
+		return "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"
+	case strings.Contains(log, "invalid checksum for"):
+		return "the release's checksum list could not be read"
+	case step == updateDownloading && (strings.Contains(log, `Get "https://`) || strings.Contains(log, ": download")):
 		return "the release could not be downloaded. Check your connection"
 	}
 	return "the update command failed"
@@ -304,10 +308,14 @@ func (c *appCommands) status() updateStatus {
 	return c.current
 }
 
+// setStatus keeps status and tells the pages. What a check found is told
+// once and not kept, so a later read does not say it again.
 func (c *appCommands) setStatus(status updateStatus) {
 	status.Current = version
+	kept := status
+	kept.Result = ""
 	c.mu.Lock()
-	c.current = status
+	c.current = kept
 	c.mu.Unlock()
 	c.shell.refreshNative()
 	if c.shell.tellUpdate != nil {
