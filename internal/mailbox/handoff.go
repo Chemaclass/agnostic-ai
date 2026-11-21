@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"slices"
 	"time"
 
@@ -64,9 +65,11 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 		if offered.Type != Handoff || offered.Gives == nil {
 			return NewRefusal("format")
 		}
-		scope, fold, err = normalizeClaimPaths(ctx, offered.Gives.Worktree, *offered.Gives)
-		if err != nil {
-			return err
+		if offered.Handoff == Offered {
+			scope, fold, err = normalizeClaimPaths(ctx, offered.Gives.Worktree, *offered.Gives)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	release, err := s.lock(ctx)
@@ -103,7 +106,8 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 		return err
 	}
 	if !claimPathEqual(scope.Worktree, message.Gives.Worktree, fold) ||
-		!slices.EqualFunc(scope.Paths, message.Gives.Paths, func(a, b string) bool { return claimPathEqual(a, b, fold) }) {
+		!slices.EqualFunc(scope.Paths, message.Gives.Paths, func(a, b string) bool { return claimPathEqual(a, b, fold) }) ||
+		!resolvesUnchanged(scope) {
 		return &Refusal{"ownership", "The offered paths now resolve to a different location.", "Review the paths and send a new handoff."}
 	}
 
@@ -119,8 +123,23 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	return writeTransfer(state, thread, move, s.writeClaims, s.writeThread)
 }
 
+// resolvesUnchanged repeats the file checks under the lock, without Git, so a
+// symlink swapped while acceptance waited for the lock is caught.
+func resolvesUnchanged(scope Gives) bool {
+	for _, named := range scope.Paths {
+		again, err := resolveClaimPath(scope.Worktree, named)
+		if err != nil || again != named {
+			return false
+		}
+	}
+	return true
+}
+
 func (s Store) recoverTransfer() error {
 	state, err := s.readClaims()
+	if _, ok := errors.AsType[*fs.PathError](err); ok {
+		return err
+	}
 	// A corrupt claims file fails the claim operations that read it, not thread operations.
 	if err != nil || state.Pending == nil {
 		return nil

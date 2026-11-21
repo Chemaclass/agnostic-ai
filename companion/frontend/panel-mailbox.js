@@ -569,12 +569,10 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       }
       if (message.gives) {
         entry.append(...pathDetails(message.gives))
-        if (message.handoff === 'offered' && message.state !== 'cancelled' && ['open', 'closing'].includes(thread.status) && keyOf(current.from) === keyOf(message.to)) {
+        if (message.handoff === 'offered' && message.state !== 'cancelled' && thread.status !== 'paused' && keyOf(current.from) === keyOf(message.to)) {
           const controls = element('div', 'mailbox-actions')
-          controls.append(
-            button('Accept', `accept-${message.n}`, () => respondHandoff(current, message.n, 'accept')),
-            button('Decline', `decline-${message.n}`, () => respondHandoff(current, message.n, 'decline')),
-          )
+          if (thread.status !== 'closed') controls.append(button('Accept', `accept-${message.n}`, () => respondHandoff(current, message.n, 'accept')))
+          controls.append(button('Decline', `decline-${message.n}`, () => respondHandoff(current, message.n, 'decline')))
           entry.append(controls)
         }
       }

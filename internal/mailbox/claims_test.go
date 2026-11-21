@@ -416,3 +416,35 @@ func TestClaims_StoresUnicodePathsInOneNormalForm(t *testing.T) {
 	err := s.Claim(t.Context(), codex, Gives{root, []string{"caf\u00e9.go"}}, root)
 	requireGuard(t, err, "ownership")
 }
+
+func TestClaims_RetryOfAnAcceptedHandoffAfterTheWorktreeLeaves(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	offer := claimAndOffer(t, s, root, "scope/a.go")
+	if err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(root); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"); err != nil {
+		t.Fatalf("second accept: %v", err)
+	}
+}
+
+func TestClaims_AcceptRefusesAPathThatNowResolvesElsewhere(t *testing.T) {
+	root := claimRepo(t)
+	if err := os.MkdirAll(filepath.Join(root, "other"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if !resolvesUnchanged(Gives{root, []string{"scope/a.go"}}) {
+		t.Fatal("an unchanged path counts as moved")
+	}
+	if err := os.MkdirAll(filepath.Join(root, "scope"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	claimSymlink(t, filepath.Join(root, "other", "a.go"), filepath.Join(root, "scope", "a.go"))
+	if resolvesUnchanged(Gives{root, []string{"scope/a.go"}}) {
+		t.Error("a path swapped for a symlink counts as unchanged")
+	}
+}
