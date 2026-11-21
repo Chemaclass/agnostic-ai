@@ -139,8 +139,15 @@ if command == "attestation verify":
     assert args[args.index("--source-digest") + 1] == "tested-commit"
     if (directory / "bad-attestation").exists():
         sys.exit("invalid signature")
-elif args[0] == "api":
-    print("tested-commit")
+elif args[0] == "api" and "/commits/" in args[1]:
+    print("other-commit" if (directory / "wrong-tag-commit").exists() else "tested-commit")
+elif args[0] == "api" and "/actions/runs/" in args[1]:
+    print((directory / "artifacts").read_text())
+elif command == "run list":
+    print(json.dumps([
+        {"databaseId": 1, "headBranch": "v1.2.4", "headSha": "tested-commit"},
+        {"databaseId": 2, "headBranch": "v1.2.3", "headSha": "tested-commit"},
+    ]))
 elif command == "release view":
     if not state.exists():
         sys.exit("release not found")
@@ -202,4 +209,49 @@ function test_corrupt_remote_asset_stays_a_draft() {
   assert_contains 'GitHub has different bytes' "$output"
   assert_contains '"isDraft": true' "$(cat "$work/remote")"
   assert_not_contains 'release edit' "$(cat "$work/operations")"
+}
+
+function recover_fixture() {
+  RELEASE_FIXTURE="$work" PATH="$work/bin:$PATH" python3 "$asset_script" recover v1.2.3 owner/repo tested-commit "$1"
+}
+
+function test_recovery_selects_the_original_candidate_by_published_bundle_digest() {
+  start_release_fixture
+  assert_successful_code "$(publish_fixture)"
+  local digest output
+  digest="$(shasum -a 256 "$work/candidate/assets/agnostic-ai.intoto.jsonl" | cut -d ' ' -f1)"
+  cat > "$work/artifacts" <<JSON
+[{"artifacts":[
+  {"id":9,"expired":false,"name":"signed-release-candidate-other-digest-4"},
+  {"id":8,"expired":true,"name":"signed-release-candidate-$digest-3"},
+  {"id":7,"expired":false,"name":"signed-release-candidate-$digest-2"}
+]}]
+JSON
+  output="$(recover_fixture scoop)"
+  assert_contains 'run-id=2' "$output"
+  assert_contains 'artifact=7' "$output"
+  assert_same 1 "$(grep -c '^release edit$' "$work/operations")"
+}
+
+function test_npm_recovery_uses_public_inputs_without_a_retained_candidate() {
+  start_release_fixture
+  assert_successful_code "$(publish_fixture)"
+  assert_successful_code "$(recover_fixture npm)"
+  assert_not_contains 'run list' "$(cat "$work/operations")"
+}
+
+function test_recovery_requires_the_exact_tag_commit_and_original_artifact() {
+  start_release_fixture
+  assert_successful_code "$(publish_fixture)"
+  touch "$work/wrong-tag-commit"
+  local output status=0
+  output="$(recover_fixture homebrew 2>&1)" || status=$?
+  assert_same 1 "$status"
+  assert_contains 'no longer resolves to tested-commit' "$output"
+  rm "$work/wrong-tag-commit"
+  printf '[{"artifacts":[]}]\n' > "$work/artifacts"
+  output="$(recover_fixture homebrew 2>&1)" || status=$?
+  assert_same 1 "$status"
+  assert_contains 'original signed candidate is unavailable' "$output"
+  assert_same 1 "$(grep -c '^release edit$' "$work/operations")"
 }

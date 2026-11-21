@@ -139,6 +139,23 @@ def publish_pointer(channel, tag, version, directory):
     return "verified", f"{repository}:{branch}/{path} now contains {tag}."
 
 
+def pointer_status(channel, tag, version):
+    order = version_order(version)
+    if not order[3]:
+        return "skipped", f"{tag} is a prerelease. The channel tracks stable versions."
+    repository, branch, path = POINTER_CHANNELS[channel]
+    head = head_oid(repository, branch)
+    current = read_file(repository, head, path)
+    if current is None:
+        return "pending", f"{repository}:{branch}/{path} is absent."
+    current_version = pointer_version(channel, current, path)
+    if current_version == version:
+        return "verified", f"{repository}:{branch}/{path} serves {tag}."
+    if version_order(current_version) > order:
+        return "superseded", f"{repository}:{branch}/{path} serves newer v{current_version}."
+    return "pending", f"{repository}:{branch}/{path} still serves v{current_version}."
+
+
 def winget_manifests(version, directory):
     files = {}
     for name in WINGET_FILES:
@@ -221,14 +238,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("channel", choices=[*POINTER_CHANNELS, "winget"])
     parser.add_argument("tag")
-    parser.add_argument("directory", type=Path)
+    parser.add_argument("directory", nargs="?", type=Path)
+    parser.add_argument("--check", action="store_true", help="Read the current channel version")
     args = parser.parse_args()
+    if args.check and args.channel not in POINTER_CHANNELS:
+        parser.error("--check requires homebrew or scoop")
+    if not args.check and args.directory is None:
+        parser.error("the manifest directory is required for publication")
     try:
         if not args.tag.startswith("v"):
             raise ValueError(f"expected a v-prefixed tag, got {args.tag!r}")
         version = args.tag[1:]
         version_order(version)
-        if args.channel == "winget":
+        if args.check:
+            status, message = pointer_status(args.channel, args.tag, version)
+        elif args.channel == "winget":
             status, message = publish_winget(args.tag, version, args.directory)
         else:
             status, message = publish_pointer(args.channel, args.tag, version, args.directory)

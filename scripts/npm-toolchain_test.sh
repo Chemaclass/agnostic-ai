@@ -133,11 +133,11 @@ function test_unparseable_integrity_is_rejected_before_installer() {
   assert_file_not_exists "$TOOLCHAIN_TEST_DIR/installer.json"
 }
 
-function test_release_jobs_share_verified_acquisition_and_publish_only_token() {
+function test_release_job_verifies_npm_before_publishing_with_the_scoped_token() {
   node - "$SCRIPT_DIR/../.github/workflows/release.yml" <<'JS'
 const assert = require('node:assert/strict'), fs = require('node:fs')
 const workflow = fs.readFileSync(process.argv[2], 'utf8')
-assert.equal((workflow.match(/scripts\/npm-toolchain\.sh/g) || []).length, 2, 'both npm release jobs use shared verified acquisition')
+assert.equal((workflow.match(/scripts\/npm-toolchain\.sh/g) || []).length, 1, 'npm publishing and verification share one verified toolchain')
 assert.ok(!/npm install -g .*npm@/.test(workflow), 'no unverified registry install')
 const lines = workflow.split('\n')
 const tokenLines = lines.map((line,index) => ({line,index})).filter(({line}) => /^\s*NODE_AUTH_TOKEN:/.test(line))
@@ -145,6 +145,7 @@ assert.equal(tokenLines.length, 1)
 assert.equal(tokenLines[0].line.match(/^\s*/)[0].length, 10, 'token only in step env, not job env')
 const before = lines.slice(0,tokenLines[0].index).join('\n')
 assert.equal([...before.matchAll(/^      - name: (.+)$/gm)].pop()[1], 'Publish')
+assert.ok(before.includes('run: bash scripts/npm-toolchain.sh'), 'acquire and verify npm before publishing')
 JS
   assert_successful_code "$?"
 }

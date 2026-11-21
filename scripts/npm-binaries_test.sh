@@ -11,7 +11,7 @@
 # the download itself: naming, checksum and provenance verification,
 # unpacking, and the refusal to hand a partial set to the generator.
 
-SCRIPT_DIR="$(cd "$(dirname "$BASH_SOURCE")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/npm-binaries.sh"
 
@@ -66,10 +66,13 @@ function stub_gh() {
   STUB_RELEASE_DIR="$1"
   STUB_GH_LOG="$1/gh.log"
   STUB_UNATTESTED="${2:-}"
-  # shellcheck disable=SC2317
+  # shellcheck disable=SC2317,SC2329
   function gh() {
     if [[ "$1 $2" == "attestation verify" ]]; then
       printf '%s\n' "$*" >>"$STUB_GH_LOG"
+      if [[ -n "${STUB_EXPECTED_COMMIT:-}" && " $* " != *" --source-digest $STUB_EXPECTED_COMMIT "* ]]; then
+        return 1
+      fi
       [[ " $STUB_UNATTESTED " != *" $(basename "$3") "* ]]
       return
     fi
@@ -148,6 +151,35 @@ function test_verify_provenance_rejects_an_archive_without_an_attestation() {
 
   assert_not_same "0" "$code"
   assert_contains "agnostic-ai_linux_amd64.tar.gz has no build provenance from $REPO release.yml at v9.9.9" "$out"
+}
+
+function test_main_rejects_the_wrong_source_commit_before_unpacking() {
+  local tmp output code=0
+  tmp="$(mktemp -d)"
+  fake_release "$tmp/release"
+  stub_gh "$tmp/release"
+  output="$(STUB_EXPECTED_COMMIT=abababababababababababababababababababab \
+    main v9.9.9 "$tmp/out" 0101010101010101010101010101010101010101 2>&1)" || code=$?
+  unset -f gh
+
+  assert_not_same "0" "$code"
+  assert_contains "at v9.9.9 (0101010101010101010101010101010101010101)" "$output"
+  assert_file_not_exists "$tmp/out/darwin_arm64/agnostic-ai"
+  rm -rf "$tmp"
+}
+
+function test_main_checks_the_exact_commit_on_every_archive() {
+  local tmp commit=abababababababababababababababababababab log
+  tmp="$(mktemp -d)"
+  fake_release "$tmp/release"
+  stub_gh "$tmp/release"
+  STUB_EXPECTED_COMMIT="$commit" GITHUB_SHA=0101010101010101010101010101010101010101 \
+    main v9.9.9 "$tmp/out" "$commit" >/dev/null
+  unset -f gh
+  log="$(cat "$tmp/release/gh.log")"
+  rm -rf "$tmp"
+
+  assert_same "6" "$(grep -c -- "--source-digest $commit" <<< "$log")"
 }
 
 function test_repo_follows_the_actions_environment_not_an_override() {
