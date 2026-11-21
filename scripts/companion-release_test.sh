@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/companion-release.sh"
 
-# Each line of $1 is one call's outcome: "ok", "busy" or "broken". The calls
+# Each line of $1 is one call's outcome. The calls
 # are counted in a file because the stub runs in a command substitution.
 function stub_hdiutil() {
   HDIUTIL_OUTCOMES="$1"
@@ -23,8 +23,9 @@ function stub_hdiutil() {
     echo "$*" >> "$HDIUTIL_CALLS"
     case "$(sed -n "$(wc -l < "$HDIUTIL_CALLS")p" "$HDIUTIL_OUTCOMES")" in
       ok) echo "verified CRC32 \$1234" ;;
-      busy) echo "hdiutil: verify failed - Resource temporarily unavailable" >&2; return 35 ;;
-      *) echo "hdiutil: verify failed - image not recognized" >&2; return 1 ;;
+      busy) echo "hdiutil: $1 failed - Resource temporarily unavailable" >&2; return 35 ;;
+      resource-busy) echo "hdiutil: $1 failed - Resource busy" >&2; return 16 ;;
+      *) echo "hdiutil: $1 failed - image not recognized" >&2; return 1 ;;
     esac
   }
 }
@@ -44,13 +45,13 @@ function unstub_hdiutil() {
 }
 
 function run_with_outcomes() {
-  local tmp="$1"
-  shift
+  local tmp="$1" command="$2"
+  shift 2
   printf '%s\n' "$@" > "$tmp/outcomes"
   stub_hdiutil "$tmp/outcomes" "$tmp/calls"
   stub_sleep "$tmp/slept"
   status=0
-  output="$(hdiutil_retrying verify image.dmg 2>&1)" || status=$?
+  output="$(hdiutil_retrying "$command" image.dmg 2>&1)" || status=$?
   calls="$(wc -l < "$tmp/calls" | tr -d ' ')"
   slept="$(tr '\n' ' ' < "$tmp/slept")"
   unstub_hdiutil
@@ -59,7 +60,7 @@ function run_with_outcomes() {
 function test_it_runs_hdiutil_once_when_it_succeeds() {
   local tmp status output calls slept
   tmp="$(mktemp -d)"
-  run_with_outcomes "$tmp" ok
+  run_with_outcomes "$tmp" verify ok
   rm -rf "$tmp"
 
   assert_same "0" "$status"
@@ -70,7 +71,7 @@ function test_it_runs_hdiutil_once_when_it_succeeds() {
 function test_it_retries_a_busy_resource_until_it_clears() {
   local tmp status output calls slept
   tmp="$(mktemp -d)"
-  run_with_outcomes "$tmp" busy busy ok
+  run_with_outcomes "$tmp" verify busy busy ok
   rm -rf "$tmp"
 
   assert_same "0" "$status"
@@ -79,10 +80,22 @@ function test_it_retries_a_busy_resource_until_it_clears() {
   assert_contains "hdiutil verify: resource busy, attempt 2 of 4" "$output"
 }
 
+function test_it_retries_when_creating_an_image_reports_resource_busy() {
+  local tmp status output calls slept
+  tmp="$(mktemp -d)"
+  run_with_outcomes "$tmp" create resource-busy ok
+  rm -rf "$tmp"
+
+  assert_same "0" "$status"
+  assert_same "2" "$calls"
+  assert_same "5 " "$slept"
+  assert_contains "hdiutil create: resource busy, attempt 1 of 4" "$output"
+}
+
 function test_it_fails_with_the_hdiutil_status_when_the_resource_stays_busy() {
   local tmp status output calls slept
   tmp="$(mktemp -d)"
-  run_with_outcomes "$tmp" busy busy busy busy ok
+  run_with_outcomes "$tmp" verify busy busy busy busy ok
   rm -rf "$tmp"
 
   assert_same "35" "$status"
@@ -94,7 +107,7 @@ function test_it_fails_with_the_hdiutil_status_when_the_resource_stays_busy() {
 function test_it_fails_at_once_on_any_other_error() {
   local tmp status output calls slept
   tmp="$(mktemp -d)"
-  run_with_outcomes "$tmp" broken ok
+  run_with_outcomes "$tmp" verify broken ok
   rm -rf "$tmp"
 
   assert_same "1" "$status"
