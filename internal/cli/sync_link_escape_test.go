@@ -127,7 +127,7 @@ func TestSyncGlobal_WritesThroughALinkedToolFolder(t *testing.T) {
 	testutil.Chdir(t, home)
 
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 
 	if got := readFile(t, filepath.Join(dotfiles, "CLAUDE.md")); !strings.Contains(got, "Be brief.") {

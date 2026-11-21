@@ -60,7 +60,7 @@
 // nested in subdirectories," so a rule two directories deep loses its
 // own subdirectory structure the same way an unscoped rule already does.
 //
-// `sync --global` writes skills to `~/.gemini/config/skills/`. The
+// `sync --scope user` writes skills to `~/.gemini/config/skills/`. The
 // vendor's IDE tab rows that path as the global scope and calls
 // `~/.gemini/antigravity/skills/` legacy, while its Antigravity app section
 // names the config path with no legacy alternative at all

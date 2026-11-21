@@ -39,7 +39,7 @@ The Crush and Claude Code fields also work under `x-crush` or `x-claude`, which 
 
 ## `disabled` support by target {#disabled-support-by-target}
 
-This table covers project files. For user files written by `sync --global`, see [global MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers).
+This table covers project files. For user files written by `sync --scope user`, see [global MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers).
 
 | Target | Behavior |
 |--------|----------|

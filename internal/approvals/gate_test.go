@@ -226,7 +226,7 @@ func TestDecide_GateRows(t *testing.T) {
 		{"home variable", bash("AGNOSTIC_AI_HOME=/tmp/x agnostic-ai sync"), RulePolicy},
 		{"approvals env", bash("export AGNOSTIC_AI_APPROVALS=yolo"), RulePolicy},
 		{"agnostic-ai sync", bash("agnostic-ai sync"), RuleUnknownCommand},
-		{"agnostic-ai sync global", bash("agnostic-ai sync --global"), RuleUnknownCommand},
+		{"agnostic-ai sync global", bash("agnostic-ai sync --scope user"), RuleUnknownCommand},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()

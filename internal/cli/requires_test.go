@@ -292,7 +292,7 @@ func TestGlobalCommands_StopWhenInstalledVersionIsBelowRequires(t *testing.T) {
 
 	_, errOut, err := runAsVersion(t, "v0.70.0", "sync", "--scope", "user")
 	if err != nil {
-		t.Fatalf("sync --global on 0.70.0: %v", err)
+		t.Fatalf("sync --scope user on 0.70.0: %v", err)
 	}
 	if strings.Contains(errOut, "ignoring") {
 		t.Errorf("the home config must accept requires, got:\n%s", errOut)
@@ -398,7 +398,7 @@ func TestListGlobal_WarnsOnUnparsableHomeConfig(t *testing.T) {
 
 	out, errOut, err := runAsVersion(t, "v0.69.0", "list", "--scope", "user")
 	if err != nil {
-		t.Fatalf("list --global reads no targets, so a broken home config must not stop it: %v", err)
+		t.Fatalf("list --scope user reads no targets, so a broken home config must not stop it: %v", err)
 	}
 	if !strings.Contains(errOut, "warning: [AAI-004] parse "+config) {
 		t.Errorf("expected a warning naming %s, got:\n%s", config, errOut)

@@ -140,7 +140,7 @@ Cursor and Copilot also run `.claude/settings.json` hooks, so a hook can run twi
 
 - When `cursor` is a target, sync puts `[ "$AGNOSTIC_AI_TARGET" = cursor ] && exit 0;` before the Claude Code copy of each portable hook that also reaches Cursor.
 - Cursor's `sessionStart` hook sets that variable, so the hook runs once, as Cursor's own copy. Claude Code sets it to `claude`, and an unset variable runs the hook.
-- A hook still runs twice on Cursor when it fires before Cursor's `sessionStart` hook returns, when it has `args` or `shell: powershell` (no POSIX shell to run the check), or when it is a user hook from `sync --global`, which adds no check.
+- A hook still runs twice on Cursor when it fires before Cursor's `sessionStart` hook returns, when it has `args` or `shell: powershell` (no POSIX shell to run the check), or when it is a user hook from `sync --scope user`, which adds no check.
 - Copilot sets no variable, so a hook synced to `claude` and `copilot` [runs twice there](@/docs/targets/copilot-reference.md#hooks). Both copies block on exit 2.
 
 </details>
@@ -250,7 +250,7 @@ Paths:
 
 - When the configuration lives in a subdirectory of a Git worktree, the written path includes that subdirectory, so a hook started from a deeper directory still finds the project.
 - Project script paths move to the tool's hook directory, such as `.claude/hooks/` to `.codex/hooks/`. Paths under `~`, `$HOME`, or an absolute directory stay as written, and custom script paths keep their directory.
-- `sync --global` uses the Git root at run time. It needs Git and a hook running inside the intended worktree, and cannot tell apart several configured projects in one worktree.
+- `sync --scope user` uses the Git root at run time. It needs Git and a hook running inside the intended worktree, and cannot tell apart several configured projects in one worktree.
 
 Limits:
 
@@ -280,7 +280,7 @@ esac
 
 | Target | How |
 |---|---|
-| [Claude Code](@/docs/targets/claude.md) | `env` in `.claude/settings.json` (`~/.claude/settings.json` for `sync --global`), for the whole session, so the Bash tool sees it too |
+| [Claude Code](@/docs/targets/claude.md) | `env` in `.claude/settings.json` (`~/.claude/settings.json` for `sync --scope user`), for the whole session, so the Bash tool sees it too |
 | [Cursor](@/docs/targets/cursor.md) | A `sessionStart` hook returns it, so `sessionStart` hooks and hooks that fire before it returns do not see it |
 | [Codex](@/docs/targets/codex.md) | `export AGNOSTIC_AI_TARGET=codex; ` before `command`; not on Windows (`commandWindows`), and only with a POSIX session shell (a `pwsh` or `nu` login shell breaks it) |
 | [Gemini](@/docs/targets/gemini.md), [Qoder](@/docs/targets/qoder.md), [Copilot](@/docs/targets/copilot.md) | `env` on each command handler |
@@ -292,7 +292,7 @@ Tools that do not get the variable: Trae, Factory, OpenHands, Antigravity, Kiro,
 
 - Tell them apart by their own variables: `TRAE_PROJECT_DIR`, `FACTORY_PROJECT_DIR`, `OPENHANDS_PROJECT_DIR`, `DEVIN_PROJECT_DIR`, `AUGMENT_PROJECT_DIR`.
 - `CLAUDE_PROJECT_DIR` does not identify Claude Code, because Cursor and Trae provide it too.
-- `sync --global` leaves a matching hand-written hook alone, so an adopted Codex, Gemini, or Qoder entry does not get the variable.
+- `sync --scope user` leaves a matching hand-written hook alone, so an adopted Codex, Gemini, or Qoder entry does not get the variable.
 - Copilot reads no `env` from `.claude/settings.json`, so its copy of a Claude Code hook gets no value.
 
 </details>

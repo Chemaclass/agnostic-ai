@@ -100,7 +100,7 @@ func runOverviewChecksWith(root string, cfg *config.Config, b spec.Bundle, compa
 	return out
 }
 
-// overviewGlobalLayerFindings is what lint --global reports for the
+// overviewGlobalLayerFindings is what lint --scope user reports for the
 // global setup, which reaches every project, marked with its layer. The
 // doctor checks read a project's files, so the global setup has none. A
 // missing global setup has no findings.

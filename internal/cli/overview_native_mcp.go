@@ -110,7 +110,7 @@ func nativeMCPServers(home, root, source string, cfg *config.Config, global bool
 		}
 		path := g.mcpPath(home)
 		servers := readNativeMCPServers(path, g.mcp.format, g.mcp.key)
-		out = appendNativeMCPs(out, servers, target, nativeHomePath(home, path), overview.NativeScopeUser, "agnostic-ai import --global "+target, owned[target])
+		out = appendNativeMCPs(out, servers, target, nativeHomePath(home, path), overview.NativeScopeUser, "agnostic-ai import --scope user "+target, owned[target])
 	}
 	return out
 }

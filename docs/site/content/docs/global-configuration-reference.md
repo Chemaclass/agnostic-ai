@@ -10,7 +10,7 @@ group = "Reference"
 
 # Global configuration reference
 
-Setup is in [Global configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail, and the [list of files `sync --global` writes](#global-output).
+Setup is in [Global configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail, and the [list of files `sync --scope user` writes](#global-output).
 
 ## Shared names {#global-shared-names}
 
@@ -19,7 +19,7 @@ A project skill or agent can share its `name` with one in the home. Sync writes 
 `sync` and `doctor` print one warning per shared name. It names each target where one copy hides the other, which copy wins, and the fix:
 
 ```text
-! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on claude
+! .agnostic-ai/skills/gh-issue/SKILL.md: skill "gh-issue" also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md with different content; claude loads the global one, which exists only on this machine, gemini loads this one; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`; project sync cannot select this skill instead on claude
 ```
 
 Why sync keeps both copies:
@@ -105,13 +105,13 @@ effort:
 | Codex | Any string |
 | CodeBuddy Code | See [native fields and limits](@/docs/targets/codebuddy.md#fields-and-limits) |
 
-`lint --global` (LINT014) and `validate --global` flag a value a target cannot take.
+`lint --scope user` (LINT014) and `validate --scope user` flag a value a target cannot take.
 
 Claude Code and `effortLevel`:
 
 - `~/.claude/settings.json` `effortLevel` is read on Opus 5, Fable 5.1, and earlier models only.
 - Opus 5.5 and later models ignore it. They need a level saved per model with `/effort`.
-- `sync --global` writes the key and prints a note.
+- `sync --scope user` writes the key and prints a note.
 - In project settings, `effortLevel` applies to every model.
 
 </details>
@@ -126,7 +126,7 @@ permissions:
   default-mode: acceptEdits
 ```
 
-- `sync --global --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`.
+- `sync --scope user --only claude` writes `permissions.defaultMode` in `~/.claude/settings.json`, or under `CLAUDE_CONFIG_DIR`.
 - Accepted values: `default`, `manual`, `acceptEdits`, `plan`, `auto`, `dontAsk`, `bypassPermissions`.
 - A later settings spec wins.
 - Removing the field removes the managed mode, unless you changed it by hand.
@@ -146,7 +146,7 @@ Home `permissions.allow`, `ask`, and `deny` rules, and the same lists under `x-c
 - Dropping a rule from the specs removes it, including a rule you wrote before adoption. Other rules keep their order.
 - `--check` fails while a spec rule is missing or a dropped one remains.
 - `--plan` and `--dry-run` list each rule added or removed.
-- `import --global claude` copies user-level rules into `settings/permissions-claude.yaml`, so they reach your other machines.
+- `import --scope user claude` copies user-level rules into `settings/permissions-claude.yaml`, so they reach your other machines.
 
 </details>
 
@@ -165,7 +165,7 @@ Each item wins over the one before it:
 4. An agent's own `model` and `effort`, for that agent.
 5. The tool's flag for one run, such as `codex -m` or `claude --model`.
 
-`agnostic-ai explain --global settings/defaults.yaml` names the file and key each target gets.
+`agnostic-ai explain --scope user settings/defaults.yaml` names the file and key each target gets.
 
 <details>
 <summary>Details: how sync edits settings keys</summary>
@@ -212,13 +212,13 @@ approvals:
 - A `projects` key is an absolute path or one under `~`, the home folder. The deepest folder that holds the session wins; links are resolved, and on macOS and Windows case is ignored. Two keys for one folder take the stricter mode.
 - The strictest source wins, in this order: `AGNOSTIC_AI_APPROVALS=ask` in the session's environment, a project file that says `ask`, `projects`, `tools`, `mode`. Any value of the environment variable means `ask`: it can only tighten.
 - A config without `approvals` behaves as `ask`. `$AGNOSTIC_AI_HOME` must be an absolute path for approvals to read it.
-- Only Claude Code, Codex, Kiro, Qwen Code and Qoder carry out `yolo`, through a hook that `builtins: [approvals]` and `sync --global` install ([Approvals](@/docs/approvals.md)). Only the tools in [the review table](#global-approvals-review) carry out `review`. Every other tool falls back to `ask`, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) says so.
+- Only Claude Code, Codex, Kiro, Qwen Code and Qoder carry out `yolo`, through a hook that `builtins: [approvals]` and `sync --scope user` install ([Approvals](@/docs/approvals.md)). Only the tools in [the review table](#global-approvals-review) carry out `review`. Every other tool falls back to `ask`, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) says so.
 
 ### Review through the tool's own reviewer {#global-approvals-review}
 
-When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `sync --global` turns on the tool's own reviewer in its user settings:
+When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `sync --scope user` turns on the tool's own reviewer in its user settings:
 
-| Tool | Reviewer | Key `sync --global` writes |
+| Tool | Reviewer | Key `sync --scope user` writes |
 |---|---|---|
 | Claude Code | [Auto mode](https://code.claude.com/docs/en/permission-modes) | `permissions.defaultMode: "auto"` in `~/.claude/settings.json` |
 | CodeBuddy | [Auto mode](https://www.codebuddy.ai/docs/cli/permission-modes), an AI reviewer; not run by us | `permissions.defaultMode: "auto"` in `~/.codebuddy/settings.json` |
@@ -230,17 +230,17 @@ When `approvals.tools.<tool>`, or `approvals.mode` without it, says `review`, `s
 | Kiro | [Approve for me](https://kiro.dev/docs/permissions/#approve-for-me), Kiro's trust classifier; not run by us | `approve-for-me` under `policies:` in `~/.kiro/settings/permissions.yaml` |
 | Qwen Code | [Auto mode](https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/approval-mode.md), an LLM classifier; not run by us | `tools.approvalMode: "auto"` in `~/.qwen/settings.json` |
 
-- A home settings spec that sets the same key wins: `permissions.default-mode` where the tool maps it, otherwise the key under `x-<tool>`, such as `x-codex.approvals_reviewer`. A value set outside agnostic-ai stays as it is, and `sync --global` warns that the reviewer stays off.
-- Remove `review` and run `sync --global` again, and the key goes. [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) alone does not remove it.
+- A home settings spec that sets the same key wins: `permissions.default-mode` where the tool maps it, otherwise the key under `x-<tool>`, such as `x-codex.approvals_reviewer`. A value set outside agnostic-ai stays as it is, and `sync --scope user` warns that the reviewer stays off.
+- Remove `review` and run `sync --scope user` again, and the key goes. [`approvals ask`](@/docs/cli-reference/approvals.md#approvals-ask) alone does not remove it.
 - The key sits in a user file, so it applies in every folder. A `projects` entry or `AGNOSTIC_AI_APPROVALS=ask` cannot turn the reviewer off for one folder or session; `approvals status` notes it there. A project sync never writes these keys.
 - Codex Auto-review answers only prompts Codex would show. With `approval_policy = "never"` there are none, so the reviewer never runs; `approvals status` says so when `~/.codex/config.toml` sets it. It does not read a trusted project's `.codex/config.toml`, which can set either key too.
 - Qwen Code already runs auto mode in a trusted folder when `tools.approvalMode` is unset, so `ask` alone does not bring its prompts back; `approvals status` says so. Set `x-qwen.tools.approvalMode: default` in a home settings spec to see them. Qwen Code asks anyway in an untrusted folder and with `--bare` or `--safe-mode`, and a project's `.qwen/settings.json` can set the same key. Checked against the Qwen Code 0.28.0 package.
-- CodeBuddy takes `defaultMode: "auto"` only from user settings and the command line; a project file cannot grant it. It falls back to `default` when `permissions.disableAutoMode` is `"disable"` or auto mode is unavailable, and `approvals status` notes the first. `sync --global` writes `~/.codebuddy/settings.json` even when `CODEBUDDY_CONFIG_DIR` moves CodeBuddy's settings elsewhere; status notes that too. Checked against the CodeBuddy 2.185.0 package and its permission-modes page.
-- cursor-agent reads `cli-config.json` from `CURSOR_CONFIG_DIR`, else `$XDG_CONFIG_HOME/cursor`, else `~/.cursor`, and `sync --global` follows the same order. cursor-agent rewrites that file itself, so sync owns only `approvalMode` there. cursor-agent writes `approvalMode: "allowlist"` as its own default, so review replaces that value and gives the key back when review goes; any other value set by hand stays. `x-cursor.approvalMode` in a home settings spec wins and must be `allowlist`, `unrestricted` or `auto-review`, since cursor-agent sets a file with any other value aside and starts over. `CURSOR_CONFIG_DIR` and `XDG_CONFIG_HOME` must be absolute paths. Auto-review needs a classifier-capable model and team permission, or cursor-agent falls back to its allowlist. The Cursor desktop app keeps its own setting, and `approvals status` says to turn on Auto-review there. Checked against cursor-agent 2026.11.11, which kept the key when it rewrote the file.
+- CodeBuddy takes `defaultMode: "auto"` only from user settings and the command line; a project file cannot grant it. It falls back to `default` when `permissions.disableAutoMode` is `"disable"` or auto mode is unavailable, and `approvals status` notes the first. `sync --scope user` writes `~/.codebuddy/settings.json` even when `CODEBUDDY_CONFIG_DIR` moves CodeBuddy's settings elsewhere; status notes that too. Checked against the CodeBuddy 2.185.0 package and its permission-modes page.
+- cursor-agent reads `cli-config.json` from `CURSOR_CONFIG_DIR`, else `$XDG_CONFIG_HOME/cursor`, else `~/.cursor`, and `sync --scope user` follows the same order. cursor-agent rewrites that file itself, so sync owns only `approvalMode` there. cursor-agent writes `approvalMode: "allowlist"` as its own default, so review replaces that value and gives the key back when review goes; any other value set by hand stays. `x-cursor.approvalMode` in a home settings spec wins and must be `allowlist`, `unrestricted` or `auto-review`, since cursor-agent sets a file with any other value aside and starts over. `CURSOR_CONFIG_DIR` and `XDG_CONFIG_HOME` must be absolute paths. Auto-review needs a classifier-capable model and team permission, or cursor-agent falls back to its allowlist. The Cursor desktop app keeps its own setting, and `approvals status` says to turn on Auto-review there. Checked against cursor-agent 2026.11.11, which kept the key when it rewrote the file.
 - Devin CLI reads `permission_mode` only from the user config, so a project cannot set it. `--permission-mode` replaces it for one launch. Devin's docs also show `DEVIN_PERMISSION_MODE=smart devin`, and `approvals status` notes a set variable; that the variable wins over the file is our reading, not stated. A `null` value means normal, so review replaces it. Your organization's policy can remove Smart mode, and sandbox sessions do not offer it; the docs do not say what Devin does with the key then. `approvals status` reports `dangerous` as approving every call. Sync owns only `permission_mode` in that file; `x-windsurf.permission_mode` in a home settings spec wins and must be `normal`, `accept-edits`, `smart` or `dangerous`. Your own `deny` and `ask` rules still come first. From the Devin CLI configuration and permissions pages; Devin CLI is not installed here.
 - Qoder reads `general.defaultPermissionMode` from every settings layer, so a project's `.qoder/settings.json` can set it too, and an untrusted folder starts in `default`, as does a session with no classifier model available. An older `tools.approvalMode` key counts as the user's mode, so review leaves it. Checked against the Qoder CLI 1.1.93 package.
 - Vibe takes a `default_agent` that a person sets as an opt-in, so smart-approve starts even before the mode reaches Vibe's mode picker. An organization can still exclude it, and a trusted project's `.vibe/config.toml`, `VIBE_DEFAULT_AGENT`, an admin config, or `--agent` replaces the user file's value. In the user file, `x-vibe` cannot set `default_agent`, so only a hand-set value wins; Vibe can also write `default_agent = "ask"` there itself when `disabled_agents` lists `accept-edits`. With `bypass_tool_permissions = true`, Vibe approves every call and the classifier never runs; `approvals status` notes it and a set `VIBE_DEFAULT_AGENT`. Checked against the mistral-vibe 3.1.3 package.
-- Kiro turns its reviewer on through a preset in a list, not a key. `sync --global` adds one `approve-for-me` line under `policies:` in `~/.kiro/settings/permissions.yaml` (or `$KIRO_HOME/settings/permissions.yaml`), editing the text in place so your rules, comments and other presets stay. Remove `review` and it takes out only that line, plus the `policies:` key and file when it created them. A preset you listed yourself stays. A file it cannot edit line by line, such as one where `policies` is not a list, gets a warning and no change. Kiro's own `/permissions` page lists the preset in a workspace file instead, which `sync --global` does not touch. Kiro asks anyway when its trust classifier is unavailable or the session does not offer Approve for me.
+- Kiro turns its reviewer on through a preset in a list, not a key. `sync --scope user` adds one `approve-for-me` line under `policies:` in `~/.kiro/settings/permissions.yaml` (or `$KIRO_HOME/settings/permissions.yaml`), editing the text in place so your rules, comments and other presets stay. Remove `review` and it takes out only that line, plus the `policies:` key and file when it created them. A preset you listed yourself stays. A file it cannot edit line by line, such as one where `policies` is not a list, gets a warning and no change. Kiro's own `/permissions` page lists the preset in a workspace file instead, which `sync --scope user` does not touch. Kiro asks anyway when its trust classifier is unavailable or the session does not offer Approve for me.
 - A running session keeps its mode until you switch it in the tool (Shift+Tab in Claude Code). A new session reads the new settings.
 - agnostic-ai logs no decision the reviewer makes. Each tool keeps its own record, and each review costs the tool's own model calls.
 
@@ -277,7 +277,7 @@ MCP specs in the home's `mcps/` install servers in each supported tool's user MC
 | augment | `~/.augment/settings.json` | `mcpServers.<name>` |
 | antigravity | `~/.gemini/config/mcp_config.json` | `mcpServers.<name>`: `{command, args, env, cwd}` or `{serverUrl, headers}`, with optional `disabled` |
 
-The **Tools** page in `serve --global` lists servers that have no home spec and were not written by sync. Each row has the `import --global <target>` command that creates its spec ([serve](@/docs/cli-reference/serve.md#serve)).
+The **Tools** page in `serve --scope user` lists servers that have no home spec and were not written by sync. Each row has the `import --scope user <target>` command that creates its spec ([serve](@/docs/cli-reference/serve.md#serve)).
 
 OpenHands has no user MCP file sync can write. Sync prints a note that points at Agent Canvas **Customize > MCP Servers**. It also removes the servers an earlier sync recorded as its own in `~/.openhands/mcp.json` ([OpenHands MCP](@/docs/targets/openhands.md#mcp)).
 

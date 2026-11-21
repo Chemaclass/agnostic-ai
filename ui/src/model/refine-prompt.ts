@@ -73,7 +73,7 @@ Then wait for my explicit approval. If I ask for changes, revise the proposal an
 
 1. Copy the current file to a .bak.<date> copy beside it.
 2. Write the approved version.
-3. Run \`agnostic-ai sync --global --plan\` and review it, then \`agnostic-ai sync --global\`, then confirm \`agnostic-ai sync --global --check\` exits 0.
+3. Run \`agnostic-ai sync --scope user --plan\` and review it, then \`agnostic-ai sync --scope user\`, then confirm \`agnostic-ai sync --scope user --check\` exits 0.
 4. Report what changed and any follow-ups.
 `
 }

@@ -223,7 +223,7 @@ export function BuiltinChangeControls({ local, resetSource }: { local: boolean; 
   const level = useLevelName()
   const { change, pending, settling, proposal, resetList } = useBuiltinChanges()
   if (app.source.kind !== 'api') return null
-  if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --global</Code> to apply them to your tools.</p>{local && resetSource}</>
+  if (change && !change.supported) return <><p className="muted">Saves source files. Run <Code>agnostic-ai sync --scope user</Code> to apply them to your tools.</p>{local && resetSource}</>
   return <div className="builtin-change">
     <div className="builtin-change-controls">
       {!proposal && <span className="muted">Ready-made features. Turning one on shows a preview before anything changes.</span>}

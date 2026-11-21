@@ -367,7 +367,7 @@ func (h *editHandler) hookPreview(req hookSpecRequest, where editAudience) (hook
 	}
 	command := "agnostic-ai sync"
 	if h.global {
-		command += " --global"
+		command += " --scope user"
 	}
 	proposed := hookSpecPreview{File: overviewDisplay(h.root, file), Spec: string(data), SyncCommand: command}
 	identity := req

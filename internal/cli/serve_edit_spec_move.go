@@ -192,7 +192,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "mode must be copy or move")
 	}
 	if h.peer == nil {
-		return specMovePlan{}, moveRefusal(http.StatusConflict, "this server knows no project; start agnostic-ai ui --global inside a project")
+		return specMovePlan{}, moveRefusal(http.StatusConflict, "this server knows no project; start agnostic-ai ui --scope user inside a project")
 	}
 	if !h.global {
 		missing, err := globalHomeMissing(h.peer.root)
@@ -395,7 +395,7 @@ func (h *specMoveHandler) syncCommands(mode string) []string {
 	if h.global {
 		project = "cd " + shellQuote(h.peer.root) + " && agnostic-ai sync"
 	}
-	global := "agnostic-ai sync --global"
+	global := "agnostic-ai sync --scope user"
 	if mode == "copy" {
 		if h.global {
 			return []string{project}
@@ -667,7 +667,7 @@ func (p specMovePlan) swapFolder(work string) error {
 // the stage folder must stay.
 type rollbackError struct{ error }
 
-// globalRuleRefused reports whether sync --global would refuse rule for
+// globalRuleRefused reports whether sync --scope user would refuse rule for
 // the targets the global setup at source selects.
 func globalRuleRefused(rule spec.Entry, source string) (bool, error) {
 	targets, err := loadGlobalTargets(source, io.Discard)

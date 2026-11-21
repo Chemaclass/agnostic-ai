@@ -119,7 +119,7 @@ export function JsonInspector({ onClose, overview, global }: { onClose: () => vo
             <div>
               <dt>Command</dt>
               <dd>
-                <code className="code">{global ? 'agnostic-ai view --global --json' : 'agnostic-ai view --json'}</code>
+                <code className="code">{global ? 'agnostic-ai view --scope user --json' : 'agnostic-ai view --json'}</code>
               </dd>
             </div>
             <div>

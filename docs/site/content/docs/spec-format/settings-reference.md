@@ -72,7 +72,7 @@ Keep this personal setting under `~/.agnostic-ai/settings/`, outside team projec
 session-retention-days: 3650
 ```
 
-`sync --global` writes the tool's own age limit; unset leaves it alone. Values that are not an integer of 1 or more fail validation (LINT045). Project sync only prints a note.
+`sync --scope user` writes the tool's own age limit; unset leaves it alone. Values that are not an integer of 1 or more fail validation (LINT045). Project sync only prints a note.
 
 | Tool | User settings file | Native key |
 |------|--------------------|------------|
@@ -87,7 +87,7 @@ session-retention-days: 3650
 - Other targets print a note. Kilo's deletion switch and Factory's organization setting are outside this field.
 - Lowering the limit warns that older sessions will be deleted, including when removing the field restores a shorter native limit. Pass `--backup` to replace a native value set outside agnostic-ai.
 - Removing the field restores the original value's bytes, even one that already matched, and removes an empty file that sync created. A value changed by hand stays yours. This restore data needs ownership state version 7 or later. Global sync now writes version 10; older releases refuse that state rather than discard it.
-- `explain --global settings/retention.yaml` lists the mapped keys.
+- `explain --scope user settings/retention.yaml` lists the mapped keys.
 
 agnostic-ai changes settings only; it never reads, copies, or archives transcripts. Claude Code also applies this cutoff to some other session data and orphaned worktrees, and Desktop and Cowork transcripts have a separate setting. See [Claude cleanup](https://code.claude.com/docs/en/claude-directory), [Gemini configuration](https://geminicli.com/docs/reference/configuration/), and [Qoder settings](https://docs.qoder.com/cli/settings-reference).
 
@@ -103,7 +103,7 @@ voice:
   language: es
 ```
 
-`sync --global` writes each member the tool has a key for; an unset member leaves the tool's value alone. `mode` is `hold` (hold a key while you talk) or `tap` (tap to start and stop). `language` is passed as written. Other values fail validation (LINT054). Project sync only prints a note.
+`sync --scope user` writes each member the tool has a key for; an unset member leaves the tool's value alone. `mode` is `hold` (hold a key while you talk) or `tap` (tap to start and stop). `language` is passed as written. Other values fail validation (LINT054). Project sync only prints a note.
 
 | Tool | User settings file | Native keys |
 |------|--------------------|-------------|
@@ -124,9 +124,9 @@ voice:
 - An `x-<target>` key wins over the portable member it overlaps, including a parent map. Set keys such as `x-claude.voice.autoSubmit` there.
 - Pass `--backup` to replace a native value set outside agnostic-ai.
 - Removing the field restores each key's original bytes, removes an empty `voice` object that sync created, and removes an empty file that sync created. A value changed by hand stays yours.
-- `explain --global settings/voice.yaml` lists the mapped keys.
+- `explain --scope user settings/voice.yaml` lists the mapped keys.
 
-`import --global` reads these keys into one shared `voice` map. Tool arguments select the native files to read, so importing Claude alone can supply voice settings to Qwen on a later sync. A tool whose home spec already sets `voice` is skipped. Import excludes those tools with `targets-exclude` to keep their existing values; model and effort values for excluded tools go into `settings/imported-models.yaml`.
+`import --scope user` reads these keys into one shared `voice` map. Tool arguments select the native files to read, so importing Claude alone can supply voice settings to Qwen on a later sync. A tool whose home spec already sets `voice` is skipped. Import excludes those tools with `targets-exclude` to keep their existing values; model and effort values for excluded tools go into `settings/imported-models.yaml`.
 
 An earlier model import can receive a missing `voice` field without changing its existing values or comments. Import uses `settings/imported-voice.yaml` when scope, formatting, or other incoming settings require a separate file. If that name is already in use by either layer, it selects a numbered name.
 

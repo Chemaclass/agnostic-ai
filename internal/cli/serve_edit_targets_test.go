@@ -140,7 +140,7 @@ func TestEditTargets_GlobalWritesTheHomeConfigAndRefusesProjectOnlyTools(t *test
 	if !strings.Contains(string(data), "# Global targets.") || !strings.Contains(string(data), "- codex") {
 		t.Errorf("after enabling:\n%s", data)
 	}
-	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"ellipsis","enabled":true,"expected":false}`, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --global cannot write") {
+	if rec := postEdit(t, h, editTargetsPath, `{"audience":"shared","name":"ellipsis","enabled":true,"expected":false}`, nil); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --scope user cannot write") {
 		t.Errorf("project-only tool = %d %s", rec.Code, rec.Body)
 	}
 }

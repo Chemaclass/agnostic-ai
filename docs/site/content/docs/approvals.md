@@ -31,7 +31,7 @@ approvals:
 ```
 
 ```bash
-agnostic-ai sync --global
+agnostic-ai sync --scope user
 agnostic-ai approvals status
 ```
 
@@ -40,7 +40,7 @@ A global sync installs the `PermissionRequest` hook. Each tool's [setup and limi
 ## Modes
 
 - **`ask`** is the default. Your tool shows its own prompts.
-- **`review`** uses your tool's own reviewer and its model calls. `sync --global` turns it on in the tool's user settings. The hook stays silent in this mode, so the tool's reviewer can answer. See [settings for each reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
+- **`review`** uses your tool's own reviewer and its model calls. `sync --scope user` turns it on in the tool's user settings. The hook stays silent in this mode, so the tool's reviewer can answer. See [settings for each reviewer](@/docs/global-configuration-reference.md#global-approvals-review).
 - **`yolo`** lets the hook approve one call at a time. Each approval applies only to that call. The hook leaves the tool's mode, rules, and call input as they are. It adds about 11 ms per prompt in a macOS test.
 
 ## Settings
@@ -99,7 +99,7 @@ Any of these stops hook approvals from the next request, without syncing or rest
 1. Run `agnostic-ai approvals ask` or select **Ask me** in the companion. Both write `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
 2. Set `AGNOSTIC_AI_APPROVALS=ask` for a session or `approvals.mode: ask` in the project's config.
 
-To remove the hooks, drop `approvals` from `builtins` and run `sync --global`. A global sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
+To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A global sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
 
 ## The decision log
 

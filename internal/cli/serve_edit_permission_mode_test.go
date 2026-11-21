@@ -33,7 +33,7 @@ func permissionModeIn(t *testing.T, file string) any {
 }
 
 // globalModeHandler is the global view over a user configuration with
-// Claude as its only tool, and the home sync --global writes into.
+// Claude as its only tool, and the home sync --scope user writes into.
 func globalModeHandler(t *testing.T, settings string) (*editHandler, string, string) {
 	t.Helper()
 	silence(t)
@@ -56,7 +56,7 @@ func TestPermissionModeEdit_GlobalSaveReachesClaudeThroughGlobalSync(t *testing.
 		t.Fatalf("default-mode = %v in %s", got, readProjectFile(t, file))
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 	var native map[string]any
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
@@ -159,7 +159,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverrides(t *testing.T) {
 	nativeMode := func() any {
 		t.Helper()
 		if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-			t.Fatalf("sync --global: %v\n%s", err, warnings)
+			t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 		}
 		var native map[string]any
 		if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {
@@ -189,7 +189,7 @@ func TestPermissionModeEdit_RefusesASaveALaterSpecOverridesForOneTool(t *testing
 		t.Fatalf("shadowed save = %d %s", code, body)
 	}
 	if _, warnings, err := runGlobalAgentTest("--only", "claude"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, warnings)
+		t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 	}
 	var native map[string]any
 	if err := json.Unmarshal([]byte(readFile(t, filepath.Join(home, ".claude", "settings.json"))), &native); err != nil {

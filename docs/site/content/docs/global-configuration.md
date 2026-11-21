@@ -21,7 +21,7 @@ Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for a
 
 ## Source and targets
 
-The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --scope user` runs from any directory; `--global` is its older spelling, still accepted with a deprecation warning on stderr. It loads no packs or project specs. [Global output](@/docs/global-configuration-reference.md#global-output) lists the paths it writes.
+The source folder is `$AGNOSTIC_AI_HOME`, or `~/.agnostic-ai/` when unset. `sync --scope user` runs from any directory; `--scope user` is its older spelling, still accepted with a deprecation warning on stderr. It loads no packs or project specs. [Global output](@/docs/global-configuration-reference.md#global-output) lists the paths it writes.
 
 ```text
 ~/.agnostic-ai/
@@ -44,7 +44,7 @@ To sync a fixed set of tools without `--only` on every run, list them in the sou
 targets: [claude, codex, cursor]
 ```
 
-- `sync --global`, `lint --global`, and `validate --global` then use only those targets.
+- `sync --scope user`, `lint --scope user`, and `validate --scope user` then use only those targets.
 - `--only` and `--except` narrow the list for one run. They must name configured targets.
 - `--target` replaces the list and skips the home config's `targets`.
 - A target with no user-level files, such as `aider` or `continue`, is skipped with one warning. An unknown name stops the run.
@@ -57,9 +57,9 @@ Global specs never merge with project specs. When both exist, each tool decides 
 - A `targets` list in `local/agnostic-ai.yaml` replaces the shared one.
 - [`builtins`](@/docs/configuration.md#built-ins), [`requires`](@/docs/configuration.md#requires), `lint`, and [`models`](@/docs/configuration-reference.md#models) work as in a project.
 - For each key, `local/agnostic-ai.yaml` replaces the shared value. A `models` tier replaces the whole shared tier of the same name.
-- `sync --global` lists the tiers that have a `description` in the instructions block it manages.
-- When a file's tiers do not load, `sync --global` stops. With `-t`, it warns, skips that file's tiers, and omits the `model` of any spec that names one.
-- [`on-unsupported`](@/docs/configuration-reference.md#on-unsupported) (`warn`, `error`, or `silent`) sets what `sync --global` does with a skill line that Claude Code expands and other targets read as plain text ([Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)).
+- `sync --scope user` lists the tiers that have a `description` in the instructions block it manages.
+- When a file's tiers do not load, `sync --scope user` stops. With `-t`, it warns, skips that file's tiers, and omits the `model` of any spec that names one.
+- [`on-unsupported`](@/docs/configuration-reference.md#on-unsupported) (`warn`, `error`, or `silent`) sets what `sync --scope user` does with a skill line that Claude Code expands and other targets read as plain text ([Claude Code body syntax](@/docs/spec-format/skills.md#claude-code-body-syntax)).
 - Other keys except `version` print a warning and are ignored.
 - A target dropped from the list keeps its synced files and ownership records until you remove them by hand.
 
@@ -69,16 +69,16 @@ Global specs never merge with project specs. When both exist, each tool decides 
 <summary>Details: start the folder, commands, backup</summary>
 
 - In the web interface, click **Open global settings** on a project page when no folder exists ([serve](@/docs/cli-reference/serve.md#serve)).
-- The panel creates an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/`, and can run `git init`. It does not run `sync --global`.
-- To start a home from what your tools already hold, run `agnostic-ai import --global` ([import](@/docs/cli-reference/import.md#import)).
-- `import --global` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into shared `settings/imported.yaml`. Tool arguments select which native files to read.
+- The panel creates an empty `AGNOSTIC_AI.md` and `agnostic-ai.yaml`, makes sure `.gitignore` lists `/local/`, and can run `git init`. It does not run `sync --scope user`.
+- To start a home from what your tools already hold, run `agnostic-ai import --scope user` ([import](@/docs/cli-reference/import.md#import)).
+- `import --scope user` reads [voice dictation](@/docs/spec-format/settings.md#voice-dictation) keys into shared `settings/imported.yaml`. Tool arguments select which native files to read.
 - Existing home voice specs keep their scope ([voice import](@/docs/spec-format/settings.md#voice-dictation) lists exclusions and skipped values).
-- `list --global` shows the specs in effect with their `builtin`, `global`, or `global-local` layer.
-- `validate --global` and `lint --global` check before a sync writes. `migrate --global` rewrites old spec forms.
+- `list --scope user` shows the specs in effect with their `builtin`, `global`, or `global-local` layer.
+- `validate --scope user` and `lint --scope user` check before a sync writes. `migrate --scope user` rewrites old spec forms.
 - The [CLI reference](@/docs/cli-reference/sync.md#sync) lists the accepted `sync` flags.
-- Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and point you to the `--global` form. Read-only commands such as `lint`, `validate`, and `doctor` still run.
+- Inside the global source root, `sync`, `init`, `import`, `new`, `packs`, `cleanup`, `revert`, and `install-hook` stop before any write and point you to the `--scope user` form. Read-only commands such as `lint`, `validate`, and `doctor` still run.
 - Keep the home in its own Git repository and push it to a remote to back it up.
-- For a home kept in Git, `install-hook --global` writes a pre-commit hook that runs `lint --global --strict`, `validate --global`, and `sync --global --check`.
+- For a home kept in Git, `install-hook --scope user` writes a pre-commit hook that runs `lint --scope user --strict`, `validate --scope user`, and `sync --scope user --check`.
 
 </details>
 
@@ -100,7 +100,7 @@ Global specs never merge with project specs. When both exist, each tool decides 
 - Supported portable `on` events and `match` values translate for each tool. Native `event` and `matcher` values pass through unchanged, so set those per target ([portable hooks](@/docs/spec-format/hook-reference.md#portable-events)).
 - Skills copy their supporting files unchanged. Shared directories such as `~/.agents/skills/` keep neutral frontmatter ([skill invocation support](@/docs/spec-format/skills-reference.md#disable-model-invocation-support-by-target), including OpenCode V2).
 - Kilo inline shell placeholders pass the syntax check at documented trusted user destinations ([Kilo shell commands](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) covers approval, scope, and the kill switch).
-- Copilot: `import --global copilot` adopts matching handlers from neighboring user JSON files ([Copilot hooks](@/docs/targets/copilot-reference.md)).
+- Copilot: `import --scope user copilot` adopts matching handlers from neighboring user JSON files ([Copilot hooks](@/docs/targets/copilot-reference.md)).
 - Cline: the VS Code extension does not read the hooks sync writes ([Cline global hooks](@/docs/targets/cline.md#global-hooks)).
 - Kiro CLI V3: one `~/.kiro/hooks/<name>.json` per spec, in the project hook format, with shared scripts in `~/.kiro/scripts/`. Unrelated hook files stay, and a conflicting file stops sync.
 - Sync Goose and OpenHands together to update their shared agent file.
@@ -129,8 +129,8 @@ Global specs never merge with project specs. When both exist, each tool decides 
 A personal agent such as `~/.agnostic-ai/agents/reviewer.md` with `targets: [claude, codex]` installs with:
 
 ```console
-agnostic-ai sync --global --only claude,codex
-agnostic-ai sync --global --only claude,codex --check
+agnostic-ai sync --scope user --only claude,codex
+agnostic-ai sync --scope user --only claude,codex --check
 ```
 
 Sync writes `~/.claude/agents/reviewer.md` and `~/.codex/agents/reviewer.toml`.
@@ -145,4 +145,4 @@ The [reference](@/docs/global-configuration-reference.md) covers:
 - [Default model and effort](@/docs/global-configuration-reference.md#global-default-model-and-effort), permission defaults and session retention.
 - [MCP servers](@/docs/global-configuration-reference.md#global-mcp-servers) in each tool's user file.
 - [Native discovery and shared paths](@/docs/global-configuration-reference.md#native-discovery-and-shared-paths), and the [tools left out](@/docs/global-configuration-reference.md#targets-left-out).
-- [Global output](@/docs/global-configuration-reference.md#global-output): the user-level files `sync --global` writes for each tool.
+- [Global output](@/docs/global-configuration-reference.md#global-output): the user-level files `sync --scope user` writes for each tool.

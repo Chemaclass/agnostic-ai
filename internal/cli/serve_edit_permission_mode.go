@@ -19,7 +19,7 @@ import (
 func (h *editHandler) permissionModeEdit(where editAudience, shown string, addr fieldAddress, raw json.RawMessage) (string, func([]byte) ([]byte, error), error) {
 	key := addr.key
 	if !h.global {
-		return "", nil, errors.New("permissions.default-mode applies through global sync only; set it in global settings (agnostic-ai ui --global)")
+		return "", nil, errors.New("permissions.default-mode applies through global sync only; set it in global settings (agnostic-ai ui --scope user)")
 	}
 	if addr.target != "" {
 		return "", nil, errors.New("the default permission mode has no per-tool value; send target all")

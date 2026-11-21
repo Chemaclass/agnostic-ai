@@ -9,7 +9,7 @@ import (
 type Mechanism struct {
 	// Name says what answers the prompt, such as a PermissionRequest hook.
 	Name string `json:"name"`
-	// File is the user-level file sync --global writes it to.
+	// File is the user-level file sync --scope user writes it to.
 	File string `json:"file"`
 	// Evidence is the vendor page the route rests on.
 	Evidence string `json:"evidence"`

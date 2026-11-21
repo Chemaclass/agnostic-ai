@@ -848,7 +848,7 @@ export interface ContextReport {
 
 export interface ContextView {
   schemaVersion: string
-  /** False for user configuration (`serve --global`), with the reason. */
+  /** False for user configuration (`serve --scope user`), with the reason. */
   supported: boolean
   reason: string
   root?: string

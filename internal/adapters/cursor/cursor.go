@@ -549,7 +549,7 @@ func (Adapter) UserMCPServers(mcps []spec.Entry) map[string]any {
 	return emit.BuildMCPServersMap(mcps, emit.MCPSchemaServersMap, emit.WithCursorMCPExtras())
 }
 
-// userMCPDisabledReason explains a server left out under sync --global:
+// userMCPDisabledReason explains a server left out under sync --scope user:
 // ~/.cursor/mcp.json has no per-server disable key, and a listed server
 // is live in every project.
 const userMCPDisabledReason = "a disabled server is left out of ~/.cursor/mcp.json, which has no per-server disable key"

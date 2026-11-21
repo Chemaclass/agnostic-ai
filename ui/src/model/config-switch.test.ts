@@ -22,7 +22,7 @@ describe('switch between project and global', () => {
     expect(switchOffer({ root: '/repo', global: false })).toEqual({
       label: 'Open global settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
-      command: 'agnostic-ai ui --global',
+      command: 'agnostic-ai ui --scope user',
     })
   })
 
@@ -54,8 +54,8 @@ describe('switch between project and global', () => {
     await expect(requestSwitch(ok)).resolves.toMatchObject({ url: 'http://127.0.0.1:4311/' })
     expect(ok).toHaveBeenCalledWith('/api/switch', expect.objectContaining({ method: 'POST', body: '{}', headers: expect.objectContaining({ 'Content-Type': 'application/json' }) }))
 
-    const refused = vi.fn(async () => new Response(JSON.stringify({ error: 'no free port; run agnostic-ai ui --global' }), { status: 503 }))
-    await expect(requestSwitch(refused)).rejects.toThrow('no free port; run agnostic-ai ui --global')
+    const refused = vi.fn(async () => new Response(JSON.stringify({ error: 'no free port; run agnostic-ai ui --scope user' }), { status: 503 }))
+    await expect(requestSwitch(refused)).rejects.toThrow('no free port; run agnostic-ai ui --scope user')
 
     const down = vi.fn(async () => { throw new TypeError('offline') })
     await expect(requestSwitch(down)).rejects.toThrow('Could not reach the server')
@@ -84,6 +84,6 @@ describe('switch between project and global', () => {
 
   it('keeps the onboarding copy plain', () => {
     expect(GLOBAL_SETUP_BODY).not.toMatch(/[–—]/)
-    expect(globalSetupCreated('/h/.agnostic-ai')).toBe('Created /h/.agnostic-ai. Add files, then run "agnostic-ai sync --global".')
+    expect(globalSetupCreated('/h/.agnostic-ai')).toBe('Created /h/.agnostic-ai. Add files, then run "agnostic-ai sync --scope user".')
   })
 })

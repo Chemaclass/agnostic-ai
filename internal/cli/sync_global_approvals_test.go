@@ -207,13 +207,13 @@ func TestApprovalsStatus_NotesTheKeySyncWroteAfterAsk(t *testing.T) {
 	if err != nil {
 		t.Fatalf("approvals ask: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "sync --global") {
+	if !strings.Contains(out, "sync --scope user") {
 		t.Errorf("approvals ask hides the sync step:\n%s", out)
 	}
 	got := approvalsStatusJSON(t)
 	for _, tool := range []string{"claude", "codex"} {
 		s := toolStatus(t, got, tool)
-		if s.Effective != config.ApprovalsAsk || len(s.Notes) != 1 || !strings.Contains(s.Notes[0], "until sync --global removes") {
+		if s.Effective != config.ApprovalsAsk || len(s.Notes) != 1 || !strings.Contains(s.Notes[0], "until sync --scope user removes") {
 			t.Errorf("%s: %+v", tool, s)
 		}
 	}

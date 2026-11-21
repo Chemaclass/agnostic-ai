@@ -21,11 +21,11 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// globalImportSettingsSpec is where import --global puts the default
+// globalImportSettingsSpec is where import --scope user puts the default
 // model, effort, and voice settings it reads.
 const globalImportSettingsSpec = "settings/imported.yaml"
 
-// runImportGlobal reads the user settings and MCP files sync --global
+// runImportGlobal reads the user settings and MCP files sync --scope user
 // writes and turns them into specs in the home, so a following sync
 // adopts them and changes nothing. A spec file that already exists is
 // never replaced: an equal one is left as it is, and a different one is
@@ -201,16 +201,16 @@ func runImportGlobal(cmd *cobra.Command, args []string, dryRun bool) error {
 // list, nil when it has none.
 func globalImportNextStep(targets, managed []string) string {
 	if len(targets) != 1 {
-		return "Each imported MCP server goes to every tool `agnostic-ai sync --global` manages; run `agnostic-ai sync --global --dry-run` to see what it would write."
+		return "Each imported MCP server goes to every tool `agnostic-ai sync --scope user` manages; run `agnostic-ai sync --scope user --dry-run` to see what it would write."
 	}
 	if managed != nil && !slices.Contains(managed, targets[0]) {
-		return fmt.Sprintf("Sync does not manage %s yet: add it to `targets` in agnostic-ai.yaml, then run `agnostic-ai sync --global --only %s --check`.", targets[0], targets[0])
+		return fmt.Sprintf("Sync does not manage %s yet: add it to `targets` in agnostic-ai.yaml, then run `agnostic-ai sync --scope user --only %s --check`.", targets[0], targets[0])
 	}
-	return fmt.Sprintf("Run `agnostic-ai sync --global --target %s --check` to confirm nothing would change for %s. The next full `agnostic-ai sync --global` also writes the imported MCP servers to every other tool it manages.", targets[0], targets[0])
+	return fmt.Sprintf("Run `agnostic-ai sync --scope user --target %s --check` to confirm nothing would change for %s. The next full `agnostic-ai sync --scope user` also writes the imported MCP servers to every other tool it manages.", targets[0], targets[0])
 }
 
 // globalImportTargets is the named targets, or every target sync
-// --global writes user settings or MCP servers for.
+// --scope user writes user settings or MCP servers for.
 func globalImportTargets(args []string) ([]string, error) {
 	importable := func(name string) bool {
 		g, ok := globalTargets[name]
@@ -234,7 +234,7 @@ func globalImportTargets(args []string) ([]string, error) {
 					names = append(names, n)
 				}
 			}
-			return nil, fmt.Errorf("import --global: %q has no user settings, MCP file, or hook directory to read; supported: %s", name, strings.Join(names, ", "))
+			return nil, fmt.Errorf("import --scope user: %q has no user settings, MCP file, or hook directory to read; supported: %s", name, strings.Join(names, ", "))
 		}
 		if !slices.Contains(out, name) {
 			out = append(out, name)

@@ -45,7 +45,7 @@
 // legacy V0 (#1252), nor ~/.openhands/mcp.json, which only the
 // unmaintained OpenHands-CLI reads (#2576). Project and global sync print
 // one note each. `import openhands` still reads a legacy config.toml, and
-// `import --global openhands` a legacy mcp.json, so a team can move its
+// `import --scope user openhands` a legacy mcp.json, so a team can move its
 // servers into specs.
 //
 // An environment spec's `install` field writes `.openhands/setup.sh`

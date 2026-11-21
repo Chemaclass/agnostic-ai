@@ -114,11 +114,11 @@ func globalSettingsFor(target string, g globalTarget, settings []spec.Entry) []g
 			custom++
 		}
 	}
-	adapters.NoteSettingsFieldNoOp(target, "protected", protected, "protected paths are relative to a project, so sync --global does not write them")
+	adapters.NoteSettingsFieldNoOp(target, "protected", protected, "protected paths are relative to a project, so sync --scope user does not write them")
 	permissions := globalPermissionSettings(target, f, settings)
 	personal := append(globalRetentionSetting(target, f, settings), globalVoiceSetting(target, f, settings)...)
 	if f.path == "" {
-		const reason = "sync --global does not write this target's user settings yet"
+		const reason = "sync --scope user does not write this target's user settings yet"
 		adapters.NoteSettingsFieldNoOp(target, "model", models, reason)
 		adapters.NoteSettingsFieldNoOp(target, "effort", efforts, reason)
 		adapters.NoteSettingsFieldNoOp(target, "x-"+target, custom, reason)
@@ -196,7 +196,7 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 		permissions, ok := entry.Meta["permissions"].(map[string]any)
 		if !ok {
 			if _, exists := entry.Meta["permissions"]; exists {
-				adapters.NoteSettingsFieldNoOp(target, "permissions", 1, "sync --global takes a permissions mapping")
+				adapters.NoteSettingsFieldNoOp(target, "permissions", 1, "sync --scope user takes a permissions mapping")
 			}
 			continue
 		}
@@ -207,7 +207,7 @@ func globalPermissionSettings(target string, f globalSettingsFile, settings []sp
 				continue
 			}
 			if key != "default-mode" || f.permissionMode == "" {
-				adapters.NoteSettingsFieldNoOp(target, field, 1, "sync --global has no user-level mapping for this permission field")
+				adapters.NoteSettingsFieldNoOp(target, field, 1, "sync --scope user has no user-level mapping for this permission field")
 				continue
 			}
 			present = true
@@ -248,7 +248,7 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 			if f.allowed != nil && f.allowed[key] == "" {
 				reason := f.allowedReason
 				if reason == "" {
-					reason = "sync --global owns only default_model, default_plan_mode and telemetry; use an explicit profile for native tables"
+					reason = "sync --scope user owns only default_model, default_plan_mode and telemetry; use an explicit profile for native tables"
 				}
 				adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, reason)
 				continue
@@ -302,7 +302,7 @@ func customGlobalSettings(target string, f globalSettingsFile, settings []spec.E
 			}
 			if f.format == "toml" {
 				if _, err := tomlValueText(value); err != nil {
-					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "sync --global writes top-level scalars and arrays of config.toml, not tables")
+					adapters.NoteSettingsFieldNoOp(target, "x-"+target+"."+key, 1, "sync --scope user writes top-level scalars and arrays of config.toml, not tables")
 					continue
 				}
 			}

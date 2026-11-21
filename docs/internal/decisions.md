@@ -114,7 +114,7 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Context:** A model tier's `description` says when to use it, and the main agent needs that text in its instructions ([#3286](https://github.com/Chemaclass/agnostic-ai/issues/3286)).
 
-**Decision:** Sync appends one marked line after each entry point's instructions body, once the per-file view is built, and lists the described tiers sorted by name. `sync --global` puts the same line, without markers, in the block it manages. Import drops the marked line.
+**Decision:** Sync appends one marked line after each entry point's instructions body, once the per-file view is built, and lists the described tiers sorted by name. `sync --scope user` puts the same line, without markers, in the block it manages. Import drops the marked line.
 
 **Why:** Appending after the view keeps the text out of the `AGNOSTIC_AI.md` layer that `lint` and `explain --file` report, and keeps a `CLAUDE.md` that imports `AGENTS.md` as it is. Config file order is lost once tiers decode into a map; keeping it needs an order-aware decode in three loaders. Sorted order is stable at no cost.
 
@@ -267,7 +267,7 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 | Title | Measured: `Probe only`, for a prompt starting `Probe only. Reply with the word ok.` Source: claude.ai generates the title and the branch name from the prompt; without a generated title the CLI uses the prompt's first 75 characters. The prompt's first line is not the title as is. | Not measured. |
 | Id and bring-back | Measured: `claude --teleport session_<id>` found the session, loaded its conversation and named its branch, then reported `Couldn't check out branch 'claude/probe-only-1f5s8s'` because the session pushed nothing, and resumed without it. Source: `cse_<id>` is accepted too. The companion lists the session as `cse_<id>`, with the same suffix. | Source: `codex cloud status`, `diff` and `apply` take the id or the whole task URL; the CLI keeps the last path segment. `status` exits 1 whenever the task is not ready, so non-zero does not mean a bad id. Measured: an unknown id fails with `get_task_details failed: ... 404 Not Found; ... {"detail":"Invalid task ID"}`. |
 | Prompt length | Not found in the CLI; the longest prompt the server accepts was not measured. | Source: no limit in the CLI; an empty prompt on standard input fails with `no query provided via stdin (received empty input).` The server limit was not measured. |
-| Companion | Measured: `agnostic-ai serve --global --cloud-sessions` listed it 21 seconds after launch (polled every 10 seconds; absent at 10 seconds) as `app: cloud`, title `Probe only`, state `unread` once the reply came, opening `https://claude.ai/code/session_<id>`. | Not measured. |
+| Companion | Measured: `agnostic-ai serve --scope user --cloud-sessions` listed it 21 seconds after launch (polled every 10 seconds; absent at 10 seconds) as `app: cloud`, title `Probe only`, state `unread` once the reply came, opening `https://claude.ai/code/session_<id>`. | Not measured. |
 
 **How a user finds the Codex environment id:** environments are created and listed at [chatgpt.com/codex/settings/environments](https://chatgpt.com/codex/settings/environments). `codex cloud` with no subcommand opens a picker that browses them, and `codex cloud list --json` shows `environment_id` and `environment_label` for each past task. No CLI command lists the environments themselves, and none creates one.
 

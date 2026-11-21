@@ -72,7 +72,7 @@ To test hooks before a session, run [`agnostic-ai hook run`](@/docs/cli-referenc
 
 - Goose reads `.goosehints` only with the `Developer` extension enabled.
 - Goose reads context files in the subdirectories it works in, so scoped rules go to a nested `AGENTS.md`. See [scoped rules](@/docs/targets/goose-reference.md#native-mappings).
-- Project hooks load as an Open Plugins package. `sync --global` writes a separate package for every project.
+- Project hooks load as an Open Plugins package. `sync --scope user` writes a separate package for every project.
 - Review specs are unsupported after Goose 1.60 removed `goose review`. See [legacy review guidance](@/docs/targets/goose-reference.md#reviews).
 
 {% <details summary="More limits"> %}

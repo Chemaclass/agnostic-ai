@@ -159,7 +159,7 @@ func TestSync_WideningErrorNamesTheTargetOnce(t *testing.T) {
 	}
 }
 
-// sync --global honors on-unsupported for the widening, as project sync
+// sync --scope user honors on-unsupported for the widening, as project sync
 // does.
 func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
 	for _, mode := range []string{"warn", "silent", "error"} {
@@ -180,7 +180,7 @@ func TestSyncGlobal_ClaudeScopedCapabilityHonorsOnUnsupported(t *testing.T) {
 				return
 			}
 			if err != nil {
-				t.Fatalf("sync --global: %v\n%s", err, warnings)
+				t.Fatalf("sync --scope user: %v\n%s", err, warnings)
 			}
 			if got := strings.Contains(notes.String()+warnings, line); got != (mode == "warn") {
 				t.Errorf("%s: note shown = %v\n%s%s", mode, got, notes, warnings)

@@ -100,7 +100,7 @@ func switchPeerFor(root string, global bool) *switchPeer {
 
 func (p switchPeer) command() string {
 	if p.global {
-		return "agnostic-ai ui --global"
+		return "agnostic-ai ui --scope user"
 	}
 	return "agnostic-ai ui --dir " + shellQuote(p.root)
 }

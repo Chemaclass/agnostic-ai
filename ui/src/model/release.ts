@@ -26,6 +26,6 @@ export function requiredRelease(served: { global: boolean; version?: string; req
   const running = served.version ? servingRelease(served.version).label : 'the running build'
   const label = `requires ${served.requires}`
   if (served.requiresMet === true) return { label, state: 'met', title: `${needs}; ${running} meets it.` }
-  if (served.requiresMet === false) return { label, state: 'unmet', title: `${needs}, and ${running} is outside it. Run ${served.global ? 'agnostic-ai sync --global' : 'agnostic-ai sync'} to see the fix.` }
+  if (served.requiresMet === false) return { label, state: 'unmet', title: `${needs}, and ${running} is outside it. Run ${served.global ? 'agnostic-ai sync --scope user' : 'agnostic-ai sync'} to see the fix.` }
   return { label, state: 'unchecked', title: `${needs}. This build is not a release, so it is not checked.` }
 }

@@ -57,7 +57,7 @@ func TestGlobalOverview_LaterClaudeModelMatchesWhatSyncWritesForCodex(t *testing
 	root.SetErr(io.Discard)
 	root.SetArgs([]string{"sync", "--scope", "user", "--only", "codex"})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	content, err := os.ReadFile(filepath.Join(home, ".codex", "config.toml"))
 	if err != nil {
@@ -134,18 +134,18 @@ func TestGlobalOverview_ListsSpecsAndReportsDriftUntilSynced(t *testing.T) {
 	root.SetErr(io.Discard)
 	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	in, err = globalOverviewInputs()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if drift := driftFindings(in.Findings); len(drift) > 0 {
-		t.Errorf("drift after sync --global: %+v", drift)
+		t.Errorf("drift after sync --scope user: %+v", drift)
 	}
 	for _, target := range overview.Build(in).Targets {
 		if target.Sync.State != overview.SyncInSync {
-			t.Errorf("%s sync = %+v after sync --global, want in-sync", target.Target, target.Sync)
+			t.Errorf("%s sync = %+v after sync --scope user, want in-sync", target.Target, target.Sync)
 		}
 	}
 
@@ -196,7 +196,7 @@ func TestView_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
 	globalOverviewHome(t)
 	out, err := runCLI(t, "view", "--scope", "user", "--json")
 	if err != nil {
-		t.Fatalf("view --global: %v\n%s", err, out)
+		t.Fatalf("view --scope user: %v\n%s", err, out)
 	}
 	var view overview.View
 	if err := json.Unmarshal([]byte(out), &view); err != nil {
@@ -207,6 +207,6 @@ func TestView_GlobalPrintsTheUserLevelConfiguration(t *testing.T) {
 	}
 
 	if _, err := runCLI(t, "view", "--scope", "user", "--dir", "."); err == nil || !strings.Contains(err.Error(), "cannot be combined") {
-		t.Errorf("--global --dir error = %v, want a flag conflict", err)
+		t.Errorf("--scope user --dir error = %v, want a flag conflict", err)
 	}
 }

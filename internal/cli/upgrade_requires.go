@@ -31,7 +31,7 @@ func runUpgradeRequires() error {
 	if err != nil {
 		return err
 	}
-	if err := refuseGlobalHome(".", "edit its requires and schema by hand, then run `agnostic-ai sync --global`"); err != nil {
+	if err := refuseGlobalHome(".", "edit its requires and schema by hand, then run `agnostic-ai sync --scope user`"); err != nil {
 		return err
 	}
 	if _, _, err := config.ResolveConfigPath("."); err != nil {

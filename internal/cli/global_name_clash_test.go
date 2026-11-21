@@ -55,7 +55,7 @@ func TestSync_WarnsWhenAProjectSkillSharesAGlobalName(t *testing.T) {
 	want := "! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in " +
 		"~/source/skills/gh-issue/SKILL.md with different content" +
 		"; amp and claude load the global one, which exists only on this machine, gemini loads this one" +
-		"; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`; project sync cannot select this skill instead on amp, claude\n"
+		"; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`; project sync cannot select this skill instead on amp, claude\n"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("sync should name the shared skill and who wins per target:\nwant %q\n%s", want, buf.String())
 	}
@@ -357,7 +357,7 @@ func TestSync_SaysAnIdenticalGlobalCopyChangesNothing(t *testing.T) {
 	}
 
 	want := "! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" is identical in ~/source/skills/gh-issue/SKILL.md" +
-		", so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one; project sync cannot select this skill instead on claude\n"
+		", so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the global one; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("sync should say an identical copy changes nothing:\nwant %q\n%s", want, buf.String())
 	}
@@ -502,7 +502,7 @@ func TestGlobalNameClashes_UnreadableAssetMakesNoContentClaim(t *testing.T) {
 func TestGlobalNameClash_MessagePerWinner(t *testing.T) {
 	project := spec.Entry{Kind: spec.KindSkill, Name: "gh-issue", Path: ".agnostic-ai/skills/gh-issue/SKILL.md"}
 	global := spec.Entry{Name: "gh-issue", Path: "/elsewhere/skills/gh-issue/SKILL.md"}
-	const rename = "; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --global`"
+	const rename = "; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`"
 	for _, tc := range []struct {
 		name string
 		c    globalNameClash
@@ -526,7 +526,7 @@ func TestGlobalNameClash_MessagePerWinner(t *testing.T) {
 		{
 			name: "identical",
 			c:    globalNameClash{project: project, global: global, globalWins: []string{"claude"}, content: contentIdentical},
-			want: " is identical in /elsewhere/skills/gh-issue/SKILL.md, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --global` after deleting the global one; project sync cannot select this skill instead on claude",
+			want: " is identical in /elsewhere/skills/gh-issue/SKILL.md, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the global one; project sync cannot select this skill instead on claude",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

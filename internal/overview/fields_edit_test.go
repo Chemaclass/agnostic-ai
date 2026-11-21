@@ -54,7 +54,7 @@ func TestAuthorityFields_EditTheSpecThePermissionListsUse(t *testing.T) {
 		}
 	}
 	for _, field := range buildFields(SectionAuthority, nil, nil, cfg, "", true) {
-		if field.Key == ProtectedKey && (field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "sync --global does not write protected paths")) {
+		if field.Key == ProtectedKey && (field.Editable == nil || !strings.Contains(field.Editable.DisabledReason, "sync --scope user does not write protected paths")) {
 			t.Errorf("global protected = %+v", field.Editable)
 		}
 		if field.Key == PermissionModeKey && (field.Editable == nil || field.Editable.DisabledReason != "") {
@@ -187,7 +187,7 @@ func TestSettingsFields_DefaultPathAndSyncCommandFollowTheScope(t *testing.T) {
 		}
 	}
 	for _, f := range buildFields(SectionSettings, nil, nil, cfg, root, true) {
-		if f.Key == "model" && f.Editable.SyncCommand != "agnostic-ai sync --global" {
+		if f.Key == "model" && f.Editable.SyncCommand != "agnostic-ai sync --scope user" {
 			t.Fatalf("global model = %+v", f.Editable)
 		}
 	}

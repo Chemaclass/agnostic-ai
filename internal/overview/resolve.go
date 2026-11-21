@@ -167,7 +167,7 @@ func perToolValue(e spec.Entry, key, target string, local bool, tiers map[string
 
 // foreignClaudeModel reports whether e's shared model is a Claude model
 // name target cannot load, which project sync drops before it resolves.
-// sync --global writes it.
+// sync --scope user writes it.
 func foreignClaudeModel(e spec.Entry, target string) bool {
 	return adapters.ForeignClaudeModel(target, adapters.SharedModel(map[string]any{"model": e.Meta["model"]}, target))
 }

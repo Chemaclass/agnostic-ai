@@ -90,7 +90,7 @@ func TestSpecMove_MovesASkillFolderToGlobal(t *testing.T) {
 	if code != http.StatusOK || !applied.OK {
 		t.Fatalf("apply = %d %+v", code, applied)
 	}
-	if !slices.Equal(applied.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --global"}) {
+	if !slices.Equal(applied.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --scope user"}) {
 		t.Errorf("sync commands = %v", applied.SyncCommands)
 	}
 	if got := readOptional(t, filepath.Join(global, "skills", "review-pr", "checklist.md")); got != "- tests\n" {
@@ -111,7 +111,7 @@ func TestSpecMove_MovesASkillFolderToGlobal(t *testing.T) {
 func TestSpecMove_CopyKeepsTheSourceAndNamesOnlyTheDestinationSync(t *testing.T) {
 	project, global := moveProject(t)
 	_, code, applied := previewThenApply(t, projectMoveHandler(project, global), moveBody("agent", "guard", "project", "global", "copy"))
-	if code != http.StatusOK || !slices.Equal(applied.SyncCommands, []string{"agnostic-ai sync --global"}) {
+	if code != http.StatusOK || !slices.Equal(applied.SyncCommands, []string{"agnostic-ai sync --scope user"}) {
 		t.Fatalf("apply = %d %+v", code, applied)
 	}
 	want := readOptional(t, filepath.Join(project, ".agnostic-ai", "agents", "guard.md"))
@@ -283,7 +283,7 @@ func TestSpecMove_OnePreviewCoversEachChoice(t *testing.T) {
 	request := moveBody("agent", "guard", "project", "global", "move")
 	request["action"], request["expected"], request["overwrite"] = "apply", preview.Expected, true
 	code, reply := postSpecMove(t, h, request)
-	if code != http.StatusOK || !slices.Equal(reply.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --global"}) {
+	if code != http.StatusOK || !slices.Equal(reply.SyncCommands, []string{"agnostic-ai sync", "agnostic-ai sync --scope user"}) {
 		t.Fatalf("move with the copy preview = %d %+v", code, reply)
 	}
 }

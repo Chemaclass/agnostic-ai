@@ -38,7 +38,7 @@ func TestSyncGlobal_HomeConfigLimitsSyncAndCheckToItsTargets(t *testing.T) {
 
 	out, _, err := runGlobalCheck("sync")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if !strings.Contains(out, "Synced global configuration to 3 target(s).") {
 		t.Errorf("expected three targets synced, got:\n%s", out)
@@ -51,7 +51,7 @@ func TestSyncGlobal_HomeConfigLimitsSyncAndCheckToItsTargets(t *testing.T) {
 		".qoder/AGENTS.md":  false,
 	})
 	if _, _, err := runGlobalCheck("sync", "--check"); err != nil {
-		t.Errorf("sync --global --check must cover only the configured targets: %v", err)
+		t.Errorf("sync --scope user --check must cover only the configured targets: %v", err)
 	}
 }
 
@@ -61,7 +61,7 @@ func TestSyncGlobal_LocalHomeConfigReplacesSharedTargets(t *testing.T) {
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "targets: [cursor]\n")
 
 	if _, _, err := runGlobalCheck("sync"); err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{
 		".cursor/AGENTS.md": true,
@@ -75,7 +75,7 @@ func TestSyncGlobal_FlagsWinOverHomeConfig(t *testing.T) {
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, codex, cursor]\n")
 
 	if _, _, err := runGlobalCheck("sync", "--only", "codex"); err != nil {
-		t.Fatalf("sync --global --only codex: %v", err)
+		t.Fatalf("sync --scope user --only codex: %v", err)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{
 		".codex/AGENTS.md":  true,
@@ -88,7 +88,7 @@ func TestSyncGlobal_FlagsWinOverHomeConfig(t *testing.T) {
 	}
 
 	if _, _, err := runGlobalCheck("sync", "-t", "gemini"); err != nil {
-		t.Fatalf("sync --global -t gemini: %v", err)
+		t.Fatalf("sync --scope user -t gemini: %v", err)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".gemini/GEMINI.md": true})
 }
@@ -105,7 +105,7 @@ func TestSyncGlobal_HomeConfigUnknownTargetSuggestsName(t *testing.T) {
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": false})
 
 	if _, _, err := runGlobalCheck("lint"); err == nil || !strings.Contains(err.Error(), "did you mean cursor?") {
-		t.Errorf("lint --global must reject the same config, got %v", err)
+		t.Errorf("lint --scope user must reject the same config, got %v", err)
 	}
 }
 
@@ -116,7 +116,7 @@ func TestSyncGlobal_HomeConfigWarnsOnKeysItIgnores(t *testing.T) {
 
 	_, errOut, err := runGlobalCheck("sync")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	want := fmt.Sprintf("warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring sources", config)
 	if !strings.Contains(errOut, want) {
@@ -129,7 +129,7 @@ func TestSyncGlobal_WithoutHomeConfigSyncsEveryTarget(t *testing.T) {
 
 	out, _, err := runGlobalCheck("sync")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	want := fmt.Sprintf("Synced global configuration to %d target(s).", len(globalTargetNames()))
 	if !strings.Contains(out, want) {
@@ -142,12 +142,12 @@ func TestSyncGlobal_TargetDroppedFromHomeConfigKeepsItsFiles(t *testing.T) {
 	config := filepath.Join(source, "agnostic-ai.yaml")
 	writeFile(t, config, "targets: [claude, cursor]\n")
 	if _, _, err := runGlobalCheck("sync"); err != nil {
-		t.Fatalf("first sync --global: %v", err)
+		t.Fatalf("first sync --scope user: %v", err)
 	}
 
 	writeFile(t, config, "targets: [claude]\n")
 	if _, _, err := runGlobalCheck("sync"); err != nil {
-		t.Fatalf("second sync --global: %v", err)
+		t.Fatalf("second sync --scope user: %v", err)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".cursor/AGENTS.md": true})
 }
@@ -163,7 +163,7 @@ func TestValidateGlobal_ChecksHookEventsAgainstConfiguredTargets(t *testing.T) {
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
-		t.Fatalf("validate --global must reject an event the configured targets never fire:\n%s", out)
+		t.Fatalf("validate --scope user must reject an event the configured targets never fire:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, "for targets claude, cursor") {
 		t.Errorf("expected the event checked against claude and cursor on %s, got:\n%s", hook, out)
@@ -187,7 +187,7 @@ func TestSync_RefusesToRunInTheGlobalHome(t *testing.T) {
 	if err := os.Symlink(source, link); err != nil {
 		t.Skipf("symlinks unavailable: %v", err)
 	}
-	remedy := "run `agnostic-ai sync --global`, or unset AGNOSTIC_AI_HOME if this is a project"
+	remedy := "run `agnostic-ai sync --scope user`, or unset AGNOSTIC_AI_HOME if this is a project"
 	local := filepath.Join(source, "local")
 
 	for dir, want := range map[string]string{
@@ -258,7 +258,7 @@ func TestSync_GlobalHomeGuardFollowsTheResolvedSourceRoot(t *testing.T) {
 	}
 
 	t.Setenv("AGNOSTIC_AI_HOME", "")
-	want := unused + " is the global home (AGNOSTIC_AI_HOME is unset); run `agnostic-ai sync --global`, or set AGNOSTIC_AI_HOME to another root if this is a project"
+	want := unused + " is the global home (AGNOSTIC_AI_HOME is unset); run `agnostic-ai sync --scope user`, or set AGNOSTIC_AI_HOME to another root if this is a project"
 	if err := runProjectSync("--check"); err == nil || err.Error() != want {
 		t.Errorf("~/.agnostic-ai is the global home once AGNOSTIC_AI_HOME is unset:\nwant %s\ngot  %v", want, err)
 	}
@@ -271,19 +271,19 @@ func TestSyncGlobal_HomeConfigSkipsTargetsWithoutAGlobalSurface(t *testing.T) {
 
 	out, errOut, err := runGlobalCheck("sync")
 	if err != nil {
-		t.Fatalf("a project-shaped home config must keep sync --global working: %v", err)
+		t.Fatalf("a project-shaped home config must keep sync --scope user working: %v", err)
 	}
 	if !strings.Contains(out, "Synced global configuration to 1 target(s).") {
 		t.Errorf("expected only claude synced, got:\n%s", out)
 	}
-	want := "warning: " + config + ": sync --global cannot write aider, continue; skipping them"
+	want := "warning: " + config + ": sync --scope user cannot write aider, continue; skipping them"
 	if strings.Count(errOut, "cannot write") != 1 || !strings.Contains(errOut, want) {
 		t.Errorf("expected one warning %q, got:\n%s", want, errOut)
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
 	for _, command := range []string{"lint", "validate", "list"} {
 		if out, _, err := runGlobalCheck(command); err != nil {
-			t.Errorf("%s --global with a project-shaped home config: %v\n%s", command, err, out)
+			t.Errorf("%s --scope user with a project-shaped home config: %v\n%s", command, err, out)
 		}
 	}
 }
@@ -294,7 +294,7 @@ func TestSyncGlobal_DuplicateHomeConfigTargetSyncsOnce(t *testing.T) {
 
 	out, _, err := runGlobalCheck("sync")
 	if err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	if !strings.Contains(out, "Synced global configuration to 2 target(s).") {
 		t.Errorf("expected the duplicate dropped, got:\n%s", out)
@@ -310,10 +310,10 @@ func TestSyncGlobal_TargetFlagBypassesHomeConfig(t *testing.T) {
 	}
 	assertGlobalInstructions(t, home, map[string]bool{".claude/CLAUDE.md": true})
 	if out, _, err := runGlobalCheck("list"); err != nil {
-		t.Errorf("list --global needs no targets: %v\n%s", err, out)
+		t.Errorf("list --scope user needs no targets: %v\n%s", err, out)
 	}
 	if _, _, err := runGlobalCheck("sync"); err == nil {
-		t.Error("sync --global without -t must still reject the broken home config")
+		t.Error("sync --scope user without -t must still reject the broken home config")
 	}
 }
 
@@ -346,7 +346,7 @@ func TestLintGlobal_ChecksKindsAgainstGlobalSurfaces(t *testing.T) {
 
 	out, _, err := runGlobalCheck("validate")
 	if err == nil {
-		t.Fatalf("validate --global must reject hooks no configured target writes:\n%s", out)
+		t.Fatalf("validate --scope user must reject hooks no configured target writes:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks.") {
 		t.Errorf("expected the hook orphan with the global hook targets, got:\n%s", out)

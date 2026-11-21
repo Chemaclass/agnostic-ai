@@ -29,7 +29,7 @@ describe('coding tools', () => {
     const catalog: ToolCatalog = { source: 'default', items: [] }
     expect(saveHint(catalog, 'shared', false)).toContain('the default list applies')
     expect(saveHint({ ...catalog, source: 'shared' }, 'personal', false)).toContain('agnostic-ai.local.yaml')
-    expect(saveHint({ ...catalog, source: 'shared' }, 'shared', true)).toContain('sync --global')
+    expect(saveHint({ ...catalog, source: 'shared' }, 'shared', true)).toContain('sync --scope user')
     for (const text of [offConsequence('X', false), offConsequence('X', true), saveHint(catalog, 'shared', false)]) expect(text).not.toMatch(/[–—]/)
   })
 })

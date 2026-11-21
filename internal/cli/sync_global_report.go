@@ -253,7 +253,7 @@ func globalOwnershipNote(path string) string {
 	if globalStateMissing(path) {
 		record = "no ownership record at " + filepath.ToSlash(path) + " yet"
 	}
-	return record + "; until `agnostic-ai sync --global` writes it, removing a spec leaves its output in place"
+	return record + "; until `agnostic-ai sync --scope user` writes it, removing a spec leaves its output in place"
 }
 
 // handEditedGlobalFiles lists owned files whose content no longer

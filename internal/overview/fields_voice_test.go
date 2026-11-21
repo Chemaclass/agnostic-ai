@@ -34,10 +34,10 @@ func TestSettingsFields_VoiceEditContractFollowsScope(t *testing.T) {
 				t.Errorf("global=%t: %s = %+v, edit=%+v", global, tc.key, field, edit)
 			}
 			if global {
-				if edit.Path != "settings/defaults.yaml" || edit.DisabledReason != "" || edit.SyncCommand != "agnostic-ai sync --global" {
+				if edit.Path != "settings/defaults.yaml" || edit.DisabledReason != "" || edit.SyncCommand != "agnostic-ai sync --scope user" {
 					t.Errorf("global %s edit = %+v", tc.key, edit)
 				}
-			} else if edit.DisabledReason != "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global." {
+			} else if edit.DisabledReason != "Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user." {
 				t.Errorf("project %s disabled reason = %q", tc.key, edit.DisabledReason)
 			}
 		}
@@ -86,7 +86,7 @@ func TestSettingsFields_ProjectVoiceValuesShowTheGlobalOnlyReason(t *testing.T) 
 		if len(field.Set) != 1 || len(field.Set[0].Values) != 1 {
 			t.Errorf("%s does not show its configured value: %+v", key, field.Set)
 		}
-		if field.Editable == nil || field.Editable.DisabledReason != "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global." {
+		if field.Editable == nil || field.Editable.DisabledReason != "Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user." {
 			t.Errorf("%s project edit = %+v", key, field.Editable)
 		}
 	}
@@ -128,7 +128,7 @@ func TestSettingsFields_WholePersonalVoiceClearShowsSourcesAndBlocksEdits(t *tes
 	}
 	project := sectionByID(t, Build(Inputs{Cfg: cfg, Bundle: spec.Bundle{Settings: []spec.Entry{overlay}}}), SectionSettings)
 	for _, field := range project.Fields {
-		if strings.HasPrefix(field.Key, "voice.") && (field.Editable == nil || field.Editable.DisabledReason != "Voice is written only by sync --global. Open Settings in agnostic-ai ui --global.") {
+		if strings.HasPrefix(field.Key, "voice.") && (field.Editable == nil || field.Editable.DisabledReason != "Voice is written only by sync --scope user. Open Settings in agnostic-ai ui --scope user.") {
 			t.Errorf("%s project reason = %+v", field.Key, field.Editable)
 		}
 	}

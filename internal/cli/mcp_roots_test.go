@@ -49,6 +49,6 @@ func TestSyncGlobal_RefusesAStringRoot(t *testing.T) {
 	_, source := globalAgentTestHome(t)
 	writeFile(t, filepath.Join(source, "mcps", "fs.yaml"), "name: fs\ncommand: npx\nroots: [\"file:///tmp/x\"]\n")
 	if _, _, err := runGlobalAgentTest("--only", "claude"); err == nil || !strings.Contains(err.Error(), "roots[0] must be a mapping") {
-		t.Errorf("sync --global must refuse it: %v", err)
+		t.Errorf("sync --scope user must refuse it: %v", err)
 	}
 }

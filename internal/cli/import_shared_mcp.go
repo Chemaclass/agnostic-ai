@@ -112,7 +112,7 @@ func writeMCPYAMLs(target string, servers map[string]any, dstDir string, orders 
 // destination doc has `name: <key>` prepended; server fields pass
 // through verbatim so transport-specific keys (command/args/env or
 // url/headers) survive a round-trip. An `env` or `headers` value that
-// is still a literal, such as a plain setting `import --global` keeps,
+// is still a literal, such as a plain setting `import --scope user` keeps,
 // is written `!literal`. When the source JSON omits an
 // explicit `type` field, the transport is inferred from the entry's
 // shape (`url` present → `type: http`) so re-emit picks the same

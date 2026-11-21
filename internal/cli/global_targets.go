@@ -43,7 +43,7 @@ const (
 // globalTarget declares one tool's user-level paths and discovery settings.
 // Default paths use globalPathHome or globalPathXDG.
 //
-// An empty field means sync --global has no supported user-level surface
+// An empty field means sync --scope user has no supported user-level surface
 // of that kind.
 type globalTarget struct {
 	// instructions is the always-on context file the tool loads with no
@@ -119,7 +119,7 @@ type globalTarget struct {
 
 // globalTargets maps target name to its user-level surfaces, as
 // documented by each vendor (agents verified 2026-09-22). Only targets
-// listed here are accepted by sync --global.
+// listed here are accepted by sync --scope user.
 //
 // Absent by verdict: aider (a home instructions file reaches it only
 // through a `read:` entry in ~/.aider.conf.yml, never automatically),
@@ -133,7 +133,7 @@ var globalTargets = map[string]globalTarget{
 		skills:       globalPathHome + ".codebuddy/skills",
 		hooks:        globalPathHome + ".codebuddy/settings.json", hooksFormat: "claude", hookFoldArgs: true,
 		mcp:      globalMCPFile{path: globalPathHome + ".codebuddy/.mcp.json", format: "json", key: "mcpServers", legacy: []string{globalPathHome + ".codebuddy/mcp.json", globalPathHome + ".codebuddy.json"}, private: true},
-		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
+		settings: globalSettingsFile{path: globalPathHome + ".codebuddy/settings.json", format: "json", model: "model", effort: "reasoningEffort", effortLevel: codebuddy.Adapter{}.SettingsEffortLevels, permissionMode: "permissions.defaultMode", permissionLists: true, retention: "cleanupPeriodDays", reserved: map[string]string{"hooks": "sync --scope user writes hooks from hook specs", "permissions": "use permissions.default-mode and permission lists; sync writes individual permission entries"}},
 	},
 	"grok": {
 		rootEnv: "GROK_HOME", root: globalPathHome + ".grok",
@@ -146,7 +146,7 @@ var globalTargets = map[string]globalTarget{
 				modes: map[string]string{"hold": "hold", "tap": "toggle"},
 				notes: map[string]string{"enabled": "Grok has no dictation on/off key; /voice always works. Set x-grok.ui.voice_keybind_enabled to turn the shortcut off"},
 			},
-			reserved: map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permission": "sync --global does not write Grok user permission rules", "hooks": "sync --global writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
+			reserved: map[string]string{"mcp_servers": "sync --scope user writes MCP servers from MCP specs", "permission": "sync --scope user does not write Grok user permission rules", "hooks": "sync --scope user writes hook definitions from hook specs", "compat": "set compatibility policy by hand", "trust": "set trust by hand", "models": "use the portable model field"}},
 	},
 	"kimi": {
 		rootEnv: "KIMI_CODE_HOME", root: globalPathHome + ".kimi-code",
@@ -177,7 +177,7 @@ var globalTargets = map[string]globalTarget{
 				"mode": "Vibe has no voice capture mode setting", "language": "Vibe has no dictation language setting",
 			}},
 			reserved: map[string]string{
-				"mcp_servers":     "sync --global writes MCP entries from specs",
+				"mcp_servers":     "sync --scope user writes MCP entries from specs",
 				"trusted_folders": "trust remains with the user",
 				"default_agent":   "select the primary agent in Vibe; approvals review sets it to smart-approve",
 			},
@@ -221,8 +221,8 @@ var globalTargets = map[string]globalTarget{
 				notes: map[string]string{"language": "Claude reads the dictation language from its response language; set x-claude.language to change both"},
 			},
 			reserved: map[string]string{
-				"hooks":       "sync --global writes hooks from hook specs",
-				"permissions": "use permissions.default-mode for the user default mode; sync --global writes only the allow, ask, and deny rule lists under permissions",
+				"hooks":       "sync --scope user writes hooks from hook specs",
+				"permissions": "use permissions.default-mode for the user default mode; sync --scope user writes only the allow, ask, and deny rule lists under permissions",
 			},
 		},
 	},
@@ -240,7 +240,7 @@ var globalTargets = map[string]globalTarget{
 			path: globalPathHome + ".cursor/cli-config.json", format: "json", resolve: cursorCLIConfigPath, toolOwned: true,
 			absEnv:        []string{"CURSOR_CONFIG_DIR", "XDG_CONFIG_HOME"},
 			allowed:       map[string]string{"approvalMode": "enum:allowlist|unrestricted|auto-review"},
-			allowedReason: "sync --global writes only approvalMode to cursor-agent's cli-config.json",
+			allowedReason: "sync --scope user writes only approvalMode to cursor-agent's cli-config.json",
 		},
 		hookFoldArgs: true,
 		bridge:       true,
@@ -270,7 +270,7 @@ var globalTargets = map[string]globalTarget{
 		mcp: globalMCPFile{path: globalPathHome + ".qwen/settings.json", format: "json", key: "mcpServers"},
 		settings: globalSettingsFile{path: globalPathHome + ".qwen/settings.json", format: "json", model: "model.name", effort: "model.reasoningEffort", effortLevel: qwen.Adapter{}.SettingsEffortLevels, permissionLists: true, itemLists: []string{"mcp.excluded"},
 			voice:    &globalVoiceKeys{enabled: "general.voice.enabled", mode: "general.voice.mode", language: "general.voice.language"},
-			reserved: map[string]string{"hooks": "sync --global writes hooks from hook specs", "mcpServers": "sync --global writes MCP servers from MCP specs"}},
+			reserved: map[string]string{"hooks": "sync --scope user writes hooks from hook specs", "mcpServers": "sync --scope user writes MCP servers from MCP specs"}},
 	},
 	"gemini": {
 		rootEnv:      "GEMINI_CLI_HOME",
@@ -297,8 +297,8 @@ var globalTargets = map[string]globalTarget{
 			// default effort key, so a portable effort raises a note.
 			model: "model.name",
 			reserved: map[string]string{
-				"hooks":      "sync --global writes hooks from hook specs",
-				"mcpServers": "sync --global writes MCP servers from MCP specs",
+				"hooks":      "sync --scope user writes hooks from hook specs",
+				"mcpServers": "sync --scope user writes MCP servers from MCP specs",
 			},
 		},
 	},
@@ -318,9 +318,9 @@ var globalTargets = map[string]globalTarget{
 			retention: "general.sessionRetention.maxAge",
 			model:     "model.name", effort: "model.reasoningEffort", effortLevel: qoderUserEffortLevels,
 			reserved: map[string]string{
-				"hooks":       "sync --global writes hooks from hook specs",
-				"mcpServers":  "sync --global writes MCP servers from MCP specs",
-				"permissions": "sync --global does not write user-level permissions",
+				"hooks":       "sync --scope user writes hooks from hook specs",
+				"mcpServers":  "sync --scope user writes MCP servers from MCP specs",
+				"permissions": "sync --scope user does not write user-level permissions",
 			},
 		},
 	},
@@ -337,7 +337,7 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".copilot/settings.json", format: "json",
 			model: "model", effort: "effortLevel", effortLevel: copilot.Adapter{}.SettingsEffortLevels,
-			reserved: map[string]string{"subagents": "sync --global writes per-agent effort from agent specs"},
+			reserved: map[string]string{"subagents": "sync --scope user writes per-agent effort from agent specs"},
 		},
 	},
 	"cline": {
@@ -359,7 +359,7 @@ var globalTargets = map[string]globalTarget{
 		settings: globalSettingsFile{
 			path: globalPathHome + ".config/devin/config.json", windowsPath: globalPathAppData + "devin/config.json", format: "json", toolOwned: true,
 			allowed:       map[string]string{"permission_mode": "enum:normal|accept-edits|smart|dangerous"},
-			allowedReason: "sync --global writes only permission_mode to Devin's config.json",
+			allowedReason: "sync --scope user writes only permission_mode to Devin's config.json",
 		},
 	},
 	"amp": {
@@ -387,8 +387,8 @@ var globalTargets = map[string]globalTarget{
 				languageValid: warpVoiceLanguage,
 			},
 			allowed:       map[string]string{"agents.voice.voice_input_enabled": "bool", "agents.voice.voice_input_language": "voice-language"},
-			allowedReason: "sync --global writes only Warp's voice enabled and language keys; keep other settings in Warp",
-			reserved:      map[string]string{"mcp_servers": "sync --global writes MCP servers from MCP specs", "permissions": "sync --global does not write Warp user permission rules"},
+			allowedReason: "sync --scope user writes only Warp's voice enabled and language keys; keep other settings in Warp",
+			reserved:      map[string]string{"mcp_servers": "sync --scope user writes MCP servers from MCP specs", "permissions": "sync --scope user does not write Warp user permission rules"},
 		},
 	},
 	"opencode": {
@@ -425,8 +425,8 @@ var globalTargets = map[string]globalTarget{
 				"mode":    "Kiro CLI has no voice capture mode setting",
 			}},
 			reserved: map[string]string{
-				"hooks":      "sync --global writes hooks from hook specs",
-				"mcpServers": "sync --global writes MCP servers from MCP specs",
+				"hooks":      "sync --scope user writes hooks from hook specs",
+				"mcpServers": "sync --scope user writes MCP servers from MCP specs",
 			},
 		},
 		rootEnv:        "KIRO_HOME",
@@ -493,9 +493,9 @@ var globalTargets = map[string]globalTarget{
 			path: globalPathHome + ".augment/settings.json", format: "json",
 			model: "defaultModel", effort: "defaultThinkingLevel", effortLevel: augment.Adapter{}.SettingsEffortLevels,
 			reserved: map[string]string{
-				"hooks":           "sync --global writes hooks from hook specs",
-				"mcpServers":      "sync --global writes MCP servers from MCP specs",
-				"toolPermissions": "sync --global does not write user-level permissions",
+				"hooks":           "sync --scope user writes hooks from hook specs",
+				"mcpServers":      "sync --scope user writes MCP servers from MCP specs",
+				"toolPermissions": "sync --scope user does not write user-level permissions",
 			},
 		},
 	},
@@ -507,7 +507,7 @@ func qoderUserEffortLevels() []string {
 	return []string{"disabled", "off", "none", "low", "medium", "high", "xhigh", "max"}
 }
 
-// globalTargetNames returns every target sync --global supports, sorted.
+// globalTargetNames returns every target sync --scope user supports, sorted.
 func globalTargetNames() []string {
 	out := make([]string, 0, len(globalTargets))
 	for name := range globalTargets {
@@ -538,7 +538,7 @@ func globalKindSupport() kindSupport {
 	return support
 }
 
-// globalHookTargets keeps the targets sync --global writes hooks for,
+// globalHookTargets keeps the targets sync --scope user writes hooks for,
 // sorted.
 func globalHookTargets(targets []string) []string {
 	var out []string

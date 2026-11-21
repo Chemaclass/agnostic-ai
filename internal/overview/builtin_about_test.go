@@ -39,7 +39,7 @@ func TestBuiltinItems_ProjectHidesApprovals(t *testing.T) {
 		return slices.ContainsFunc(items, func(item SectionItem) bool { return item.Name == "approvals" })
 	}
 	if has(builtinItems(Inputs{})) {
-		t.Error("project overview offers the approvals built-in, which only sync --global writes")
+		t.Error("project overview offers the approvals built-in, which only sync --scope user writes")
 	}
 	if !has(builtinItems(Inputs{Global: true})) {
 		t.Error("global overview has no approvals built-in")

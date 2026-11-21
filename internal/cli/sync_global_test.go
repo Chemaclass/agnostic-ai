@@ -28,7 +28,7 @@ func TestSyncGlobal_WorksOutsideProjectAndPreservesNativeText(t *testing.T) {
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 	for _, path := range []string{filepath.Join(home, ".claude", "CLAUDE.md"), filepath.Join(home, ".cursor", "AGENTS.md")} {
 		data, err := os.ReadFile(path)
@@ -199,7 +199,7 @@ func TestSyncGlobal_WritesEachTargetsOwnNativePaths(t *testing.T) {
 	root := NewRootCmd("test")
 	root.SetArgs([]string{"sync", "--scope", "user"})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("sync --global: %v", err)
+		t.Fatalf("sync --scope user: %v", err)
 	}
 
 	// One representative of every shape in the table: a home-rooted

@@ -194,7 +194,7 @@ func profileEachRun(cmd *cobra.Command, path *string) {
 
 // loadProject loads config and project-scoped specs. Packs have lower
 // precedence than project specs, while .agnostic-ai/local has higher
-// precedence. User-level specs are installed only by sync --global.
+// precedence. User-level specs are installed only by sync --scope user.
 // It stops when the running binary misses the config's requires, before
 // specs load, so a spec only a newer release reads cannot fail ahead of
 // the upgrade hint.

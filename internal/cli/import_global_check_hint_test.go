@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-var importGlobalNextCommand = regexp.MustCompile("run `agnostic-ai (sync --global [^`]*)`")
+var importGlobalNextCommand = regexp.MustCompile("run `agnostic-ai (sync --scope user [^`]*)`")
 
 func importClaudeUserFiles(t *testing.T, home string) {
 	t.Helper()
@@ -24,7 +24,7 @@ func printedGlobalCommand(t *testing.T, out string) []string {
 	if match == nil {
 		t.Fatalf("no sync command in import output:\n%s", out)
 	}
-	return strings.Fields(strings.TrimPrefix(match[1], "sync --global"))
+	return strings.Fields(strings.TrimPrefix(match[1], "sync --scope user"))
 }
 
 // The command import prints as its next step must pass on the user files
@@ -37,7 +37,7 @@ func TestImportGlobal_PrintedCheckPassesRightAfterImport(t *testing.T) {
 	if err != nil {
 		t.Fatalf("import: %v\n%s", err, warnings)
 	}
-	if !strings.Contains(out, "next full `agnostic-ai sync --global` also writes the imported MCP servers") {
+	if !strings.Contains(out, "next full `agnostic-ai sync --scope user` also writes the imported MCP servers") {
 		t.Errorf("hint does not say the other tools get the imported specs:\n%s", out)
 	}
 	args := printedGlobalCommand(t, out)

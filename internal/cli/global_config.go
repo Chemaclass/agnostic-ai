@@ -92,7 +92,7 @@ func loadGlobalTargets(source string, warn io.Writer) ([]string, error) {
 			}
 		}
 		if len(skipped) > 0 {
-			if _, err := fmt.Fprintf(warn, "warning: %s: sync --global cannot write %s; skipping them\n", path, strings.Join(skipped, ", ")); err != nil {
+			if _, err := fmt.Fprintf(warn, "warning: %s: sync --scope user cannot write %s; skipping them\n", path, strings.Join(skipped, ", ")); err != nil {
 				return nil, fmt.Errorf("write global config warning: %w", err)
 			}
 		}
@@ -260,10 +260,10 @@ func loadGlobalLint(source string) (config.LintConfig, error) {
 
 // Remedies refuseGlobalHome offers besides pointing AGNOSTIC_AI_HOME away.
 const (
-	globalHomeSyncRemedy    = "run `agnostic-ai sync --global`"
-	globalHomeSpecsRemedy   = "edit its specs by hand and run `agnostic-ai sync --global`"
-	globalHomeHookRemedy    = "run `agnostic-ai install-hook --global`"
-	globalHomeMigrateRemedy = "run `agnostic-ai migrate --global`"
+	globalHomeSyncRemedy    = "run `agnostic-ai sync --scope user`"
+	globalHomeSpecsRemedy   = "edit its specs by hand and run `agnostic-ai sync --scope user`"
+	globalHomeHookRemedy    = "run `agnostic-ai install-hook --scope user`"
+	globalHomeMigrateRemedy = "run `agnostic-ai migrate --scope user`"
 )
 
 // refuseGlobalHome stops a project command in the global source root or
@@ -324,7 +324,7 @@ func isUserHome(dir os.FileInfo) bool {
 	return err == nil && os.SameFile(info, dir)
 }
 
-// unsupportedGlobalTarget rejects a target sync --global cannot write,
+// unsupportedGlobalTarget rejects a target sync --scope user cannot write,
 // suggesting the closest supported name. where leads the message.
 func unsupportedGlobalTarget(where, target string) error {
 	if _, ok := globalTargets[target]; ok {

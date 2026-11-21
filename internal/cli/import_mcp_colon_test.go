@@ -150,7 +150,7 @@ func TestImportWriteFile_RefusesAColonNameWhereItNamesAStream(t *testing.T) {
 	}
 }
 
-// One colon-named server in a home config does not stop import --global.
+// One colon-named server in a home config does not stop import --scope user.
 func TestImportGlobal_SkipsAColonMCPNameWhereItNamesAStream(t *testing.T) {
 	home, source := globalAgentTestHome(t)
 	config := filepath.Join(home, ".cursor", "mcp.json")

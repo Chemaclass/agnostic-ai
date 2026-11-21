@@ -150,7 +150,7 @@ func TestServeEditHook_GlobalSavesUnderTheGlobalSource(t *testing.T) {
 	h := newEditHandler(source, true)
 	request := hookEditBody("note-start", "session-start", "echo hi")
 	preview := hookEditPreview(t, h, request)
-	if preview.File != "hooks/note-start.yaml" || preview.SyncCommand != "agnostic-ai sync --global" {
+	if preview.File != "hooks/note-start.yaml" || preview.SyncCommand != "agnostic-ai sync --scope user" {
 		t.Errorf("global preview = %#v", preview)
 	}
 	hookEditApply(t, h, request, preview)

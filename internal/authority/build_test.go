@@ -392,7 +392,7 @@ func TestBuild_GlobalViewWritesNoPermissionRules(t *testing.T) {
 		t.Errorf("project %q, support %q", v.Snapshot.Project.Name, v.Harness.PermissionSupport)
 	}
 	op := findOp(t, v, "shell-go-test:run")
-	if op.Declared != EffectAllowed || op.Effect != EffectUnresolved || !strings.Contains(enforcementOn(t, op, "claude").Note, "sync --global writes no permission rules") {
+	if op.Declared != EffectAllowed || op.Effect != EffectUnresolved || !strings.Contains(enforcementOn(t, op, "claude").Note, "sync --scope user writes no permission rules") {
 		t.Errorf("go test = %+v", op)
 	}
 	if v.Snapshot.Evidence.Installed != InstalledNotChecked {

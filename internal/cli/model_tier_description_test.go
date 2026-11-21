@@ -175,7 +175,7 @@ func TestSyncGlobal_ListsDescribedTiersInTheManagedBlock(t *testing.T) {
 	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
 
 	if _, errOut, err := runGlobalCheck("sync"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, errOut)
+		t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 	}
 
 	for _, path := range []string{filepath.Join(home, ".claude", "CLAUDE.md"), filepath.Join(home, ".codex", "AGENTS.md")} {
@@ -193,7 +193,7 @@ func TestSyncGlobal_LocalTierReplacesItsDescription(t *testing.T) {
 	writeFile(t, filepath.Join(source, "local", "agnostic-ai.yaml"), "version: 1\nmodels:\n  strong: {claude: opus, description: for the hard parts}\n")
 
 	if _, errOut, err := runGlobalCheck("sync"); err != nil {
-		t.Fatalf("sync --global: %v\n%s", err, errOut)
+		t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 	}
 
 	got := readGlobalManaged(t, filepath.Join(home, ".claude", "CLAUDE.md"))
@@ -209,7 +209,7 @@ func TestSyncGlobal_TiersWithoutDescriptionsKeepTheManagedBlock(t *testing.T) {
 		writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "version: 1\ntargets: [claude]\n"+models)
 		writeFile(t, filepath.Join(source, "AGNOSTIC_AI.md"), "Home instructions.\n")
 		if _, errOut, err := runGlobalCheck("sync"); err != nil {
-			t.Fatalf("sync --global: %v\n%s", err, errOut)
+			t.Fatalf("sync --scope user: %v\n%s", err, errOut)
 		}
 		blocks = append(blocks, readGlobalManaged(t, filepath.Join(home, ".claude", "CLAUDE.md")))
 	}
@@ -262,10 +262,10 @@ func TestSyncGlobal_RejectsADescribedTierNamedLikeAMarker(t *testing.T) {
 	_, _, err := runGlobalCheck("sync")
 
 	if err == nil || !strings.Contains(err.Error(), "tier name") {
-		t.Errorf("sync --global error = %v, want the tier name rejected", err)
+		t.Errorf("sync --scope user error = %v, want the tier name rejected", err)
 	}
 	if _, statErr := os.Stat(filepath.Join(home, ".claude", "CLAUDE.md")); statErr == nil {
-		t.Error("sync --global wrote instructions despite the bad tier")
+		t.Error("sync --scope user wrote instructions despite the bad tier")
 	}
 }
 

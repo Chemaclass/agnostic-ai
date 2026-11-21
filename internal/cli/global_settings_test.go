@@ -274,7 +274,7 @@ func TestGlobalSettings_NotesProtectedPathsAsProjectOnly(t *testing.T) {
 	}
 	adapters.FlushCoverageNotes()
 
-	if !strings.Contains(notes.String(), "protected") || !strings.Contains(notes.String(), "sync --global") {
+	if !strings.Contains(notes.String(), "protected") || !strings.Contains(notes.String(), "sync --scope user") {
 		t.Errorf("notes = %q, want a protected note", notes.String())
 	}
 }
