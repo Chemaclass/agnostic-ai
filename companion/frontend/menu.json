@@ -3,6 +3,7 @@
   { "id": "dimWhenIdle", "label": "Dim when idle", "kind": "switch" },
   { "id": "smallCompanion", "label": "Small companion", "kind": "switch" },
   { "id": "startAtLogin", "label": "Start at login", "kind": "switch" },
+  { "id": "approveAgentSends", "label": "Ask me before an agent sends a message", "kind": "switch", "page": true, "hint": "Holds each message an agent sends until you approve it in the thread." },
   { "id": "shortcut", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
   { "id": "sendShortcut", "label": "Send copied text", "kind": "shortcut", "hint": "Change the shortcut that opens the list to send what you copied" },
   { "id": "update", "label": "Check for updates", "kind": "action", "hint": "Looks for a newer release. When one is known, updates the app and its command line tool, then restarts it." },

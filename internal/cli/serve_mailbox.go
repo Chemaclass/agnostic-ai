@@ -14,15 +14,18 @@ import (
 )
 
 const (
-	mailboxSendPath    = "/api/mailbox/send"
-	mailboxThreadsPath = "/api/mailbox/threads"
-	mailboxThreadPath  = "/api/mailbox/thread"
-	mailboxStagePath   = "/api/mailbox/stage"
-	mailboxRefsPath    = "/api/mailbox/refs"
-	mailboxClaimsPath  = "/api/mailbox/claims"
-	mailboxClaimPath   = "/api/mailbox/claim"
-	mailboxReleasePath = "/api/mailbox/release"
-	mailboxHandoffPath = "/api/mailbox/handoff"
+	mailboxSendPath     = "/api/mailbox/send"
+	mailboxThreadsPath  = "/api/mailbox/threads"
+	mailboxThreadPath   = "/api/mailbox/thread"
+	mailboxStagePath    = "/api/mailbox/stage"
+	mailboxRefsPath     = "/api/mailbox/refs"
+	mailboxClaimsPath   = "/api/mailbox/claims"
+	mailboxClaimPath    = "/api/mailbox/claim"
+	mailboxReleasePath  = "/api/mailbox/release"
+	mailboxHandoffPath  = "/api/mailbox/handoff"
+	mailboxApprovePath  = "/api/mailbox/approve"
+	mailboxQueuePath    = "/api/mailbox/queue"
+	mailboxSettingsPath = "/api/mailbox/settings"
 	// JSON escaping can grow a message well past the limit on its text.
 	maxMailboxRequestBytes = 64 << 10
 )
@@ -56,6 +59,11 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 	case mailboxClaimsPath:
 		h.readMailboxClaims(w, r, store)
 		return
+	case mailboxSettingsPath:
+		if r.Method == http.MethodGet {
+			writeEditJSON(w, http.StatusOK, store.Settings())
+			return
+		}
 	}
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
@@ -74,6 +82,12 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		h.changeMailboxClaim(w, r, store)
 	case mailboxHandoffPath:
 		h.answerMailboxHandoff(w, r, store)
+	case mailboxApprovePath:
+		approveMailboxMessage(w, r, store)
+	case mailboxQueuePath:
+		queueMailboxMessage(w, r, store)
+	case mailboxSettingsPath:
+		saveMailboxSettings(w, r, store)
 	}
 }
 
@@ -361,9 +375,60 @@ func mailboxSummary(thread mailbox.Thread, with conversations.Ref) conversations
 		if message.Type != "done" && message.State != "rejected" {
 			summary.Count++
 		}
-		if message.State == "waiting" {
+		switch message.State {
+		case mailbox.Waiting:
 			summary.Waiting++
+		case mailbox.Held:
+			summary.Held++
 		}
 	}
 	return summary
+}
+
+func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+	var req struct {
+		Thread string `json:"thread"`
+		N      int    `json:"n"`
+		Action string `json:"action"`
+	}
+	if refusal := readMailboxFields(w, r, &req, "thread", "n", "action"); refusal != nil {
+		writeMailboxError(w, refusal)
+		return
+	}
+	writeMailboxChange(w, store.Approve(r.Context(), req.Thread, req.N, req.Action))
+}
+
+func queueMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+	var req struct {
+		Thread string `json:"thread"`
+		N      int    `json:"n"`
+	}
+	if refusal := readMailboxFields(w, r, &req, "thread", "n"); refusal != nil {
+		writeMailboxError(w, refusal)
+		return
+	}
+	writeMailboxChange(w, store.Queue(r.Context(), req.Thread, req.N))
+}
+
+func saveMailboxSettings(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+	var req struct {
+		ApproveAgentSends *bool `json:"approveAgentSends"`
+	}
+	if refusal := readMailboxFields(w, r, &req, "approveAgentSends"); refusal != nil {
+		writeMailboxError(w, refusal)
+		return
+	}
+	if req.ApproveAgentSends == nil {
+		writeMailboxError(w, mailbox.NewRefusal("format"))
+		return
+	}
+	writeMailboxChange(w, store.SaveSettings(r.Context(), mailbox.Settings{ApproveAgentSends: *req.ApproveAgentSends}))
+}
+
+func writeMailboxChange(w http.ResponseWriter, err error) {
+	if err != nil {
+		writeMailboxError(w, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }

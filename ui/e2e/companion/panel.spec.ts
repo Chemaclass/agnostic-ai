@@ -2885,3 +2885,41 @@ test('in pick mode a subagent row says it pastes into its chat', async ({ page }
   await expect(pickBanner(page)).toBeVisible()
   await expect(helper).toHaveAttribute('title', 'Paste the copied text into the chat it runs in')
 })
+
+const mailboxMessage = (page: Page, text: string) => mailboxThread(page).locator('article.mailbox-message', { hasText: text })
+
+test('a held message goes out only after approval', async ({ page }) => {
+  await openPanel(page, 'mailbox-delivery')
+  await expect(mailboxSummary(page)).toContainText('2 held for you')
+  await mailboxSummary(page).click()
+  const held = mailboxMessage(page, 'May I rebase the branch?')
+  await expect(held).toContainText('Held for you')
+  await expect(held.getByRole('button', { name: 'Copy message' })).toHaveCount(0)
+  await expect(mailboxMessage(page, 'Did the parser tests pass?')).toContainText('Delivered')
+  const approve = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/approve'))
+  await held.getByRole('button', { name: 'Approve' }).click()
+  expect((await approve).postDataJSON()).toEqual({ thread: 'th_20261107_00000005', n: 4, action: 'approve' })
+  await expect(held).toContainText('Waiting')
+  await expect(held.getByRole('button', { name: 'Copy message' })).toBeVisible()
+  await expect(mailboxSummary(page)).toContainText('1 held for you')
+})
+
+test('reject shows the refusal', async ({ page }) => {
+  await openPanel(page, 'mailbox-delivery')
+  await mailboxSummary(page).click()
+  const held = mailboxMessage(page, 'Should I drop the old fixtures?')
+  await held.getByRole('button', { name: 'Reject' }).click()
+  await expect(held).toContainText('Rejected')
+  await expect(held.getByRole('button', { name: 'Approve' })).toHaveCount(0)
+  await expect(mailboxThread(page).locator('.mailbox-refusal', { hasText: 'Refused (guard: rejected)' })).toHaveCount(2)
+})
+
+test('queue for delivery puts a staged message back', async ({ page }) => {
+  await openPanel(page, 'mailbox-delivery')
+  await mailboxSummary(page).click()
+  const staged = mailboxMessage(page, 'Run them again with the race flag.')
+  await expect(staged).toContainText('Staged')
+  await staged.getByRole('button', { name: 'Queue for delivery' }).click()
+  await expect(staged).toContainText('Waiting')
+  await expect(staged.getByRole('button', { name: 'Queue for delivery' })).toHaveCount(0)
+})

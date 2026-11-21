@@ -599,8 +599,30 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadLabelOf({ count, cap, waiting }) {
-  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}`
+export function threadLabelOf({ count, cap, waiting, held }) {
+  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}${held ? `, ${held} held for you` : ''}`
+}
+
+export function messageStateLabelOf(state) {
+  return {
+    held: 'Held for you', waiting: 'Waiting', reserved: 'Delivering', delivered: 'Delivered',
+    staged: 'Staged', rejected: 'Rejected', cancelled: 'Cancelled',
+  }[state]
+}
+
+export function messageActionsOf({ state }, { status }) {
+  switch (state) {
+    case 'held':
+      return ['approve', 'reject']
+    case 'waiting':
+      return status === 'paused' ? [] : ['type', 'copy']
+    case 'reserved':
+      return status === 'open' || status === 'closing' ? ['type', 'copy'] : []
+    case 'staged':
+      return status === 'open' || status === 'closing' ? ['queue'] : []
+    default:
+      return []
+  }
 }
 
 export function threadActionsOf({ status, count, cap }) {
@@ -1073,11 +1095,12 @@ export function updateBadgeOf(update) {
  * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
  * Hide's label names the way back. The update entry shows only where the companion can update itself.
  */
-export function menuRowsOf(items, { preferences, appearance, update = { state: 'unavailable' } }, isMac = false) {
-  const values = { ...appearance, ...preferences }
+export function menuRowsOf(items, { preferences, appearance, mailbox, update = { state: 'unavailable' } }, isMac = false) {
+  const values = { ...appearance, ...preferences, ...mailbox }
   return items.filter((item) => item.id !== 'update' || update.state !== 'unavailable').map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
+    if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
     if (item.kind === 'switch') {
       if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
       value = values[item.id]

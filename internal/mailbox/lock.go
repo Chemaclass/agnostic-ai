@@ -15,6 +15,10 @@ const lockWait = time.Second
 var ErrBusy = errors.New("the mailbox is busy")
 
 func (s Store) lock(ctx context.Context) (func(), error) {
+	return s.lockWithin(ctx, lockWait)
+}
+
+func (s Store) lockWithin(ctx context.Context, wait time.Duration) (func(), error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -39,7 +43,7 @@ func (s Store) lock(ctx context.Context) (func(), error) {
 			return nil, err
 		}
 	}
-	waiting, cancel := context.WithTimeout(ctx, lockWait)
+	waiting, cancel := context.WithTimeout(ctx, wait)
 	defer cancel()
 	retry := time.NewTicker(10 * time.Millisecond)
 	defer retry.Stop()

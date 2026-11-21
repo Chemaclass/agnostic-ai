@@ -53,6 +53,8 @@ func NewRefusal(guard string) *Refusal {
 		return &Refusal{guard, "The sender needs to hold the offered paths.", "Choose a worktree and claim its paths before offering them."}
 	case "paused":
 		return &Refusal{guard, "This thread is paused.", "Resume the thread in the companion before trying again."}
+	case "rejected":
+		return &Refusal{guard, "You rejected this message.", "Send a new message if it is still needed."}
 	case "closed":
 		return &Refusal{guard, "This thread is closing or closed.", "Start a new thread to send another message."}
 	default:

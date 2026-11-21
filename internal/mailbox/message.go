@@ -23,9 +23,13 @@ const (
 	Closing = "closing"
 	Closed  = "closed"
 
-	Waiting  = "waiting"
-	Staged   = "staged"
-	Canceled = "cancelled" //nolint:misspell // mailbox/v1 uses this spelling on disk and over HTTP.
+	Held      = "held"
+	Waiting   = "waiting"
+	Reserved  = "reserved"
+	Delivered = "delivered"
+	Staged    = "staged"
+	Rejected  = "rejected"
+	Canceled  = "cancelled" //nolint:misspell // mailbox/v1 uses this spelling on disk and over HTTP.
 )
 
 const schemaVersion = "mailbox/v1"
@@ -83,19 +87,21 @@ type Actor struct {
 }
 
 type Message struct {
-	N          int                `json:"n"`
-	Type       string             `json:"type"`
-	From       Actor              `json:"from"`
-	To         conversations.Ref  `json:"to"`
-	Body       string             `json:"body,omitempty"`
-	Refs       *ReviewRefs        `json:"refs,omitempty"`
-	Gives      *Gives             `json:"gives,omitempty"`
-	Handoff    string             `json:"handoff,omitempty"`
-	AcceptedAt *time.Time         `json:"acceptedAt,omitempty"`
-	AcceptedBy *conversations.Ref `json:"acceptedBy,omitempty"`
-	State      string             `json:"state"`
-	At         time.Time          `json:"at"`
-	QueuedAt   time.Time          `json:"queuedAt"`
+	N           int                `json:"n"`
+	Type        string             `json:"type"`
+	From        Actor              `json:"from"`
+	To          conversations.Ref  `json:"to"`
+	Body        string             `json:"body,omitempty"`
+	Refs        *ReviewRefs        `json:"refs,omitempty"`
+	Gives       *Gives             `json:"gives,omitempty"`
+	Handoff     string             `json:"handoff,omitempty"`
+	AcceptedAt  *time.Time         `json:"acceptedAt,omitempty"`
+	AcceptedBy  *conversations.Ref `json:"acceptedBy,omitempty"`
+	State       string             `json:"state"`
+	At          time.Time          `json:"at"`
+	QueuedAt    time.Time          `json:"queuedAt,omitzero"`
+	ReservedAt  *time.Time         `json:"reservedAt,omitempty"`
+	DeliveredAt *time.Time         `json:"deliveredAt,omitempty"`
 }
 
 type Thread struct {
