@@ -97,8 +97,9 @@ export function confirmsCandidate(press) {
   return press.isComposing === true || press.keyCode === 229
 }
 
-export function escapeTarget({ quitConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, mailboxOpen, searching }) {
+export function escapeTarget({ quitConfirmOpen, updateConfirmOpen, deleteConfirmOpen, stopShellOpen, stopSessionOpen, rowMenuOpen, renaming, settingsOpen, picking, mailboxOpen, searching }) {
   if (quitConfirmOpen) return 'quit-confirm'
+  if (updateConfirmOpen) return 'update-confirm'
   if (deleteConfirmOpen) return 'delete-confirm'
   if (stopShellOpen) return 'stop-shell'
   if (stopSessionOpen) return 'stop-session'
@@ -1039,6 +1040,25 @@ export function updateFeed(show) {
       }
     },
   }
+}
+
+const UPDATE_STEPS = {
+  downloading: (update) => `Downloading v${update.version}…`,
+  verifying: () => 'Checking the download…',
+  restarting: () => 'Restarting…',
+}
+
+/**
+ * What the panel says about the update: {text, retry?, log?}, or undefined when there is nothing to say.
+ * A check the companion made on its own says nothing once it ends.
+ */
+export function updateMessageOf(update) {
+  if (update.result === 'unreachable') return { text: 'Could not check for updates. Check your connection and try again.' }
+  if (update.result === 'latest') return { text: `No newer version is available for this Mac. You have v${update.current}.` }
+  if (update.state === 'checking') return { text: 'Checking for updates…' }
+  if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
+  if (update.state === 'failed') return { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
+  return undefined
 }
 
 /** The settings button's name while an update is known, or undefined when there is none. */

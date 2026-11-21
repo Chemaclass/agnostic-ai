@@ -1,8 +1,8 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
+import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveDimWhenIdle, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
 import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateFeed, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -1821,7 +1821,8 @@ const MENU_ACTIONS = {
   sendShortcut: () => record('sendShortcut'),
   update: () => {
     closeMenu()
-    startUpdate().catch(sayFailure)
+    if (settings.update.state === 'available' || settings.update.state === 'failed') openUpdateConfirm()
+    else checkForUpdates().catch(sayFailure)
   },
   hide: () => hideCompanion().catch(sayFailure),
   quit: () => {
@@ -1914,9 +1915,58 @@ async function openMenu(focus) {
   if (focus) settings.controls.get(focus)?.focus()
 }
 
-/** Names the settings button after a known update, with a dot on it. */
+// Update: the question before it restarts, and each step after.
+
+const updateConfirm = document.getElementById('update-confirm')
+const updateCancel = document.getElementById('update-cancel')
+const updateStatus = document.getElementById('update-status')
+const updateText = document.getElementById('update-text')
+const updateLog = document.getElementById('update-log')
+const updateRetry = document.getElementById('update-retry')
+/** The status whose message was dismissed; a new status shows again. */
+let updateDismissed
+
+function openUpdateConfirm() {
+  document.getElementById('update-title').textContent = `Update to v${settings.update.version} and restart?`
+  updateConfirm.hidden = false
+  updateCancel.focus()
+}
+
+function closeUpdateConfirm() {
+  updateConfirm.hidden = true
+  queryInput.focus()
+}
+
+function drawUpdateStatus() {
+  const message = updateMessageOf(settings.update)
+  updateStatus.hidden = !message || JSON.stringify(settings.update) === updateDismissed
+  if (!message) return
+  updateText.textContent = message.text
+  updateLog.hidden = !message.log
+  updateLog.textContent = message.log ? `Details: ${message.log}` : ''
+  updateRetry.hidden = !message.retry
+}
+
+updateCancel.addEventListener('click', closeUpdateConfirm)
+document.getElementById('update-go').addEventListener('click', () => {
+  closeUpdateConfirm()
+  startUpdate().catch(sayFailure)
+})
+updateRetry.addEventListener('click', () => startUpdate().catch(sayFailure))
+document.getElementById('update-dismiss').addEventListener('click', () => {
+  updateDismissed = JSON.stringify(settings.update)
+  drawUpdateStatus()
+})
+document.addEventListener('mousedown', (event) => {
+  if (!updateConfirm.hidden && !updateConfirm.contains(event.target)) closeUpdateConfirm()
+})
+holdTab(updateConfirm)
+
+/** Names the settings button after a known update, with a dot on it, and says the step. */
 function showUpdate(update) {
   settings.update = update
+  if (JSON.stringify(update) !== updateDismissed) updateDismissed = undefined
+  drawUpdateStatus()
   const badge = updateBadgeOf(update)
   menuButton.setAttribute('aria-label', badge ?? 'Settings')
   menuButton.title = badge ?? 'Settings'
@@ -1965,6 +2015,7 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault()
     const closes = {
       'quit-confirm': closeQuitConfirm,
+      'update-confirm': closeUpdateConfirm,
       'delete-confirm': closeDeleteConfirm,
       'stop-shell': closeStopShell,
       'stop-session': closeStopSession,
@@ -1982,12 +2033,12 @@ document.addEventListener('keydown', (event) => {
       search: clearSearch,
       panel: () => hidePanel().catch(sayFailure),
     }
-    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined, mailboxOpen: mailbox.open, searching: queryInput.value !== '' })]()
+    closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, updateConfirmOpen: !updateConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined, mailboxOpen: mailbox.open, searching: queryInput.value !== '' })]()
     return
   }
   if (event.target.closest('.mailbox-card') || event.target.closest('.mailbox-threads')) return
   // Menus and confirmations handle Enter and Space on their own controls.
-  if (!rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !stopSessionConfirm.hidden || !quitConfirm.hidden || state.renaming) return
+  if (!rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !stopSessionConfirm.hidden || !quitConfirm.hidden || !updateConfirm.hidden || state.renaming) return
   if (togglesPick(event, isMac) && settings.recording === undefined) {
     event.preventDefault()
     togglePick()
@@ -2059,6 +2110,7 @@ function opened(from) {
   stopSessionConfirm.hidden = true
   stopSessionFor = undefined
   quitConfirm.hidden = true
+  updateConfirm.hidden = true
   state.renaming = undefined
   if (!state.returning) {
     state.activeKey = undefined
@@ -2095,6 +2147,18 @@ Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 Events.On('quit-asked', (event) => {
   opened(event.data)
   openQuitConfirm()
+})
+// Update to vX.Y.Z in the right-click menu, or a check that found one: the list opens on the question.
+Events.On('update-asked', async (event) => {
+  opened(event.data)
+  const showRead = updates.since()
+  try {
+    showRead(await readUpdate())
+  } catch (error) {
+    sayFailure(error)
+    return
+  }
+  if (settings.update.state === 'available' || settings.update.state === 'failed') openUpdateConfirm()
 })
 // Open from anywhere in the right-click menu: the list opens on its menu, ready to change the keys.
 Events.On('settings-shown', (event) => {

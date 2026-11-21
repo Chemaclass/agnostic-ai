@@ -416,24 +416,77 @@ test('the send shortcut changes on its own, and the open shortcut\'s keys are re
   expect(preferences).toMatchObject({ shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+B' })
 })
 
-test('a known update shows a badge on the settings button and an entry above Hide', async ({ page }) => {
+test('a known update shows a badge, asks in the panel, then shows the first step', async ({ page }) => {
   const reset = await page.request.post('/dev/fixture', { data: { name: 'update-available' } })
   expect(reset.ok()).toBe(true)
   await page.goto('/panel.html')
   const button = page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true })
   await expect(button).toBeVisible()
   await expect(button).toHaveAttribute('data-update', '0.97.0')
-  const updates = sent(page, '/api/update')
+  const starts = sent(page, '/api/update/start')
 
   await button.click()
   const menu = page.getByRole('region', { name: 'Settings', exact: true })
   const entry = menu.getByRole('button', { name: 'Update to v0.97.0', exact: true })
-  await expect(entry).toBeEnabled()
   await expect(menu.locator('.menu-item')).toHaveText(['Update to v0.97.0', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
   await entry.click()
 
   await expect(menu).toBeHidden()
-  expect(updates).toEqual(['/api/update'])
+  const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0 and restart?' })
+  await expect(question).toBeVisible()
+  await expect(question.getByRole('button', { name: 'Later' })).toBeFocused()
+  expect(starts).toEqual([])
+  await question.getByRole('button', { name: 'Update and restart' }).click()
+
+  await expect(question).toBeHidden()
+  await expect(page.getByRole('region', { name: 'Update' }).getByRole('status')).toHaveText('Downloading v0.97.0…')
+  expect(starts).toEqual(['/api/update/start'])
+})
+
+test('Later and Escape close the update question without updating', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-available' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const starts = sent(page, '/api/update/start')
+  const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0 and restart?' })
+  for (const close of [() => question.getByRole('button', { name: 'Later' }).click(), () => page.keyboard.press('Escape')]) {
+    await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+    await page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+    await expect(question).toBeVisible()
+    await close()
+    await expect(question).toBeHidden()
+  }
+  expect(starts).toEqual([])
+})
+
+test('a failed update names the reason and the log, and Retry starts it again', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-failed' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const status = page.getByRole('region', { name: 'Update' })
+  await expect(status.getByRole('status')).toHaveText('The update did not finish: the download did not match its checksum. Your current version is still running.')
+  await expect(status).toContainText('Details: /Users/you/Library/Application Support/agnostic-ai/companion-update.log')
+  const starts = sent(page, '/api/update/start')
+
+  await status.getByRole('button', { name: 'Retry' }).click()
+
+  await expect(status.getByRole('status')).toHaveText('Downloading v0.97.0…')
+  await expect(status.getByRole('button', { name: 'Retry' })).toBeHidden()
+  expect(starts).toEqual(['/api/update/start'])
+})
+
+test('Dismiss hides the update message until the update changes', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-failed' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const status = page.getByRole('region', { name: 'Update' })
+  await expect(status).toBeVisible()
+
+  await status.getByRole('button', { name: 'Dismiss' }).click()
+
+  await expect(status).toBeHidden()
+  await status.page().request.post('/api/update/start')
+  await expect(status.getByRole('status')).toHaveText('Downloading v0.97.0…')
 })
 
 test('a companion that cannot update itself shows no update entry and no badge', async ({ page }) => {

@@ -308,7 +308,12 @@ export const FIXTURES = {
   },
 
   mixed: { label: 'Mixed waiting and working', conversations: mixed },
-  'update-available': { label: 'A newer release for the disk image app', conversations: mixed, update: { state: 'available', version: '0.97.0' } },
+  'update-available': { label: 'A newer release for the disk image app', conversations: mixed, update: { state: 'available', version: '0.97.0', current: '0.96.0' } },
+  'update-failed': {
+    label: 'An update that failed its checksum',
+    conversations: mixed,
+    update: { state: 'failed', version: '0.97.0', current: '0.96.0', reason: 'the download did not match its checksum', log: '/Users/you/Library/Application Support/agnostic-ai/companion-update.log' },
+  },
   empty: { label: 'Empty inbox', conversations: () => [] },
   many: { label: 'Many sessions', conversations: many },
   'long-names': { label: 'Long names', conversations: longNames },

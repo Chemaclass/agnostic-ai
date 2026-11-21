@@ -94,6 +94,8 @@ const (
 	eventSendShown = "send-shown"
 	// eventUpdate says the update entry changed; its data is the new update status.
 	eventUpdate = "update"
+	// eventUpdateAsked says the panel opened on the question whether to update; its data is the corner nearest the bubble.
+	eventUpdateAsked = "update-asked"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -675,10 +677,8 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/appearance/small-companion", s.setAppearanceSwitch(s.setSmallCompanion))
 	mux.HandleFunc("GET /api/update", s.getUpdate)
-	mux.HandleFunc("POST /api/update", func(w http.ResponseWriter, _ *http.Request) {
-		s.runUpdate()
-		w.WriteHeader(http.StatusNoContent)
-	})
+	mux.HandleFunc("POST /api/update", s.checkNow)
+	mux.HandleFunc("POST /api/update/start", s.startUpdate)
 	mux.HandleFunc("POST /api/dashboard", s.dashboard)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)

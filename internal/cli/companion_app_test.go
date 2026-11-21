@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -183,5 +184,28 @@ func TestCompanionAppUpgrade_LeavesSignedBundleIntact(t *testing.T) {
 	raw, _ := os.ReadFile(path)
 	if string(raw) != "cli" {
 		t.Errorf("bundled CLI changed: %q", raw)
+	}
+}
+
+func TestCompanionUpdateApp_NamesEachStepForTheCompanion(t *testing.T) {
+	app := testDownloadableApp(t, t.TempDir())
+	tools := builtTools(t)
+	tools.rename = os.Rename
+	var out bytes.Buffer
+	tools.quit = func(context.Context, string) (bool, error) {
+		if !strings.HasSuffix(out.String(), "Restarting the companion.\n") {
+			t.Errorf("stopped the companion after %q", out.String())
+		}
+		return false, nil
+	}
+	deps := companionAppDeps{prepare: func(_ context.Context, w io.Writer, _ string, staging string) (string, error) {
+		if w.(*bytes.Buffer).String() != "Downloading agnostic-ai 2.0.0.\n" {
+			t.Errorf("prepared after %q", out.String())
+		}
+		return testDownloadableApp(t, staging), nil
+	}, start: func(string) error { return nil }}
+
+	if err := updateCompanionApp(context.Background(), &out, app, "2.0.0", tools, deps); err != nil {
+		t.Fatal(err)
 	}
 }
