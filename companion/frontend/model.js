@@ -599,6 +599,12 @@ export function senderKindOf(message) {
   return message.from?.by === 'agent' ? 'Sent by the agent' : undefined
 }
 
+/** The model label the person entered for a session, or empty: a model an agent states never counts as one. */
+export function modelLabelOf(models, ref) {
+  const model = ref ? models?.[keyOf(ref)] : undefined
+  return model?.statedBy === 'human' ? model.name : ''
+}
+
 /** The model an agent says it runs. The mailbox cannot check it. */
 export function statedModelOf(thread, message) {
   if (message.model) return `Says it runs ${message.model}`

@@ -976,3 +976,12 @@ test('says which messages an agent sent, the model it states and who answered a 
   assert.equal(handoffAnswerOf(thread, { n: 4, handoff: 'offered' }), 'Offered')
   assert.equal(handoffAnswerOf({}, { n: 1 }), undefined)
 })
+
+test('a review model label is only what the person entered, never what an agent states', async () => {
+  const { modelLabelOf } = await import('../frontend/model.js')
+  const ref = { tool: 'codex', id: 'a' }
+  assert.equal(modelLabelOf({ 'codex:a': { name: 'opus', statedBy: 'human' } }, ref), 'opus')
+  assert.equal(modelLabelOf({ 'codex:a': { name: 'gpt-5.5', statedBy: 'agent' } }, ref), '')
+  assert.equal(modelLabelOf(undefined, ref), '')
+  assert.equal(modelLabelOf({}, undefined), '')
+})

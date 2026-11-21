@@ -1,5 +1,5 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { claimCountOf, claimStatusOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, reviewModelsOf, senderKindOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
+import { claimCountOf, claimStatusOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, reviewModelsOf, senderKindOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
   approve: 'Approve',
@@ -257,8 +257,8 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     target.readOnly = Boolean(thread)
     hint.hidden = Boolean(thread)
     const models = thread ? opened?.thread?.models : undefined
-    sendingModel.value = models?.[keyOf(from)]?.name ?? ''
-    reviewingModel.value = to ? models?.[keyOf(to)]?.name ?? '' : ''
+    sendingModel.value = modelLabelOf(models, from)
+    reviewingModel.value = modelLabelOf(models, to)
     base.removeAttribute('aria-invalid')
     changeType()
     details.hidden = true
@@ -573,7 +573,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       if (message.refs) {
         const models = thread.models ?? {}
         const refs = element('div', 'mailbox-review-refs')
-        refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(models[keyOf(message.from)]?.name, models[keyOf(message.to)]?.name)))
+        refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(modelLabelOf(models, message.from), modelLabelOf(models, message.to))))
         entry.append(refs)
       }
       if (message.gives) {
