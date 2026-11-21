@@ -1371,7 +1371,8 @@ func TestConversationsHandler_SendsOnlyToWhatItScanned(t *testing.T) {
 
 	rec := postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inProject+`","text":"one\ntwo"}`, nil)
 
-	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"sent":false,"message":"It is not running, so nothing was typed. Open it to resume it, then paste with Cmd+V."}` {
+	// The paste shortcut differs by system: Cmd+V on macOS, Ctrl+Shift+V on Linux.
+	if rec.Code != http.StatusOK || !strings.HasPrefix(strings.TrimSpace(rec.Body.String()), `{"sent":false,"message":"It is not running, so nothing was typed. Open it to resume it, then paste with `) {
 		t.Errorf("send = %d %s", rec.Code, rec.Body)
 	}
 	if len(launcher.calls) != 0 {
