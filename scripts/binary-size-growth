@@ -4,5 +4,6 @@
 # A pull request that needs more sets the bytes here and says why in a comment above them.
 # #3847 adds Linux drivers for WezTerm, kitty and tmux tabs: names for Linux
 # terminal programs, kitty sockets, and the replies for a tab selected behind
-# other windows. The linux/amd64 release build grows by 45056 bytes.
-45056
+# other windows. #3848, stacked on it, adds the Konsole driver over D-Bus.
+# Together the linux/amd64 release build grows by 65536 bytes.
+65536
