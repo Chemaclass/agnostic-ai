@@ -54,7 +54,7 @@ Follow its final **Next step**. Doctor changes nothing; [`doctor --fix`](@/docs/
 
 | Symptom | Next step |
 |---|---|
-| `unknown flag: --scope` | Install a newer version; see [setup](@/docs/scoped-context.md#start-with-one-directory). |
+| `unknown flag: --dir` or `unknown flag: --scope` | Install a newer version; see [setup](@/docs/scoped-context.md#start-with-one-directory). |
 | A rule is skipped or a filter cannot be kept | Check [tool support](@/docs/scoped-context.md#native-support) and [pattern limits](@/docs/scoped-context.md#narrow-a-rule-to-certain-files). |
 | Tools sharing a file conflict, or instructions differ | Use compatible tools with the same shared content, or separate worktrees. `--only` and `prefer-spec` do not bypass [scope conflicts](@/docs/scoped-context.md#shared-files-and-safe-updates). |
 | A hand-written file has a line no spec holds | Move the quoted line into its spec, or set the file aside and sync. Follow [migration](@/docs/migration.md#keep-directory-specific-instructions). |

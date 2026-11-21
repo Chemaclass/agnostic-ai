@@ -12,9 +12,9 @@ type doctorTrustCheck struct {
 	Reason string `json:"reason"`
 }
 
-func validateDoctorScope(scope string) error {
-	if scope != "all" && scope != "project" {
-		return fmt.Errorf("unknown doctor scope %q: use all or project", scope)
+func validateDoctorChecks(checks string) error {
+	if checks != "all" && checks != "project" {
+		return fmt.Errorf("unknown doctor --checks %q: use all or project", checks)
 	}
 	return nil
 }

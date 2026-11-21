@@ -28,14 +28,14 @@ func setupDoctorProjectScope(t *testing.T) (string, string) {
 func TestDoctor_ProjectScopePassesWithoutLocalTrustAndReportsSkipped(t *testing.T) {
 	dir, home := setupDoctorProjectScope(t)
 	before := snapshotTree(t, dir)
-	text, err := runDoctor(t, "--scope", "project")
+	text, err := runDoctor(t, "--checks", "project")
 	if err != nil {
 		t.Fatalf("clean project doctor must pass without local hook trust: %v\n%s", err, text)
 	}
 	if !strings.Contains(text, "SKIPPED") || !strings.Contains(text, "Codex hook trust") || !strings.Contains(text, "project scope") {
 		t.Errorf("project doctor must identify skipped runtime trust: %s", text)
 	}
-	raw, err := runDoctor(t, "--scope", "project", "--json")
+	raw, err := runDoctor(t, "--checks", "project", "--json")
 	if err != nil {
 		t.Fatalf("clean JSON project doctor must pass: %v\n%s", err, raw)
 	}
@@ -75,7 +75,7 @@ func TestDoctor_ProjectScopeStillFailsOnDriftAndRequestedReferences(t *testing.T
 	writeFile(t, ".agnostic-ai/skills/demo/SKILL.md", "---\nname: demo\ndescription: Demo skill.\n---\nRead [missing](missing.md).\n")
 	syncProject(t)
 	for _, format := range [][]string{nil, {"--json"}} {
-		args := append([]string{"--scope", "project", "--check-references"}, format...)
+		args := append([]string{"--checks", "project", "--check-references"}, format...)
 		out, err := runDoctor(t, args...)
 		if err == nil || !strings.Contains(err.Error(), "broken skill reference") || !strings.Contains(out, "missing.md") {
 			t.Errorf("project scope must keep requested reference errors: %v\n%s", err, out)
@@ -83,7 +83,7 @@ func TestDoctor_ProjectScopeStillFailsOnDriftAndRequestedReferences(t *testing.T
 	}
 	writeFile(t, filepath.Join(dir, ".cursor/hooks.json"), "{\"edited\":true}\n")
 	for _, format := range [][]string{nil, {"--json"}} {
-		args := append([]string{"--scope", "project"}, format...)
+		args := append([]string{"--checks", "project"}, format...)
 		out, err := runDoctor(t, args...)
 		if err == nil || !strings.Contains(err.Error(), "drift") {
 			t.Errorf("project scope must keep selected Cursor drift failure: %v\n%s", err, out)
@@ -94,7 +94,7 @@ func TestDoctor_ProjectScopeStillFailsOnDriftAndRequestedReferences(t *testing.T
 func TestDoctor_ProjectScopeStillFailsOnLintErrors(t *testing.T) {
 	setupDoctorLintProject(t, map[string]string{"rules/broken.md": "---\nname: broken\n\nbody\n"})
 	for _, format := range [][]string{nil, {"--json"}} {
-		out, err := runDoctor(t, append([]string{"--scope", "project"}, format...)...)
+		out, err := runDoctor(t, append([]string{"--checks", "project"}, format...)...)
 		if err == nil || !strings.Contains(out, "LINT006") {
 			t.Errorf("project scope must retain lint errors: %v\n%s", err, out)
 		}
@@ -109,7 +109,7 @@ func TestDoctor_ProjectScopeFixRepairsDriftWithoutApprovingTrust(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeFile(t, path, "hand-edited rule\n")
-	out, err := runDoctor(t, "--scope", "project", "--fix")
+	out, err := runDoctor(t, "--checks", "project", "--fix")
 	if err != nil || !strings.Contains(out, "SKIPPED") {
 		t.Errorf("project fix must repair drift and skip trust: %v\n%s", err, out)
 	}
@@ -137,7 +137,7 @@ func TestDoctor_ProjectScopeKeepsPackagingAdvisories(t *testing.T) {
 	setupDoctorProjectScope(t)
 	writeFile(t, ".vscodeignore", ".claude/**\n.codex/**\n")
 	for _, format := range [][]string{nil, {"--json"}} {
-		out, err := runDoctor(t, append([]string{"--scope", "project"}, format...)...)
+		out, err := runDoctor(t, append([]string{"--checks", "project"}, format...)...)
 		if err != nil || !strings.Contains(out, ".vscodeignore") {
 			t.Errorf("project scope must preserve advisory packaging results: %v\n%s", err, out)
 		}
@@ -172,7 +172,7 @@ func TestDoctor_AllScopeKeepsStrictTrustClassification(t *testing.T) {
 			case "disabled":
 				writeFile(t, path, fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key))
 			}
-			for _, scope := range [][]string{nil, {"--scope", "all"}} {
+			for _, scope := range [][]string{nil, {"--checks", "all"}} {
 				for _, format := range [][]string{nil, {"--json"}} {
 					out, err := runDoctor(t, append(append([]string{}, scope...), format...)...)
 					expected := test.status
@@ -190,8 +190,44 @@ func TestDoctor_AllScopeKeepsStrictTrustClassification(t *testing.T) {
 
 func TestDoctor_ProjectScopeRejectsUnknownScopeBeforeReadingProject(t *testing.T) {
 	testutil.Chdir(t, t.TempDir())
-	out, err := runDoctor(t, "--scope", "runtime")
-	if err == nil || !strings.Contains(err.Error(), "scope") || !strings.Contains(err.Error(), "runtime") || strings.Contains(out, "Config:") {
-		t.Errorf("invalid scope must fail before diagnostics: %v\n%s", err, out)
+	out, err := runDoctor(t, "--checks", "runtime")
+	if err == nil || !strings.Contains(err.Error(), "--checks") || !strings.Contains(err.Error(), "runtime") || strings.Contains(out, "Config:") {
+		t.Errorf("invalid checks must fail before diagnostics: %v\n%s", err, out)
+	}
+}
+
+// doctor --scope chose the checks before --scope meant where specs live.
+// It still does, with a notice on stderr and the same stdout.
+func TestDoctor_ScopeStillChoosesTheChecksAndWarns(t *testing.T) {
+	setupDoctorProjectScope(t)
+	for _, value := range []string{"project", "all"} {
+		newOut, newErr, _ := runSplit(t, "doctor", "--checks", value, "--json")
+		oldOut, oldErr, _ := runSplit(t, "doctor", "--scope", value, "--json")
+		if oldOut != newOut {
+			t.Errorf("--scope %s stdout differs from --checks %s\n%s\n%s", value, value, oldOut, newOut)
+		}
+		if strings.Contains(newErr, "deprecated") {
+			t.Errorf("--checks %s warned: %q", value, newErr)
+		}
+		if strings.Count(oldErr, "deprecated") != 1 || !strings.Contains(oldErr, "--checks "+value) {
+			t.Errorf("--scope %s stderr=%q, want one notice naming --checks %s", value, oldErr, value)
+		}
+	}
+}
+
+func TestDoctor_ScopeAndChecksMustAgree(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	if _, err := runDoctor(t, "--scope", "project", "--checks", "all"); err == nil || !strings.Contains(err.Error(), "--checks") {
+		t.Errorf("conflicting --scope and --checks must fail, got %v", err)
+	}
+}
+
+func TestDoctor_HelpNamesChecksNotScope(t *testing.T) {
+	out, err := runDoctor(t, "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "--checks") || strings.Contains(out, "--scope") {
+		t.Errorf("help must list --checks and hide --scope:\n%s", out)
 	}
 }

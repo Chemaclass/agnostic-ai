@@ -38,7 +38,7 @@ globs: "src/**/*.{ts,tsx}"
 Write function components. Keep one exported component per file.
 ```
 
-A rule for one directory. Create it with `agnostic-ai new rule payments-context --scope services/payments`, or place the file at `rules/services/payments/payments-context.md`:
+A rule for one directory. Create it with `agnostic-ai new rule payments-context --dir services/payments`, or place the file at `rules/services/payments/payments-context.md`:
 
 ```markdown
 ---

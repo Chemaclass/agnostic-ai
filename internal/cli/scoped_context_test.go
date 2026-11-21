@@ -14,7 +14,7 @@ func TestNewRule_ScaffoldsDirectoryScope(t *testing.T) {
 	testutil.Chdir(t, dir)
 	silence(t)
 	cmd := NewRootCmd("test")
-	cmd.SetArgs([]string{"new", "rule", "payments", "--scope", "services/payments"})
+	cmd.SetArgs([]string{"new", "rule", "payments", "--dir", "services/payments"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -174,6 +174,81 @@ func TestScopedContext_InspectionMatchesSync(t *testing.T) {
 	for _, src := range root.Sources {
 		if src.Name == "payments" {
 			t.Fatalf("scoped source leaked into root trace: %+v", root)
+		}
+	}
+}
+
+// new --scope <dir> named a rule's directory before --scope meant where
+// specs live. A value that is not a scope still names the directory.
+func TestNewRule_ScopeWithADirectoryStillScaffoldsItAndWarns(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	_, stderr, err := runSplit(t, "new", "rule", "payments", "--scope", "services/payments")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(".agnostic-ai/rules/payments.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(body), "scope: services/payments") {
+		t.Errorf("unexpected scaffold: %s", body)
+	}
+	if strings.Count(stderr, "deprecated") != 1 || !strings.Contains(stderr, "--dir services/payments") {
+		t.Errorf("stderr=%q, want one notice naming --dir services/payments", stderr)
+	}
+}
+
+func TestNewRule_DirPrintsNoNotice(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	_, stderr, err := runSplit(t, "new", "rule", "payments", "--dir", "services/payments")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(stderr, "deprecated") {
+		t.Errorf("--dir warned: %q", stderr)
+	}
+}
+
+func TestNew_ScopeValuesAreNotDirectories(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	silence(t)
+	if _, _, err := runSplit(t, "new", "rule", "a", "--scope", "project"); err != nil {
+		t.Fatalf("--scope project: %v", err)
+	}
+	body, err := os.ReadFile(".agnostic-ai/rules/a.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(body), "scope:") {
+		t.Errorf("--scope project wrote a directory scope: %s", body)
+	}
+	for _, scope := range []string{"user", "local"} {
+		_, _, err := runSplit(t, "new", "rule", "b", "--scope", scope)
+		if err == nil || !strings.Contains(err.Error(), "--scope "+scope) {
+			t.Errorf("--scope %s: err=%v, want it refused by name", scope, err)
+		}
+		if _, statErr := os.Stat(".agnostic-ai/rules/b.md"); statErr == nil {
+			t.Errorf("--scope %s wrote a rule", scope)
+		}
+	}
+}
+
+func TestNew_DirRules(t *testing.T) {
+	dir := setupEmptyProject(t)
+	testutil.Chdir(t, dir)
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"new", "agent", "a", "--dir", "services"}, "--dir is supported only for rules"},
+		{[]string{"new", "rule", "a", "--dir", ""}, "--dir requires a project-relative subdirectory"},
+		{[]string{"new", "rule", "a", "--dir", "x", "--scope", "y"}, "--scope y"},
+	} {
+		if _, _, err := runSplit(t, tc.args...); err == nil || !strings.Contains(err.Error(), tc.want) {
+			t.Errorf("%v: err=%v, want %q", tc.args, err, tc.want)
 		}
 	}
 }

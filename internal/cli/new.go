@@ -14,6 +14,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 	"github.com/chemaclass/agnostic-ai/internal/suggest"
 )
@@ -37,7 +38,7 @@ var slugRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*$`)
 
 func newNewCmd() *cobra.Command {
 	var dryRun bool
-	var scope string
+	var scope, dir string
 	cmd := &cobra.Command{
 		Use:   "new <kind> <name>",
 		Short: "Create a spec file for any supported kind.",
@@ -70,17 +71,35 @@ func newNewCmd() *cobra.Command {
 				return err
 			}
 			kind, name := strings.ToLower(args[0]), args[1]
-			if cmd.Flags().Changed("scope") {
+			dirSet := cmd.Flags().Changed("dir")
+			if cmd.Flags().Changed(scopeFlagName) {
+				switch scope {
+				case specScopeProject:
+				case specScopeUser, specScopeLocal:
+					return fmt.Errorf("%s does not support --scope %s yet; it creates project specs", cmd.CommandPath(), scope)
+				default:
+					// Before --scope meant where a spec lives, it named
+					// a rule's directory here.
+					if dirSet {
+						return errs.Coded(errs.CodeFlagConflict, "--scope %s is the older spelling of --dir and cannot be combined with it", scope)
+					}
+					if verbosity >= levelDefault {
+						cmd.PrintErrf("warning: --scope for a rule directory is deprecated; use --dir %s\n", scope)
+					}
+					dir, dirSet = scope, true
+				}
+			}
+			if dirSet {
 				if kind != "rule" {
-					return errors.New("--scope is supported only for rules")
+					return errors.New("--dir is supported only for rules")
 				}
 				var err error
-				scope, err = spec.NormalizeScope(scope)
+				dir, err = spec.NormalizeScope(dir)
 				if err != nil {
 					return err
 				}
-				if scope == "" {
-					return errors.New("--scope requires a project-relative subdirectory")
+				if dir == "" {
+					return errors.New("--dir requires a project-relative subdirectory")
 				}
 			}
 			if !validKind(kind) {
@@ -101,8 +120,8 @@ func newNewCmd() *cobra.Command {
 				return err
 			}
 			body := newSpecTemplate(kind, name)
-			if scope != "" {
-				body = strings.Replace(body, "globs: \"**/*\"\nalwaysApply: true", yamlFrontmatterLine("scope", scope), 1)
+			if dir != "" {
+				body = strings.Replace(body, "globs: \"**/*\"\nalwaysApply: true", yamlFrontmatterLine("scope", dir), 1)
 			}
 			if _, err := os.Stat(path); err == nil {
 				return fmt.Errorf("%s already exists", path)
@@ -129,7 +148,11 @@ func newNewCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&scope, "scope", "", "Project-relative directory for a rule and its descendants.")
+	cmd.Flags().StringVar(&dir, "dir", "", "Project-relative directory for a rule and its descendants.")
+	// Hidden until new can create user and local specs. A value that is
+	// not a scope is the older spelling of --dir.
+	cmd.Flags().StringVar(&scope, scopeFlagName, specScopeProject, "Where the spec lives: project.")
+	_ = cmd.Flags().MarkHidden(scopeFlagName)
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false,
 		"Print the spec that would be scaffolded (path plus rendered frontmatter and body) without writing it.")
 	return cmd
