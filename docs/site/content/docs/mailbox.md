@@ -57,7 +57,7 @@ The local global server provides these routes to the companion. The conversation
 | `POST /api/mailbox/send` | Send `{from, to, type, body?, thread?}`. Session references hold `tool` and `id`. A target identified by ID alone must match one local session. The reply gives `{thread, n, state}`. |
 | `GET /api/mailbox/threads?tool=&id=` | Read `{threads, warning?}` for one session. |
 | `POST /api/mailbox/thread` | Send `{thread, action}` for `pause`, `resume`, `stop` or `raise-cap`. |
-| `POST /api/mailbox/stage` | Send `{thread, n, how}` with `type` or `copy`. For copy, the reply supplies `text`. After writing it to the clipboard, send the same request with `confirm: true`. |
+| `POST /api/mailbox/stage` | Send `{thread, n, how}` with `type` or `copy`. For copy, the command-line server replies with `text`. After writing it to the clipboard, send the same request with `confirm: true`. The companion performs both steps with the system clipboard. |
 
 A refused send answers HTTP 422 with `{error, guard}`. The error says what stopped it and what to do next.
 

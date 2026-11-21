@@ -809,7 +809,7 @@ function show(reply, problem) {
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
-  mailbox.viewChanged(state.view, reply?.version)
+  mailbox.viewChanged(state.view, reply?.version, reply?.mailboxNativeCopy)
   if (reply?.configRoot) {
     const location = document.getElementById('config-location')
     location.textContent = 'Configuration folder: ' + reply.configRoot

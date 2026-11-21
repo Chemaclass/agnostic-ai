@@ -73,6 +73,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   const dismiss = byId('mailbox-dismiss')
   let draft
   let opened
+  let nativeCopy = false
 
   function nameOf(ref, fallback) {
     const row = rows().find((conversation) => keyOf(conversation) === keyOf(ref))
@@ -309,10 +310,10 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     current.pending = true
     current.result = undefined
     render(current)
-    let copied = false
+    let browserCopied = false
     try {
       const id = current.summary.id
-      if (how === 'copy') {
+      if (how === 'copy' && !nativeCopy) {
         const prepared = stageMessage(id, n, 'copy').then(({ body }) => {
           if (typeof body.text !== 'string') throw new CallError(body.message || 'The message could not be prepared.')
           return body.text
@@ -323,22 +324,22 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
           if (error instanceof CallError) throw error
           throw new CallError('Could not copy the message. It is still waiting.', { cause: error })
         }
-        copied = true
-      } else {
+        browserCopied = true
+      } else if (how === 'type') {
         await hideForTyping()
       }
-      const { body, version } = await stageMessage(id, n, how, { confirm: copied })
-      current.result = body.message || (body.staged ? 'Message copied.' : 'The message is still waiting.')
+      const { body, version } = await stageMessage(id, n, how, { confirm: browserCopied })
+      current.result = body.message || (body.staged ? 'Message staged.' : 'The message is still waiting.')
       if (body.staged) {
         await afterChange(version)
-        if (copied) say(current.result)
-      } else if (how === 'type') {
-        await showAfterRefusal()
+        if (how === 'copy') say(current.result)
+      } else {
+        if (how === 'type') await showAfterRefusal()
         say(current.result, 'error')
       }
     } catch (error) {
       if (!(error instanceof CallError)) throw error
-      current.result = copied ? `Copied to the clipboard. ${refusalText(error)}` : refusalText(error)
+      current.result = browserCopied ? `Copied to the clipboard. ${refusalText(error)}` : refusalText(error)
       if (how === 'type') await showAfterRefusal()
       say(current.result, 'error')
     } finally {
@@ -347,7 +348,8 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
   }
 
-  function viewChanged(view, version) {
+  function viewChanged(view, version, mailboxNativeCopy) {
+    if (view) nativeCopy = mailboxNativeCopy === true
     warning.textContent = view?.mailboxWarning ?? ''
     warning.hidden = !warning.textContent
     if (!opened || opened.pending || opened.version === version) return

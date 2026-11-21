@@ -747,11 +747,20 @@ func main() {
 		s.app.Event.Emit(eventAppearance, looks)
 	}
 	in := s.inbox
+	// Wails creates its clipboard lazily on the first call.
+	var clipboard sync.Mutex
 	in.readClipboard = func() string {
+		clipboard.Lock()
+		defer clipboard.Unlock()
 		text, _ := s.app.Clipboard.Text()
 		return text
 	}
 	in.readClipboardHTML = clipboardHTML
+	in.writeClipboard = func(text string) bool {
+		clipboard.Lock()
+		defer clipboard.Unlock()
+		return s.app.Clipboard.SetText(text)
+	}
 	s.app = application.New(application.Options{
 		Name:        "agnostic-ai companion",
 		Description: "The AI conversations that need you, floating over every app.",

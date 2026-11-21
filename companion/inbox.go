@@ -59,6 +59,7 @@ type inbox struct {
 	// readClipboardHTML returns the copied HTML, as a browser puts it
 	// beside the text; empty when none is or the system cannot say.
 	readClipboardHTML func() string
+	writeClipboard    func(string) bool
 
 	// reading lets one read at a time run, from naming the held tag to
 	// telling changed, so an older answer never replaces a newer one.
@@ -227,15 +228,16 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 // note from the companion itself when it has one, and the version of the
 // list held when it was asked, which the list event names too.
 type inboxReply struct {
-	View       json.RawMessage `json:"view"`
-	Note       string          `json:"note,omitempty"`
-	Version    string          `json:"version,omitempty"`
-	ConfigRoot string          `json:"configRoot,omitempty"`
+	View              json.RawMessage `json:"view"`
+	Note              string          `json:"note,omitempty"`
+	Version           string          `json:"version,omitempty"`
+	ConfigRoot        string          `json:"configRoot,omitempty"`
+	MailboxNativeCopy bool            `json:"mailboxNativeCopy,omitempty"`
 }
 
 func (in *inbox) listReply(ctx context.Context, view json.RawMessage, version string) inboxReply {
 	health := in.server.runningHealth(ctx)
-	reply := inboxReply{View: view, Version: version, ConfigRoot: health.Root}
+	reply := inboxReply{View: view, Version: version, ConfigRoot: health.Root, MailboxNativeCopy: in.writeClipboard != nil}
 	if in.builtFor != "" && health.Version != "" && in.builtFor != health.Version {
 		reply.Note = "This companion was built for agnostic-ai " + in.builtFor + " and " + health.Version + " is installed. Run: agnostic-ai companion install"
 	}
@@ -323,20 +325,29 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 		}
 		wait := in.server.callWait
 		if path == serverMailboxStagePath {
+			if in.copyMailboxMessage(w, r, body) {
+				return
+			}
 			wait = in.server.sendWait
 		}
 		answer, err := in.server.callWithin(r.Context(), wait, http.MethodPost, path, body, "")
 		switch {
 		case err != nil || answer.status >= 300:
 		case path == serverMailboxStagePath && !mailboxDidStage(answer.body):
-		case r.URL.Query().Get("read") == "later":
-			in.refreshSoon()
-		case in.readAfterChange(r.Context()):
-			if version := in.version(); version != "" {
-				w.Header().Set(listVersionHeader, version)
-			}
+		default:
+			in.noteListChange(w, r)
 		}
 		in.answer(w, answer, err)
+	}
+}
+
+func (in *inbox) noteListChange(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("read") == "later" {
+		in.refreshSoon()
+	} else if in.readAfterChange(r.Context()) {
+		if version := in.version(); version != "" {
+			w.Header().Set(listVersionHeader, version)
+		}
 	}
 }
 
@@ -345,6 +356,58 @@ func mailboxDidStage(body []byte) bool {
 		Staged bool `json:"staged"`
 	}
 	return json.Unmarshal(body, &result) == nil && result.Staged
+}
+
+// The companion owns the clipboard action so the WebView need not keep
+// a clipboard permission alive across the prepare request.
+func (in *inbox) copyMailboxMessage(w http.ResponseWriter, r *http.Request, body []byte) bool {
+	var req struct {
+		Thread  string `json:"thread"`
+		N       int    `json:"n"`
+		How     string `json:"how"`
+		Confirm bool   `json:"confirm"`
+	}
+	if in.writeClipboard == nil || json.Unmarshal(body, &req) != nil || req.How != "copy" {
+		return false
+	}
+	if req.Confirm {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "Ask the companion to copy the message."})
+		return true
+	}
+
+	ctx := r.Context()
+	prepared, err := in.server.callWithin(ctx, in.server.callWait, http.MethodPost, serverMailboxStagePath, body, "")
+	if err != nil || prepared.status != http.StatusOK {
+		in.answer(w, prepared, err)
+		return true
+	}
+	var message struct {
+		Text string `json:"text"`
+	}
+	if json.Unmarshal(prepared.body, &message) != nil || message.Text == "" {
+		writeJSON(w, http.StatusBadGateway, apiError{Error: "agnostic-ai did not return a mailbox message to copy."})
+		return true
+	}
+	if ctx.Err() != nil || !in.writeClipboard(message.Text) {
+		writeJSON(w, http.StatusOK, map[string]any{"staged": false, "message": "Could not copy the message. It is still waiting."})
+		return true
+	}
+
+	req.Confirm = true
+	confirm, _ := json.Marshal(req)
+	receipt, err := in.server.callWithin(context.WithoutCancel(ctx), in.server.callWait, http.MethodPost, serverMailboxStagePath, confirm, "")
+	if err != nil || receipt.status != http.StatusOK || !mailboxDidStage(receipt.body) {
+		in.refreshSoon()
+		writeJSON(w, http.StatusOK, map[string]any{
+			"staged":  false,
+			"copied":  true,
+			"message": "The message is on the clipboard, but the mailbox could not mark it staged. Refresh the thread and check its state.",
+		})
+		return true
+	}
+	in.noteListChange(w, r)
+	in.answer(w, receipt, nil)
+	return true
 }
 
 func (in *inbox) mailboxThreads(w http.ResponseWriter, r *http.Request) {

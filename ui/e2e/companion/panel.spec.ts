@@ -877,6 +877,49 @@ test('a refused clipboard write leaves the mailbox message waiting', async ({ pa
   await expect(mailboxSummary(page)).toContainText('1 waiting')
 })
 
+test('native mailbox copy stages in one request without using the browser clipboard', async ({ page }) => {
+  await page.addInitScript(() => {
+    const refused = () => {
+      document.documentElement.dataset.browserClipboard = 'called'
+      return Promise.reject(new Error('Browser clipboard unavailable.'))
+    }
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
+      write: refused, writeText: refused,
+    } })
+  })
+  await page.route('**/api/inbox', async (route) => {
+    const response = await route.fetch()
+    await route.fulfill({ response, json: { ...(await response.json()), mailboxNativeCopy: true } })
+  })
+  const calls: unknown[] = []
+  await page.route('**/api/mailbox/stage', async (route) => {
+    const body = route.request().postDataJSON()
+    calls.push(body)
+    const response = await route.fetch({ postData: { ...body, confirm: true } })
+    await route.fulfill({ response })
+  })
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
+  await expect(mailboxThread(page)).toContainText('Question · Staged')
+  await expect(page.locator('html')).not.toHaveAttribute('data-browser-clipboard', 'called')
+  expect(calls).toEqual([{ thread: expect.any(String), n: 1, how: 'copy' }])
+})
+
+test('a mailbox typing receipt failure warns that text was already typed', async ({ page }) => {
+  await page.route('**/api/mailbox/stage', (route) => route.fulfill({ json: {
+    staged: false, typed: true, message: 'The text was typed. Check that session before trying again.',
+  } }))
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Type into session' }).click()
+  await expect(mailboxThread(page)).toContainText('The text was typed. Check that session before trying again.')
+  await expect(mailboxThread(page)).not.toContainText('Choose Copy message')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting')
+})
+
 test('an unreadable mailbox thread leaves the rest of the list available', async ({ page }) => {
   await openPanel(page, 'mailbox-warning')
   await expect(page.getByText('One mailbox thread could not be read.')).toBeVisible()
