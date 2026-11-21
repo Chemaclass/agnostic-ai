@@ -96,6 +96,46 @@ var terminalApps = []struct{ fragment, app string }{
 	{"/Zed.app/", "Zed"},
 }
 
+// terminalPrograms names the terminals outside a macOS app bundle, as
+// on Linux, by the program that holds the shell.
+var terminalPrograms = map[string]string{
+	"wezterm-gui":           "WezTerm",
+	"kitty":                 "kitty",
+	"konsole":               "Konsole",
+	"gnome-terminal-server": "GNOME Terminal",
+	"ptyxis-agent":          "Ptyxis",
+	"alacritty":             "Alacritty",
+	"foot":                  "foot",
+	"xterm":                 "xterm",
+	"tilix":                 "Tilix",
+	"xfce4-terminal":        "Xfce Terminal",
+}
+
+// programOf is the name of the program ps names, or "" for one inside a
+// macOS app bundle, whose path may hold spaces. Linux keeps the first 15
+// characters of a name, so a longer one comes back whole; tmux renames
+// its server "tmux: server".
+func programOf(command string) string {
+	if strings.Contains(command, ".app/") {
+		return ""
+	}
+	if filepath.Base(command) == "tmux" {
+		return "tmux"
+	}
+	first, _, _ := strings.Cut(command, " ")
+	program := strings.TrimSuffix(filepath.Base(first), ":")
+	if len(program) == linuxNameLength {
+		for name := range terminalPrograms {
+			if strings.HasPrefix(name, program) {
+				return name
+			}
+		}
+	}
+	return program
+}
+
+const linuxNameLength = 15
+
 const maxAncestors = 12
 
 // hostOf walks up from pid to the app that shows its terminal. ok is
@@ -123,9 +163,13 @@ func hostOf(table []ProcessInfo, pid int) (host terminalHost, ok bool) {
 				return host, true
 			}
 		}
+		if app, ok := terminalPrograms[programOf(parent.Command)]; ok {
+			host.App = app
+			return host, true
+		}
 		// The tmux server leaves the terminal that started it, so its
 		// panes have no app above them; a tmux client shows them.
-		if filepath.Base(parent.Command) == "tmux" && parent.TTY == "" {
+		if programOf(parent.Command) == "tmux" && parent.TTY == "" {
 			host.App, host.tmuxServer = "tmux", parent.PID
 			return host, true
 		}

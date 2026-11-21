@@ -118,7 +118,7 @@ func send(ctx context.Context, c Conversation, text string, source sendSource, p
 		}
 		return SendReply{Message: "Nothing to send: copy some text first."}
 	}
-	resumeTip := " Open it to resume it, then paste with Cmd+V."
+	resumeTip := " Open it to resume it, then paste with " + pasteKey() + "."
 	if composed {
 		resumeTip = copyTip
 	}
@@ -160,7 +160,7 @@ func send(ctx context.Context, c Conversation, text string, source sendSource, p
 	}
 	app, tty := placed.host.App, placed.host.TTY
 	if !holdsTerminal(processes, placed.process, tty) {
-		next := " Switch to it, then paste with Cmd+V."
+		next := " Switch to it, then paste with " + pasteKey() + "."
 		if composed {
 			next = copyTip
 		}
@@ -171,7 +171,7 @@ func send(ctx context.Context, c Conversation, text string, source sendSource, p
 		return hand("The copied text ends in white space or holds characters a send drops, and Terminal would paste them, so nothing was pasted.")
 	}
 	ok, err := launcher.TypeInTab(ctx, app, tty, text, setsClipboard)
-	byHand := " The text is on the clipboard: paste it with Cmd+V."
+	byHand := " The text is on the clipboard: paste it with " + pasteKey() + "."
 	if composed {
 		byHand = copyTip
 	}
@@ -181,9 +181,9 @@ func send(ctx context.Context, c Conversation, text string, source sendSource, p
 		if composed {
 			label = "the message"
 		}
-		pasteSet = " The clipboard now holds " + label + ": paste it with Cmd+V."
+		pasteSet = " The clipboard now holds " + label + ": paste it with " + pasteKey() + "."
 		maybeSet = " The clipboard may now hold " + label + "."
-		unknownSet = " The clipboard may now hold " + label + ": paste it with Cmd+V."
+		unknownSet = " The clipboard may now hold " + label + ": paste it with " + pasteKey() + "."
 		if composed {
 			unknownSet = maybeSet + copyTip
 		}
@@ -255,9 +255,9 @@ func holdsTerminal(processes Processes, process liveProcess, tty string) bool {
 // nothing was typed.
 func pasteByHand(ctx context.Context, c Conversation, processes Processes, launcher Launcher, why string) SendReply {
 	opened := Open(ctx, c, processes, launcher)
-	message := opened.Message + " The text is on the clipboard: paste it with Cmd+V."
+	message := opened.Message + " The text is on the clipboard: paste it with " + pasteKey() + "."
 	if opened.Opened {
-		message = "Switched to it. Paste with Cmd+V."
+		message = "Switched to it. Paste with " + pasteKey() + "."
 	}
 	if why != "" {
 		message = why + " " + message
@@ -267,4 +267,18 @@ func pasteByHand(ctx context.Context, c Conversation, processes Processes, launc
 
 func sizeOf(bytes int) string {
 	return fmt.Sprintf("%d KB", (bytes+1023)/1024)
+}
+
+// pasteKey is the shortcut that pastes in a terminal on this system.
+func pasteKey() string { return pasteKeyOn(shellSystem) }
+
+func pasteKeyOn(goos string) string {
+	switch goos {
+	case "darwin":
+		return "Cmd+V"
+	case "windows":
+		return "Ctrl+V"
+	default:
+		return "Ctrl+Shift+V"
+	}
 }

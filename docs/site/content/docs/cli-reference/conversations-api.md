@@ -170,7 +170,7 @@ Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from
 
 {% <details summary="Open details, results and status codes"> %}
 
-- For a `focus` route, `opened` is true only when the session's own tab came to the front. A running session is never started a second time.
+- For a `focus` route, `opened` is true only when the session's own tab came to the front (never for a running Linux session). None starts twice.
 - `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
 - kitty needs [remote control](@/docs/cli-reference/conversations.md#kitty-remote-control).
 - The route comes from the server's own scan, never from the request.
