@@ -2904,6 +2904,34 @@ test('a held message goes out only after approval', async ({ page }) => {
   await expect(mailboxSummary(page)).toContainText('1 held for you')
 })
 
+test('a message an agent sent shows as sent by the agent, with its stated model', async ({ page }) => {
+  await openPanel(page, 'mailbox-agent')
+  await mailboxSummary(page).click()
+  const finding = mailboxMessage(page, 'The claims file shares the store lock.')
+  await expect(finding).toContainText('Sent by the agent')
+  await expect(finding).toContainText('Says it runs gpt-5.5')
+})
+
+test('an agent message is held until approved', async ({ page }) => {
+  await openPanel(page, 'mailbox-agent')
+  await expect(mailboxSummary(page)).toContainText('1 held for you')
+  await mailboxSummary(page).click()
+  const held = mailboxMessage(page, 'May I rename the claims helper?')
+  await expect(held).toContainText('Sent by the agent')
+  await expect(held).toContainText('Held for you')
+  await expect(held.getByRole('button', { name: 'Copy message' })).toHaveCount(0)
+  await held.getByRole('button', { name: 'Approve' }).click()
+  await expect(held).toContainText('Waiting')
+})
+
+test('a handoff the agent accepted says so', async ({ page }) => {
+  await openPanel(page, 'mailbox-agent')
+  await mailboxSummary(page).click()
+  const handoff = mailboxMessage(page, 'Take the claims tests.')
+  await expect(handoff).toContainText('Accepted by the agent')
+  await expect(handoff.getByRole('button', { name: 'Accept' })).toHaveCount(0)
+})
+
 test('reject shows the refusal', async ({ page }) => {
   await openPanel(page, 'mailbox-delivery')
   await mailboxSummary(page).click()

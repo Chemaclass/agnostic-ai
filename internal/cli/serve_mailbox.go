@@ -31,10 +31,10 @@ const (
 )
 
 func (h *conversationsHandler) mailboxStore() (mailbox.Store, bool) {
-	if !h.userLevel || h.scanner.MarksPath == "" {
+	if !h.userLevel {
 		return mailbox.Store{}, false
 	}
-	return mailbox.Store{Dir: filepath.Join(filepath.Dir(h.scanner.MarksPath), "mailbox")}, true
+	return mailboxStoreAt(h.scanner.MarksPath)
 }
 
 func mailboxOriginStatus(r *http.Request) int {
@@ -156,7 +156,7 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		refuse(req, refusal)
 		return
 	}
-	source, to, refusal := h.mailboxParticipants(ctx, req)
+	source, to, refusal := mailboxParticipants(ctx, h.scanner, h.scanOptions(""), req.From, req.To, req.Thread)
 	if refusal != nil {
 		refuse(req, refusal)
 		return
@@ -174,15 +174,17 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 	writeEditJSON(w, http.StatusOK, receipt)
 }
 
-func (h *conversationsHandler) mailboxParticipants(ctx context.Context, req mailboxSendRequest) (conversations.Conversation, conversations.Ref, *mailbox.Refusal) {
-	from, to := req.From, req.To
+// mailboxParticipants is the unknown-session guard the server and the
+// command line share: both sessions must be local terminal sessions the
+// scanner lists. A bare target ID resolves to the one tool that has it.
+func mailboxParticipants(ctx context.Context, scanner *conversations.Scanner, opts conversations.ScanOptions, from, to conversations.Ref, thread string) (conversations.Conversation, conversations.Ref, *mailbox.Refusal) {
 	candidates := []conversations.Ref{to}
 	if to.Tool == "" {
 		candidates = []conversations.Ref{{Tool: conversations.ToolClaude, ID: to.ID}, {Tool: conversations.ToolCodex, ID: to.ID}}
 	}
-	found := h.scanner.FindRefs(ctx, h.scanOptions(""), append(candidates, from)...)
+	found := scanner.FindRefs(ctx, opts, append(candidates, from)...)
 	source := found[from]
-	if !canUseMailbox(source) || req.Thread == "" && source.Parent != nil {
+	if !canUseMailbox(source) || thread == "" && source.Parent != nil {
 		return conversations.Conversation{}, conversations.Ref{}, mailbox.NewRefusal("unknown-session")
 	}
 	var destination conversations.Ref

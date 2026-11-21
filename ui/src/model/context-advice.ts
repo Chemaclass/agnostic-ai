@@ -43,6 +43,7 @@ export const BUILTIN_OWNERS: Record<string, string> = {
   caveman: 'caveman',
   handoff: 'handoff',
   'cloud-handoff': 'cloud-handoff',
+  mailbox: 'mailbox',
   'side-conversation': 'side-conversation',
   'wrap-up': 'wrap-up',
 }

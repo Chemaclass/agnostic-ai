@@ -587,6 +587,25 @@ export function handoffLabelOf(status) {
   return { offered: 'Offered', accepted: 'Accepted', declined: 'Declined' }[status]
 }
 
+/** Who answered a handoff, read from its accept or decline event. */
+export function handoffAnswerOf(thread, message) {
+  const answer = { accepted: 'accept', declined: 'decline' }[message.handoff]
+  const event = (thread.events ?? []).findLast((e) => e.n === message.n && e.action === answer)
+  if (!event) return handoffLabelOf(message.handoff)
+  return `${handoffLabelOf(message.handoff)} by ${event.by === 'agent' ? 'the agent' : 'you'}`
+}
+
+export function senderKindOf(message) {
+  return message.from?.by === 'agent' ? 'Sent by the agent' : undefined
+}
+
+/** The model an agent says it runs. The mailbox cannot check it. */
+export function statedModelOf(thread, message) {
+  if (message.model) return `Says it runs ${message.model}`
+  const model = thread.models?.[keyOf(message.from)]
+  return model?.statedBy === 'agent' && model.name ? `Says it runs ${model.name}` : undefined
+}
+
 export function claimStatusOf(claim) {
   return claim.stale ? 'Stale claim' : 'Active claim'
 }

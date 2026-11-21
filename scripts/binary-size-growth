@@ -2,7 +2,7 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3848 adds the Konsole driver: it selects, names and types into a Konsole
-# tab over D-Bus, and opens a new one. The linux/amd64 release build grows by
-# 20480 bytes.
-20480
+# #3836 adds the agent mailbox commands (send, done, list, show, claim, release,
+# accept, decline), their read view and the mailbox skill.
+# The linux/amd64 release build grows by 61440 bytes.
+61440

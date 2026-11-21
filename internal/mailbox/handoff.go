@@ -19,6 +19,7 @@ type pendingTransfer struct {
 	Gives
 	IgnoreCase bool      `json:"ignoreCase,omitempty"`
 	At         time.Time `json:"at"`
+	by         string
 }
 
 func (move pendingTransfer) valid() bool {
@@ -48,8 +49,38 @@ func (s Store) handoffRefusal(owner conversations.Ref, scope Gives) (*Refusal, e
 }
 
 func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action string) error {
+	return s.answerHandoff(ctx, nil, id, n, action)
+}
+
+// AnswerHandoffFromAgent lets only the session the handoff was offered to answer it.
+func (s Store) AnswerHandoffFromAgent(ctx context.Context, actor conversations.Ref, id string, n int, action string) error {
+	if refused := ValidateRef(actor); refused != nil {
+		return refused
+	}
+	return s.answerHandoff(ctx, &actor, id, n, action)
+}
+
+func answererRefusal(thread Thread, m *Message, actor *conversations.Ref) *Refusal {
+	switch {
+	case actor == nil:
+		return nil
+	case !thread.includes(*actor):
+		return NewRefusal("not-in-thread")
+	case *actor != m.To:
+		return &Refusal{"ownership", "Only the session this handoff was offered to can answer it.", "Wait for that session to accept or decline it."}
+	case m.State != Delivered && m.State != Staged:
+		return &Refusal{"format", "This handoff has not reached this session yet.", "Answer it after it arrives with a prompt."}
+	}
+	return nil
+}
+
+func (s Store) answerHandoff(ctx context.Context, actor *conversations.Ref, id string, n int, action string) error {
 	if refused := checkStrings(id, action); refused != nil {
 		return refused
+	}
+	by := "human"
+	if actor != nil {
+		by = "agent"
 	}
 	if action != "accept" && action != "decline" {
 		return NewRefusal("format")
@@ -58,9 +89,12 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	var fold bool
 	if action == "accept" {
 		// Git runs before the lock so a slow repository does not block other mailbox calls.
-		_, offered, err := s.loadMessage(id, n)
+		thread, offered, err := s.loadMessage(id, n)
 		if err != nil {
 			return err
+		}
+		if refused := answererRefusal(thread, offered, actor); refused != nil {
+			return errors.Join(refused, s.RecordRefusal(ctx, *actor, SendRequest{Type: Handoff, Thread: id}, refused))
 		}
 		if offered.Type != Handoff || offered.Gives == nil {
 			return NewRefusal("format")
@@ -84,6 +118,9 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	if err != nil {
 		return err
 	}
+	if refused := answererRefusal(thread, message, actor); refused != nil {
+		return errors.Join(refused, s.recordRefusal(time.Now().UTC(), *actor, SendRequest{Type: Handoff, Thread: id}, refused, thread))
+	}
 	if message.Type != Handoff || message.Gives == nil {
 		return NewRefusal("format")
 	}
@@ -101,7 +138,7 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	}
 	if action == "decline" {
 		message.Handoff = Declined
-		thread.addEvent(time.Now().UTC(), "decline", n)
+		thread.addEventBy(time.Now().UTC(), by, "decline", n)
 		return s.writeThread(thread)
 	}
 	if thread.Status == Closed {
@@ -125,7 +162,7 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 		}
 		return s.recordClaimConflict(state, conflict)
 	}
-	move := pendingTransfer{Thread: id, N: n, From: from, To: to, Gives: *message.Gives, IgnoreCase: fold, At: time.Now().UTC()}
+	move := pendingTransfer{Thread: id, N: n, From: from, To: to, Gives: *message.Gives, IgnoreCase: fold, At: time.Now().UTC(), by: by}
 	return writeTransfer(state, thread, move, s.writeClaims, s.writeThread)
 }
 
@@ -203,7 +240,11 @@ func writeTransfer(state claimsFile, thread Thread, move pendingTransfer, saveCl
 	message.Handoff = Accepted
 	message.AcceptedAt = &move.At
 	message.AcceptedBy = &move.To
-	thread.addEvent(move.At, "accept", move.N)
+	by := move.by
+	if by == "" {
+		by = "human"
+	}
+	thread.addEventBy(move.At, by, "accept", move.N)
 	if err := saveThread(thread); err != nil {
 		return err
 	}

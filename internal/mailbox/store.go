@@ -21,7 +21,10 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
-const maxAudit = 500
+const (
+	maxAudit          = 500
+	maxThreadRefusals = 100
+)
 
 type Store struct {
 	Dir string
@@ -42,6 +45,9 @@ func (s Store) SendFromAgent(ctx context.Context, from conversations.Ref, req Se
 
 func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest, sourceFolder, by string) (Receipt, error) {
 	refused := ValidateSend(from, req)
+	if refused == nil {
+		refused = checkSender(req, by)
+	}
 	if refused == nil && req.To.Tool == "" {
 		refused = NewRefusal("unknown-session")
 	}
@@ -88,7 +94,7 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 
 	message := Message{
 		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: by},
-		To: req.To, Body: conversations.CleanSendText(req.Body), Refs: refs, Gives: gives,
+		To: req.To, Body: conversations.CleanSendText(req.Body), Model: req.Model, Refs: refs, Gives: gives,
 		State: Waiting, At: at, QueuedAt: at,
 	}
 	if by == "agent" && s.Settings().ApproveAgentSends {
@@ -96,7 +102,7 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 		message.QueuedAt = time.Time{}
 	}
 
-	refused = thread.checkSend(from, req)
+	refused = thread.checkSend(from, req, by)
 	if gives != nil {
 		message.Handoff = Offered
 		if refused == nil {
@@ -122,15 +128,18 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 
 	thread.Messages = append(thread.Messages, message)
 	if req.Models != nil {
-		thread.recordModel(from, req.Models.From)
-		thread.recordModel(req.To, req.Models.To)
+		thread.recordModel(from, req.Models.From, "human")
+		thread.recordModel(req.To, req.Models.To, "human")
+	}
+	if message.State == Waiting {
+		thread.recordModel(from, message.Model, "agent")
 	}
 	action := "send"
 	if message.Type == Done && message.State == Waiting {
 		thread.Status = Closing
 		action = "close"
 	}
-	thread.addEvent(at, action, message.N)
+	thread.addEventBy(at, by, action, message.N)
 	if err := s.writeThread(thread); err != nil {
 		return Receipt{}, err
 	}
@@ -200,6 +209,7 @@ func (s Store) recordRefusal(at time.Time, from conversations.Ref, req SendReque
 		record.From = &thread.Between[i]
 	}
 	thread.Refusals = append(thread.Refusals, record)
+	thread.Refusals = thread.Refusals[max(0, len(thread.Refusals)-maxThreadRefusals):]
 	return s.writeThread(thread)
 }
 

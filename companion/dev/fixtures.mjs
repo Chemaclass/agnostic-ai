@@ -324,6 +324,33 @@ export const FIXTURES = {
       }]
     },
   },
+  'mailbox-agent': {
+    label: 'Messages agents sent, one held and a handoff the agent accepted', conversations: mailboxSessions,
+    mailbox: (now) => {
+      const at = new Date(now).toISOString()
+      const agent = { ...MAILBOX_TARGET, by: 'agent' }
+      return [{
+        schemaVersion: 'mailbox/v1', id: 'th_20261107_00000006', status: 'open', cap: 8,
+        between: [MAILBOX_SOURCE, MAILBOX_TARGET],
+        models: { [`${MAILBOX_TARGET.tool}:${MAILBOX_TARGET.id}`]: { name: 'gpt-5.5', statedBy: 'agent' } },
+        messages: [
+          { n: 1, type: 'finding', from: agent, to: MAILBOX_SOURCE, body: 'The claims file shares the store lock.', state: 'delivered', at, queuedAt: at, deliveredAt: at },
+          {
+            n: 2, type: 'handoff', from: { ...MAILBOX_SOURCE, by: 'agent' }, to: MAILBOX_TARGET, body: 'Take the claims tests.',
+            gives: { worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/claims_test.go'] },
+            handoff: 'accepted', acceptedAt: at, acceptedBy: MAILBOX_TARGET, state: 'delivered', at, queuedAt: at, deliveredAt: at,
+          },
+          { n: 3, type: 'question', from: agent, to: MAILBOX_SOURCE, body: 'May I rename the claims helper?', state: 'held', at },
+        ],
+        events: [
+          { at, by: 'agent', action: 'send', n: 1 },
+          { at, by: 'agent', action: 'send', n: 2 },
+          { at, by: 'agent', action: 'accept', n: 2 },
+          { at, by: 'agent', action: 'send', n: 3 },
+        ],
+      }]
+    },
+  },
   'mailbox-warning': {
     label: 'An unreadable mailbox thread', conversations: mailboxSessions,
     mailboxWarning: 'One mailbox thread could not be read.',
