@@ -51,7 +51,7 @@ If a path is free, claim it from the handoff form before sending. An overlap nam
 
 {% <details summary="Path matching and stale claims"> %}
 
-Claims use the real worktree and resolve symlinks to the same path. New files can be claimed before they exist. A file overlaps a claimed parent folder, and a claim respects the worktree’s letter-case rules. Giving one file from a folder leaves the other files with the sender.
+Claims use the real worktree and resolve symlinks to the same path. New files can be claimed before they exist. A file overlaps a claimed parent folder. On a worktree whose file system ignores letter case, paths that differ only in case are one claim. Giving one file from a folder leaves the other files with the sender. Releasing a folder also releases your claims on files inside it. Claims in a worktree nested inside another one are not compared with the outer worktree.
 
 Closing or stopping a thread keeps its claims. Open **File claims** to find and release a stale claim whose session left the list.
 

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"golang.org/x/text/unicode/norm"
+
 	"github.com/chemaclass/agnostic-ai/internal/filealias"
 )
 
@@ -149,7 +151,8 @@ func resolveClaimPath(root, relative string) (string, error) {
 			if err != nil || !filepath.IsLocal(candidate) {
 				return "", invalidClaimPath()
 			}
-			return filepath.ToSlash(candidate), nil
+			// APFS treats NFC and NFD spellings as one file.
+			return norm.NFC.String(filepath.ToSlash(candidate)), nil
 		}
 		if !errors.Is(err, fs.ErrNotExist) || at == root {
 			return "", invalidClaimPath()

@@ -347,4 +347,72 @@ func TestClaims_HandoffCountsTowardTheCapAndRespectsPauseAndClose(t *testing.T) 
 	requireGuard(t, err, "closed")
 	requireGuard(t, s.AnswerHandoff(ctx, offer.Thread, offer.N, "accept"), "closed")
 	expectedOwner(t, s, root, "scope/a.go", claude)
+	if err := s.AnswerHandoff(ctx, offer.Thread, offer.N, "decline"); err != nil {
+		t.Fatalf("decline on a closed thread: %v", err)
+	}
+	if got := onlyThread(t, s).Messages[0].Handoff; got != Declined {
+		t.Errorf("handoff after decline = %q", got)
+	}
+}
+
+func TestClaims_CorruptClaimsFileLeavesThreadsWorking(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	sendQuestion(t, s, "")
+	if err := os.WriteFile(s.claimsPath(), []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sendQuestion(t, s, "")
+	if _, err := s.Threads(t.Context()); err != nil {
+		t.Fatalf("threads with a corrupt claims file: %v", err)
+	}
+	if _, err := s.Claims(t.Context()); err == nil {
+		t.Error("claims read a corrupt file without an error")
+	}
+}
+
+func TestClaims_PendingTransferOfAMissingThreadIsCleared(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.readClaims()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Pending = &pendingTransfer{
+		Thread: "th_20261121_7f3a9c10", N: 1, From: claude, To: codex,
+		Gives: Gives{root, []string{"scope"}}, At: time.Now().UTC(),
+	}
+	if err := s.writeClaims(state); err != nil {
+		t.Fatal(err)
+	}
+	expectedOwner(t, s, root, "scope", claude)
+	if state, err := s.readClaims(); err != nil || state.Pending != nil {
+		t.Errorf("pending after recovery = %v, %v", state.Pending, err)
+	}
+}
+
+func TestClaims_ListReadsDoNotWaitForABusyLock(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	sendQuestion(t, s, "")
+	release, err := s.lock(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer release()
+	if _, _, err := s.Snapshot(t.Context()); err != nil {
+		t.Fatalf("snapshot while the lock is held: %v", err)
+	}
+}
+
+func TestClaims_StoresUnicodePathsInOneNormalForm(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"cafe\u0301.go"}}, root); err != nil {
+		t.Fatal(err)
+	}
+	expectedOwner(t, s, root, "caf\u00e9.go", claude)
+	err := s.Claim(t.Context(), codex, Gives{root, []string{"caf\u00e9.go"}}, root)
+	requireGuard(t, err, "ownership")
 }

@@ -53,6 +53,22 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	if action != "accept" && action != "decline" {
 		return NewRefusal("format")
 	}
+	var scope Gives
+	var fold bool
+	if action == "accept" {
+		// Git runs before the lock so a slow repository does not block other mailbox calls.
+		_, offered, err := s.loadMessage(id, n)
+		if err != nil {
+			return err
+		}
+		if offered.Type != Handoff || offered.Gives == nil {
+			return NewRefusal("format")
+		}
+		scope, fold, err = normalizeClaimPaths(ctx, offered.Gives.Worktree, *offered.Gives)
+		if err != nil {
+			return err
+		}
+	}
 	release, err := s.lock(ctx)
 	if err != nil {
 		return err
@@ -62,7 +78,7 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	if err != nil {
 		return err
 	}
-	if message.Type != Handoff {
+	if message.Type != Handoff || message.Gives == nil {
 		return NewRefusal("format")
 	}
 	if action == "accept" && message.Handoff == Accepted || action == "decline" && message.Handoff == Declined {
@@ -74,19 +90,15 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 	if thread.Status == Paused {
 		return NewRefusal("paused")
 	}
-	if thread.Status == Closed {
-		return NewRefusal("closed")
-	}
 	if action == "decline" {
 		message.Handoff = Declined
 		thread.addEvent(time.Now().UTC(), "decline", n)
 		return s.writeThread(thread)
 	}
-	state, err := s.readClaims()
-	if err != nil {
-		return err
+	if thread.Status == Closed {
+		return NewRefusal("closed")
 	}
-	scope, fold, err := normalizeClaimPaths(ctx, message.Gives.Worktree, *message.Gives)
+	state, err := s.readClaims()
 	if err != nil {
 		return err
 	}
@@ -109,11 +121,17 @@ func (s Store) AnswerHandoff(ctx context.Context, id string, n int, action strin
 
 func (s Store) recoverTransfer() error {
 	state, err := s.readClaims()
+	// A corrupt claims file fails the claim operations that read it, not thread operations.
 	if err != nil || state.Pending == nil {
-		return err
+		return nil
 	}
 	move := *state.Pending
 	_, message, err := s.loadMessage(move.Thread, move.N)
+	var refused *Refusal
+	if errors.As(err, &refused) && refused.Guard == "not-in-thread" {
+		state.Pending = nil
+		return s.writeClaims(state)
+	}
 	if err != nil {
 		return fmt.Errorf("recover transfer %s message %d: %w", move.Thread, move.N, err)
 	}

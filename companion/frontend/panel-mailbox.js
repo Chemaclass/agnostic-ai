@@ -55,7 +55,7 @@ function modelComparison(fromName, toName) {
 }
 
 function pathsOf(worktree, text) {
-  return { worktree, paths: text.split(/\r?\n/).filter(Boolean) }
+  return { worktree, paths: text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) }
 }
 
 function pathDetails({ worktree, paths, except }) {

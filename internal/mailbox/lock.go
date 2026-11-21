@@ -79,6 +79,10 @@ func (s Store) lockForRead(ctx context.Context) (func(), bool, error) {
 		return nil, false, err
 	}
 	release, err := s.lock(ctx)
+	if errors.Is(err, ErrBusy) {
+		// Writes replace files atomically, so a read can go on without the lock.
+		return func() {}, true, nil
+	}
 	if err != nil {
 		return nil, false, err
 	}
