@@ -91,9 +91,8 @@ type server struct {
 	resting atomic.Bool
 	// base is the running server's address, such as
 	// http://127.0.0.1:52000; empty while none runs.
-	base string
-	// version is the agnostic-ai release the running server reports.
-	version string
+	base    string
+	health  serverHealth
 	process *exec.Cmd
 	// input is the server's standard input. The server stops when it closes.
 	input io.Closer
@@ -222,7 +221,7 @@ func (s *server) start() (string, error) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
 		if s.process == process {
-			s.base, s.version, s.process, s.input = "", "", nil, nil
+			s.base, s.health, s.process, s.input = "", serverHealth{}, nil, nil
 		}
 	}()
 
@@ -253,30 +252,35 @@ func (s *server) start() (string, error) {
 		_ = process.Process.Kill()
 		return "", fmt.Errorf("agnostic-ai serve did not listen within %s", s.startWait)
 	}
-	s.version = s.readVersion(s.base)
+	ctx, cancel := context.WithTimeout(context.Background(), s.callWait)
+	defer cancel()
+	s.health, _ = readServerHealth(ctx, s.client, s.base)
 	return s.base, nil
 }
 
-// readVersion asks the server which agnostic-ai release it is; empty when it does not say.
-func (s *server) readVersion(base string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), s.callWait)
-	defer cancel()
+type serverHealth struct {
+	OK, Global, UI bool
+	Root, Version  string
+}
+
+func readServerHealth(ctx context.Context, client *http.Client, base string) (serverHealth, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, base+"/api/health", nil)
 	if err != nil {
-		return ""
+		return serverHealth{}, err
 	}
-	response, err := s.client.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
-		return ""
+		return serverHealth{}, err
 	}
 	defer func() { _ = response.Body.Close() }()
-	var health struct {
-		Version string `json:"version"`
+	if response.StatusCode != http.StatusOK {
+		return serverHealth{}, fmt.Errorf("dashboard health: %s", response.Status)
 	}
+	var health serverHealth
 	if err := json.NewDecoder(io.LimitReader(response.Body, 4<<10)).Decode(&health); err != nil {
-		return ""
+		return serverHealth{}, err
 	}
-	return health.Version
+	return health, nil
 }
 
 // rest ends the server this companion started, if one runs, and lets no
@@ -288,14 +292,28 @@ func (s *server) rest() {
 	if s.input != nil {
 		_ = s.input.Close()
 	}
-	s.base, s.version, s.process, s.input = "", "", nil, nil
+	s.base, s.health, s.process, s.input = "", serverHealth{}, nil, nil
 }
 
-// runningVersion is the release of the server that runs now; empty when none runs.
-func (s *server) runningVersion() string {
+func (s *server) runningHealth(ctx context.Context) serverHealth {
+	s.mu.Lock()
+	health, base, process := s.health, s.base, s.process
+	s.mu.Unlock()
+	if health != (serverHealth{}) || base == "" {
+		return health
+	}
+	limited, cancel := context.WithTimeout(ctx, s.healthWait)
+	defer cancel()
+	health, err := readServerHealth(limited, s.client, base)
+	if err != nil {
+		return serverHealth{}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.version
+	if s.base == base && s.process == process {
+		s.health = health
+	}
+	return s.health
 }
 
 // reply is one answer from the server.
@@ -413,7 +431,7 @@ func (s *server) unanswered(base string, listRead bool, caller, limited context.
 	if s.process != nil && s.process.Process != nil {
 		_ = s.process.Process.Kill()
 	}
-	s.base, s.version, s.process, s.input, s.lateReads = "", "", nil, nil, 0
+	s.base, s.health, s.process, s.input, s.lateReads = "", serverHealth{}, nil, nil, 0
 	return err
 }
 

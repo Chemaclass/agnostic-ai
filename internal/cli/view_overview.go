@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -28,10 +29,11 @@ func newViewCmdWithBrowser(browser func(string) error) *cobra.Command {
 }
 
 type viewServer struct {
-	OK     bool   `json:"ok"`
-	Root   string `json:"root"`
-	Global bool   `json:"global"`
-	UI     bool   `json:"ui"`
+	OK      bool   `json:"ok"`
+	Root    string `json:"root"`
+	Global  bool   `json:"global"`
+	UI      bool   `json:"ui"`
+	Version string `json:"version,omitempty"`
 	// ProjectRoot is set by a global server started in a project.
 	ProjectRoot string `json:"projectRoot,omitempty"`
 }
@@ -124,6 +126,18 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
   agnostic-ai view --global`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			open := browser
+			companion := global && os.Getenv("AGNOSTIC_AI_COMPANION_VIEW") == "1"
+			if companion {
+				// Commands launched later from the dashboard open their own browser normally.
+				_ = os.Unsetenv("AGNOSTIC_AI_COMPANION_VIEW")
+				out := cmd.OutOrStdout()
+				cmd.SetOut(io.Discard)
+				open = func(url string) error {
+					_, err := fmt.Fprintln(out, url)
+					return err
+				}
+			}
 			if global && cmd.Flags().Changed("dir") {
 				return errs.Coded(errs.CodeFlagConflict, "--global and --dir cannot be combined")
 			}
@@ -166,6 +180,9 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 				if !sameProjectRoot(running.Root, wantRoot) || running.Global != useGlobal {
 					return fmt.Errorf("%s serves %s (global: %t); use --addr for another project or scope", addr, running.Root, running.Global)
 				}
+				if companion && running.Version != cmd.Root().Version {
+					return fmt.Errorf("%s serves agnostic-ai %s; use --addr for version %s", addr, running.Version, cmd.Root().Version)
+				}
 				if !running.UI {
 					return fmt.Errorf("%s serves %s without the web interface; stop that server or use --addr", addr, running.Root)
 				}
@@ -174,7 +191,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 			reuse := func(addr string) error {
 				url := "http://" + addr + "/"
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using agnostic-ai at %s\n", url)
-				if err := browser(url); err != nil {
+				if err := open(url); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 				return nil
@@ -200,7 +217,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 			budget := viewBusyProbeTimeout
 			var bindErr error
 			for _, candidate := range free {
-				err := serveView(cmd, browser, candidate, root, useGlobal)
+				err := serveView(cmd, open, candidate, root, useGlobal)
 				var listenErr *net.OpError
 				if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
 					return err

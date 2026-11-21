@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +15,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-func TestFindBinary_UsesBundledCommandAfterOtherLocations(t *testing.T) {
+func TestFindBinary_UsesBundledCommandBeforeOtherLocations(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", home)
@@ -39,6 +40,11 @@ func TestFindBinary_UsesBundledCommandAfterOtherLocations(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("PATH", home)
+	found, err = findBinary()
+	if err != nil || found != command {
+		t.Errorf("with an older command on PATH got %q, %v; want bundled %q", found, err, command)
+	}
+	t.Setenv("AGNOSTIC_AI_BIN", external)
 	found, err = findBinary()
 	if err != nil || found != external {
 		t.Errorf("findBinary() = %q, %v; want external %q", found, err, external)
@@ -65,10 +71,10 @@ func TestLatestCompanionRelease_OffersOnlyNewStableVersions(t *testing.T) {
 				if r.Header.Get("Accept") != "application/vnd.github+json" {
 					t.Error("missing GitHub accept header")
 				}
-				_, _ = fmt.Fprintf(w, `{"tag_name":%q,"draft":%t,"prerelease":%t}`, tc.tag, tc.draft, tc.prerelease)
+				_, _ = fmt.Fprintf(w, `{"tag_name":%q,"draft":%t,"prerelease":%t,"assets":[{"name":%q,"state":"uploaded","size":123}]}`, tc.tag, tc.draft, tc.prerelease, updateImageName())
 			}))
 			defer srv.Close()
-			got, err := latestCompanionRelease(context.Background(), srv.Client(), srv.URL, tc.current)
+			got, err := latestCompanionRelease(context.Background(), srv.Client(), srv.URL, tc.current, updateImageName())
 			if err != nil || got != tc.want {
 				t.Errorf("latest release = %q, %v; want %q", got, err, tc.want)
 			}
@@ -76,10 +82,30 @@ func TestLatestCompanionRelease_OffersOnlyNewStableVersions(t *testing.T) {
 	}
 }
 
+func TestLatestCompanionRelease_RequiresImageForThisMac(t *testing.T) {
+	const arm = "agnostic-ai-companion_darwin_arm64.dmg"
+	for _, asset := range []releaseAsset{
+		{},
+		{Name: "agnostic-ai-companion_darwin_amd64.dmg", State: "uploaded", Size: 100},
+		{Name: "agnostic-ai-companion_darwin_arm64.tar.gz", State: "uploaded", Size: 100},
+		{Name: arm, State: "starter", Size: 100},
+		{Name: arm, State: "uploaded", Size: 0},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"tag_name": "v0.96.0", "assets": []releaseAsset{asset}})
+		}))
+		got, err := latestCompanionRelease(t.Context(), srv.Client(), srv.URL, "0.95.0", arm)
+		srv.Close()
+		if err != nil || got != "" {
+			t.Errorf("with asset %+v got %q, %v; want no update", asset, got, err)
+		}
+	}
+}
+
 func TestLatestCompanionRelease_ReportsFailedChecks(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { http.Error(w, "rate limited", http.StatusForbidden) }))
 	defer srv.Close()
-	_, err := latestCompanionRelease(context.Background(), srv.Client(), srv.URL, "0.95.0")
+	_, err := latestCompanionRelease(context.Background(), srv.Client(), srv.URL, "0.95.0", "agnostic-ai-companion_darwin_arm64.dmg")
 	if err == nil || !strings.Contains(err.Error(), "403") {
 		t.Errorf("failed release check = %v", err)
 	}

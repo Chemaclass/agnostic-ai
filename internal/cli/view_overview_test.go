@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -941,5 +942,75 @@ func TestView_HealthNamesTheRootVersion(t *testing.T) {
 	}
 	if got := <-health; got != "0.92.0" {
 		t.Errorf("health version = %q, want 0.92.0", got)
+	}
+}
+
+func TestView_CompanionOpensOnlyItsOwnVersion(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("AGNOSTIC_AI_HOME", root)
+	var out bytes.Buffer
+	cmd := newViewCmdWithPorts(func(string) error {
+		t.Error("view opened a browser before the companion checked readiness")
+		return nil
+	}, func(addr string, _ time.Duration) *viewServer {
+		version := "0.96.0"
+		if addr == "127.0.0.1:4311" {
+			version = "0.97.0"
+		}
+		return &viewServer{OK: true, Root: root, Global: true, UI: true, Version: version}
+	}, []string{"127.0.0.1:4310", "127.0.0.1:4311"}, time.Now)
+	cmd.Version = "0.97.0"
+	cmd.SetOut(&out)
+	t.Setenv("AGNOSTIC_AI_COMPANION_VIEW", "1")
+	cmd.SetArgs([]string{"--global"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); got != "http://127.0.0.1:4311/\n" {
+		t.Errorf("dashboard address = %q", got)
+	}
+}
+
+func TestView_CompanionServesFreshHomeWithoutCreatingConfig(t *testing.T) {
+	home := t.TempDir()
+	source := filepath.Join(home, "my global config")
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("AGNOSTIC_AI_HOME", source)
+	t.Setenv("AGNOSTIC_AI_COMPANION_VIEW", "1")
+	t.Chdir(home)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	cmd := newViewCmdWithBrowser(func(string) error { return errors.New("the companion opens the browser") })
+	cmd.Version = "0.97.0"
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{"--global", "--addr", "127.0.0.1:0"})
+	reader, output := io.Pipe()
+	defer func() { _ = reader.Close() }()
+	cmd.SetOut(output)
+	cmd.SetErr(io.Discard)
+	done := make(chan error, 1)
+	go func() {
+		err := cmd.Execute()
+		_ = output.CloseWithError(err)
+		done <- err
+	}()
+	defer func() {
+		cancel()
+		if err := <-done; err != nil {
+			t.Errorf("view: %v", err)
+		}
+	}()
+	url, err := bufio.NewReader(reader).ReadString('\n')
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr := strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(url), "http://"), "/")
+	health := probeViewServer(addr, time.Second)
+	if health == nil || !health.Global || !health.UI || health.Version != cmd.Version || !sameProjectRoot(health.Root, source) {
+		t.Errorf("dashboard health = %+v; want version %s serving %s", health, cmd.Version, source)
+	}
+	if _, err := os.Stat(source); !os.IsNotExist(err) {
+		t.Errorf("global source was created or unreadable: %v", err)
 	}
 }

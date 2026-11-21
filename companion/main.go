@@ -662,7 +662,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/appearance/small-companion", s.setAppearanceSwitch(s.setSmallCompanion))
-	mux.HandleFunc("POST /api/dashboard", dashboard)
+	mux.HandleFunc("POST /api/dashboard", s.dashboard)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		s.hide()
@@ -799,12 +799,16 @@ func main() {
 		// The bubble is index.html: Wails serves pages only from a folder that has one.
 		URL: "/",
 	}))
+	panelURL := "/panel.html"
+	if s.appCommands != nil {
+		panelURL += "?packaged"
+	}
 	s.panel = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "panel",
 		Title:  "agnostic-ai conversations",
 		Width:  panelWidth,
 		Height: panelHeight,
-		URL:    "/panel.html",
+		URL:    panelURL,
 		Hidden: true,
 		// The page handles Escape: it first closes its menu or a rename.
 	}))

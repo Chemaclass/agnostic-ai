@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -83,7 +84,7 @@ func connected(t *testing.T, fake *fakeAgnosticAI) (*inbox, *int) {
 	srv := httptest.NewServer(fake)
 	t.Cleanup(srv.Close)
 	server := newServer()
-	server.base, server.version = srv.URL, "1.2.3"
+	server.base, server.health.Version = srv.URL, "1.2.3"
 	changes := 0
 	return newInbox(server, "1.2.3", func() { changes++ }), &changes
 }
@@ -550,5 +551,34 @@ func TestInbox_PassesStopShellAndRefreshesTheList(t *testing.T) {
 	heldAfter(t, in, "the stop", `{"posts":1}`)
 	if version := rec.Header().Get(listVersionHeader); version != `"v1"` {
 		t.Errorf("list version = %q; want v1", version)
+	}
+}
+
+func TestInbox_ShowsTheConfigurationFolderReadByTheServer(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "custom global setup")
+	var healthRequests atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/health" {
+			if healthRequests.Add(1) == 1 {
+				w.WriteHeader(http.StatusServiceUnavailable)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(serverHealth{OK: true, Global: true, Root: root})
+			return
+		}
+		_, _ = io.WriteString(w, `{"conversations":[]}`)
+	}))
+	defer srv.Close()
+	fakeCommand(t, "echo 'Serving agnostic-ai at "+srv.URL+"/'\ncat >/dev/null")
+	server := newServer()
+	defer server.rest()
+	in := newInbox(server, "", func() {})
+	status, body := getInbox(t, in, "")
+	var reply inboxReply
+	if err := json.Unmarshal([]byte(body), &reply); err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusOK || reply.ConfigRoot != root {
+		t.Errorf("inbox = %d %s, want configuration folder %q", status, body, root)
 	}
 }

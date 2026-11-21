@@ -12,6 +12,8 @@ and an upgrade of agnostic-ai is an upgrade of what the companion shows.
 
 ## Get it
 
+On macOS, you can also copy the app from the release disk image to Applications and open it in Finder. On a fresh install the panel opens while your conversations load. The app uses its bundled CLI. An explicit `AGNOSTIC_AI_BIN` in its environment overrides it.
+
 ```sh
 agnostic-ai companion install     # put it on this machine
 agnostic-ai companion             # start it
@@ -161,8 +163,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
     banner names the chat, the text flies into its row, and the list hides.
     With none or several, pick one as above. Cmd+Shift+V and the clipboard
     button never send by themselves.
-- The **home button** beside the search opens the full agnostic-ai web
-  interface, the dashboard.
+- **Dashboard** opens the full web interface when its local server is ready.
+- **Settings** shows the global configuration folder the server reads, including an `AGNOSTIC_AI_HOME` set in the app's environment.
 - **Esc**, or a click anywhere else, closes the list. While a menu or a
   rename is open, **Esc** closes that first.
 

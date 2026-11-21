@@ -18,8 +18,9 @@
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg>
         </button>
       </label>
-      <button class="dashboard" id="dashboard" type="button" aria-label="Open the dashboard" title="Open the full agnostic-ai web interface">
+      <button class="dashboard" id="dashboard" type="button" aria-label="Open the dashboard" title="Open the full dashboard and see your global configuration folder">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M2.5 7.4L8 2.8l5.5 4.6V13H9.6V9.6H6.4V13H2.5z"/></svg>
+        Dashboard
       </button>
     </header>
     <section class="approvals-bar" id="approvals-bar" aria-label="Approvals" hidden>
@@ -75,14 +76,14 @@
     </section>
     <section class="notice confirm" id="quit-confirm" role="alertdialog" aria-modal="true" aria-labelledby="quit-title" aria-describedby="quit-body" hidden>
       <p class="confirm-title" id="quit-title">Quit Agnostic AI companion?</p>
-      <p class="confirm-body" id="quit-body">Quit stops the program, so the shortcut will not bring it back. To start it again, run <code>agnostic-ai companion</code>, or ask your AI tool to run it. The shortcut works only after Hide.</p>
+      <p class="confirm-body" id="quit-body">Quit stops the program, so the shortcut will not bring it back. Open the app again, or run <code>agnostic-ai companion</code> to restart it. The shortcut works only after Hide.</p>
       <div class="notice-actions confirm-actions">
         <button class="confirm-cancel" id="quit-cancel" type="button">Cancel</button>
         <button class="confirm-cancel" id="quit-hide" type="button">Hide instead</button>
         <button class="confirm-delete" id="quit-go" type="button">Quit</button>
       </div>
     </section>
-    <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"></div>
+    <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"><p class="loading-conversations" role="status">Loading conversations…</p></div>
     <footer class="foot">
       <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
       <span class="summary" id="summary" role="status"></span>
@@ -92,6 +93,7 @@
     </footer>
     <!-- panel.js builds the rows from menu.json, which the right-click menu shows too. -->
     <section class="menu" id="menu" aria-label="Settings" hidden>
+      <p class="config-location" id="config-location" hidden></p>
       <p class="menu-problem" id="menu-problem" role="status" hidden></p>
     </section>
     <div class="menu row-menu" id="row-menu" role="menu" aria-label="Conversation" hidden>

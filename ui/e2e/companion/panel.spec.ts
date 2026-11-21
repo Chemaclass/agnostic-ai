@@ -22,6 +22,27 @@ const selected = (page: Page) => page.locator('.row[aria-selected="true"]')
 /** The --alert token, as a computed style spells it. */
 const ALERT_RED = /rgb\(255, 98, 80\)/
 
+test('the packaged panel opens once while conversations are still loading', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'empty' } })
+  let finish!: () => void
+  const loading = new Promise<void>((resolve) => { finish = resolve })
+  await page.route('**/api/inbox', async (route) => {
+    await loading
+    await route.fulfill({ json: { view: { conversations: [], needsYou: 0 }, configRoot: '/Users/test/global settings' } })
+  })
+  await page.goto('/panel.html?packaged')
+  await expect.poll(() => calledPaths(page)).toContain('/api/panel/show')
+  await expect(page.getByText('Loading conversations…')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Open the dashboard' })).toBeVisible()
+  finish()
+  await expect(page.getByText('No conversations yet')).toBeVisible()
+  await page.getByRole('button', { name: 'Settings', exact: true }).click()
+  await expect(page.getByText('Configuration folder: /Users/test/global settings')).toBeVisible()
+  await page.reload()
+  await expect(page.getByText('No conversations yet')).toBeVisible()
+  expect((await calledPaths(page)).filter((path) => path === '/api/panel/show')).toHaveLength(1)
+})
+
 test('search, select and open names the chosen conversation', async ({ page }) => {
   await openPanel(page)
   await page.getByLabel('Search every conversation').fill('login')
