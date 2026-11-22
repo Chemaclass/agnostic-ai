@@ -1812,6 +1812,7 @@ test('only Needs you offers mark all as read, and its rows do not repeat the hea
   await openPanel(page)
   await expect(markAllRead(page)).toHaveCount(1)
   await expect(groupTitle(page, 'Needs you').locator('..')).toContainText('Mark all as read')
+  await expect(markAllRead(page)).toHaveAttribute('title', 'Mark each chat shown here as read without opening it. A chat that waits on something else, such as a permission or a path conflict, stays here.')
   await expect(groupTitle(page, 'Active').locator('..')).toContainText('Mark all complete')
   await expect(groupTitle(page, 'Active').locator('..')).not.toContainText('Mark all as read')
 

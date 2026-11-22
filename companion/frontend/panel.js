@@ -782,7 +782,7 @@ function groupHead(group) {
   if (group.id === 'needs-you' && !folded) {
     const all = element('button', 'group-action', 'Mark all as read')
     all.type = 'button'
-    all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
+    all.title = 'Mark each chat shown here as read without opening it. A chat that waits on something else, such as a permission or a path conflict, stays here.'
     all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
     head.append(all)
   }
