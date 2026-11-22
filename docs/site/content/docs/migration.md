@@ -104,6 +104,22 @@ It restores the backups but never undoes spec edits; use Git for a lasting copy.
 
 After an upgrade, `agnostic-ai migrate --dry-run` shows which old spec forms it can rewrite, and `agnostic-ai migrate` applies them. See [migrate](@/docs/cli-reference/upgrades.md#migrate). The changes below need more than `migrate`.
 
+### Scope flags and layer names
+
+**Breaking change:** layer names changed in `list`, `status`, `explain --layers`, the web interface and adapter input. `project-user` is now `local`, `global` is `user`, and `global-local` is `user-local`. Update scripts that match the old names.
+
+These flags are deprecated. The old spellings still work and print a warning:
+
+| Old | New |
+|---|---|
+| `--global` | `--scope user` |
+| `new rule --scope <dir>` | `new rule --dir <dir>` |
+| `doctor --scope` | `doctor --checks` |
+
+`new rule --scope project`, `local` or `user` now picks where the spec lives, not a folder of that name. `global`, and those words in other letter case, always fail. Any other value is read as a folder only when it has a slash or names an existing folder; otherwise the command fails. Replace `--scope <folder>` with `--dir <folder>` in your scripts.
+
+See [Scopes](@/docs/scopes.md#older-names).
+
 ### Unmarked MCP literals
 
 **Breaking change:** `lint` and `sync` fail on an MCP `env` or `headers` value that is neither a `${NAME}` reference nor marked `!literal` (LINT035). Run `agnostic-ai migrate --only secrets`, then fix the values it leaves to you. See [secrets and plain settings](@/docs/spec-format/mcps.md#plain-settings).

@@ -43,6 +43,8 @@ Next: [set up your project](@/docs/getting-started.md), or [import](@/docs/migra
 
 Run `agnostic-ai upgrade`. Package-manager installs upgrade through their package manager. See [upgrade and migrate](@/docs/cli-reference/upgrades.md#upgrade) for every option.
 
+Update the companion and the CLI together, since the companion runs the CLI as its server. If you installed the companion app from the disk image, use **Check for updates** in its menu: it updates the app and its bundled CLI. For a terminal install, `agnostic-ai upgrade` updates both. After a direct Homebrew or npm upgrade, run `agnostic-ai companion install` to bring the companion to the same release. See [upgrade the companion](@/docs/cli-reference/companion.md#upgrade-the-companion).
+
 ## Pin a version or directory
 
 The install script reads two environment variables:
