@@ -327,3 +327,29 @@ func TestCompanionUpdateCache_AFailedAutomaticCheckAsksAgainAtTheNextStart(t *te
 		t.Errorf("asked %d times; want each start to ask again after a failure", asked)
 	}
 }
+
+func TestUpgradeCache_ReplacesACheckTimeFromTheFuture(t *testing.T) {
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	future := upgradeCheckCache{CheckedAt: now.Add(48 * time.Hour), Current: "0.96.0", Offer: upgradeOffer{Latest: "0.97.0"}}
+	fetch := func(string) (upgradeOffer, error) { return upgradeOffer{Latest: "0.98.0"}, nil }
+	for name, check := range map[string]func(string) error{
+		"guided": func(path string) error { _, err := cachedUpgradeOfferAt(path, "0.96.0", now, fetch); return err },
+		"companion": func(path string) error {
+			_, _, err := companionUpdateCacheAt(path, "0.96.0", now, false, false, fetch, nil)
+			return err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "update-check.json")
+			if err := writeUpgradeCache(path, future); err != nil {
+				t.Fatal(err)
+			}
+			if err := check(path); err != nil {
+				t.Fatal(err)
+			}
+			if cache := readUpgradeCache(path); !cache.CheckedAt.Equal(now) || cache.Offer.Latest != "0.98.0" {
+				t.Errorf("cache = %+v; want the check from now", cache)
+			}
+		})
+	}
+}

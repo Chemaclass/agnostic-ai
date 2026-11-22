@@ -88,7 +88,7 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 	}
 	if changed || imageChanged {
 		_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-			if changed && !stored.CheckedAt.After(cache.CheckedAt) {
+			if changed {
 				if stored.Offer.Latest != cache.Offer.Latest {
 					stored.OfferedAt = time.Time{}
 				}
@@ -142,7 +142,7 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	}
 	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
 	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-		if fetched && !stored.CheckedAt.After(cache.CheckedAt) {
+		if fetched {
 			stored.CheckedAt, stored.Current, stored.Offer = cache.CheckedAt, cache.Current, cache.Offer
 			stored.GuidedFailureAt, stored.GuidedFailureCurrent = cache.GuidedFailureAt, cache.GuidedFailureCurrent
 		}
