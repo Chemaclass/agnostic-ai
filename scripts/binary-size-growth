@@ -4,5 +4,5 @@
 # A pull request that needs more sets the bytes here and says why in a comment above them.
 # #3837 adds mailbox stats: the mailbox-stats/v1 counts, durations and their
 # plain and JSON output.
-# The linux/amd64 release build grows by 36864 bytes.
-36864
+# The linux/amd64 release build grows by 40960 bytes.
+40960
