@@ -126,7 +126,7 @@ func removeCompanionFiles(tools companionTools, dir, goos string, found bool) er
 	if err != nil {
 		return fmt.Errorf("remove the companion: %w", err)
 	}
-	for _, name := range []string{companionCommandFile, companionRevisionFile, companionSettingsFile, companionSettingsFile + ".lock"} {
+	for _, name := range []string{companionCommandFile, companionRevisionFile, companionSettingsFile, companionSettingsFile + ".lock", companionStateFile} {
 		if err := os.Remove(filepath.Join(dir, name)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("remove the companion: %w", err)
 		}

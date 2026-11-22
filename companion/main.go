@@ -964,9 +964,11 @@ func main() {
 		in.start()
 		s.armKeptWake()
 		go s.appCommands.watchUpdates(updateContext)
+		go s.watchSettings(updateContext)
 	})
 
 	err = s.app.Run()
+	s.removeState()
 	// The server also stops by itself when this process ends; this stops it sooner.
 	s.restBriefly()
 	if err != nil {

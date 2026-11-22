@@ -94,6 +94,7 @@ func (s *shell) changeCheckForUpdates(on bool) error {
 func (s *shell) preferencesChanged() {
 	s.tellPreferences(s.preferences())
 	s.refreshNative()
+	s.writeState()
 }
 
 // shortcuts takes keys away from every other app so they open the

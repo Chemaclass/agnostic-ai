@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import type { SettingKey, SettingsSyncPlan, SettingsView } from '../contract'
+import type { CompanionAppSettings, SettingKey, SettingsSyncPlan, SettingsView } from '../contract'
 import { applySync, planSync, readSettings, saveSetting, SettingsError, unlockProblem } from '../settings-api'
-import { approvalsStatus, canChange, LOCKED_HINT, MODE_CHOICES, modeConfirm, syncConfirm, syncFailure, syncResult } from '../model/user-settings'
+import { approvalsStatus, canChange, COMPANION_SWITCHES, LOCKED_HINT, MODE_CHOICES, modeConfirm, syncConfirm, syncFailure, syncResult } from '../model/user-settings'
 import { useApp } from './app-context'
 import { ConfigSwitch } from './ConfigSwitch'
 import { useServedConfig } from './Shell'
@@ -264,6 +264,48 @@ function UserSettingsPage() {
           </div>
         </>
       )}
+
+      {doc.companionApp && <CompanionApp app={doc.companionApp} busy={busy} asking={question !== undefined} save={save} />}
     </section>
+  )
+}
+
+/**
+ * The companion app's own settings. The switches save to its file, which
+ * a running companion reads again within seconds. The shortcuts and start
+ * at login belong to the running app and the system, so they show read
+ * only, and only while the companion runs.
+ */
+function CompanionApp({ app, busy, asking, save }: {
+  app: CompanionAppSettings
+  busy: boolean
+  asking: boolean
+  save: (key: SettingKey, value: boolean, expected: boolean) => Promise<void>
+}) {
+  const live = app.running ? app.live : undefined
+  return (
+    <>
+      <h3 className="user-settings-subheading">Companion</h3>
+      {app.problem && <p className="edit-error">The companion settings do not load: {app.problem}</p>}
+      {COMPANION_SWITCHES.map(({ key, label }) => (
+        <div key={key} className="user-settings-row">
+          <span>{label}</span>
+          <Toggle on={app[key]} label={label} pending={busy} disabled={asking || app.problem !== undefined} onToggle={() => void save(`companion.${key}`, !app[key], app[key])} />
+        </div>
+      ))}
+      {live
+        ? (
+            <dl className="user-settings-live">
+              <dt>Shortcut</dt>
+              <dd><kbd>{live.shortcut}</kbd>{live.shortcutProblem && <span className="muted"> {live.shortcutProblem}</span>}</dd>
+              <dt>Send shortcut</dt>
+              <dd><kbd>{live.sendShortcut}</kbd>{live.sendShortcutProblem && <span className="muted"> {live.sendShortcutProblem}</span>}</dd>
+              <dt>Start at login</dt>
+              <dd>{live.startAtLoginProblem ?? (live.startAtLogin ? 'On' : 'Off')}</dd>
+            </dl>
+          )
+        : <p className="muted">The shortcuts and start at login show here while the companion runs.</p>}
+      {live && <p className="muted">Change the shortcuts and start at login from the companion's menu.</p>}
+    </>
   )
 }

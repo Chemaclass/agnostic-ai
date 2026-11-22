@@ -1,4 +1,4 @@
-import type { ApprovalsMode, SettingKey, SettingsSyncPlan, SettingsSyncReply, SettingsView } from '../contract'
+import type { ApprovalsMode, CompanionSwitch, SettingKey, SettingsSyncPlan, SettingsSyncReply, SettingsView } from '../contract'
 
 export interface ModeChoice {
   value: ApprovalsMode
@@ -18,6 +18,7 @@ export const LOCKED_HINT = 'To change this here, run agnostic-ai view --scope us
 
 /** Whether setting key to value makes approvals less strict, which needs the session key. */
 export function loosens(key: SettingKey, value: string | boolean): boolean {
+  if (key.startsWith('companion.')) return false
   if (key === 'approvals.mode') return value !== 'ask'
   if (key === 'approvals.companion') return value === true
   return value === false
@@ -34,6 +35,14 @@ export function modeConfirm(mode: string): { title: string; body: string; go: st
   if (mode === 'yolo') return { title: 'Approve routine calls for you?', body: 'The approvals hook approves routine calls one at a time. Risky ones, such as publishing or deleting, still ask.', go: 'Turn on' }
   return undefined
 }
+
+/** The companion app switches, in the order its menu shows them. */
+export const COMPANION_SWITCHES: { key: CompanionSwitch; label: string }[] = [
+  { key: 'animate', label: 'Animate' },
+  { key: 'dimWhenIdle', label: 'Dim when idle' },
+  { key: 'smallCompanion', label: 'Small companion' },
+  { key: 'checkForUpdates', label: 'Check for updates' },
+]
 
 const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 

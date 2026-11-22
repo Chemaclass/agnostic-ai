@@ -1231,11 +1231,34 @@ export interface SettingsView {
   /** Missing when the mailbox cannot be read. */
   mailbox?: { approveAgentSends: boolean }
   sync: { needed: boolean; reasons: string[] }
+  /** The companion app's own settings; missing when its folder cannot be found. */
+  companionApp?: CompanionAppSettings
   /** Whether this request carried proof, so the loosening controls work. */
   canLoosen: boolean
 }
 
-export type SettingKey = 'approvals.mode' | 'approvals.companion' | 'mailbox.approveAgentSends'
+export interface CompanionAppSettings {
+  file: string
+  animate: boolean
+  dimWhenIdle: boolean
+  smallCompanion: boolean
+  checkForUpdates: boolean
+  /** Whether a companion runs; only then does live hold what it knows. */
+  running: boolean
+  live?: {
+    shortcut: string
+    shortcutProblem?: string
+    sendShortcut: string
+    sendShortcutProblem?: string
+    startAtLogin: boolean
+    startAtLoginProblem?: string
+  }
+  problem?: string
+}
+
+export type CompanionSwitch = 'animate' | 'dimWhenIdle' | 'smallCompanion' | 'checkForUpdates'
+
+export type SettingKey = 'approvals.mode' | 'approvals.companion' | 'mailbox.approveAgentSends' | `companion.${CompanionSwitch}`
 
 export interface SettingsWriteReply {
   settings: SettingsView

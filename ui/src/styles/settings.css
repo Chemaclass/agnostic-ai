@@ -829,6 +829,18 @@
   gap: 16px;
 }
 
+.user-settings-live {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 4px 16px;
+  margin: 0;
+}
+
+.user-settings-live dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .user-settings-status p {
   margin: 2px 0;
   color: var(--text-soft);
