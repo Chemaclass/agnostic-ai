@@ -45,6 +45,12 @@ func savedLater(stored, ours time.Time, waited time.Duration) bool {
 	return stored.After(ours) && stored.Sub(ours) <= waited
 }
 
+// wallSince is the wall clock time since started. The monotonic clock
+// stops while a Mac sleeps, and the saved times it is compared with do not.
+func wallSince(started time.Time) time.Duration {
+	return time.Now().Round(0).Sub(started.Round(0))
+}
+
 func readUpgradeCache(path string) upgradeCheckCache {
 	var cache upgradeCheckCache
 	if f, err := os.Open(path); err == nil {
@@ -98,7 +104,7 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 	var later *upgradeCheckCache
 	if changed || imageChanged {
 		_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-			late := changed && savedLater(stored.CheckedAt, cache.CheckedAt, time.Since(started))
+			late := changed && savedLater(stored.CheckedAt, cache.CheckedAt, wallSince(started))
 			if changed && !late {
 				if stored.Offer.Latest != cache.Offer.Latest {
 					stored.OfferedAt = time.Time{}
@@ -114,7 +120,7 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 			}
 		})
 	}
-	if later != nil && later.Offer.Latest != latest {
+	if later != nil && (later.Offer.Latest != latest || imageErr != nil && later.CompanionImageTag == latest) {
 		return later.Offer.Latest, later.CompanionImageTag == later.Offer.Latest && later.CompanionImage, nil
 	}
 	if imageErr != nil && !refresh && keepImageOffer && cache.CompanionImage && newerStableRelease(cache.CompanionImageTag, current) {
@@ -159,7 +165,7 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	// OfferedAt always belongs to the release stored beside it.
 	var offered upgradeOffer
 	offer := func(c *upgradeCheckCache) {
-		if newerStableRelease(c.Offer.Latest, current) && !recent(c.OfferedAt) && !savedLater(c.OfferedAt, now, time.Since(started)) {
+		if newerStableRelease(c.Offer.Latest, current) && !recent(c.OfferedAt) && !savedLater(c.OfferedAt, now, wallSince(started)) {
 			c.OfferedAt, offered = now, c.Offer
 		}
 	}
@@ -167,7 +173,7 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
 	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
 		read = true
-		if fetched && !savedLater(stored.CheckedAt, cache.CheckedAt, time.Since(started)) {
+		if fetched && !savedLater(stored.CheckedAt, cache.CheckedAt, wallSince(started)) {
 			if stored.Offer.Latest != cache.Offer.Latest {
 				stored.OfferedAt = time.Time{}
 			}

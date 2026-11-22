@@ -443,3 +443,20 @@ func TestUpgradeCache_TheGuidedOfferTimeNamesTheReleaseItOffered(t *testing.T) {
 		t.Errorf("cache = %+v; want the other offer and its time kept", cache)
 	}
 }
+
+func TestUpgradeCache_TheCompanionCheckUsesTheImageALaterCheckFoundWhenItsOwnFails(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	fetch := func(string) (upgradeOffer, error) {
+		if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(time.Nanosecond), Offer: upgradeOffer{Latest: "0.98.0"}, CompanionImageTag: "0.98.0", CompanionImage: true}); err != nil {
+			t.Fatal(err)
+		}
+		return upgradeOffer{Latest: "0.98.0"}, nil
+	}
+
+	latest, image, err := companionUpdateCacheAt(path, "0.96.0", now, false, false, fetch, func(string) (bool, error) { return false, errors.New("offline") })
+
+	if err != nil || latest != "0.98.0" || !image {
+		t.Errorf("answer = %q, %t, %v; want the image the later check found", latest, image, err)
+	}
+}
