@@ -123,6 +123,7 @@ Each command detects the session it runs in and uses it as the sender. That dete
 		newMailboxAnswerCmd("accept"),
 		newMailboxAnswerCmd("decline"),
 		newMailboxRefsCmd(),
+		newMailboxStatsCmd(),
 	)
 	return cmd
 }

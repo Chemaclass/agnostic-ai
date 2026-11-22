@@ -2,7 +2,7 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3836 adds the agent mailbox commands (send, done, list, show, claim, release,
-# accept, decline), their read view and the mailbox skill.
-# The linux/amd64 release build grows by 61440 bytes.
-61440
+# #3837 adds mailbox stats: the mailbox-stats/v1 counts, durations and their
+# plain and JSON output.
+# The linux/amd64 release build grows by 40960 bytes.
+40960

@@ -43,6 +43,7 @@ agnostic-ai doctor
 | Start a linked conversation in a new tab | [conversations start](@/docs/cli-reference/conversations.md#conversations-start) |
 | Let an agent message another session | [mailbox send](@/docs/cli-reference/mailbox.md#mailbox-send), [done](@/docs/cli-reference/mailbox.md#mailbox-done), [list and show](@/docs/cli-reference/mailbox.md#mailbox-list-and-show), [claim and release](@/docs/cli-reference/mailbox.md#mailbox-claim-and-release), [accept and decline](@/docs/cli-reference/mailbox.md#mailbox-accept-and-decline) |
 | Preview the Git references for a code review | [mailbox refs](@/docs/cli-reference/mailbox.md#mailbox-refs) |
+| Count what the mailbox recorded | [mailbox stats](@/docs/cli-reference/mailbox.md#mailbox-stats) |
 | List each MCP server's tools for the overview | [mcp tools](@/docs/cli-reference/inspect.md#mcp-tools) |
 | Restore or remove generated files | [revert](@/docs/cli-reference/maintain.md#revert), [cleanup](@/docs/cli-reference/maintain.md#cleanup) |
 | Share specs | [packs](@/docs/cli-reference/maintain.md#packs) |

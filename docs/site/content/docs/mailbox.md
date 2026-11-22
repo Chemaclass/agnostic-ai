@@ -103,6 +103,10 @@ The command finds the session it runs in from its parent processes and the tool'
 
 The guards keep cooperating sessions to the supported mailbox actions. Read a held message before you approve it.
 
+## Count what happened
+
+`agnostic-ai mailbox stats` prints counts and durations from the mailbox: refusals by guard, time from queued to delivered, your approvals and other actions, handoff conflicts, and how many review requests went to a different model. It holds no message text. See [mailbox stats](@/docs/cli-reference/mailbox.md#mailbox-stats) for each key.
+
 ## Manage a thread
 
 | Action | What happens |

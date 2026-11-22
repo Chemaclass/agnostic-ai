@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	maxAudit          = 500
+	// MaxAudit is how many refusals without a thread audit.json keeps.
+	MaxAudit          = 500
 	maxThreadRefusals = 100
 )
 
@@ -231,7 +232,7 @@ func (s Store) recordAudit(at time.Time, from conversations.Ref, req SendRequest
 		At: at, Guard: NewRefusal(refused.Guard).Guard, Type: knownType(req.Type),
 		From: knownTool(from.Tool), To: knownTool(req.To.Tool),
 	})
-	return writeJSON(path, audit[max(0, len(audit)-maxAudit):])
+	return writeJSON(path, audit[max(0, len(audit)-MaxAudit):])
 }
 
 func (s Store) Threads(ctx context.Context) (ThreadList, error) {
