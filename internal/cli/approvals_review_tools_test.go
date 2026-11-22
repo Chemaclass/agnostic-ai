@@ -270,7 +270,7 @@ func TestApprovalsStatus_DevinDangerousApprovesEverything(t *testing.T) {
 	home := approvalsUserHome(t)
 	t.Setenv("DEVIN_PERMISSION_MODE", "")
 	writeHomeApprovals(t, filepath.Join(home, ".agnostic-ai"), "targets: [windsurf]\napprovals:\n  mode: review\n")
-	writeFile(t, filepath.Join(home, ".config", "devin", "config.json"), "{\"permission_mode\": \"dangerous\"}\n")
+	writeFile(t, devinConfigPath(home), "{\"permission_mode\": \"dangerous\"}\n")
 
 	devin := toolStatus(t, approvalsStatusJSON(t), "windsurf")
 
@@ -282,7 +282,7 @@ func TestApprovalsStatus_DevinDangerousApprovesEverything(t *testing.T) {
 func TestSyncUser_ApprovalsReviewReplacesDevinNull(t *testing.T) {
 	home, source := userAgentTestHome(t)
 	t.Setenv("DEVIN_PERMISSION_MODE", "")
-	path := filepath.Join(home, ".config", "devin", "config.json")
+	path := devinConfigPath(home)
 	writeFile(t, path, "{\n  \"permission_mode\": null,\n  \"theme_mode\": \"dark\"\n}\n")
 	writeHomeApprovals(t, source, "approvals:\n  tools:\n    windsurf: review\n")
 
@@ -304,10 +304,15 @@ func TestSyncUser_ApprovalsReviewReplacesDevinNull(t *testing.T) {
 
 func TestImportUser_SkipsAToolOwnedSettingsFile(t *testing.T) {
 	home, _ := userAgentTestHome(t)
-	writeFile(t, filepath.Join(home, ".config", "devin", "config.json"), "{ broken")
+	writeFile(t, devinConfigPath(home), "{ broken")
 	writeFile(t, cursorCLIConfigPath(home), "{ broken")
 
 	if _, stderr, err := runImportUserTest("windsurf", "cursor"); err != nil && strings.Contains(err.Error(), "parse") {
 		t.Fatalf("import read a file it takes nothing from: %v\n%s", err, stderr)
 	}
+}
+
+func devinConfigPath(home string) string {
+	g := userTargets["windsurf"]
+	return g.path(home, g.settings.path)
 }

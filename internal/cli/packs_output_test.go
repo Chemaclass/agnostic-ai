@@ -36,7 +36,7 @@ func TestPacksAdd_SaysReinstalledForAnInstalledPack(t *testing.T) {
 func TestPacksAdd_AMissingFolderNamesTheErrorOnce(t *testing.T) {
 	root := testutil.TempCwd(t)
 	err := runPacksAdd(root, "./nope", "", &bytes.Buffer{})
-	if err == nil || strings.Count(err.Error(), "stat") != 1 {
+	if err == nil || strings.Count(err.Error(), "nope") != 1 {
 		t.Errorf("add ./nope: %v", err)
 	}
 }

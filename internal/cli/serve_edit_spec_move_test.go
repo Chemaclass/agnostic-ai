@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -475,7 +476,7 @@ func TestSpecMove_CopiesTheSharedScriptsAHookRuns(t *testing.T) {
 		t.Errorf("target script = %q", got)
 	}
 	info, err := os.Stat(filepath.Join(userLevel, "scripts", "guard-push.sh"))
-	if err != nil || info.Mode().Perm()&0o100 == 0 {
+	if err != nil || runtime.GOOS != "windows" && info.Mode().Perm()&0o100 == 0 {
 		t.Errorf("script lost its run bit: %v %v", info, err)
 	}
 	if _, err := os.Stat(filepath.Join(userLevel, "scripts", "other.sh")); !os.IsNotExist(err) {
