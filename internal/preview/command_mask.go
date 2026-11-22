@@ -22,31 +22,33 @@ var (
 // before the command. shown keeps each flag with Redacted for its value;
 // rest drops the flag and value, so a credential check reads the rest of
 // the command without finding the flag's name. A reference such as
-// $DB_PASSWORD stays. words are separated by single spaces.
+// $DB_PASSWORD stays, and a value it cannot read whole, such as one with
+// a backslash or text glued after its closing quote, is left for the
+// check to withhold. words are separated by single spaces.
 func MaskCommandPasswords(line string) (shown, rest string) {
 	words := strings.Split(line, " ")
 	var out, kept []string
 	program := ""
 	for i := 0; i < len(words); i++ {
 		word := words[i]
-		at, offset, found := -1, 0, false
+		found := noPassword
 		switch {
 		case commandSeparators[word]:
 			program = ""
 		case program == "":
 			if name, _, ok := strings.Cut(word, "="); ok && passwordEnvNames[name] {
-				at, offset, found = i, len(name)+1, true
+				found = passwordAt{at: i, offset: len(name) + 1}
 			} else if !shellAssignment.MatchString(word) && !commandWrappers[word] && !strings.HasPrefix(word, "-") {
 				program = filepath.Base(word)
 			}
 		case mysqlClient(program):
-			at, offset, found = mysqlPasswordAt(words, i)
+			found = mysqlPasswordAt(words, i)
 		case program == "sshpass":
 			switch {
 			case word == "-p":
-				at, found = i+1, true
+				found = passwordAt{at: i + 1, anyValue: true}
 			case strings.HasPrefix(word, "-p"):
-				at, offset, found = i, 2, true
+				found = passwordAt{at: i, offset: 2}
 			case word == "-f" || word == "-d" || word == "-P":
 				out, kept = append(out, word), append(kept, word)
 				i++
@@ -58,12 +60,14 @@ func MaskCommandPasswords(line string) (shown, rest string) {
 				program = filepath.Base(word)
 			}
 		case program == "curl" || program == "curl.exe":
-			at, offset, found = curlPasswordAt(words, i)
+			found = curlPasswordAt(words, i)
 		}
-		if end, offset, after, ok := passwordSpan(words, at, offset, found); ok {
-			out = append(out, words[i:at]...)
-			out = append(out, words[at][:offset]+Redacted+after)
-			if after = strings.TrimLeft(after, `'"`); after != "" {
+		if end, offset, after, ok := passwordSpan(words, found); ok {
+			out = append(out, words[i:found.at]...)
+			out = append(out, words[found.at][:offset]+Redacted+after)
+			if found.keep {
+				kept = append(kept, words[found.at:end+1]...)
+			} else if after = strings.TrimLeft(after, `'"`); after != "" {
 				kept = append(kept, after)
 			}
 			i = end
@@ -77,87 +81,118 @@ func MaskCommandPasswords(line string) (shown, rest string) {
 	return strings.Join(out, " "), strings.Join(kept, " ")
 }
 
+// passwordAt is where a password may start: words[at][offset:]. at is
+// -1 when there is none. anyValue lets it start with `-`, and keep leaves
+// the value in rest, as a word the command may read as something else.
+type passwordAt struct {
+	at, offset     int
+	anyValue, keep bool
+}
+
+var noPassword = passwordAt{at: -1}
+
 // mysqlPasswordAt finds a MySQL client's password at words[i]: glued to
-// -p or --password=, or the next word after a bare -p or --password.
-func mysqlPasswordAt(words []string, i int) (at, offset int, found bool) {
+// -p or --password=, or the next word after --password. The word after a
+// bare -p is the database to the client, but often a password typed by
+// mistake: it is masked and still checked.
+func mysqlPasswordAt(words []string, i int) passwordAt {
 	word := words[i]
 	switch {
-	case word == "-p" || word == "--password":
-		return i + 1, 0, true
+	case word == "-p":
+		return passwordAt{at: i + 1, keep: true}
+	case word == "--password":
+		return passwordAt{at: i + 1}
 	case strings.HasPrefix(word, "--password="):
-		return i, len("--password="), true
+		return passwordAt{at: i, offset: len("--password=")}
 	case strings.HasPrefix(word, "-p"):
-		return i, 2, true
+		return passwordAt{at: i, offset: 2}
 	}
-	return 0, 0, false
+	return noPassword
 }
 
 // curlPasswordAt finds the password after the first `:` of a curl user
 // option's value. A user with no `:` makes curl ask for the password.
-func curlPasswordAt(words []string, i int) (at, offset int, found bool) {
+func curlPasswordAt(words []string, i int) passwordAt {
 	offset, glued, ok := curlUserAt(words[i])
 	if !ok {
-		return 0, 0, false
+		return noPassword
 	}
-	at = i
+	at := i
 	if !glued {
 		at, offset = i+1, 0
 	}
 	if at >= len(words) {
-		return 0, 0, false
+		return noPassword
 	}
 	colon := strings.Index(words[at][offset:], ":")
 	if colon < 0 {
-		return 0, 0, false
+		return noPassword
 	}
-	return at, offset + colon + 1, true
+	return passwordAt{at: at, offset: offset + colon + 1}
 }
 
-// passwordSpan reads the password starting at words[at][offset:]: to its
-// closing quote, across words, when it or its option value opens with
-// one, else to the end
-// of the word or a shell separator. end is the last word it covers,
-// offset moves past an opening quote, and after is the text that follows
-// the password in the last word. A missing value, an option, a separator
-// or a reference is no password.
-func passwordSpan(words []string, at, offset int, found bool) (end, start int, after string, ok bool) {
-	if !found || at >= len(words) {
+// closingQuote is a closing quote with only shell separators after it.
+var closingQuote = regexp.MustCompile(`^['"][;&|)]*$`)
+
+// passwordSpan reads the password at p: to its closing quote, across
+// words, when it or its option value opens with one, else to the end of
+// the word or a shell separator. end is the last word it covers, start
+// moves past an opening quote, and after is the text that follows the
+// password in the last word. A missing value, an option, a separator, a
+// reference or command substitution, or a value it cannot read whole is
+// no password.
+func passwordSpan(words []string, p passwordAt) (end, start int, after string, ok bool) {
+	if p.at < 0 || p.at >= len(words) {
 		return 0, 0, "", false
 	}
-	value := words[at][offset:]
-	if value == "" || commandSeparators[value] || offset == 0 && strings.HasPrefix(value, "-") {
+	offset := p.offset
+	value := words[p.at][offset:]
+	if value == "" || commandSeparators[value] || !p.anyValue && p.offset == 0 && strings.HasPrefix(value, "-") || notLiteral(value) {
 		return 0, 0, "", false
 	}
 	quote := byte(0)
 	switch {
 	case value[0] == '\'' || value[0] == '"':
 		quote, offset, value = value[0], offset+1, value[1:]
-	case strings.Count(words[at][:offset], "'")%2 == 1:
+	case strings.Count(words[p.at][:offset], "'")%2 == 1:
 		quote = '\''
-	case strings.Count(words[at][:offset], `"`)%2 == 1:
+	case strings.Count(words[p.at][:offset], `"`)%2 == 1:
 		quote = '"'
 	}
 	if quote == 0 {
 		cut := len(value)
-		if i := strings.IndexAny(value, `;&|)'"`); i >= 0 {
+		if i := strings.IndexAny(value, `;&|)'"\`); i >= 0 {
 			cut = i
 		}
-		if cut == 0 || PureReference(value[:cut]) {
+		if cut == 0 || strings.ContainsAny(value[cut:], `'"\`) || PureReference(value[:cut]) {
 			return 0, 0, "", false
 		}
-		return at, offset, value[cut:], true
+		return p.at, offset, value[cut:], true
 	}
-	text := strings.Join(append([]string{value}, words[at+1:]...), " ")
+	text := strings.Join(append([]string{value}, words[p.at+1:]...), " ")
 	closing := strings.IndexByte(text, quote)
-	if closing < 0 {
-		return len(words) - 1, offset, "", !PureReference(text)
+	secret := text
+	if closing >= 0 {
+		secret = text[:closing]
 	}
-	if closing == 0 || quote == '"' && PureReference(text[:closing]) {
+	if secret == "" || strings.Contains(secret, `\`) || quote == '"' && notLiteral(secret) {
 		return 0, 0, "", false
+	}
+	if closing < 0 {
+		return len(words) - 1, offset, "", true
 	}
 	after = text[closing:]
 	if space := strings.IndexByte(after, ' '); space >= 0 {
 		after = after[:space]
 	}
-	return at + strings.Count(text[:closing], " "), offset, after, true
+	if !closingQuote.MatchString(after) {
+		return 0, 0, "", false
+	}
+	return p.at + strings.Count(secret, " "), offset, after, true
+}
+
+// notLiteral reports whether value is a reference or a command
+// substitution, which hold no password as written.
+func notLiteral(value string) bool {
+	return PureReference(value) || strings.HasPrefix(value, "$(") || strings.HasPrefix(value, "`")
 }

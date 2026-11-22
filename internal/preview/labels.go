@@ -2,7 +2,9 @@ package preview
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -45,19 +47,33 @@ var (
 )
 
 // passwordCommandInText is a MySQL client or sshpass named in prose
-// with the rest of its line.
-var passwordCommandInText = regexp.MustCompile(`(?:^|[\s` + "`" + `(])((?:mysql|mysqldump|mysqladmin|mysqlimport|mysqlcheck|mysqlshow|mysqlslap|mariadb(?:-[a-z]+)?|sshpass)[^\n` + "`" + `]*)`)
+// with the rest of its line, also inside a quoted `sh -c` command or
+// glued to a shell separator.
+var passwordCommandInText = regexp.MustCompile(`(?:^|[\s` + "`" + `("';&|])((?:mysql|mysqldump|mysqladmin|mysqlimport|mysqlcheck|mysqlshow|mysqlslap|mariadb(?:-[a-z]+)?|sshpass)[^\n` + "`" + `]*)`)
 
-// passesPasswordInText reports whether text runs a MySQL client or
-// sshpass with a literal password after -p, outside a fenced shell
-// block too.
+// sshpassCommands are the commands sshpass runs, after which a word
+// following -p in prose reads as a password and not as a sentence.
+var sshpassCommands = map[string]bool{"ssh": true, "scp": true, "sftp": true, "rsync": true}
+
+// passesPasswordInText reports whether text runs a MySQL client with a
+// literal password glued to -p, or sshpass with one after -p, outside a
+// fenced shell block too. In prose a word after a spaced sshpass -p
+// counts only before the command sshpass runs, so "avoid sshpass -p in
+// scripts" does not.
 func passesPasswordInText(text string) bool {
 	for _, m := range passwordCommandInText.FindAllStringSubmatch(text, -1) {
 		args := strings.Fields(m[1])
 		for i, arg := range args {
 			args[i] = strings.Trim(arg, `"'.,;:)`)
 		}
-		if passesPasswordArg(args) {
+		if !strings.HasPrefix(args[0], "sshpass") {
+			if slices.ContainsFunc(args[1:], mysqlPasswordArg) {
+				return true
+			}
+			continue
+		}
+		args[0] = "sshpass"
+		if at := sshpassPasswordAt(args); at > 0 && (args[at-1] != "-p" || at+1 < len(args) && sshpassCommands[filepath.Base(args[at+1])]) {
 			return true
 		}
 	}

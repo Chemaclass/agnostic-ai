@@ -287,18 +287,30 @@ func passesPasswordArg(args []string) bool {
 	if mysqlClient(args[0]) {
 		return slices.ContainsFunc(args[1:], mysqlPasswordArg)
 	}
-	if filepath.Base(args[0]) != "sshpass" {
-		return false
+	return sshpassPasswordAt(args) > 0
+}
+
+// sshpassPasswordAt is the index of the literal password in an sshpass
+// command's words, -p and its value as one word or two, or 0 for none.
+func sshpassPasswordAt(args []string) int {
+	if len(args) == 0 || filepath.Base(args[0]) != "sshpass" {
+		return 0
 	}
 	for i := 1; i < len(args) && strings.HasPrefix(args[i], "-"); i++ {
 		switch {
 		case args[i] == "-p":
-			return i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && !PureReference(args[i+1])
-		case mysqlPasswordArg(args[i]):
-			return true
+			if i+1 < len(args) && !notLiteral(args[i+1]) {
+				return i + 1
+			}
+			return 0
+		case strings.HasPrefix(args[i], "-p"):
+			if !notLiteral(args[i][2:]) {
+				return i
+			}
+			return 0
 		case args[i] == "-f" || args[i] == "-d" || args[i] == "-P":
 			i++
 		}
 	}
-	return false
+	return 0
 }
