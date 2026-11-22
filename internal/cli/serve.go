@@ -154,6 +154,15 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if stopWithStdin {
 				ctx = endedWith(ctx, cmd.InOrStdin())
 			}
+			if stopWithStdin && userLevel {
+				// Only a companion starts a user-level server this way.
+				if source, err := userSourceRoot(); err == nil {
+					live, stopLive := context.WithCancel(ctx)
+					wait := keepCompanionLive(live, source)
+					defer wait()
+					defer stopLive()
+				}
+			}
 			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions, stuckShellAfter: stuckShellAfter}))
 		},
 	}
@@ -232,6 +241,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	approvalsRoutes := approvalsHandler{reader: conversationsHandler.approvals}
 	mux.Handle(approvalsViewPath, approvalsRoutes)
 	mux.Handle(approvalsAskPath, approvalsRoutes)
+	mux.Handle(approvalsDecidePath, approvalsRoutes)
 	mux.Handle(sourceViewPath, newSourceHandler(opts.UserLevel))
 	var peer *switchPeer
 	if switches != nil {

@@ -3,6 +3,8 @@ import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, keepOf, keptShellLineOf, keptShellsOfRow, keptViewOf, shellCommandOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { decideApproval } from '/api.js'
+import { PENDING_CHANGED, pendingOf } from '/model.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -284,6 +286,8 @@ function rowOf(conversation, order, folderNames, under) {
   else if (reply) text.append(element('div', 'reply', reply))
   const reason = approvalReasonOf(conversation)
   if (reason) text.append(element('div', 'approval-reason', reason))
+  const held = pendingOf(conversation)
+  if (held) text.append(heldRequest(held))
   // The meta line is the same in every group: tool, place, folder and age.
   const meta = element('div', 'meta')
   if (renaming?.problem) {
@@ -414,6 +418,52 @@ function approvalLine(approval) {
   if (approval.code) pill.append(' ', element('code', 'approval-code', approval.code))
   line.append(pill)
   return line
+}
+
+/** Ids of the held requests answered from this panel, whose buttons stay off until the list after the answer is read. */
+const answering = new Set()
+
+/**
+ * A request the approvals hook holds for the companion: what it runs or writes, then Approve and Deny. The block is the
+ * confirmation, so a click answers at once; no key does.
+ */
+function heldRequest(held) {
+  const box = element('div', 'held-request')
+  for (const block of held.blocks) {
+    box.append(element('div', 'held-label', block.label), element('pre', 'held-text', block.text))
+  }
+  const line = element('div', 'held-actions')
+  const off = answering.has(held.id)
+  for (const [label, decision] of [['Approve', 'approve'], ['Deny', 'deny']]) {
+    const button = element('button', 'held-action is-' + decision, label)
+    button.type = 'button'
+    button.disabled = off
+    button.addEventListener('click', (event) => {
+      event.stopPropagation()
+      answerHeld(held, decision)
+    })
+    line.append(button)
+  }
+  if (held.more > 0) line.append(element('span', 'held-more', `+${held.more} more`))
+  box.append(line)
+  // A click in the block must not open the chat: the text is there to read and select.
+  box.addEventListener('click', (event) => event.stopPropagation())
+  return box
+}
+
+async function answerHeld(held, decision) {
+  answering.add(held.id)
+  redrawKeepingKeys()
+  let version
+  try {
+    ({ version } = await decideApproval(held, decision))
+  } catch (error) {
+    if (error instanceof CallError && (error.status === 404 || error.status === 409)) say(PENDING_CHANGED, 'error')
+    else sayFailure(error)
+  }
+  await afterChange(version)
+  answering.delete(held.id)
+  redrawKeepingKeys()
 }
 
 /** The line under the meta line while subagents work: "▸ 3 subagents", or their count when the server lists none of them. */

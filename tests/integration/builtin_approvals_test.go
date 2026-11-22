@@ -40,8 +40,13 @@ func approvalsHookCommand(t *testing.T, path string) string {
 	if len(groups) == 0 {
 		return ""
 	}
-	if len(groups) != 1 || len(groups[0].Hooks) != 1 || groups[0].Hooks[0].Timeout != 10 {
-		t.Fatalf("%s: PermissionRequest = %+v, want one handler with timeout 10", path, groups)
+	// Claude Code's hook may wait 300 s for the companion; the others keep 10.
+	want := 10
+	if strings.Contains(path, filepath.Join(".claude", "settings.json")) {
+		want = 310
+	}
+	if len(groups) != 1 || len(groups[0].Hooks) != 1 || groups[0].Hooks[0].Timeout != want {
+		t.Fatalf("%s: PermissionRequest = %+v, want one handler with timeout %d", path, groups, want)
 	}
 	return groups[0].Hooks[0].Command
 }

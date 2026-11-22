@@ -1862,3 +1862,68 @@ button:focus-visible {
   flex: none;
   white-space: nowrap;
 }
+
+/* A request the approvals hook holds for the companion: the whole command or edit,
+   as the hook read it, then Approve and Deny. The text wraps, so nothing is cut. */
+
+.held-request {
+  margin-top: 4px;
+  cursor: default;
+}
+
+.held-label {
+  margin-top: 2px;
+  color: var(--paper-dim);
+  font-size: 10.5px;
+  line-height: 14px;
+}
+
+.held-text {
+  margin: 1px 0 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.held-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.held-action {
+  flex: none;
+  padding: 1px 10px;
+  border: 1px solid var(--action);
+  border-radius: 999px;
+  background: var(--action-soft);
+  color: var(--action);
+  font: inherit;
+  font-weight: 620;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.held-action.is-approve {
+  background: var(--action);
+  color: var(--ink);
+}
+
+.held-action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.held-more {
+  color: var(--paper-dim);
+}

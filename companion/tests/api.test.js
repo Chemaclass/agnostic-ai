@@ -99,3 +99,21 @@ test('uses the claim owner key for both claim and release and scopes reads when 
     ['/api/mailbox/handoff', 'POST', { thread: 'thread', n: 1, action: 'accept' }],
   ])
 })
+
+test('an answer to a held request sends its id, the digest the panel showed and the decision', async () => {
+  const { decideApproval } = await import('../frontend/api.js')
+  globalThis.fetch = async (path, options) => {
+    assert.equal(path, '/api/approvals/decide')
+    assert.equal(options.method, 'POST')
+    assert.equal(options.headers['Content-Type'], 'application/json')
+    assert.deepEqual(JSON.parse(options.body), { id: 'abc', digest: 'd1', decision: 'approve' })
+    return new Response('{"decision":"approve"}', { headers: { 'List-Version': '"v3"' } })
+  }
+  assert.deepEqual(await decideApproval({ id: 'abc', digest: 'd1', blocks: [] }, 'approve'), { body: { decision: 'approve' }, version: '"v3"' })
+})
+
+test('a refused answer keeps the status the server gave', async () => {
+  const { decideApproval } = await import('../frontend/api.js')
+  globalThis.fetch = async () => new Response('{"error":"This request changed. Check it again."}', { status: 409 })
+  await assert.rejects(decideApproval({ id: 'abc', digest: 'd1' }, 'deny'), (error) => error instanceof CallError && error.status === 409)
+})

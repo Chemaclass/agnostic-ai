@@ -1163,3 +1163,25 @@ test('a typed session ID finds one receiver, none, two tools or the sender', () 
   assert.deepEqual(typedReceiverOf(receivers, from, 'sender'), { status: 'sender', note: 'That is the sending session.' })
   assert.deepEqual(typedReceiverOf(receivers, from, '  '), { status: 'empty' })
 })
+
+test('a held request shows what it runs or writes, from the hook input', async () => {
+  const { pendingOf } = await import('../frontend/model.js')
+  const held = (call, input, extra = []) => row('a', 'blocked', {
+    waiting: { for: 'permission', tool: call },
+    approvals: { pending: [{ id: 'i1', digest: 'd1', call, input, expires: '2026-11-22T08:05:00Z' }, ...extra] },
+  })
+  assert.deepEqual(pendingOf(held('Bash', { command: 'touch a.txt' })), { id: 'i1', digest: 'd1', blocks: [{ label: 'Run', text: 'touch a.txt' }], more: 0 })
+  assert.deepEqual(pendingOf(held('Edit', { file_path: '/p/a.go', old: 'a', new: 'b' })).blocks, [{ label: 'Edit', text: '/p/a.go' }, { label: 'Replace', text: 'a' }, { label: 'With', text: 'b' }])
+  assert.deepEqual(pendingOf(held('Write', { file_path: '/p/a.go', new: 'package a' })).blocks, [{ label: 'Write', text: '/p/a.go' }, { label: 'Content', text: 'package a' }])
+  assert.deepEqual(pendingOf(held('Read', { file_path: '/p/a.go' })).blocks, [{ label: 'Read', text: '/p/a.go' }])
+  assert.equal(pendingOf(held('Bash', { command: 'ls' }, [{ id: 'i2', digest: 'd2', call: 'Bash', input: { command: 'pwd' } }])).more, 1)
+})
+
+test('a row without a held request, or that no longer waits, gets no buttons', async () => {
+  const { pendingOf } = await import('../frontend/model.js')
+  const pending = [{ id: 'i1', digest: 'd1', call: 'Bash', input: { command: 'ls' } }]
+  assert.equal(pendingOf(row('a', 'blocked', { waiting: { for: 'permission', tool: 'Bash' } })), undefined)
+  assert.equal(pendingOf(row('a', 'blocked', { waiting: { for: 'permission' }, approvals: { pending: [] } })), undefined)
+  assert.equal(pendingOf(row('a', 'working', { approvals: { pending } })), undefined)
+  assert.equal(pendingOf(row('a', 'blocked', { waiting: { for: 'permission' }, approvals: { pending: [{ id: 'i1', digest: 'd1', call: 'mcp__x__y', input: {} }] } })), undefined)
+})

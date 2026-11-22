@@ -93,6 +93,28 @@ type ApprovalsNote struct {
 	// always-ask rule that matched, or why approvals did not answer. It
 	// comes from agnostic-ai, never from text the session wrote.
 	Reason string `json:"reason,omitempty"`
+	// Pending are the requests the approvals hook holds for an answer
+	// from the companion, oldest first.
+	Pending []PendingRequest `json:"pending,omitempty"`
+}
+
+// PendingRequest is one request the companion can approve or deny.
+// Input is the tool input as the hook read it, never the session's text.
+type PendingRequest struct {
+	ID      string       `json:"id"`
+	Digest  string       `json:"digest"`
+	Call    string       `json:"call"`
+	Input   PendingInput `json:"input"`
+	Expires string       `json:"expires"`
+}
+
+// PendingInput is what a pending request runs or writes: the command,
+// or the file with the text an edit replaces and writes.
+type PendingInput struct {
+	Command  string `json:"command,omitempty"`
+	FilePath string `json:"file_path,omitempty"`
+	Old      string `json:"old,omitempty"`
+	New      string `json:"new,omitempty"`
 }
 
 // ApprovedCall is one request the approvals hook approved.

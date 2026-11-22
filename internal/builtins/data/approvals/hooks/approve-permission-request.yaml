@@ -4,6 +4,9 @@ targets: [claude, codex, kiro, qwen, qoder]
 event: PermissionRequest
 timeout: 10
 command: "command -v agnostic-ai >/dev/null 2>&1 || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 agnostic-ai hook approve --target claude 2>/dev/null; exit 0"
+x-claude:
+  # The hook may wait 300 seconds for a click in the companion.
+  timeout: 310
 x-codex:
   command: "command -v agnostic-ai >/dev/null 2>&1 || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 agnostic-ai hook approve --target codex 2>/dev/null; exit 0"
 x-qoder:

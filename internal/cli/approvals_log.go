@@ -18,7 +18,8 @@ func newApprovalsLogCmd() *cobra.Command {
 		Use:   "log",
 		Short: "Print the decisions the approvals hook made",
 		Long: "Prints each request the approvals hook saw, oldest first: when, the tool, the call, a detail with " +
-			"anything that may hold a credential left out, and whether it approved or asked, with the rule that asked. " +
+			"anything that may hold a credential left out, and whether it approved, asked or denied, with the rule that asked. " +
+			"A request held for the companion reads \"by companion\", or \"asked (companion)\" when no click came. " +
 			"The log is $AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl and one older file beside it.",
 		Example: `  agnostic-ai approvals log
   agnostic-ai approvals log --since 1h --json`,
@@ -56,6 +57,9 @@ func newApprovalsLogCmd() *cobra.Command {
 				decision := string(e.Decision)
 				if e.Rule != "" {
 					decision += " (" + e.Rule + ")"
+				}
+				if e.By != "" && e.Rule != e.By {
+					decision += " by " + e.By
 				}
 				cmd.Println(fmt.Sprintf("%s  %-7s %-16s %-10s %s", e.Time.Local().Format("2006-01-02 15:04:05"), e.Tool, decision, e.Call, e.Detail))
 			}

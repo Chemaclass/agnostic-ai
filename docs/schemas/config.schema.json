@@ -34,6 +34,10 @@
           },
           "type": "array",
           "description": "Extra patterns that always show the prompt, added to the fixed list. The patterns of both home files add up. Home config only."
+        },
+        "companion": {
+          "type": "boolean",
+          "description": "Show Approve and Deny buttons in the companion for a Claude Code request that approvals leave to you. The hook waits up to 300 seconds for a click while the tool's own prompt stays open. Default false. Home config only."
         }
       },
       "additionalProperties": false,

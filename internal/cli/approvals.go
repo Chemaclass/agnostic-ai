@@ -34,6 +34,9 @@ var (
 type approvalsStatusOutput struct {
 	Dir   string                `json:"dir"`
 	Tools []approvalsToolStatus `json:"tools"`
+	// Companion is approvals.companion: the companion shows Approve and
+	// Deny for a request left to the person.
+	Companion bool `json:"companion"`
 	// reviewerWritten is set when a native reviewer key sync --scope user
 	// wrote is still on.
 	reviewerWritten bool
@@ -169,7 +172,7 @@ func readApprovalsStatus(warn io.Writer) (approvalsStatusOutput, error) {
 	}
 	policy := config.ApprovalsPolicy{Home: home, UserHome: userHome, Env: os.Getenv(config.EnvApprovals), ProjectAsk: projectAsk}
 	reviewerWritten := false
-	out := approvalsStatusOutput{Dir: dir, Tools: make([]approvalsToolStatus, 0, len(targets))}
+	out := approvalsStatusOutput{Dir: dir, Tools: make([]approvalsToolStatus, 0, len(targets)), Companion: home.Companion}
 	for _, tool := range targets {
 		decision := policy.Resolve(tool, dir)
 		status := approvalsToolStatusFor(tool, decision)
@@ -493,6 +496,11 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 		for _, note := range s.Notes {
 			cmd.Println("    note: " + note)
 		}
+	}
+	if status.Companion {
+		cmd.Println("Companion buttons: on, for Claude Code requests left to you")
+	} else {
+		cmd.Println("Companion buttons: off (approvals.companion)")
 	}
 }
 

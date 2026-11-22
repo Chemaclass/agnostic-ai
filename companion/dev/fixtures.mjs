@@ -178,6 +178,36 @@ function approvals(now) {
 }
 
 /**
+ * Requests the approvals hook holds for the companion (issue #3906): a command and an edit to approve or deny, the
+ * second with one more request behind it.
+ */
+function companionApprove(now) {
+  const expires = new Date(now + 5 * MINUTE).toISOString()
+  const held = (id, call, input) => ({ id, digest: 'digest-' + id, call, input, expires })
+  return [
+    {
+      ...conversation(now, 'claude', 'held-bash', 'Clean the build folder', 'blocked', { folder: '/Users/you/Code/shop', minutesAgo: 0 }),
+      activity: 'waiting',
+      live: true,
+      waiting: { for: 'permission', tool: 'Bash', detail: 'rm -rf dist && npm run build' },
+      approvals: { reason: 'Approvals are set to ask here', pending: [held('a1b2', 'Bash', { command: 'rm -rf dist && npm run build -- --mode production' })] },
+    },
+    {
+      ...conversation(now, 'claude', 'held-edit', 'Webhooks v2 dashboard', 'blocked', { folder: '/Users/you/Code/kombo', minutesAgo: 1 }),
+      activity: 'waiting',
+      live: true,
+      waiting: { for: 'permission', tool: 'Edit', detail: 'dashboard.tsx' },
+      approvals: {
+        pending: [
+          held('c3d4', 'Edit', { file_path: '/Users/you/Code/kombo/src/dashboard.tsx', old: 'const retries = 3', new: 'const retries = 5' }),
+          held('e5f6', 'Bash', { command: 'npm test' }),
+        ],
+      },
+    },
+  ]
+}
+
+/**
  * Rows as the server shapes them while approvals answer prompts (issue #3700): a chat whose requests the hook
  * approved, so it works on with no row under Needs you, a request the gate left to the person with its rule, and a
  * tool approvals do not reach.
@@ -409,6 +439,7 @@ export const FIXTURES = {
   'stuck-shells': { label: 'Forgotten shells on waiting and working Claude Code chats', conversations: stuckShells },
   nested: { label: 'Chats started from other chats', conversations: nested },
   approvals: { label: 'Chats waiting for an approval or an answer', conversations: approvals },
+  'companion-approve': { label: 'Requests held for Approve and Deny in the companion', conversations: companionApprove },
   'auto-approvals': { label: 'Approvals in yolo: approved for you, always asks, and a tool approvals do not reach', conversations: autoApprovals, approvalsMode: 'yolo' },
   shared: { label: 'A local chat also open on claude.ai', conversations: shared },
   workers: {

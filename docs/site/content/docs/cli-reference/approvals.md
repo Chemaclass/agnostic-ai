@@ -22,7 +22,7 @@ agnostic-ai approvals log --since 1h  # what the hook decided in the last hour
 
 ## approvals status
 
-Prints one line per tool that `sync --scope user` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line gives the reason. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --scope user` turns on. Claude Code, Codex, Kiro, Qwen Code and Qoder have a route for `yolo`: a hook. For `yolo` it also checks that the hook is installed and, for Codex, trusted in `/hooks`, and, for Kiro, Qwen Code and Qoder, that no rule of theirs asks; until then the tool falls back to `ask`. On Windows `yolo` falls back to `ask`. [Approvals per tool](@/docs/approvals.md#per-tool) lists the routes.
+Prints one line per tool that `sync --scope user` writes: the mode for the working directory, the setting that chose it, and how the tool carries it out. A tool with no route for its mode falls back to `ask`, and the line gives the reason. The tools in [the review table](@/docs/global-configuration-reference.md#global-approvals-review) have a route for `review`: their own reviewer, which `sync --scope user` turns on. Claude Code, Codex, Kiro, Qwen Code and Qoder have a route for `yolo`: a hook. For `yolo` it also checks that the hook is installed and, for Codex, trusted in `/hooks`, and, for Kiro, Qwen Code and Qoder, that no rule of theirs asks; until then the tool falls back to `ask`. On Windows `yolo` falls back to `ask`. [Approvals per tool](@/docs/approvals.md#per-tool) lists the routes. A last line says whether [`approvals.companion`](@/docs/approvals.md#answer-from-the-companion) is on; `--json` has it as `companion`.
 
 A `note:` line under a tool says what keeps its reviewer from matching the mode: the key is missing or set to another value in the user settings file (then `effective` is `ask`), Codex `approval_policy = "never"` stops Auto-review from running, or the reviewer stays on where the mode is not `review`, because `sync --scope user` wrote the key or, for Codex, it was set by hand. For Claude Code in `yolo`, a note says that ask rules passed with `--settings` or `--allowedTools` are not read.
 
@@ -36,7 +36,7 @@ A reviewer key that `sync --scope user` wrote, such as Claude Code auto mode, st
 
 ## approvals log
 
-Prints each request the approvals hook saw, oldest first: the time, the tool, `approved` or `asked` with the rule that asked, the call, and a detail with anything that may hold a credential left out. It reads `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and the older file beside it, as [the decision log](@/docs/approvals.md#the-decision-log) describes.
+Prints each request the approvals hook saw, oldest first: the time, the tool, `approved`, `asked` with the rule that asked, or `denied`, with `by companion` for a request answered in the companion, the call, and a detail with anything that may hold a credential left out. It reads `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and the older file beside it, as [the decision log](@/docs/approvals.md#the-decision-log) describes.
 
 ```bash
 agnostic-ai approvals log                   # every logged decision

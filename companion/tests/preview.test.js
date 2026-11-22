@@ -424,3 +424,19 @@ test('the preview answers the update entry: none by default, a newer release in 
   assert.equal((await fetch(newer.url + '/api/update/start', { method: 'POST' })).status, 204)
   assert.deepEqual(await (await fetch(newer.url + '/api/update')).json(), { state: 'updating', version: '0.97.0', current: '0.96.0', step: 'downloading' })
 })
+
+test('an answer to a held request needs its digest, then the request leaves the row', async (t) => {
+  const preview = await startPreview({ port: 0, fixture: 'companion-approve' })
+  t.after(preview.close)
+
+  assert.equal((await postJSON(preview.url + '/api/approvals/decide', { id: 'a1b2', digest: 'other', decision: 'approve' })).status, 409)
+  assert.equal((await postJSON(preview.url + '/api/approvals/decide', { id: 'none', digest: 'digest-none', decision: 'approve' })).status, 404)
+  assert.equal((await postJSON(preview.url + '/api/approvals/decide', { id: 'a1b2', digest: 'digest-a1b2', decision: 'always' })).status, 400)
+
+  const answered = await postJSON(preview.url + '/api/approvals/decide', { id: 'c3d4', digest: 'digest-c3d4', decision: 'deny' })
+  assert.equal(answered.status, 200)
+  const { body } = await inbox(preview.url)
+  const edit = body.view.conversations.find((row) => row.id === 'held-edit')
+  assert.deepEqual(edit.approvals.pending.map((p) => p.id), ['e5f6'])
+  assert.equal(body.view.conversations.find((row) => row.id === 'held-bash').approvals.pending.length, 1)
+})

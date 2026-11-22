@@ -46,6 +46,7 @@ type ApprovalsConfig struct {
 	Tools     map[string]string `yaml:"tools,omitempty"      json:"tools,omitempty"      jsonschema_description:"Mode per tool, by target name. Replaces mode. Home config only."`
 	Projects  map[string]string `yaml:"projects,omitempty"   json:"projects,omitempty"   jsonschema_description:"Mode per project folder, an absolute path or one under ~. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."`
 	AlwaysAsk []string          `yaml:"always-ask,omitempty" json:"always-ask,omitempty" jsonschema_description:"Extra patterns that always show the prompt, added to the fixed list. The patterns of both home files add up. Home config only."`
+	Companion bool              `yaml:"companion,omitempty"  json:"companion,omitempty"  jsonschema_description:"Show Approve and Deny buttons in the companion for a Claude Code request that approvals leave to you. The hook waits up to 300 seconds for a click while the tool's own prompt stays open. Default false. Home config only."`
 }
 
 // Loosens reports whether any mode in the block is review or yolo.
@@ -219,8 +220,10 @@ func pathHolds(root, path string) bool {
 
 // LoadHomeApprovals reads the approvals block of the home config in
 // source. A block in local/agnostic-ai.yaml replaces the shared one whole,
-// except always-ask, whose patterns add up. A relative source is refused:
-// it would read a file in whatever folder the session runs in.
+// except always-ask, whose patterns add up, and companion, which keeps
+// the shared value unless the local block names it: Ask me writes a
+// local block and must not turn the buttons off. A relative source is
+// refused: it would read a file in whatever folder the session runs in.
 func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
 	if !filepath.IsAbs(source) {
 		return ApprovalsConfig{}, fmt.Errorf("approvals: the home folder %q is not an absolute path", source)
@@ -250,11 +253,26 @@ func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
 		if err := block.Validate(path); err != nil {
 			return ApprovalsConfig{}, err
 		}
+		if !mappingHasKey(node, "companion") {
+			block.Companion = out.Companion
+		}
 		out = block
 		alwaysAsk = append(alwaysAsk, block.AlwaysAsk...)
 	}
 	out.AlwaysAsk = alwaysAsk
 	return out, nil
+}
+
+func mappingHasKey(node *yaml.Node, key string) bool {
+	if node.Kind != yaml.MappingNode {
+		return false
+	}
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		if node.Content[i].Value == key {
+			return true
+		}
+	}
+	return false
 }
 
 // approvalsNode is the value of the top-level approvals key in path, or

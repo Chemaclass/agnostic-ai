@@ -248,6 +248,7 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 - **N approved for you** folds out the latest approved requests under the row, newest first. It opens nothing.
 - The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
 - The header names the loosest active mode when it is `review` or `yolo`.
+- With [`approvals.companion: true`](@/docs/approvals.md#answer-from-the-companion), a held Claude Code request shows in full under the pill, with **Approve** and **Deny**.
 - **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --scope user` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
 
 {% <details summary="Details: the brief Claude Code prompt, counts, limits"> %}

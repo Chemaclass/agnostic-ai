@@ -144,10 +144,11 @@ func ExecFormCommand(command string, args []string) string {
 	return command
 }
 
-// TargetHooks returns hooks with the keys that decide when and what runs
-// (targetHookKeys) read after each spec's `x-<target>` override, as the
-// spec format documents for every key. Emitters read them from the top
-// level, so a hook fires and runs as its override says on every target.
+// TargetHooks returns hooks with the keys that decide when, what and how
+// long it runs (targetHookKeys) read after each spec's `x-<target>`
+// override, as the spec format documents for every key. Emitters read
+// them from the top level, so a hook fires and runs as its override says
+// on every target.
 // Other keys under `x-<target>` stay for the adapter that reads them.
 func TargetHooks(target string, hooks []spec.Entry) []spec.Entry {
 	if len(hooks) == 0 {
@@ -194,7 +195,7 @@ func TargetHook(target string, h spec.Entry) spec.Entry {
 	return h
 }
 
-var targetHookKeys = []string{"event", "matcher", "command", "args"}
+var targetHookKeys = []string{"event", "matcher", "command", "args", "timeout"}
 
 // HookArgs returns a hook spec's exec-form args on target, after its
 // `x-<target>` override, the same view RewriteHookPath reads.

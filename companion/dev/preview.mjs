@@ -499,6 +499,25 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       response.setHeader('List-Version', state.version)
       sendJSON(response, 200, { mode: 'ask', path: '/Users/you/.agnostic-ai/local/agnostic-ai.yaml' })
     },
+    // Like serve: an answer needs a held id and the digest the panel showed; the request then leaves the row.
+    'POST /api/approvals/decide': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/approvals/decide', body)
+      if (!['approve', 'deny', 'release'].includes(body.decision)) return sendJSON(response, 400, { error: 'send {"id", "digest", "decision"} with decision approve, deny or release' })
+      const row = state.conversations.find((c) => c.approvals?.pending?.some((p) => p.id === body.id))
+      const held = row?.approvals.pending.find((p) => p.id === body.id)
+      if (!held) return sendJSON(response, 404, { error: 'This request is no longer waiting.' })
+      if (held.digest !== body.digest) return sendJSON(response, 409, { error: 'This request changed. Check it again.' })
+      row.approvals = { ...row.approvals, pending: row.approvals.pending.filter((p) => p.id !== body.id) }
+      if (row.approvals.pending.length === 0) {
+        row.waiting = undefined
+        row.activity = 'working'
+        row.state = 'working'
+      }
+      listChanged()
+      response.setHeader('List-Version', state.version)
+      sendJSON(response, 200, { decision: body.decision })
+    },
     'POST /api/mark': mark,
     'POST /api/rename': rename,
     'POST /api/delete': remove,

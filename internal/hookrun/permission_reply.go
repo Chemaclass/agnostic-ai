@@ -20,3 +20,21 @@ func PermissionAllowReply(target string) (reply []byte, ok bool) {
 	text, ok := permissionAllowReplies[target]
 	return []byte(text), ok
 }
+
+// CompanionDenyMessage is what the agent reads when the person denies a
+// request in the companion.
+const CompanionDenyMessage = "Denied in the agnostic-ai companion"
+
+// permissionDenyReplies block one call with CompanionDenyMessage. Only
+// the tools whose deny was measured have one (decision 022).
+var permissionDenyReplies = map[string]string{
+	"claude": `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"` + CompanionDenyMessage + `"}}}`,
+	"codex":  `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"` + CompanionDenyMessage + `"}}}`,
+}
+
+// PermissionDenyReply is target's PermissionRequest reply that blocks
+// one call. ok is false for a target with no such reply.
+func PermissionDenyReply(target string) (reply []byte, ok bool) {
+	text, ok := permissionDenyReplies[target]
+	return []byte(text), ok
+}

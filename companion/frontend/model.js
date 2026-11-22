@@ -458,6 +458,36 @@ export function approvalOf(conversation) {
 }
 
 /**
+ * The request the approvals hook holds for the companion on this row, oldest first, as
+ * `{ id, digest, blocks: [{ label, text }], more }`. `blocks` show the request as the hook read it, never the
+ * session's own text: the command, or the file and the text an edit replaces and writes. `more` counts the other held
+ * requests. Undefined on a row that holds none or does not wait for a permission.
+ */
+export function pendingOf(conversation) {
+  const held = conversation.approvals?.pending
+  if (!Array.isArray(held) || held.length === 0 || conversation.waiting?.for !== 'permission') return undefined
+  const [first] = held
+  const input = first.input ?? {}
+  const blocks = pendingBlocksOf(first.call, input)
+  if (blocks.length === 0 || typeof first.id !== 'string' || typeof first.digest !== 'string') return undefined
+  return { id: first.id, digest: first.digest, blocks, more: held.length - 1 }
+}
+
+const PENDING_VERBS = { Read: 'Read', Write: 'Write', Edit: 'Edit', MultiEdit: 'Edit', NotebookEdit: 'Edit notebook' }
+
+function pendingBlocksOf(call, input) {
+  const block = (label, text) => (typeof text === 'string' && text !== '' ? [{ label, text }] : [])
+  if (call === 'Bash') return block('Run', input.command)
+  const verb = PENDING_VERBS[call]
+  if (!verb || !input.file_path) return []
+  if (input.old) return [...block(verb, input.file_path), ...block('Replace', input.old), ...block('With', input.new)]
+  return [...block(verb, input.file_path), ...block(call === 'Write' ? 'Content' : 'New text', input.new)]
+}
+
+/** What the panel says when an answer no longer reaches its request: the server answered 404 or 409. */
+export const PENDING_CHANGED = 'This request changed. Check it again.'
+
+/**
  * What a row says about the requests the approvals hook approved for it: "3 approved for you".
  * Undefined when it approved none. The server counts them from its decision log.
  */

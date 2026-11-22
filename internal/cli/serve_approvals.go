@@ -2,6 +2,9 @@ package cli
 
 import (
 	"cmp"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -11,6 +14,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
@@ -20,9 +24,15 @@ import (
 )
 
 const (
-	approvalsViewPath = "/api/views/approvals"
-	approvalsAskPath  = "/api/approvals/ask"
+	approvalsViewPath   = "/api/views/approvals"
+	approvalsAskPath    = "/api/approvals/ask"
+	approvalsDecidePath = "/api/approvals/decide"
 )
+
+// pendingGrace is how long a held Claude Code request stays before the
+// server may withdraw it for a session that does not wait: the hook
+// writes its record before Claude Code records the wait.
+const pendingGrace = 5 * time.Second
 
 // approvalsHookWait is the timeout of the approvals hook entry. Claude
 // Code records a permission wait while the hook runs, so a wait younger
@@ -121,13 +131,16 @@ func approvalSessionsOf(entries []approvals.Entry) map[string]*approvalSession {
 		if len(s.Decisions) < approvalsSessionDecisions {
 			s.Decisions = append(s.Decisions, e)
 		}
-		switch e.Decision {
-		case approvals.Approved:
+		switch {
+		case e.By == approvals.ByCompanion:
+			// The person answered these, or the hook held them for the
+			// person: none was approved for them.
+		case e.Decision == approvals.Approved:
 			s.Approved++
 			if len(s.recent) < approvalsRecentCalls {
 				s.recent = append(s.recent, conversations.ApprovedCall{Time: e.Time.UTC().Format(time.RFC3339), Call: e.Call, Detail: e.Detail})
 			}
-		case approvals.Asked:
+		case e.Decision == approvals.Asked:
 			s.Asked++
 		}
 	}
@@ -145,6 +158,8 @@ type approvalsSnapshot struct {
 	routed     func(tool, mode string) bool
 	activated  func(tool, mode string) bool
 	active     map[approvalDisplayRoute]bool
+	// pending are the requests held for the companion, per session key.
+	pending map[string][]conversations.PendingRequest
 }
 
 type approvalDisplayRoute struct{ tool, mode string }
@@ -354,6 +369,11 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 		if waits {
 			waiting[key] = true
 			note.Reason = reason
+			note.Pending = pendingShown(*c, snap.pending[key])
+			if len(note.Pending) > 0 {
+				// A request held for the companion needs the person now.
+				hold = time.Time{}
+			}
 			if !hold.IsZero() {
 				if c.State == conversations.StateBlocked {
 					c.State = conversations.StateWorking
@@ -364,7 +384,7 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 				held(hold)
 			}
 		}
-		if note.Approved > 0 || note.Reason != "" {
+		if note.Approved > 0 || note.Reason != "" || len(note.Pending) > 0 {
 			c.Approvals = &note
 		}
 	}
@@ -376,7 +396,7 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 		if onPage[key] {
 			continue
 		}
-		if _, hold, _ := waitVerdictOf(c, snap, now, firstSeen); !hold.IsZero() {
+		if _, hold, _ := waitVerdictOf(c, snap, now, firstSeen); !hold.IsZero() && len(pendingShown(c, snap.pending[key])) == 0 {
 			if c.State == conversations.StateBlocked {
 				view.NeedsYou = max(view.NeedsYou-1, 0)
 			}
@@ -425,6 +445,8 @@ type approvalsReader struct {
 	now       func() time.Time
 	routed    func(tool, mode string) bool
 	activated func(tool, mode, home string) bool
+	// alive reports whether the hook process that holds a request runs.
+	alive func(pid int) bool
 
 	mu       sync.Mutex
 	logStamp string
@@ -446,7 +468,21 @@ func newApprovalsReader() *approvalsReader {
 		now:       time.Now,
 		routed:    approvalsRouted,
 		activated: approvalsActivated,
+		alive:     pidAlive,
 	}
+}
+
+// pidAlive reports whether a process with pid runs.
+func pidAlive(pid int) bool {
+	if pid <= 0 {
+		return false
+	}
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	err = process.Signal(syscall.Signal(0))
+	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
 func approvalsActivated(tool, mode, home string) bool {
@@ -500,6 +536,9 @@ func (a *approvalsReader) stamp(query string) string {
 	}
 	var b strings.Builder
 	b.WriteString(fileStamps(append(configs, log, log+".1")...))
+	if source, err := a.source(); err == nil {
+		b.WriteString(fileStamps(approvals.PendingDir(source)))
+	}
 	if userHome, err := a.home(); err == nil {
 		b.WriteString(fileStamps(reviewerFiles(userHome)...))
 	}
@@ -572,6 +611,7 @@ func (a *approvalsReader) snapshot() approvalsSnapshot {
 func (a *approvalsReader) decorate(view *conversations.View, folder, query string) {
 	snap := a.snapshot()
 	now := a.now()
+	snap.pending = a.pendingRequests(view, folder, now)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.firstSeen == nil {
@@ -624,6 +664,8 @@ func (h approvalsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.view(w, r)
 	case approvalsAskPath:
 		h.ask(w, r)
+	case approvalsDecidePath:
+		h.decide(w, r)
 	default:
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path})
 	}
@@ -688,4 +730,152 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEditJSON(w, http.StatusOK, approvalsAskReply{Mode: config.ApprovalsAsk, Path: path})
+}
+
+// pendingRequests lists the requests held for the companion, per row
+// key, after withdrawing the ones nobody can answer: expired, held by a
+// hook that is gone, or for a Claude Code session that no longer waits,
+// which the person answered in the terminal. A withdrawn request whose
+// hook still runs gets release, so the hook exits without a reply. Only
+// a list of every folder can tell that a session does not wait.
+func (a *approvalsReader) pendingRequests(view *conversations.View, folder string, now time.Time) map[string][]conversations.PendingRequest {
+	source, err := a.source()
+	if err != nil {
+		return nil
+	}
+	dir := approvals.PendingDir(source)
+	held, err := approvals.ListPending(dir)
+	if err != nil || len(held) == 0 {
+		return nil
+	}
+	waiting := map[string]bool{}
+	for _, list := range [][]conversations.Conversation{view.PermissionWaits, view.Conversations} {
+		for _, c := range list {
+			if _, waits := c.PermissionWait(); waits && c.Live {
+				waiting[approvalSessionKey(string(c.Tool), c.ID)] = true
+			}
+		}
+	}
+	out := map[string][]conversations.PendingRequest{}
+	for _, p := range held {
+		key := approvalSessionKey(p.Tool, p.Session)
+		switch {
+		case !now.Before(p.Expires), a.alive != nil && !a.alive(p.PID):
+			approvals.RemovePending(dir, p.ID)
+			continue
+		case folder == "" && p.Tool == string(conversations.ToolClaude) && !waiting[key] && now.Sub(p.Created) > pendingGrace:
+			_ = approvals.WriteDecision(dir, p.ID, approvals.PendingDecision{Decision: approvals.DecideRelease, Digest: p.Digest})
+			continue
+		}
+		out[key] = append(out[key], conversations.PendingRequest{
+			ID: p.ID, Digest: p.Digest, Call: p.Call, Input: p.Input, Expires: p.Expires.UTC().Format(time.RFC3339),
+		})
+	}
+	return out
+}
+
+// pendingShown are the held requests row c can answer: for a row whose
+// transcript names the call that waits, only requests for that call.
+func pendingShown(c conversations.Conversation, held []conversations.PendingRequest) []conversations.PendingRequest {
+	if len(held) == 0 || c.Waiting == nil {
+		return nil
+	}
+	var out []conversations.PendingRequest
+	for _, p := range held {
+		if c.Waiting.Tool != "" && c.Waiting.Tool != p.Call {
+			continue
+		}
+		if c.Waiting.Detail != "" && c.Waiting.Detail != pendingDetail(p) {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// pendingDetail is the short detail a row shows for request p.
+func pendingDetail(p conversations.PendingRequest) string {
+	key, value := "file_path", p.Input.FilePath
+	switch p.Call {
+	case "Bash":
+		key, value = "command", p.Input.Command
+	case "NotebookEdit":
+		key = "notebook_path"
+	}
+	input, err := json.Marshal(map[string]string{key: value})
+	if err != nil {
+		return ""
+	}
+	return conversations.CallDetail(p.Call, input)
+}
+
+type approvalsDecideRequest struct {
+	ID       string `json:"id"`
+	Digest   string `json:"digest"`
+	Decision string `json:"decision"`
+}
+
+// decide writes the companion's answer to one held request. It needs
+// the request's id and the digest of what the panel showed, and can do
+// nothing else: no record, no mode, no rule.
+func (h approvalsHandler) decide(w http.ResponseWriter, r *http.Request) {
+	// Only the server's own origin, not one --allow-origin added.
+	if status, message := editRequestGuard(r.WithContext(context.Background())); status != 0 {
+		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	var req approvalsDecideRequest
+	if err := decodeOneJSON(w, r, 1<<10, &req); err != nil || !slices.Contains(approvals.Decisions, req.Decision) {
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: `send {"id", "digest", "decision"} with decision approve, deny or release`})
+		return
+	}
+	source, err := h.reader.source()
+	if err != nil {
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+		return
+	}
+	dir := approvals.PendingDir(source)
+	held, ok, err := approvals.ReadPending(dir, req.ID)
+	if err != nil {
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+		return
+	}
+	_, decided := approvals.ReadDecision(dir, req.ID)
+	if !ok || decided || !h.reader.now().Before(held.Expires) {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: "This request is no longer waiting."})
+		return
+	}
+	if req.Digest != held.Digest {
+		writeEditJSON(w, http.StatusConflict, editError{Error: "This request changed. Check it again."})
+		return
+	}
+	if err := approvals.WriteDecision(dir, req.ID, approvals.PendingDecision{Decision: req.Decision, Digest: held.Digest}); err != nil {
+		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+		return
+	}
+	writeEditJSON(w, http.StatusOK, map[string]string{"decision": req.Decision})
+}
+
+// keepCompanionLive touches companion.live every approvals.LiveEvery
+// until ctx ends, then removes it: while it is fresh, the approvals
+// hook may hold a request for the companion. The returned func waits
+// for the removal.
+func keepCompanionLive(ctx context.Context, source string) (wait func()) {
+	path := approvals.LivePath(source)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer func() { _ = os.Remove(path) }()
+		tick := time.NewTicker(approvals.LiveEvery)
+		defer tick.Stop()
+		for {
+			_ = approvals.TouchLive(path, time.Now())
+			select {
+			case <-ctx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
+	return func() { <-done }
 }
