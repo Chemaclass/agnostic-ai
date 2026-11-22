@@ -10,7 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Breaking:** layer names in `list`, `status`, `explain --layers`, the web interface and adapter input changed, and `--global` is now `--scope user` (#3856).
 - Send questions, reviews and file handoffs between local Claude Code and Codex sessions from the companion or from the agents themselves (#3832, #3836).
-- Approve or deny a Claude Code request from the companion row, with the terminal prompt still open (#3906, #3908).
+- Approve or deny a Claude Code or Codex permission request from its companion row (#3906, #3908, #3909).
 - Companion updates check the signer, show progress, and restore the earlier app when the new one fails to start (#3850, #3888).
 - The companion opens and resumes chats on Windows and Linux, and switches to the exact tab in iTerm2, WezTerm, kitty, tmux and Konsole (#3221, #3222, #3843).
 
@@ -20,7 +20,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Deprecated:** `--global` is now `--scope user`, `new rule --scope <dir>` is `--dir`, and `doctor --scope` is `--checks`. The old spellings warn (#3856).
 - The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you (#3832-#3837, #3872, #3891, #3898).
 - Companion updates check the signer, show each step, keep the earlier app until the new one starts, and keep Accessibility access (#3601, #3850, #3874, #3888). On macOS, grant Accessibility once more after this first update.
-- The companion opens chats on Windows and Linux, and switches to the exact tab in iTerm2, WezTerm, kitty, tmux and Konsole (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
+- The companion opens chats on Windows and Linux and switches to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
 
 ### By tool
 
@@ -28,7 +28,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - With `approvals.companion: true`, the companion shows a request with **Approve** and **Deny**. The hook entry's timeout is now 310 seconds (#3906, #3908).
 - The companion lists agent team teammates as subagents in a tree, and a click on one in tmux brings its pane forward (#3905, #3907).
-- An `x-<target>` block on a hook spec now sets `timeout` for that target, in seconds. A spec with such a block gets it on the next `sync` (#3906).
+- An `x-<target>` block on a hook spec now sets `timeout` and `statusMessage` for that target. A spec with such a block gets them on the next `sync` (#3906, #3909).
+
+#### Codex
+
+- With `approvals.companion: true`, the companion shows a Codex request with **Approve**, **Deny** and **Answer in terminal**, for up to 60 seconds (#3909).
+- After `sync --scope user`, Codex asks once to review the changed approvals hook. Trust it again in `/hooks` to keep hook approvals (#3909).
 
 #### Kiro
 
