@@ -180,6 +180,11 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     return receiverOptions().flatMap((group) => group.options).find((option) => option.value === key)
   }
 
+  /** A listed receiver, or the chosen one that left the list since. */
+  function receiverByKey(key) {
+    return listedReceiver(key) ?? (draft?.kept?.value === key ? draft.kept : undefined)
+  }
+
   /** Who the draft goes to: `to` for the request, and the name and group when the list knows the session. */
   function receiverOf(current = draft) {
     if (!current) return {}
@@ -198,29 +203,43 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
 
   function fillReceivers() {
     const groups = receiverOptions()
-    const chosen = draft.receiver
-    const placeholder = new Option(groups.length ? 'Choose a session' : 'No other local Claude Code or Codex sessions', '')
-    const children = [placeholder]
-    let listed = false
-    for (const group of groups) {
-      const box = document.createElement('optgroup')
-      box.label = group.label
-      for (const option of group.options) {
-        box.append(new Option(option.label, option.value))
-        if (chosen && option.value === chosen.value) {
-          draft.receiver = option
-          listed = true
-        }
-      }
-      children.push(box)
-    }
+    const options = groups.flatMap((group) => group.options)
+    const chosen = draft.receiver && (options.find((option) => option.value === draft.receiver.value) ?? draft.receiver)
+    draft.receiver = chosen
     // A chosen session that left the list stays chosen and still sends.
-    if (chosen && !listed) children.push(new Option(chosen.label, chosen.value))
-    toSelect.replaceChildren(...children)
+    if (chosen && !options.includes(chosen)) draft.kept = chosen
+    const kept = draft.kept && !options.some((option) => option.value === draft.kept.value) ? draft.kept : undefined
+    const shape = JSON.stringify([groups.map((group) => [group.label, group.options.map((option) => [option.value, option.label])]), kept?.value])
+    // Rebuilding the options while the popup is open could move the pick, so an unchanged list stays as it is.
+    if (shape !== toSelect.dataset.shape) {
+      toSelect.dataset.shape = shape
+      const children = [new Option(groups.length ? 'Choose a session' : 'No other local Claude Code or Codex sessions', '')]
+      for (const group of groups) {
+        const box = document.createElement('optgroup')
+        box.label = group.label
+        box.append(...group.options.map((option) => new Option(option.label, option.value)))
+        children.push(box)
+      }
+      if (kept) children.push(new Option(kept.label, kept.value))
+      toSelect.replaceChildren(...children)
+    }
     toSelect.value = chosen ? chosen.value : ''
-    const empty = children.length === 1
+    const empty = groups.length === 0 && !kept
     toSelect.dataset.empty = String(empty)
     toHint.textContent = empty ? 'Start another session, or enter an ID.' : 'Or click a session in the list.'
+  }
+
+  function refreshReceivers() {
+    if (draft.thread) {
+      const name = nameOf(draft.to, draft.toTitle)
+      composerTitle.textContent = `Reply to ${name}`
+      toName.textContent = replyLabel(draft.to, draft.toTitle)
+    } else if (draft.typing) {
+      readTyped()
+    } else {
+      fillReceivers()
+    }
+    updateComposerControls()
   }
 
   function readTyped() {
@@ -372,14 +391,9 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     toFixed.hidden = !thread
     toList.hidden = Boolean(thread)
     toId.hidden = true
-    if (thread) {
-      const name = nameOf(to, toTitle)
-      composerTitle.textContent = `Reply to ${name}`
-      toName.textContent = replyLabel(to, toTitle)
-    } else {
-      composerTitle.textContent = 'Message another session'
-      fillReceivers()
-    }
+    toSelect.dataset.shape = ''
+    composerTitle.textContent = 'Message another session'
+    refreshReceivers()
     const models = thread ? opened?.thread?.models : undefined
     sendingModel.value = models?.[keyOf(from)]?.name ?? ''
     reviewingModel.value = to ? models?.[keyOf(to)]?.name ?? '' : ''
@@ -434,7 +448,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
 
   toSelect.addEventListener('change', () => {
     if (!draft) return
-    draft.receiver = listedReceiver(toSelect.value) ?? (draft.receiver?.value === toSelect.value ? draft.receiver : undefined)
+    draft.receiver = receiverByKey(toSelect.value)
     updateComposerControls()
   })
   enterId.addEventListener('click', () => {
@@ -485,7 +499,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       if (error.guard === 'ownership') await afterChange(undefined)
     } finally {
       current.pending = false
-      if (draft === current) updateComposerControls()
+      if (draft === current) refreshReceivers()
     }
   })
   composer.addEventListener('submit', async (event) => {
@@ -523,7 +537,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       if (opened) await load(opened)
     } finally {
       current.pending = false
-      if (draft === current) updateComposerControls()
+      if (draft === current) refreshReceivers()
     }
   })
 
@@ -920,12 +934,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
 
   function viewChanged(view, version, mailboxNativeCopy) {
     if (view) nativeCopy = mailboxNativeCopy === true
-    if (draft && !draft.pending) {
-      if (draft.thread) toName.textContent = replyLabel(draft.to, draft.toTitle)
-      else if (draft.typing) readTyped()
-      else fillReceivers()
-      updateComposerControls()
-    }
+    if (draft && !draft.pending) refreshReceivers()
     warning.textContent = view?.mailboxWarning ?? ''
     warning.hidden = !warning.textContent
     if (claimsFor && !claimsFor.pending && claimsFor.version !== version) {

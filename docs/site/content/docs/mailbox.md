@@ -18,7 +18,7 @@ Keep a question or finding beside the two chats it concerns. The [companion](@/d
 3. Choose **Question** or **Finding** and write your message. The line under **Type** says what the receiver is asked to do, and the line above the buttons says when it gets the message.
 4. Choose **Send to** and the receiver's name, then open the thread to see the waiting message.
 
-The **To** list holds the local Claude Code and Codex chats the companion has loaded, grouped like the main list. An archived chat gets the message when it is resumed. An ID that matches no loaded chat still sends, and the server checks it.
+The **To** list holds the local Claude Code and Codex chats the companion has loaded, grouped like the main list. With the mailbox built-in on, an archived chat gets the message when it is resumed. An ID that matches no loaded chat still sends, and the server checks it.
 
 Choose **Type into session** to put it in the existing terminal tab. Press Enter in that tab when you are ready to send it. The Terminal app uses the clipboard to paste it. **Copy message** lets you paste it yourself in any app. A message marked **Staged** has been typed or copied by you. A failed attempt leaves it waiting. With the [mailbox built-in](#deliver-with-the-next-prompt) on, a waiting message also reaches the session with your next prompt.
 

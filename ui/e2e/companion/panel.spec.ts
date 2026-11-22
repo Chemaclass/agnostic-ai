@@ -819,6 +819,23 @@ test('names both ends of a new message and sends the chosen tool and ID', async 
   await expect(page.locator('.mailbox-tag')).toHaveCount(0)
 })
 
+test('the chosen mailbox receiver stays chosen when the list refreshes, even after it leaves the list', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await composeMailbox(page)
+  await chooseMailboxTarget(page)
+  await page.request.post('/dev/fixture', { data: { name: 'mailbox-handoff' } })
+  await expect(mailboxTo(page).locator('option')).toHaveCount(3)
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  await page.request.post('/dev/fixture', { data: { name: 'mailbox-alone' } })
+  await expect(row(page, 'Draft the tests')).toHaveCount(0)
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  await expect(mailboxTo(page)).toBeEnabled()
+  await page.getByLabel('Message', { exact: true }).fill('Still there?')
+  const send = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await page.getByRole('button', { name: 'Send to Draft the tests' }).click()
+  expect((await send).postDataJSON()).toMatchObject({ to: { tool: 'codex', id: mailboxTarget } })
+})
+
 test('groups mailbox receivers, says when an archived one gets the message and checks a typed ID', async ({ page }) => {
   await openPanel(page, 'mailbox-receivers')
   await composeMailbox(page)
