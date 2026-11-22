@@ -593,9 +593,9 @@ export function approvalsHeaderOf(view) {
 /**
  * Why a row sits under Needs you, as `{ kind, text }`: a permission (the row draws its approval pill), a path conflict,
  * shells still running, a question, no activity, a wait of unknown kind, or a new reply. Undefined outside Needs you.
- * `nameOf` names the other session of a conflict.
+ * `nameOf` names the other session of a conflict. Shells that are kept or `stopped` no longer count as a wait.
  */
-export function needsReasonOf(conversation, now, nameOf) {
+export function needsReasonOf(conversation, now, nameOf, stopped = () => false) {
   if (!needsPersonOf(conversation)) return undefined
   const permission = conversation.state === 'blocked' && approvalOf(conversation)
   if (permission) return { kind: 'permission', text: permission.text }
@@ -606,10 +606,8 @@ export function needsReasonOf(conversation, now, nameOf) {
     return { kind: 'reply', text: hidden ? 'New reply, hidden because it may hold a password or key' : 'New reply' }
   }
   const waitingFor = conversation.waiting?.for
-  if (waitingFor === 'shell') {
-    const count = stuckShellsOf(conversation).length
-    return { kind: 'shell', text: count > 1 ? `Waiting on ${count} shells still running` : 'Waiting on a shell still running' }
-  }
+  const count = waitingFor === 'shell' ? askingShellsOf(conversation, stopped).length : 0
+  if (count > 0) return { kind: 'shell', text: count > 1 ? `Waiting on ${count} shells still running` : 'Waiting on a shell still running' }
   if (waitingFor === 'answer') return { kind: 'question', text: 'Asks you a question' }
   const quiet = quietNoteOf(conversation, now)
   if (quiet) return { kind: 'quiet', text: quiet }
@@ -621,8 +619,8 @@ export function needsReasonOf(conversation, now, nameOf) {
  * Needs you reason already says it waits on them, or when every shell is kept or `stopped`, since those lines say so.
  */
 export function shellsLeadOf(conversation, now, stopped = () => false) {
-  const running = stuckShellsOf(conversation).filter((shell) => !shell.keptUntil && !stopped(shell)).length
-  if (running === 0 || needsReasonOf(conversation, now)?.kind === 'shell') return undefined
+  const running = askingShellsOf(conversation, stopped).length
+  if (running === 0 || needsReasonOf(conversation, now, undefined, stopped)?.kind === 'shell') return undefined
   return running > 1 ? `${running} shells are still running` : 'A shell is still running'
 }
 
@@ -1010,6 +1008,11 @@ export function stoppedSessionOf({ forced = false, stillRunning = false }) {
 
 export function stuckShellsOf(conversation) {
   return conversation?.live ? conversation.stuckShells ?? [] : []
+}
+
+/** The stuck shells still asking for an answer: not kept, and not `stopped` already. */
+function askingShellsOf(conversation, stopped) {
+  return stuckShellsOf(conversation).filter((shell) => !shell.keptUntil && !stopped(shell))
 }
 
 function shellAge(shell, now) {

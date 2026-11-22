@@ -1331,6 +1331,12 @@ test('every row under Needs you says why it waits, in one short line', async () 
   assert.deepEqual(reason(row('h', 'unread', { withheld: ['reply'] })), { kind: 'reply', text: 'New reply, hidden because it may hold a password or key' })
   assert.equal(reason(row('a', 'active')), undefined)
   assert.equal(reason(row('w', 'working', { waiting: { for: 'shell' } })), undefined)
+  // Kept and stopped shells no longer count: the reason agrees with the lines under it.
+  const keptOne = { ...shellWait, stuckShells: [shell, { ...shell, pid: 43, keptUntil: '2026-11-09T12:30:00Z' }] }
+  assert.deepEqual(reason(keptOne), { kind: 'shell', text: 'Waiting on a shell still running' })
+  const stoppedOne = (stopping) => stopping.pid === 43
+  assert.deepEqual(needsReasonOf(shellWait, now, undefined, stoppedOne), { kind: 'shell', text: 'Waiting on a shell still running' })
+  assert.deepEqual(needsReasonOf(shellWait, now, undefined, () => true), { kind: 'waiting', text: 'Waiting for you' })
 })
 
 test('a row says its orange lines are shells still running, unless its reason already does or every shell is kept', async () => {
@@ -1348,6 +1354,9 @@ test('a row says its orange lines are shells still running, unless its reason al
   const working = row('t', 'working', { live: true, stuckShells: [shell, other] })
   assert.equal(shellsLeadOf(working, now, (stopping) => stopping.pid === 43), 'A shell is still running')
   assert.equal(shellsLeadOf(working, now, () => true), undefined)
+  const waits = row('s', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell, other] })
+  assert.equal(shellsLeadOf(waits, now, (stopping) => stopping.pid === 43), undefined)
+  assert.equal(shellsLeadOf(waits, now, () => true), undefined)
   assert.equal(lead(row('n', 'working', { live: true })), undefined)
   assert.equal(lead(row('n', 'working', { live: true, stuckShells: [] })), undefined)
   assert.equal(lead(row('q', 'blocked', { live: true, waiting: { for: 'answer' }, stuckShells: [shell] })), 'A shell is still running')

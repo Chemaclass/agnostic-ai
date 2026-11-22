@@ -2227,6 +2227,25 @@ test('warns about forgotten shells and only stops the shell confirmed in the row
   await expect(noticeCard(page)).toContainText('Processes still running (PIDs 841).')
 })
 
+test('on a narrow row a long subagent name gives way, so each shell keeps the end that tells it apart', async ({ page }) => {
+  await page.setViewportSize({ width: 300, height: 624 })
+  await openPanel(page, 'stuck-shells')
+  const owned = row(page, 'Rebuild the monthly reports')
+  const commands = owned.locator('.shell-command')
+  await expect(commands).toHaveText(['node bin…report1', 'node bin…report2'])
+  // Compared in fractions of a pixel: the ellipsis cuts a command that misses its width by any amount.
+  const cut = (node: Element) => {
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    return range.getBoundingClientRect().width - node.getBoundingClientRect().width
+  }
+  for (const command of await commands.all()) expect(await command.evaluate(cut)).toBeLessThanOrEqual(0.02)
+  const names = owned.locator('.shell-owner-name')
+  expect(await names.first().evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+  await expect(owned.locator('.shell-owner').first()).toContainText('·')
+  for (const stop of await owned.getByRole('button', { name: /^Stop shell: / }).all()) await expect(stop).toBeInViewport()
+})
+
 const shellDialog = (page: Page) => page.getByRole('alertdialog', { name: 'Stop shell?' })
 const shellLine = (scope: Locator, command: string) => scope.locator('.shell-warning').filter({ hasText: command })
 const keptShells = async (page: Page) => ((await (await page.request.get('/api/kept-shells')).json()) as { shells: { pid: number, keeps: number }[] }).shells

@@ -343,9 +343,20 @@ body {
   flex: none;
 }
 
-/* The subagent that left the shell, set apart from the command it ran. */
+/* The subagent that left the shell, set apart from the command it ran. On a narrow row it shrinks first: flex
+   shrinks every item in proportion, and any share left to the command, even a fraction of a pixel, cuts its end. */
 .shell-owner {
+  flex: 0 100000 auto;
+  display: flex;
+  min-width: 3ch;
   color: var(--paper-dim);
+  white-space: pre;
+}
+
+.shell-owner-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .shell-age {

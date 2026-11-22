@@ -332,7 +332,12 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
-  const needs = needsReasonOf(conversation, now, sessionTitleOf)
+  // A stop that went through shows on the line before the next list drops the shell.
+  const stopped = (shell) => {
+    const stop = state.shellStops.get(shellKeyOf(shell))
+    return Boolean(stop?.text) && !stop.problem
+  }
+  const needs = needsReasonOf(conversation, now, sessionTitleOf, stopped)
   if (needs?.kind === 'conflict') text.append(conflictLine(conversation, needs.text))
   else if (needs && needs.kind !== 'permission') text.append(element('div', 'needs-reason is-' + needs.kind, needs.text))
   if (approval) text.append(approvalLine(approval))
@@ -362,11 +367,7 @@ function rowOf(conversation, order, folderNames, under) {
   if (subagents) text.append(subagents)
   const shells = stuckShellsOf(conversation)
   const labels = shellLabelsOf(shells, now)
-  // A stop that went through shows on the line before the next list drops the shell.
-  const lead = shellsLeadOf(conversation, now, (shell) => {
-    const stop = state.shellStops.get(shellKeyOf(shell))
-    return Boolean(stop?.text) && !stop.problem
-  })
+  const lead = shellsLeadOf(conversation, now, stopped)
   if (lead) text.append(element('div', 'shells-lead', lead))
   shells.forEach((shell, index) => text.append(shellLine(conversation, shell, labels[index], now, shells.length > 1)))
   const listed = new Set(shells.map(shellKeyOf))
@@ -441,7 +442,12 @@ function shellLine(conversation, shell, label, now, stacked) {
   // The spaces are for screen readers and copied text; the gap spaces the parts on screen.
   if (shell.keptUntil) words.append(element('span', 'shell-note', keptShellNoteOf(shell, now) + ':'), ' ')
   else {
-    if (label.detail) words.append(element('span', 'shell-note shell-owner', label.detail + ' ·'), ' ')
+    if (label.detail) {
+      // The name gives way before the command, whose end tells two shells apart.
+      const owner = element('span', 'shell-owner')
+      owner.append(element('span', 'shell-owner-name', label.detail), ' ·')
+      words.append(owner, ' ')
+    }
     words.append(element('span', 'shell-age', label.age), ' ')
   }
   words.append(element('code', 'shell-command', label.command))
