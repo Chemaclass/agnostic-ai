@@ -1013,19 +1013,19 @@ func TestWeekPage_ShowsOpenConversationsThenAWeekAtATime(t *testing.T) {
 		return strings.Join(out, ",")
 	}
 
-	page, from, more := weekPage(all, now, true)
+	page, from, more := weekPage(all, now, true, nil)
 	if ids(page) != "open-but-old,unread-old,blocked-old,today,six-days" || !from.Equal(now.Add(-pageSpan)) || !more {
 		t.Errorf("first page = %s from %s more %v", ids(page), from, more)
 	}
-	page, from, more = weekPage(all, from, false)
+	page, from, more = weekPage(all, from, false, nil)
 	if ids(page) != "eight-days" || !more {
 		t.Errorf("second page = %s from %s more %v", ids(page), from, more)
 	}
-	page, from, more = weekPage(all, from, false)
+	page, from, more = weekPage(all, from, false, nil)
 	if ids(page) != "after-a-gap,gap-week" || !from.Equal(time.Date(2026, 9, 24, 10, 0, 0, 0, time.UTC)) || !more {
 		t.Errorf("a page past empty weeks starts a week before its newest conversation, got %s from %s more %v", ids(page), from, more)
 	}
-	page, _, more = weekPage(all, from, false)
+	page, _, more = weekPage(all, from, false, nil)
 	if ids(page) != "undated" || more {
 		t.Errorf("last page = %s more %v", ids(page), more)
 	}

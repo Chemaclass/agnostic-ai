@@ -472,18 +472,26 @@ func TestClaims_DismissRemovesOnlyTheRequestersConflictWithNoThread(t *testing.T
 	if got := conflicts(); len(got) != 2 {
 		t.Fatalf("conflicts before dismiss = %+v", got)
 	}
+	var threaded, free string
+	for _, c := range conflicts() {
+		if c.Thread != "" {
+			threaded = c.ID
+		} else {
+			free = c.ID
+		}
+	}
 	for _, unknown := range []struct {
 		requester conversations.Ref
-		path      string
-	}{{codex, "scope/a.go"}, {claude, "scope/b.go"}} {
-		if err := s.DismissConflict(t.Context(), unknown.requester, root, unknown.path); err != nil {
+		id        string
+	}{{codex, free}, {claude, "c-unknown"}, {claude, threaded}} {
+		if err := s.DismissConflict(t.Context(), unknown.requester, unknown.id); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if got := conflicts(); len(got) != 2 {
 		t.Errorf("an unknown or threaded conflict was dismissed: %+v", got)
 	}
-	if err := s.DismissConflict(t.Context(), claude, root, "scope/a.go"); err != nil {
+	if err := s.DismissConflict(t.Context(), claude, free); err != nil {
 		t.Fatal(err)
 	}
 	if got := conflicts(); len(got) != 1 || got[0].Thread != offer.Thread {
@@ -508,5 +516,114 @@ func TestClaims_ReleaseExactFreesOnlyWholeClaimsOfTheOwner(t *testing.T) {
 	}
 	if view, err := s.Claims(t.Context()); err != nil || len(view.Claims) != 0 {
 		t.Errorf("claims after exact release = %+v, %v", view.Claims, err)
+	}
+}
+
+func TestClaims_DismissTakesOneConflictWhenTwoShowTheSamePath(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(t.Context(), mailThird, Gives{root, []string{"scope/a.go"}}, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.Claim(t.Context(), claude, Gives{root, []string{"scope/a.go"}}, root, "human"), "ownership")
+	// A record from when another session held the whole folder now shows
+	// the same file as the record above.
+	state, err := s.readClaims()
+	if err != nil {
+		t.Fatal(err)
+	}
+	folder := state.Conflicts[0]
+	folder.ID, folder.Path = newConflictID(), "scope"
+	state.Conflicts = append(state.Conflicts, folder)
+	if err := s.writeClaims(state); err != nil {
+		t.Fatal(err)
+	}
+	view, err := s.Claims(t.Context())
+	if err != nil || len(view.Conflicts) != 2 || view.Conflicts[0].Path != view.Conflicts[1].Path || view.Conflicts[0].ID == view.Conflicts[1].ID {
+		t.Fatalf("conflicts = %+v, %v; want two ids showing one path", view.Conflicts, err)
+	}
+	if err := s.DismissConflict(t.Context(), claude, view.Conflicts[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	after, err := s.Claims(t.Context())
+	if err != nil || len(after.Conflicts) != 1 || after.Conflicts[0].ID != view.Conflicts[1].ID {
+		t.Errorf("after dismiss = %+v, %v; want only %s", after.Conflicts, err, view.Conflicts[1].ID)
+	}
+}
+
+func TestClaims_AReleaseEndsTheConflictsItsClaimBlocked(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	file := Gives{root, []string{"scope/a.go"}}
+	if err := s.Claim(t.Context(), mailThird, file, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.Claim(t.Context(), claude, file, root, "human"), "ownership")
+	if err := s.Release(t.Context(), mailThird, file); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Claim(t.Context(), codex, file, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	if view, err := s.Claims(t.Context()); err != nil || len(view.Conflicts) != 0 {
+		t.Errorf("conflicts after a release and a fresh claim = %+v, %v; want none", view.Conflicts, err)
+	}
+}
+
+func TestClaims_AConflictSavedWithoutAnIDGetsOneDismissCanUse(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(t.Context(), mailThird, Gives{root, []string{"scope/a.go"}}, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.Claim(t.Context(), claude, Gives{root, []string{"scope/a.go"}}, root, "human"), "ownership")
+	state, err := s.readClaims()
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Conflicts[0].ID = ""
+	if err := s.writeClaims(state); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := s.Claims(t.Context())
+	second, _ := s.Claims(t.Context())
+	if len(first.Conflicts) != 1 || first.Conflicts[0].ID == "" || first.Conflicts[0].ID != second.Conflicts[0].ID {
+		t.Fatalf("ids across reads = %+v, %+v", first.Conflicts, second.Conflicts)
+	}
+	if err := s.DismissConflict(t.Context(), claude, first.Conflicts[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if view, _ := s.Claims(t.Context()); len(view.Conflicts) != 0 {
+		t.Errorf("conflicts after dismiss = %+v", view.Conflicts)
+	}
+}
+
+func TestClaims_AHandoffToTheRequesterEndsItsConflict(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	offer := claimAndOffer(t, s, root, "scope/a.go")
+	requireGuard(t, s.Claim(t.Context(), codex, Gives{root, []string{"scope/a.go"}}, root, "human"), "ownership")
+	if err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.readClaims()
+	if err != nil || len(state.Conflicts) != 0 {
+		t.Errorf("stored conflicts after the handoff = %+v, %v; want none", state.Conflicts, err)
+	}
+}
+
+func TestClaims_ARepeatedRefusalKeepsTheConflictID(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	file := Gives{root, []string{"scope/a.go"}}
+	if err := s.Claim(t.Context(), mailThird, file, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.Claim(t.Context(), claude, file, root, "human"), "ownership")
+	first, _ := s.Claims(t.Context())
+	requireGuard(t, s.Claim(t.Context(), claude, file, root, "human"), "ownership")
+	second, _ := s.Claims(t.Context())
+	if len(first.Conflicts) != 1 || len(second.Conflicts) != 1 || first.Conflicts[0].ID != second.Conflicts[0].ID {
+		t.Fatalf("conflicts = %+v then %+v; want one with the same id", first.Conflicts, second.Conflicts)
 	}
 }

@@ -1428,6 +1428,20 @@ test('Dismiss clears a refused claim from the footer and keeps the holder\'s cla
   expect(left.claims).toMatchObject([{ owner: { id: '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50' }, paths: ['internal/mailbox/handoff.go'] }])
 })
 
+test('the footer card declines a refused handoff whose chats left the list', async ({ page }) => {
+  await openPanel(page, 'mailbox-orphan-handoff-conflict')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+  await claimsButton(page).click()
+  await expect(fileClaims(page).getByRole('button', { name: 'Dismiss', exact: true })).toHaveCount(0)
+  const declined = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/handoff'))
+  await fileClaims(page).getByRole('button', { name: 'Decline offer', exact: true }).click()
+  expect((await declined).postDataJSON()).toEqual({ thread: 'th_20261107_00000009', n: 1, action: 'decline' })
+  await expect(page.locator('#toast')).toContainText('Handoff declined.')
+  await expect(claimsButton(page)).toBeHidden()
+  const left = await (await page.request.get('/api/mailbox/claims')).json()
+  expect(left.conflicts).toEqual([])
+})
+
 test('with no claims the footer shows no File claims button', async ({ page }) => {
   await openPanel(page, 'mailbox-handoff')
   await expect(page.locator('#mailbox-open-claims')).toBeHidden()
@@ -1482,6 +1496,42 @@ test('a claim an agent made says so', async ({ page }) => {
   const card = page.getByRole('region', { name: 'Files claimed by Draft the tests' })
   await expect(card.getByRole('article')).toContainText('Claimed by the agent')
   await expect(card.getByRole('article')).toContainText('companion/frontend/panel.js')
+})
+
+const conflictPath = 'internal/mailbox/handoff.go'
+const titled = (page: Page, title: string) => page.locator('#list .row').filter({ has: page.locator('.title').getByText(title, { exact: true }) })
+
+test('a path conflict shows on both rows, under Needs you, until the requester dismisses it', async ({ page }) => {
+  await openPanel(page, 'mailbox-claim-conflict')
+  const holder = titled(page, 'Draft the tests')
+  const requester = titled(page, 'Review the parser')
+  await expect(holder.getByRole('button', { name: `Review the parser wants ${conflictPath}, which this session claims` })).toBeVisible()
+  await expect(requester.getByRole('button', { name: `${conflictPath} is claimed by Draft the tests` })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Needs you/ })).toContainText('2')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path, 1 conflict')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+
+  await requester.getByRole('button', { name: `${conflictPath} is claimed by Draft the tests` }).click()
+  const card = page.getByRole('region', { name: 'Files claimed by Review the parser' })
+  await expect(card).toContainText(conflictPath)
+  await card.getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await expect(page.locator('#toast')).toContainText('Conflict dismissed.')
+  await expect(holder.locator('.needs-reason.is-conflict')).toHaveCount(0)
+  await expect(requester.locator('.needs-reason.is-conflict')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Needs you/ })).toContainText('1')
+  await expect(claimsButton(page)).not.toHaveClass(/is-warning/)
+})
+
+test('the holder releasing the path clears the conflict on both rows', async ({ page }) => {
+  await openPanel(page, 'mailbox-claim-conflict')
+  const holder = titled(page, 'Draft the tests')
+  await holder.locator('.needs-reason.is-conflict').click()
+  const card = page.getByRole('region', { name: 'Files claimed by Draft the tests' })
+  await expect(card.getByRole('button', { name: 'Dismiss', exact: true })).toHaveCount(0)
+  await card.getByRole('button', { name: 'Release', exact: true }).click()
+  await expect(page.locator('.needs-reason.is-conflict')).toHaveCount(0)
+  await expect(claimsButton(page)).toBeHidden()
+  await expect(page.getByRole('button', { name: /^Working/ })).toContainText('1')
 })
 
 test('the handoff form explains file claims under its paths', async ({ page }) => {
@@ -1762,6 +1812,7 @@ test('only Needs you offers mark all as read, and its rows do not repeat the hea
   await openPanel(page)
   await expect(markAllRead(page)).toHaveCount(1)
   await expect(groupTitle(page, 'Needs you').locator('..')).toContainText('Mark all as read')
+  await expect(markAllRead(page)).toHaveAttribute('title', 'Mark each chat shown here as read without opening it. A chat that waits on something else, such as a permission or a path conflict, stays here.')
   await expect(groupTitle(page, 'Active').locator('..')).toContainText('Mark all complete')
   await expect(groupTitle(page, 'Active').locator('..')).not.toContainText('Mark all as read')
 

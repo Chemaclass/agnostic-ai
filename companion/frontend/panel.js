@@ -5,7 +5,7 @@ import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteO
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
-import { CLAIM_HELP, claimChipOf, helpOf } from '/model.js'
+import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
 import { openDocs } from '/api.js'
 import { approvalsMenu } from '/panel-approvals.js'
 
@@ -268,6 +268,23 @@ function stateMark(conversation) {
   return mark
 }
 
+/** The title of a listed session, for a conflict line; undefined for one the list does not hold. */
+function sessionTitleOf(ref) {
+  const listed = state.view?.conversations.find((conversation) => keyOf(conversation) === keyOf(ref))
+  return listed && titleOf(listed)
+}
+
+/** A path conflict's reason line: a button that opens the session's claims, where it can release or dismiss. */
+function conflictLine(conversation, text) {
+  const line = element('button', 'needs-reason is-conflict', text)
+  line.type = 'button'
+  line.addEventListener('click', (event) => {
+    event.stopPropagation()
+    mailbox.openClaims(conversation)
+  })
+  return line
+}
+
 /** The meta line's chip for a session that claims files: it opens that session's claims. */
 function claimChip(conversation, text) {
   const chip = element('button', 'claim-chip', text)
@@ -282,7 +299,7 @@ function claimChip(conversation, text) {
 
 function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
-  const needsYou = conversation.state === 'blocked' || conversation.state === 'unread'
+  const needsYou = needsPersonOf(conversation)
   const quiet = conversation.state === 'completed' || conversation.state === 'dormant'
   const row = element('div', 'row')
   row.classList.toggle('needs-you', needsYou)
@@ -310,11 +327,9 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
-  const needs = needsReasonOf(conversation, now)
-  if (needs && needs.kind !== 'permission') {
-    const why = element('div', 'needs-reason is-' + needs.kind, needs.text)
-    text.append(why)
-  }
+  const needs = needsReasonOf(conversation, now, sessionTitleOf)
+  if (needs?.kind === 'conflict') text.append(conflictLine(conversation, needs.text))
+  else if (needs && needs.kind !== 'permission') text.append(element('div', 'needs-reason is-' + needs.kind, needs.text))
   if (approval) text.append(approvalLine(approval))
   else if (reply) text.append(element('div', 'reply', reply))
   const reason = approvalReasonOf(conversation)
@@ -767,7 +782,7 @@ function groupHead(group) {
   if (group.id === 'needs-you' && !folded) {
     const all = element('button', 'group-action', 'Mark all as read')
     all.type = 'button'
-    all.title = 'Take every conversation shown here out of Needs you without opening it, until something new is written in it'
+    all.title = 'Mark each chat shown here as read without opening it. A chat that waits on something else, such as a permission or a path conflict, stays here.'
     all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
     head.append(all)
   }

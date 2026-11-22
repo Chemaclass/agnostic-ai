@@ -480,6 +480,26 @@ body {
   text-overflow: ellipsis;
 }
 
+/* A path conflict: a button, since it opens the claims card. */
+.needs-reason.is-conflict {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  line-height: 14px;
+  text-align: left;
+  color: var(--alert);
+  cursor: pointer;
+}
+
+.needs-reason.is-conflict:hover,
+.needs-reason.is-conflict:focus-visible {
+  text-decoration: underline;
+}
+
 .needs-reason.is-reply {
   color: var(--paper-dim);
 }

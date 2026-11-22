@@ -55,7 +55,7 @@ function blockOf(thread, message) {
 }
 
 export function mailboxRows(state, conversations) {
-  if (!state.mailbox.length && !state.claims.length) return conversations
+  if (!state.mailbox.length && !state.claims.length && !state.claimConflicts.length) return conversations
   return conversations.map((row) => {
     const threads = state.mailbox.filter((thread) => thread.between.some((member) => same(row, member))).map((thread) => {
       const other = thread.between.find((member) => !same(row, member))
@@ -69,7 +69,9 @@ export function mailboxRows(state, conversations) {
     const owned = state.claims.filter((claim) => same(claim.owner, row))
     const claimCount = owned.length
     const claimedPaths = owned.reduce((sum, claim) => sum + claim.paths.length, 0)
-    return threads.length || claimCount ? { ...row, threads, claimCount, claimedPaths } : row
+    const claimConflicts = state.claimConflicts.filter(({ requester, holder }) => same(requester, row) || same(holder, row))
+    if (!threads.length && !claimCount && !claimConflicts.length) return row
+    return { ...row, threads, claimCount, claimedPaths, ...(claimConflicts.length ? { claimConflicts } : {}) }
   })
 }
 
@@ -183,6 +185,12 @@ function anotherHolder(state, owner, worktree, path) {
     claim.paths.some((root) => overlap(path, root)) && !(claim.except ?? []).some((except) => under(path, except)))?.owner
 }
 
+/** Like the server: once claims change hands, a conflict with no thread that no session blocks any more is over. */
+function retireUnblocked(state) {
+  state.claimConflicts = state.claimConflicts.filter((conflict) => conflict.thread ||
+    anotherHolder(state, conflict.requester, conflict.worktree, conflict.path))
+}
+
 function claimIn(state, owner, worktree, paths, now) {
   // Like the server: one claim record per path.
   for (const path of paths) state.claims.push({ owner: refOf(owner), worktree, paths: [path], since: now.toISOString(), by: 'human' })
@@ -201,7 +209,7 @@ function releaseIn(state, owner, worktree, paths) {
 function conflictRefusal(state, conflict, thread, now) {
   state.claimConflicts = state.claimConflicts.filter((prior) => prior.worktree !== conflict.worktree ||
     prior.path !== conflict.path || !same(prior.requester, conflict.requester) || prior.thread !== conflict.thread)
-  state.claimConflicts.push(conflict)
+  state.claimConflicts.push({ id: `c${++state.conflictSeq}`, ...conflict })
   const failure = refused('ownership', thread, now)
   const holder = conflict.holder && state.conversations.find((row) => same(row, conflict.holder))?.title
   failure.body.error = holder
@@ -245,18 +253,16 @@ export function mailboxRelease(state, ask, now) {
     if (listed || !exact) return refused('ownership', undefined, now)
   }
   releaseIn(state, ask, ask.worktree, ask.paths)
-  const ownsReleased = (conflict) => same(conflict.holder, ask) && conflict.worktree === ask.worktree &&
-    ask.paths.some((path) => overlap(path, conflict.path))
-  state.claimConflicts = state.claimConflicts.filter((conflict) => !ownsReleased(conflict))
+  retireUnblocked(state)
   return changed({})
 }
 
 /** Like the server: the requester drops its conflict with no thread; anything else changes nothing. */
 export function mailboxDismiss(state, ask, now) {
   if (!/^[0-9a-f-]{36}$/.test(ask?.id ?? '')) return refused('unknown-session', undefined, now)
-  if (!ask.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
+  if (typeof ask.conflict !== 'string' || !ask.conflict) return refused('format', undefined, now)
   state.claimConflicts = state.claimConflicts.filter((conflict) =>
-    conflict.thread || !same(conflict.requester, ask) || conflict.worktree !== ask.worktree || conflict.path !== ask.path)
+    conflict.thread || !same(conflict.requester, ask) || conflict.id !== ask.conflict)
   return changed({})
 }
 
@@ -284,6 +290,7 @@ export function mailboxAnswer(state, ask, now) {
     message.handoff = 'declined'
   }
   state.claimConflicts = state.claimConflicts.filter((conflict) => conflict.thread !== thread.id || conflict.n !== message.n)
+  if (ask.action === 'accept') retireUnblocked(state)
   return changed({})
 }
 
