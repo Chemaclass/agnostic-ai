@@ -29,6 +29,37 @@ type helper struct {
 	Reply     string      `json:"reply,omitempty"`
 	State     helperState `json:"state"`
 	UpdatedAt string      `json:"updatedAt"`
+	// ParentID is the helper that started this one, when another helper
+	// did. It may name a helper no longer listed.
+	ParentID string `json:"parentId,omitempty"`
+	// Reach is how the person reaches the helper's own view.
+	Reach helperReach `json:"reach,omitempty"`
+	// ParentName names the helper it runs inside, for reachNested.
+	ParentName string `json:"parentName,omitempty"`
+	// name is the name the tool shows the helper by, when it has one,
+	// such as a teammate's.
+	name string
+	// member is a pane teammate's id in its team, which its process names.
+	member string
+}
+
+// helperReach is how the person reaches a helper's own view.
+type helperReach string
+
+const (
+	// reachPane: it runs in a terminal pane of its own.
+	reachPane helperReach = "pane"
+	// reachRows: it is one of the agent rows below its chat's prompt.
+	reachRows helperReach = "rows"
+	// reachNested: it runs inside another helper, whose view lists it.
+	reachNested helperReach = "nested"
+	// reachCodexThreads: Codex's /subagents command switches to it.
+	reachCodexThreads helperReach = "codex-threads"
+)
+
+// shownName is the name a note calls a helper by.
+func (h helper) shownName() string {
+	return firstNonEmpty(h.name, h.Title, h.Kind)
 }
 
 // helperState is whether a helper still runs. Only working helpers are
@@ -91,16 +122,35 @@ func listsHelper(results []sourceResult, tool Tool, id string) bool {
 	return false
 }
 
-// ValidAgentID reports whether id can name a Claude Code subagent: 1 to
-// 128 letters, digits, hyphens or underscores, so it never reaches
-// outside the subagents folder.
+// ValidAgentID reports whether id can name a Claude Code subagent or
+// teammate: 1 to 128 letters, digits, hyphens, underscores or at signs,
+// so it never reaches outside the subagents folder. A pane teammate's
+// id is its member id, such as reviewer@session-0d2fda98.
 func ValidAgentID(id string) bool {
 	if id == "" || len(id) > 128 {
 		return false
 	}
 	return strings.IndexFunc(id, func(r rune) bool {
-		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_'
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '-' && r != '_' && r != '@'
 	}) < 0
+}
+
+// ancestorsOf lists the listed helpers h runs inside, nearest first. A
+// parent that is not listed, or a cycle, ends the walk.
+func ancestorsOf(helpers []helper, h helper) []helper {
+	byID := make(map[string]helper, len(helpers))
+	for _, other := range helpers {
+		if other.Tool == h.Tool {
+			byID[other.ID] = other
+		}
+	}
+	seen := map[string]bool{h.ID: true}
+	var ancestors []helper
+	for parent, ok := byID[h.ParentID]; ok && !seen[parent.ID]; parent, ok = byID[parent.ParentID] {
+		seen[parent.ID] = true
+		ancestors = append(ancestors, parent)
+	}
+	return ancestors
 }
 
 // subagentIn finds the Claude Code subagent id among helpers.

@@ -1,0 +1,11 @@
+{
+  "agentType": "reviewer",
+  "isBuiltIn": false,
+  "toolUseId": "toolu_01BB46pGN6uBXbMEBf3MUJDs",
+  "parentAgentId": "alegolas-3905-f554659539adf72a",
+  "spawnDepth": 1,
+  "requestShape": "foreground",
+  "requestNonInteractive": true,
+  "model": "claude-fable-5-2",
+  "pickedEffortModel": "opus"
+}

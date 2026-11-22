@@ -380,9 +380,19 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     const row = find(body)
     if (row && NEEDS_PERSON[row.state]) row.state = 'active'
     const picked = body.helper && row?.helpers?.find((helper) => helper.tool === 'claude' && helper.id === body.helper)
-    const said = picked ? { message: `Switched to the Terminal tab that runs it. Its subagent is '${picked.title}'. Use the agent rows below the prompt to switch to it.`, helper: picked } : {}
-    sendJSON(response, 200, { opened: true, ...said })
+    sendJSON(response, 200, { opened: true, ...helperOpenReplyOf(body, picked) })
     listChanged()
+  }
+
+  /** What the server says when an open named a subagent: its pane, or the chat it runs in with a note. */
+  function helperOpenReplyOf(body, picked) {
+    if (!body.helper) return {}
+    if (!picked) return { message: 'That subagent has finished. Its chat is open.', reached: 'parent' }
+    if (picked.reach === 'pane') return { message: 'Switched to the Terminal tab that runs it.', helper: picked, reached: 'subagent' }
+    const note = picked.reach === 'nested'
+      ? `It runs inside '${picked.parentName}'. Open that row first.`
+      : `Press the down arrow to pick '${picked.title}' below the prompt, then Enter.`
+    return { message: `Switched to the Terminal tab that runs it. ${note}`, helper: picked, reached: 'parent' }
   }
 
   async function send(request, response) {
@@ -513,6 +523,12 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       logCall('/api/panel/show')
       noContent(response)
       if (state.appearance.presence === 'shown') emit('panel-shown', 'bottom-right')
+    },
+    'POST /api/panel/peek': (request, response) => {
+      logCall('/api/panel/peek')
+      const shown = state.appearance.presence === 'shown'
+      sendJSON(response, 200, { shown })
+      if (shown) emit('panel-shown', 'bottom-right')
     },
     'GET /api/preferences': (request, response) => sendJSON(response, 200, state.preferences),
     'POST /api/preferences/shortcut': (request, response) => saveShortcut(request, response, 'shortcut', 'sendShortcut', 'sends the copied text'),

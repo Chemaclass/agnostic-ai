@@ -1,0 +1,36 @@
+{
+  "name": "session-ad3d3020",
+  "createdAt": 1795276117724,
+  "leadAgentId": "team-lead@session-ad3d3020",
+  "leadSessionId": "ad3d3020-5195-4a73-a9d3-5bc3e45b66b9",
+  "leadProcess": {
+    "pid": 3701,
+    "pidSpace": "host",
+    "claimedAt": 1795276117724
+  },
+  "members": [
+    {
+      "agentId": "team-lead@session-ad3d3020",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "joinedAt": 1795276117724,
+      "tmuxPaneId": "leader",
+      "cwd": "/tmp/app",
+      "subscriptions": [],
+      "backendType": "in-process"
+    },
+    {
+      "agentId": "legolas-3905@session-ad3d3020",
+      "name": "legolas-3905",
+      "color": "purple",
+      "joinedAt": 1795332016065,
+      "tmuxPaneId": "in-process",
+      "subscriptions": [],
+      "agentType": "general-purpose",
+      "model": "opus",
+      "planModeRequired": false,
+      "cwd": "/tmp/app",
+      "backendType": "in-process"
+    }
+  ]
+}

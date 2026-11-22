@@ -214,15 +214,28 @@ See [what a chat waits for](#waiting) for where each tool's wait comes from.
 
 ## Working rows and subagents {#working-rows}
 
-Working chats show an animated gyroscope. Each working Claude Code or Codex subagent adds a small blue copy.
+Working chats show an animated gyroscope. Each working Claude Code or Codex subagent, and each working Claude Code teammate, adds a small blue copy.
 
 | Part | What it shows |
 |------|---------------|
-| "▸ 3 subagents" | A line under the meta line. Click it to unfold. |
-| Unfolded list | Newest first, five at most, then "+N more". |
-| Subagent row | Gyroscope, title, a Claude Code subagent's latest message when it wrote one, tool, type if any, age. |
+| "▸ 3 subagents" | A line under the meta line. Click it to unfold. With subagents inside others it says how deep, as in "▸ 4 subagents, 2 levels". |
+| Unfolded list | A tree: each subagent under the one that started it, one step further in. Newest first on each level, five at the top at most, then "+N more". |
+| "▾ 2 subagents" under a subagent | Folds the subagents it started. |
+| Subagent row | Gyroscope, title, a Claude Code subagent's latest message when it wrote one, tool, type if any, age. A teammate's type is its name. |
 
-A Codex subagent opens its own thread, or switches to its terminal. A Claude Code subagent opens its chat, and a notice names the subagent. For a chat in a terminal tab, it also says to switch to it in the agent rows below the prompt. A failure that comes later replaces the notice. In the send picker, a click on a subagent row sends the text to the chat it runs in.
+A click on a subagent row:
+
+| Subagent | What comes to the front | Notice |
+|----------|-------------------------|--------|
+| Claude Code teammate in a tmux pane | Its pane, and the terminal tab that shows it | None |
+| Same, in a tmux session no terminal shows | The chat's tab | The `tmux -L <socket> attach` command |
+| Claude Code teammate in the chat's process, or a subagent | The chat's tab | Press the down arrow to pick it below the prompt, then Enter |
+| Subagent started by another subagent or a teammate | The pane of the nearest one with a pane, or the chat's tab | Which rows to open, in order |
+| Subagent that finished since the list showed it | The chat's tab | It finished |
+| Codex subagent | Its own thread, or the terminal that holds it | Type `/subagents` to switch to it |
+| Subagent of a chat in the desktop app or an editor | The chat, as a click on its row does | Its name only |
+
+On macOS the notice shows at once: the list comes up beside the circle without taking the keys from the terminal. Elsewhere it waits in the list. Nothing is typed into the terminal, so you pick the subagent yourself. Only a teammate in a tmux pane can be shown directly; Claude Code and Codex offer no other way in from outside. A failure that comes later replaces the notice. In the send picker, a click on a subagent row sends the text to the chat it runs in.
 
 {% <details summary="Details: counts, parents, animation"> %}
 - The five-bulb gyroscope keeps constant brightness, with bulbs at different orbital radii and depths.
@@ -232,7 +245,8 @@ A Codex subagent opens its own thread, or switches to its terminal. A Claude Cod
 - A parent that asks you a question stays in Needs you with the orange lock dot and no orbiting bulbs of its own. Its working satellites keep their blue cores and animation.
 - Cloud sessions and other tools' subagents are not tracked.
 - When the server counts working subagents but cannot list them, the count sits on the subagents line instead.
-- The list starts folded. Which chats are unfolded is kept until the companion quits.
+- The list starts folded. Which chats are unfolded, and which subagents are folded shut, is kept until the companion quits.
+- A subagent whose parent finished, or whose parents lead back to it, sits at the top of the tree.
 - Only working subagents are listed and counted. A finished one leaves, and the toggle goes away once none works.
 - `codex exec` runs count among them while they run.
 - With animation off, or the system's Reduce Motion on, the indicator stays still with its heading and worker count visible. See [Animate companion](@/docs/cli-reference/companion.md#menus).

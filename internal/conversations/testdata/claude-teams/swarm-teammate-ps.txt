@@ -1,0 +1,1 @@
+/Users/me/.local/share/claude/versions/2.1.330 --agent-id echo@session-0d2fda98 --agent-name echo --team-name session-0d2fda98 --agent-color blue --parent-session-id 0d2fda98-c29b-412d-9ef3-f77411c7c975 --lead-verify-key REDACTED --agent-type general-purpose --dangerously-skip-permissions --settings {"teammateMode":"tmux"} --model haiku
