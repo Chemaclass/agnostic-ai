@@ -638,7 +638,7 @@ func (s *shell) changeSettings(change func(saved *settings)) error {
 	defer s.mu.Unlock()
 	before := s.settings
 	change(&s.settings)
-	err := writeSettings(s.settingsPath, s.settings)
+	err := saveSettingsChange(s.settingsPath, before, change)
 	if err != nil {
 		s.settings = before
 	}
@@ -705,6 +705,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/stop-session", in.pass(serverStopSessionPath))
 	mux.HandleFunc("POST /api/approvals/ask", in.pass(serverApprovalsAskPath))
 	mux.HandleFunc("POST "+serverApprovalsDecidePath, in.pass(serverApprovalsDecidePath))
+	mux.HandleFunc("GET /api/settings", in.readSettings)
+	mux.HandleFunc("POST "+serverSettingsPath, in.pass(serverSettingsPath))
+	mux.HandleFunc("POST "+serverSettingsSyncPath, in.pass(serverSettingsSyncPath))
 	mux.HandleFunc("GET /api/clipboard", in.clipboard)
 	mux.HandleFunc("POST /api/send", in.send)
 	mux.HandleFunc("POST "+serverMailboxSendPath, in.pass(serverMailboxSendPath))
@@ -818,16 +821,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// A companion asked to quit or to change the login leaves even an
-	// unreadable file where it is.
-	read := readSettings
-	if ask == "" {
-		read = loadSettings
-	}
-	saved, err := read(path)
+	// An unreadable file moves aside only once this is the one companion
+	// that runs, below; a second launch leaves it where it is.
+	saved, err := readSettings(path)
+	_, unreadable := errors.AsType[*unreadableSettings](err)
 	// A companion asked to quit or to change the login needs no settings,
 	// and must answer even when the file cannot be read.
-	if err != nil && ask == "" {
+	if err != nil && !unreadable && ask == "" {
 		log.Fatal(err)
 	}
 	pages, err := fs.Sub(embedded, "frontend")
@@ -895,6 +895,12 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+	if unreadable {
+		if saved, err = loadSettings(path); err != nil {
+			log.Fatal(err)
+		}
+		s.settings = saved
 	}
 
 	s.screens = s.app.Screen.GetAll

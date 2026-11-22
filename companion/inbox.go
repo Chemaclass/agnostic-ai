@@ -55,6 +55,10 @@ const (
 	// serverApprovalsDecidePath answers one request the approvals hook
 	// holds for the companion.
 	serverApprovalsDecidePath = "/api/approvals/decide"
+	// The user settings document, its one write and the sync it may need.
+	serverSettingsViewPath = "/api/views/settings"
+	serverSettingsPath     = "/api/settings"
+	serverSettingsSyncPath = "/api/settings/sync"
 )
 
 // inbox keeps the latest list of conversations for the pages. It holds
@@ -321,6 +325,14 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 				writeJSON(w, http.StatusUnsupportedMediaType, apiError{Error: "Send Content-Type: application/json."})
 				return
 			}
+		case serverSettingsPath, serverSettingsSyncPath:
+			if !settingsPageAllowed(w, r) {
+				return
+			}
+			if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mediaType != "application/json" {
+				writeJSON(w, http.StatusUnsupportedMediaType, apiError{Error: "Send Content-Type: application/json."})
+				return
+			}
 		case serverApprovalsDecidePath:
 			if !pageAllowed(w, r, "Requests are answered from the companion page only.") {
 				return
@@ -346,6 +358,10 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 			return
 		}
 		wait := in.server.callWait
+		if path == serverSettingsSyncPath {
+			// A sync writes every tool's user files.
+			wait = in.server.sendWait
+		}
 		if path == serverMailboxStagePath {
 			if in.copyMailboxMessage(w, r, body) {
 				return
@@ -457,6 +473,23 @@ func (in *inbox) readMailbox(path string) http.HandlerFunc {
 		answer, err := in.server.get(r.Context(), endpoint, "")
 		in.answer(w, answer, err)
 	}
+}
+
+// readSettings passes the page's settings read, with the tag it holds,
+// and the server's tag back, so a read with nothing new answers 304.
+func (in *inbox) readSettings(w http.ResponseWriter, r *http.Request) {
+	if !settingsPageAllowed(w, r) {
+		return
+	}
+	answer, err := in.server.get(r.Context(), serverSettingsViewPath, r.Header.Get("If-None-Match"))
+	if err == nil && answer.tag != "" {
+		w.Header().Set("ETag", answer.tag)
+	}
+	in.answer(w, answer, err)
+}
+
+func settingsPageAllowed(w http.ResponseWriter, r *http.Request) bool {
+	return pageAllowed(w, r, "Settings are changed from the companion page only.")
 }
 
 func mailboxPageAllowed(w http.ResponseWriter, r *http.Request) bool {

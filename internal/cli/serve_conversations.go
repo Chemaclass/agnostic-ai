@@ -230,7 +230,7 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	store, hasMailbox := h.mailboxStore()
 	hasMailbox = hasMailbox && mailboxOriginStatus(r) == 0
 	if hasMailbox {
-		tagged += "\x00mailbox\x00" + store.Stamp()
+		tagged += "\x00mailbox\x00" + store.Stamp() + fileStamps(store.SettingsPath(), filepath.Join(filepath.Dir(h.scanner.MarksPath), companionSettingsFile))
 	}
 	tag := listTag(tagged, r)
 	w.Header().Set("ETag", tag)
