@@ -15,8 +15,12 @@ const shareAll = windows.FILE_SHARE_READ | windows.FILE_SHARE_WRITE | windows.FI
 // rename replaces to with POSIX semantics, so a reader that opened to
 // through OpenShared keeps its handle and does not fail the replace.
 // os.Rename (MoveFileEx) refuses while any handle to the target is open.
-// Filesystems without POSIX rename, such as FAT, fall back to os.Rename.
+// When POSIX rename fails, os.Rename runs and its error is returned. A
+// directory at to goes straight to os.Rename, which refuses to replace it.
 func rename(from, to string) error {
+	if info, err := os.Lstat(to); err == nil && info.IsDir() {
+		return os.Rename(from, to)
+	}
 	if posixRename(from, to) == nil {
 		return nil
 	}
