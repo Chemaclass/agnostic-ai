@@ -46,7 +46,7 @@ type ApprovalsConfig struct {
 	Tools     map[string]string `yaml:"tools,omitempty"      json:"tools,omitempty"      jsonschema_description:"Mode per tool, by target name. Replaces mode. Home config only."`
 	Projects  map[string]string `yaml:"projects,omitempty"   json:"projects,omitempty"   jsonschema_description:"Mode per project folder, an absolute path or one under ~. The deepest folder that holds the session wins. Replaces mode and tools. Home config only."`
 	AlwaysAsk []string          `yaml:"always-ask,omitempty" json:"always-ask,omitempty" jsonschema_description:"Extra patterns that always show the prompt, added to the fixed list. The patterns of both home files add up. Home config only."`
-	Companion bool              `yaml:"companion,omitempty"  json:"companion,omitempty"  jsonschema_description:"Show Approve and Deny buttons in the companion for a Claude Code request that approvals leave to you. The hook waits up to 300 seconds for a click while the tool's own prompt stays open. Default false. Home config only."`
+	Companion bool              `yaml:"companion,omitempty"  json:"companion,omitempty"  jsonschema_description:"Show Approve and Deny buttons in the companion for a Claude Code or Codex request that approvals leave to you. The hook waits up to 300 seconds for Claude Code, whose prompt stays open, and up to 60 seconds for Codex, which shows its prompt after. Default false. Home config only."`
 }
 
 // Loosens reports whether any mode in the block is review or yolo.

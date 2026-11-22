@@ -85,7 +85,7 @@ Then any program you run can control kitty through that socket, not only agnosti
 
 #### Konsole on Linux {#konsole-on-linux}
 
-agnostic-ai reaches Konsole over D-Bus with `dbus-send`. It selects and names a tab with no setup. Typing text into a tab and running a command in a new tab need this setting, which recent Konsole versions keep off: **Settings › Configure Konsole › General › Enable the security sensitive parts of the DBus API**. While it is off, the reply names it, the text stays on the clipboard to paste, and a resumed chat gets a new tab in its folder and the command to run there. Konsole 23.08 has no such setting and allows both.
+agnostic-ai reaches Konsole over D-Bus with `dbus-send`. It selects and names a tab with no setup. Konsole 26.04 refuses typed text and commands in a new tab until you turn on **Enable the security sensitive parts of the DBus API** in its settings, under **General**. While it is off, the reply names it, the text stays on the clipboard to paste, and a resumed chat gets a new tab in its folder and the command to run there. Konsole 23.08 allowed both with no change in our tests. Other versions were not tested.
 
 ### When it refuses
 
