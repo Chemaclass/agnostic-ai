@@ -1507,7 +1507,8 @@ kbd {
 /* Approvals: a choice of three modes, a status line and Apply to my tools. */
 
 .menu {
-  max-height: calc(100vh - 56px);
+  /* The card is 16px in from each window edge, so size against it: 8px from its top, above the footer. */
+  max-height: calc(100% - 54px);
   overflow-y: auto;
 }
 

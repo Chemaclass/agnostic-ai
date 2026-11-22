@@ -726,3 +726,15 @@ test('a saved change that is undone elsewhere shows again in the open menu', asy
 
   await expect(buttons).toHaveAttribute('aria-checked', 'false', { timeout: 4_000 })
 })
+
+test('the menu stays inside the card and scrolls when the window is short', async ({ page }) => {
+  await page.setViewportSize({ width: 432, height: 520 })
+  await openPanel(page)
+  await openSettings(page)
+
+  const menu = await page.locator('#menu').boundingBox()
+  const card = await page.locator('#card').boundingBox()
+  expect(menu && card).toBeTruthy()
+  expect(menu!.y).toBeGreaterThanOrEqual(card!.y)
+  expect(await page.locator('#menu').evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true)
+})
