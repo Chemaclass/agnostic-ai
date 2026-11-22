@@ -946,7 +946,7 @@ const tip = { timer: undefined, target: undefined, pointer: undefined }
 function tipTargetOf(element) {
   let hit = element?.closest?.('button, input, select, textarea, [title], [data-tooltip]')
   // While a click on the name picks the row, the name says what the row says.
-  if (hit?.matches('.title') && (state.pick || mailbox.composing)) hit = hit.closest('.row')
+  if (hit?.matches('.title[data-tooltip]') && (state.pick || mailbox.composing)) hit = hit.closest('.row')
   return hit && hit.hasAttribute('data-tooltip') && list.contains(hit) ? hit : null
 }
 

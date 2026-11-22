@@ -130,7 +130,7 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 - Marks file: the name is saved in `conversation-marks.json`, only once the tool has it.
 - A new message keeps the name.
 - Right-clicking does not open the chat or mark it as read.
-- A click elsewhere on the row opens the chat. On a chat that cannot be renamed, a click on the name opens it too.
+- A click elsewhere on the row opens the chat.
 - A running chat's Terminal, Ghostty, WezTerm, kitty or Konsole tab takes the name as its title, and keeps it after the session ends. In iTerm the name goes on the chat's pane.
 - Claude Code: a session that is still running may write its old name back.
 - Cursor editor chat: the name changes in the chat list and in the chat's own data, and nowhere else. Cursor may write the old name back if it has the chat loaded.
