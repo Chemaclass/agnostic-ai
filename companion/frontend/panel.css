@@ -2088,6 +2088,91 @@ button:focus-visible {
   white-space: nowrap;
 }
 
+.mailbox-global-claims[hidden] {
+  display: none;
+}
+
+.claims-count {
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+  color: var(--paper-dim);
+}
+
+/* A stale claim or a conflict: the footer button is the only place a gone session's claim shows. */
+.mailbox-global-claims.is-warning .claims-count::after {
+  content: " !";
+  color: var(--alert);
+  font-weight: 700;
+}
+
+/* The meta line's "3 paths claimed": a quiet chip that opens the session's claims. The details give way to it. */
+.meta.has-chip {
+  display: flex;
+  align-items: center;
+}
+
+.meta-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.claim-chip {
+  flex: none;
+  margin-left: 6px;
+  padding: 0 6px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--paper-dim);
+  font: inherit;
+  line-height: 13px;
+  cursor: pointer;
+}
+
+.claim-chip:hover,
+.claim-chip:focus-visible {
+  color: var(--paper);
+  border-color: var(--action);
+}
+
+.claim-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* A "?" that opens the docs section for a feature that is not obvious. */
+.help-link {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--paper-faint);
+  cursor: pointer;
+}
+
+.help-link svg {
+  width: 14px;
+  height: 14px;
+}
+
+.help-link:hover,
+.help-link:focus-visible {
+  color: var(--action);
+}
+
+.mailbox-claims-heading {
+  margin: 4px 0;
+  font-size: 11.5px;
+  font-weight: 620;
+  color: var(--alert);
+}
+
 /* A request the approvals hook holds for the companion: the whole command or edit,
    as the hook read it, then Approve and Deny. The text wraps, so nothing is cut. */
 

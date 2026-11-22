@@ -195,6 +195,7 @@ export function readClaims(owner, signal) {
 }
 export const claimPaths = (claim) => change('/api/mailbox/claim', claim)
 export const releasePaths = (claim) => change('/api/mailbox/release', claim)
+export const dismissConflict = (conflict) => change('/api/mailbox/conflict/dismiss', conflict)
 export const answerHandoff = (thread, n, action) => change('/api/mailbox/handoff', { thread, n, action })
 /** action is `approve` or `reject`. */
 export const approveMessage = (thread, n, action) => change('/api/mailbox/approve', { thread, n, action })
@@ -232,6 +233,8 @@ export const checkForUpdates = () => post('/api/update')
 /** Updates to the known release and restarts; the update event follows the steps. */
 export const startUpdate = (version) => post('/api/update/start?' + new URLSearchParams({ version }))
 export const openReleasePage = () => post('/api/update/release-page')
+/** Opens a docs page, `/docs/...#section`, in the default browser. */
+export const openDocs = (path) => post('/api/docs', { path })
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 

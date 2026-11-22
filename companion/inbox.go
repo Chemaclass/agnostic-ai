@@ -45,6 +45,7 @@ const (
 	serverMailboxClaimsPath   = "/api/mailbox/claims"
 	serverMailboxClaimPath    = "/api/mailbox/claim"
 	serverMailboxReleasePath  = "/api/mailbox/release"
+	serverMailboxDismissPath  = "/api/mailbox/conflict/dismiss"
 	serverMailboxHandoffPath  = "/api/mailbox/handoff"
 	serverMailboxApprovePath  = "/api/mailbox/approve"
 	serverMailboxQueuePath    = "/api/mailbox/queue"
@@ -316,7 +317,7 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch path {
 		case serverMailboxSendPath, serverMailboxThreadPath, serverMailboxStagePath, serverMailboxRefsPath,
-			serverMailboxClaimPath, serverMailboxReleasePath, serverMailboxHandoffPath,
+			serverMailboxClaimPath, serverMailboxReleasePath, serverMailboxDismissPath, serverMailboxHandoffPath,
 			serverMailboxApprovePath, serverMailboxQueuePath, serverMailboxSettingsPath:
 			if !mailboxPageAllowed(w, r) {
 				return

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
 func mailboxClaimBody(id, root, path string) string {
@@ -244,4 +245,154 @@ func TestMailboxHTTP_ClaimsAndHandoffsRejectAmbiguousAndExtraFields(t *testing.T
 			mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, tc.path, tc.body), "format")
 		})
 	}
+}
+
+func TestMailboxHTTP_ListCountsClaimedPathsAndStaleOwners(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	makeReviewRepo(t, h.root)
+	if view := listConversations(t, h); view.MailboxClaims != nil {
+		t.Errorf("no claim should send no totals: %#v", view.MailboxClaims)
+	}
+	body := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":["src/parser.go","README.md"]}`, inProject, h.root)
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", body); rec.Code != http.StatusNoContent {
+		t.Fatalf("claim = %d %s", rec.Code, rec.Body)
+	}
+	const other = "44444444-4444-4444-8444-444444444444"
+	writeClaudeSession(t, h.scanner.Stores.ClaudeDir, other, h.root, "Check the parser")
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", mailboxClaimBody(other, h.root, "README.md")), "ownership")
+	view := listConversations(t, h)
+	want := conversations.MailboxClaims{Paths: 2, Conflicts: 1}
+	if view.MailboxClaims == nil || *view.MailboxClaims != want {
+		t.Errorf("totals = %#v, want %#v", view.MailboxClaims, want)
+	}
+	for _, row := range view.Conversations {
+		if row.ID == inProject && row.ClaimedPaths != 2 {
+			t.Errorf("owner row claimedPaths = %d, want 2", row.ClaimedPaths)
+		}
+	}
+
+	folder := projectFolderName.ReplaceAllString(filepath.Join(h.root, "src"), "-")
+	if err := os.Remove(filepath.Join(h.scanner.Stores.ClaudeDir, "projects", folder, inProject+".jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	want = conversations.MailboxClaims{Paths: 2, Stale: 2, Conflicts: 1}
+	if view := listConversations(t, h); view.MailboxClaims == nil || *view.MailboxClaims != want {
+		t.Errorf("totals with a gone owner = %#v, want %#v", view.MailboxClaims, want)
+	}
+}
+
+func dismissConflictHTTP(t *testing.T, h http.Handler, secret, id, root, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	body := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"path":%q}`, id, root, path)
+	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310/api/mailbox/conflict/dismiss", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	if secret != "" {
+		req.Header.Set(companionSecretHeader, secret)
+	}
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestMailboxHTTP_TheCompanionDismissesARefusedClaimAndKeepsTheHoldersClaim(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	h.companion = testCompanionSecret
+	makeReviewRepo(t, h.root)
+	const other = "44444444-4444-4444-8444-444444444444"
+	const path = "src/parser.go"
+	writeClaudeSession(t, h.scanner.Stores.ClaudeDir, other, h.root, "Check the parser")
+	testChangeClaim(t, h, "claim", inProject, h.root, path)
+	thread := mailboxSendThread(t, h, mailboxSendBody(inWorktree, "question", "Is the parser done?", ""))
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", mailboxClaimBody(other, h.root, path)), "ownership")
+	if totals := listConversations(t, h).MailboxClaims; totals == nil || totals.Conflicts != 1 {
+		t.Fatalf("totals before dismiss = %#v", totals)
+	}
+
+	secret := string(testCompanionSecret)
+	if rec := dismissConflictHTTP(t, h, "", other, h.root, path); rec.Code != http.StatusForbidden {
+		t.Errorf("dismiss without the companion secret = %d %s", rec.Code, rec.Body)
+	}
+	if rec := dismissConflictHTTP(t, h, strings.Repeat("0", len(secret)), other, h.root, path); rec.Code != http.StatusForbidden {
+		t.Errorf("dismiss with a wrong secret = %d %s", rec.Code, rec.Body)
+	}
+	mailboxExpectRefusal(t, dismissConflictHTTP(t, h, secret, other, "", path), "format")
+	mailboxExpectRefusal(t, dismissConflictHTTP(t, h, secret, "not-a-session", h.root, path), "unknown-session")
+	if rec := dismissConflictHTTP(t, h, secret, other, h.root, path); rec.Code != http.StatusNoContent {
+		t.Fatalf("dismiss = %d %s", rec.Code, rec.Body)
+	}
+	for read := range 2 {
+		totals := listConversations(t, h).MailboxClaims
+		if totals == nil || totals.Conflicts != 0 || totals.Paths != 1 {
+			t.Errorf("read %d after dismiss: totals = %#v, want the claim and no conflict", read, totals)
+		}
+	}
+	if claims := readTestClaims(t, h, ""); len(claims.Claims) != 1 || claims.Claims[0].Owner.ID != inProject {
+		t.Errorf("dismiss changed the holder's claim: %#v", claims.Claims)
+	}
+	if threads := readTestThreads(t, h, inProject); len(threads) != 1 || threads[0] != thread {
+		t.Errorf("dismiss changed the threads: %v", threads)
+	}
+}
+
+func TestMailboxHTTP_GoneReleaseChecksTheOwnerAndTheExactClaim(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	makeReviewRepo(t, h.root)
+	const path = "src/parser.go"
+	testChangeClaim(t, h, "claim", inProject, h.root, path)
+	gone := func(p string) *httptest.ResponseRecorder {
+		body := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":[%q],"gone":true}`, inProject, h.root, p)
+		return mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/release", body)
+	}
+	mailboxExpectRefusal(t, gone(path), "ownership")
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":[%q],"gone":true}`, inProject, h.root, path)), "format")
+
+	folder := projectFolderName.ReplaceAllString(filepath.Join(h.root, "src"), "-")
+	if err := os.Remove(filepath.Join(h.scanner.Stores.ClaudeDir, "projects", folder, inProject+".jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	mailboxExpectRefusal(t, gone("src"), "ownership")
+	if rec := gone(path); rec.Code != http.StatusNoContent {
+		t.Fatalf("gone release = %d %s", rec.Code, rec.Body)
+	}
+	if claims := readTestClaims(t, h, ""); len(claims.Claims) != 0 {
+		t.Errorf("claims after gone release = %#v", claims.Claims)
+	}
+}
+
+func TestClaimOwnerGone_OnlyWhenTheOwnersStoreWasReadInFull(t *testing.T) {
+	owner := conversations.Ref{Tool: conversations.ToolCodex, ID: "0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50"}
+	for _, tc := range []struct {
+		name string
+		read conversations.RefsRead
+		want bool
+	}{
+		{"listed and usable", conversations.RefsRead{Rows: map[conversations.Ref]conversations.Conversation{owner: {Tool: owner.Tool, ID: owner.ID}}}, false},
+		{"listed as a cloud row", conversations.RefsRead{Rows: map[conversations.Ref]conversations.Conversation{owner: {Tool: owner.Tool, ID: owner.ID, App: conversations.AppCloud}}}, true},
+		{"missing from a complete read", conversations.RefsRead{Complete: map[conversations.Tool]bool{conversations.ToolCodex: true}}, true},
+		{"missing after a failed read of its store", conversations.RefsRead{Complete: map[conversations.Tool]bool{conversations.ToolClaude: true}}, false},
+		{"files listed without a row", conversations.RefsRead{Complete: map[conversations.Tool]bool{conversations.ToolCodex: true}, Listed: map[conversations.Ref]bool{owner: true}}, false},
+		{"no read", conversations.RefsRead{}, false},
+	} {
+		if got := claimOwnerGone(tc.read, owner); got != tc.want {
+			t.Errorf("%s: gone = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+func readTestThreads(t *testing.T, h http.Handler, id string) []string {
+	t.Helper()
+	rec := mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/threads?tool=claude&id="+id, "")
+	var reply struct {
+		Threads []struct {
+			ID string `json:"id"`
+		} `json:"threads"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &reply); rec.Code != http.StatusOK || err != nil {
+		t.Fatalf("threads = %d %s (%v)", rec.Code, rec.Body, err)
+	}
+	ids := make([]string, 0, len(reply.Threads))
+	for _, thread := range reply.Threads {
+		ids = append(ids, thread.ID)
+	}
+	return ids
 }

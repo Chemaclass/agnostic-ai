@@ -126,6 +126,18 @@ func (s Store) Claim(ctx context.Context, owner conversations.Ref, gives Gives, 
 }
 
 func (s Store) Release(ctx context.Context, owner conversations.Ref, gives Gives) error {
+	return s.release(ctx, owner, gives, false)
+}
+
+// ReleaseExact releases only paths the owner holds as claims of their
+// own in that worktree, checked under the lock, and refuses the whole
+// request otherwise: a release of a gone session's claims must not cut a
+// path out of a wider claim or free one that changed hands.
+func (s Store) ReleaseExact(ctx context.Context, owner conversations.Ref, gives Gives) error {
+	return s.release(ctx, owner, gives, true)
+}
+
+func (s Store) release(ctx context.Context, owner conversations.Ref, gives Gives, exact bool) error {
 	if refused := ValidateRef(owner); refused != nil {
 		return refused
 	}
@@ -140,6 +152,9 @@ func (s Store) Release(ctx context.Context, owner conversations.Ref, gives Gives
 	state, err := s.readClaims()
 	if err != nil {
 		return err
+	}
+	if exact && !holdsEach(state.Claims, owner, gives) {
+		return &Refusal{"ownership", "Those claims changed since the list was read.", "Reload the file claims and try again."}
 	}
 	idx := indexClaimWorktree(state.Claims, owner, filepath.Clean(gives.Worktree))
 	if idx < 0 {
@@ -167,6 +182,17 @@ func (s Store) Release(ctx context.Context, owner conversations.Ref, gives Gives
 		return nil
 	}
 	return s.writeClaims(state)
+}
+
+func holdsEach(claims []Claim, owner conversations.Ref, gives Gives) bool {
+	for _, path := range gives.Paths {
+		if !slices.ContainsFunc(claims, func(c Claim) bool {
+			return c.Owner == owner && c.Worktree == gives.Worktree && c.Paths[0] == path
+		}) {
+			return false
+		}
+	}
+	return true
 }
 
 func indexClaimWorktree(claims []Claim, owner conversations.Ref, worktree string) int {
@@ -274,6 +300,37 @@ func (s Store) activeConflict(claims []Claim, c ClaimConflict) (ClaimConflict, b
 	}
 	c.Path, c.Holder = named, holder
 	return c, true
+}
+
+// DismissConflict removes the requester's conflict with no thread on a
+// path of worktree, matched by the recorded path or the one the view
+// shows. A conflict with a thread clears with its thread; anything else
+// changes nothing.
+func (s Store) DismissConflict(ctx context.Context, requester conversations.Ref, worktree, path string) error {
+	if refused := ValidateRef(requester); refused != nil {
+		return refused
+	}
+	release, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	state, err := s.readClaims()
+	if err != nil {
+		return err
+	}
+	kept := slices.DeleteFunc(slices.Clone(state.Conflicts), func(c ClaimConflict) bool {
+		if c.Thread != "" || c.Requester != requester || c.Worktree != worktree {
+			return false
+		}
+		current, _ := s.activeConflict(state.Claims, c)
+		return c.Path == path || current.Path == path
+	})
+	if len(kept) == len(state.Conflicts) {
+		return nil
+	}
+	state.Conflicts = kept
+	return s.writeClaims(state)
 }
 
 func (s Store) recordClaimConflict(state claimsFile, c ClaimConflict) error {

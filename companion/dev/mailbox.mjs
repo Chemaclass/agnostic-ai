@@ -66,9 +66,21 @@ export function mailboxRows(state, conversations) {
         waiting: waitingOf(thread), held: heldOf(thread), cap: thread.cap, lastType: thread.messages.at(-1)?.type,
       }
     })
-    const claimCount = state.claims.filter((claim) => same(claim.owner, row)).length
-    return threads.length || claimCount ? { ...row, threads, claimCount } : row
+    const owned = state.claims.filter((claim) => same(claim.owner, row))
+    const claimCount = owned.length
+    const claimedPaths = owned.reduce((sum, claim) => sum + claim.paths.length, 0)
+    return threads.length || claimCount ? { ...row, threads, claimCount, claimedPaths } : row
   })
+}
+
+/** Like the server: the totals behind the footer's File claims button, or undefined when nothing is claimed. */
+export function mailboxClaimTotals(state) {
+  if (!state.claims.length && !state.claimConflicts.length) return undefined
+  return {
+    paths: state.claims.reduce((sum, claim) => sum + claim.paths.length, 0),
+    stale: state.claims.filter((claim) => !state.conversations.some((row) => mailboxSessionOf(row) && same(row, claim.owner))).length,
+    conflicts: state.claimConflicts.length,
+  }
 }
 
 export function mailboxThreads(state, url) {
@@ -172,7 +184,8 @@ function anotherHolder(state, owner, worktree, path) {
 }
 
 function claimIn(state, owner, worktree, paths, now) {
-  state.claims.push({ owner: refOf(owner), worktree, paths: [...paths], since: now.toISOString(), by: 'human' })
+  // Like the server: one claim record per path.
+  for (const path of paths) state.claims.push({ owner: refOf(owner), worktree, paths: [path], since: now.toISOString(), by: 'human' })
 }
 
 function releaseIn(state, owner, worktree, paths) {
@@ -202,7 +215,7 @@ export function mailboxClaims(state, url) {
   const owner = { tool: url.searchParams.get('tool'), id: url.searchParams.get('id') }
   const scoped = owner.tool || owner.id
   const claims = state.claims.filter((claim) => !scoped || same(claim.owner, owner)).map((claim) => ({
-    ...claim, stale: !state.conversations.some((row) => same(row, claim.owner)),
+    ...claim, stale: !state.conversations.some((row) => mailboxSessionOf(row) && same(row, claim.owner)),
   }))
   const conflicts = state.claimConflicts.filter(({ requester, holder, sender }) =>
     !scoped || [requester, holder, sender].some((ref) => same(owner, ref)),
@@ -225,10 +238,25 @@ export function mailboxClaim(state, ask, now) {
 
 export function mailboxRelease(state, ask, now) {
   if (!ask?.worktree || !validPaths(ask.paths)) return refused('format', undefined, now)
+  if (ask.paths.length > 200 || new TextEncoder().encode(JSON.stringify(ask)).length > 64 * 1024) return refused('size', undefined, now)
+  if (ask.gone) {
+    const listed = state.conversations.some((row) => mailboxSessionOf(row) && same(row, ask))
+    const exact = ask.paths.every((path) => state.claims.some((claim) => same(claim.owner, ask) && claim.worktree === ask.worktree && claim.paths[0] === path))
+    if (listed || !exact) return refused('ownership', undefined, now)
+  }
   releaseIn(state, ask, ask.worktree, ask.paths)
   const ownsReleased = (conflict) => same(conflict.holder, ask) && conflict.worktree === ask.worktree &&
     ask.paths.some((path) => overlap(path, conflict.path))
   state.claimConflicts = state.claimConflicts.filter((conflict) => !ownsReleased(conflict))
+  return changed({})
+}
+
+/** Like the server: the requester drops its conflict with no thread; anything else changes nothing. */
+export function mailboxDismiss(state, ask, now) {
+  if (!/^[0-9a-f-]{36}$/.test(ask?.id ?? '')) return refused('unknown-session', undefined, now)
+  if (!ask.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
+  state.claimConflicts = state.claimConflicts.filter((conflict) =>
+    conflict.thread || !same(conflict.requester, ask) || conflict.worktree !== ask.worktree || conflict.path !== ask.path)
   return changed({})
 }
 

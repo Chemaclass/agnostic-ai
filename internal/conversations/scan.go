@@ -370,19 +370,59 @@ func (s *Scanner) Find(ctx context.Context, tool Tool, id string, opts ScanOptio
 }
 
 func (s *Scanner) FindRefs(ctx context.Context, opts ScanOptions, refs ...Ref) map[Ref]Conversation {
-	s.lock()
-	defer s.unlock()
-	results, _ := s.readAll(ctx, opts)
-	return rowsByRef(results, refs)
+	return s.FindRefsRead(ctx, opts, refs...).Rows
 }
 
 // RecentRefs uses the last completed scan without rereading the stores.
 func (s *Scanner) RecentRefs(opts ScanOptions, refs ...Ref) map[Ref]Conversation {
-	results, ok := s.readSince(opts, busyReuseSpan)
+	read, ok := s.RecentRefsRead(opts, refs...)
 	if !ok {
 		return nil
 	}
-	return rowsByRef(results, refs)
+	return read.Rows
+}
+
+// RefsRead is what one read found for some refs: their rows, the tools
+// whose store it listed completely, and the refs whose files that
+// listing holds even when no row came of them, such as a transcript that
+// could not be opened. A ref with no row is gone only when its tool is
+// complete and its files were not listed; otherwise it is unknown.
+type RefsRead struct {
+	Rows     map[Ref]Conversation
+	Complete map[Tool]bool
+	Listed   map[Ref]bool
+}
+
+// FindRefsRead rereads the stores for refs.
+func (s *Scanner) FindRefsRead(ctx context.Context, opts ScanOptions, refs ...Ref) RefsRead {
+	s.lock()
+	defer s.unlock()
+	results, _ := s.readAll(ctx, opts)
+	return refsRead(results, refs)
+}
+
+// RecentRefsRead uses the last completed scan without rereading the stores.
+func (s *Scanner) RecentRefsRead(opts ScanOptions, refs ...Ref) (RefsRead, bool) {
+	results, ok := s.readSince(opts, busyReuseSpan)
+	if !ok {
+		return RefsRead{}, false
+	}
+	return refsRead(results, refs), true
+}
+
+func refsRead(results []sourceResult, refs []Ref) RefsRead {
+	read := RefsRead{Rows: rowsByRef(results, refs), Complete: map[Tool]bool{}, Listed: map[Ref]bool{}}
+	for _, result := range results {
+		for _, inv := range result.inventories {
+			read.Complete[inv.tool] = true
+			for _, ref := range refs {
+				if _, listed := inv.files[ref.ID]; listed && ref.Tool == inv.tool {
+					read.Listed[ref] = true
+				}
+			}
+		}
+	}
+	return read
 }
 
 func rowsByRef(results []sourceResult, refs []Ref) map[Ref]Conversation {

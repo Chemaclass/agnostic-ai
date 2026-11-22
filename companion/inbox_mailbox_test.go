@@ -243,7 +243,10 @@ func TestMailboxProxy_ForwardsClaimsAndRefreshesAnOwnershipConflict(t *testing.T
 				t.Errorf("claims read = %s %s", r.Method, r.URL)
 			}
 			_, _ = w.Write([]byte(`{"claims":[],"conflicts":[]}`))
-		case "/api/mailbox/claim", "/api/mailbox/release", "/api/mailbox/handoff":
+		case "/api/mailbox/claim", "/api/mailbox/release", "/api/mailbox/conflict/dismiss", "/api/mailbox/handoff":
+			if r.Header.Get(secretHeader) == "" {
+				t.Errorf("%s reached the server without the companion secret", r.URL.Path)
+			}
 			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 				t.Errorf("mutation = %s %s", r.Method, r.URL)
 			}
@@ -275,7 +278,7 @@ func TestMailboxProxy_ForwardsClaimsAndRefreshesAnOwnershipConflict(t *testing.T
 			t.Errorf("%s = %d %s", path, rec.Code, rec.Body)
 		}
 	}
-	for _, action := range []string{"claim", "release", "handoff"} {
+	for _, action := range []string{"claim", "release", "conflict/dismiss", "handoff"} {
 		req := httptest.NewRequest(http.MethodPost, "/api/mailbox/"+action, strings.NewReader(`{}`))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -291,7 +294,7 @@ func TestMailboxProxy_ForwardsClaimsAndRefreshesAnOwnershipConflict(t *testing.T
 			t.Errorf("%s did not refresh the list: version %q", action, rec.Header().Get(listVersionHeader))
 		}
 	}
-	if claimsReads.Load() != 2 || listReads.Load() != 3 {
+	if claimsReads.Load() != 2 || listReads.Load() != 4 {
 		t.Errorf("claims and list reads = %d and %d", claimsReads.Load(), listReads.Load())
 	}
 }

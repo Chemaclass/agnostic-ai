@@ -359,6 +359,39 @@ export const FIXTURES = {
       since: new Date(now).toISOString(), by: 'human',
     }],
   },
+  'mailbox-claims': {
+    label: 'Two sessions with file claims, one made by an agent',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => [
+      { owner: MAILBOX_SOURCE, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/claims.go'], since: new Date(now).toISOString(), by: 'human' },
+      { owner: MAILBOX_SOURCE, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/store.go'], since: new Date(now).toISOString(), by: 'human' },
+      { owner: MAILBOX_TARGET, worktree: '/Users/you/Code/agnostic-ai', paths: ['companion/frontend/panel.js'], since: new Date(now).toISOString(), by: 'agent' },
+    ],
+  },
+  'mailbox-claim-conflict': {
+    label: 'One session asked for a path another claims',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => [
+      { owner: MAILBOX_TARGET, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/handoff.go'], since: new Date(now).toISOString(), by: 'agent' },
+    ],
+    claimConflicts: () => [
+      { worktree: '/Users/you/Code/agnostic-ai', path: 'internal/mailbox/handoff.go', requester: MAILBOX_SOURCE, holder: MAILBOX_TARGET },
+    ],
+  },
+  'mailbox-many-stale-claims': {
+    label: '250 file claims of a missing session, more than one release takes',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => Array.from({ length: 250 }, (_, i) => ({
+      owner: MAILBOX_THIRD, worktree: '/Users/you/Code/agnostic-ai', paths: [`internal/generated/file-${i}.go`], since: new Date(now).toISOString(), by: 'agent',
+    })),
+  },
+  'mailbox-stale-claims': {
+    label: 'Two file claims with missing sessions',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => ['internal/mailbox/handoff.go', 'internal/mailbox/claims.go'].map((path) => ({
+      owner: MAILBOX_THIRD, worktree: '/Users/you/Code/agnostic-ai', paths: [path], since: new Date(now).toISOString(), by: 'human',
+    })),
+  },
   'mailbox-review': {
     label: 'Review request with a default base', conversations: mailboxSessions, reviewRefs,
   },

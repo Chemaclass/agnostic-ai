@@ -22,6 +22,7 @@ const (
 	mailboxClaimsPath   = "/api/mailbox/claims"
 	mailboxClaimPath    = "/api/mailbox/claim"
 	mailboxReleasePath  = "/api/mailbox/release"
+	mailboxDismissPath  = "/api/mailbox/conflict/dismiss"
 	mailboxHandoffPath  = "/api/mailbox/handoff"
 	mailboxApprovePath  = "/api/mailbox/approve"
 	mailboxQueuePath    = "/api/mailbox/queue"
@@ -80,6 +81,8 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		h.readMailboxRefs(w, r)
 	case mailboxClaimPath, mailboxReleasePath:
 		h.changeMailboxClaim(w, r, store)
+	case mailboxDismissPath:
+		h.dismissMailboxConflict(w, r, store)
 	case mailboxHandoffPath:
 		h.answerMailboxHandoff(w, r, store)
 	case mailboxApprovePath:
@@ -206,6 +209,17 @@ func mailboxParticipants(ctx context.Context, scanner *conversations.Scanner, op
 	return source, destination, nil
 }
 
+// claimOwnerGone reports whether a claim's owner is known to be gone:
+// its row cannot use the mailbox, or a complete read of its tool did not
+// list its files. An owner whose store could not be read in full, or
+// whose files were listed without a row, is not gone.
+func claimOwnerGone(read conversations.RefsRead, owner conversations.Ref) bool {
+	if row, found := read.Rows[owner]; found {
+		return !canUseMailbox(row)
+	}
+	return read.Complete[owner.Tool] && !read.Listed[owner]
+}
+
 func canUseMailbox(c conversations.Conversation) bool {
 	return (c.Tool == conversations.ToolClaude || c.Tool == conversations.ToolCodex) &&
 		c.App != conversations.AppCloud && c.App != conversations.AppChat && c.App != conversations.AppCowork
@@ -328,10 +342,19 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 			page[conversations.Ref{Tool: row.Tool, ID: row.ID}] = i
 		}
 	}
+	var offPage []conversations.Ref
+	totals := conversations.MailboxClaims{Conflicts: len(claims.Conflicts)}
 	for _, claim := range claims.Claims {
+		totals.Paths += len(claim.Paths)
 		if at, visible := page[claim.Owner]; visible {
 			view.Conversations[at].ClaimCount++
+			view.Conversations[at].ClaimedPaths += len(claim.Paths)
+		} else {
+			offPage = append(offPage, claim.Owner)
 		}
+	}
+	if len(claims.Claims) > 0 || totals.Conflicts > 0 {
+		view.MailboxClaims = &totals
 	}
 	conflicts := make(map[string][]conversations.MailboxConflict)
 	for _, conflict := range claims.Conflicts {
@@ -356,10 +379,19 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 			view.Conversations[at].Threads = append(view.Conversations[at].Threads, summary)
 		}
 	}
-	if len(missing) == 0 {
+	if len(missing) == 0 && len(offPage) == 0 {
 		return
 	}
-	peers := h.scanner.RecentRefs(opts, missing...)
+	read, recent := h.scanner.RecentRefsRead(opts, append(missing, offPage...)...)
+	peers := read.Rows
+	// Without a recent read nothing is known, so no claim counts as stale.
+	if recent {
+		for _, owner := range offPage {
+			if claimOwnerGone(read, owner) {
+				view.MailboxClaims.Stale++
+			}
+		}
+	}
 	for i := range view.Conversations {
 		for j := range view.Conversations[i].Threads {
 			summary := &view.Conversations[i].Threads[j]
