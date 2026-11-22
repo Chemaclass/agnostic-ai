@@ -183,10 +183,11 @@ func runUserSync(cmd *cobra.Command, o userSyncOptions) error {
 	if err != nil && skipBroken == nil {
 		return err
 	}
-	writes, next, err := buildUserWrites(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn, onUnsupported)
+	plan, err := runUserPlan(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn, onUnsupported, runtime.GOOS)
 	if err != nil {
 		return err
 	}
+	writes, next := plan.writes, plan.next
 	drops := syncDrops{Warnings: append(userAgentWarnings, userMCPWarnings...), Notes: dropRecords(adapters.PendingCoverageNotes())}
 	adapters.FlushCoverageNotes()
 	if err := checkUnselectedUserAgents(writes, old, targets); err != nil {
@@ -212,7 +213,7 @@ func runUserSync(cmd *cobra.Command, o userSyncOptions) error {
 		old: old, next: next, drops: drops, targets: len(targets), jsonWritten: &jsonWritten,
 	}
 	if pin, ok := cmd.Context().Value(userSyncPinKey{}).(*userSyncPin); ok {
-		pin.commands = userSyncCommands(bundle)
+		pin.commands = plan.syncCommands()
 	}
 	if err := run.checkPin(cmd.Context()); err != nil {
 		return err

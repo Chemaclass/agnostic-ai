@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -438,13 +439,10 @@ func TestSettings_WaitsForTheApprovalsLock(t *testing.T) {
 	}
 }
 
-func TestRestorePoint_LeavesAnOutsideEditAlone(t *testing.T) {
+func TestRestoreTo_LeavesAnOutsideEditAlone(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "agnostic-ai.yaml")
 	writeFile(t, path, "before\n")
-	undo, err := restorePoint(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	undo := restoreTo(path, []byte("before\n"), false)
 	writeFile(t, path, "someone else\n")
 	if err := undo([]byte("ours\n")); err == nil {
 		t.Error("undo replaced a file another program changed")
@@ -492,5 +490,89 @@ func TestSettings_AskRepairsABrokenLocalBlock(t *testing.T) {
 		if err != nil || home.Mode != config.ApprovalsAsk || home.Companion {
 			t.Errorf("after Ask me on %q = %+v, %v", local, home, err)
 		}
+	}
+}
+
+func TestSettings_KeepsAnEditMadeWhileTheChangeWasChecked(t *testing.T) {
+	cases := []struct {
+		name, body, file string
+	}{
+		{"companion", `{"key":"approvals.companion","value":false}`, config.ConfigFileName},
+		{"ask me", `{"key":"approvals.mode","value":"ask"}`, filepath.Join("local", config.ConfigFileName)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, source := settingsFixture(t, "version: 1\napprovals:\n  mode: review\n")
+			path := filepath.Join(source, tc.file)
+			const other = "version: 1\ntargets: [claude]\napprovals:\n  mode: review\n"
+			approvalsWritePause = func() { writeFile(t, path, other) }
+			t.Cleanup(func() { approvalsWritePause = func() {} })
+			rec, _ := postSetting(t, h, tc.body, withSecret(settingsTestSecret))
+			if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "changed while this change was checked") {
+				t.Fatalf("POST = %d %s", rec.Code, rec.Body)
+			}
+			if got := readFile(t, path); got != other {
+				t.Errorf("the other edit was lost:\n%s", got)
+			}
+		})
+	}
+}
+
+// TestSettings_ATargetsEditWaitsForAnApprovalsChange: a targets edit that
+// starts while an approvals change holds the lock waits for it, so both
+// edits stay in the home config.
+func TestSettings_ATargetsEditWaitsForAnApprovalsChange(t *testing.T) {
+	silence(t)
+	h, source := settingsFixture(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: review\n")
+	edits := newEditHandler(source, true)
+	release, err := lockApprovalsWrites(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := os.OpenFile(filepath.Join(filepath.Dir(approvals.LogPath(source)), "write.lock"), os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if err := tryLockProjectFile(held); err != nil {
+		_ = held.Close()
+		t.Skipf("no file locks here: %v", err)
+	}
+	_ = held.Close()
+	done := make(chan *httptest.ResponseRecorder, 1)
+	approvalsWritePause = func() {
+		go func() {
+			done <- postEdit(t, edits, editTargetsPath, `{"audience":"shared","name":"codex","enabled":true,"expected":false}`, nil)
+		}()
+		time.Sleep(200 * time.Millisecond)
+	}
+	t.Cleanup(func() { approvalsWritePause = func() {} })
+	if rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, withSecret(settingsTestSecret)); rec.Code != http.StatusOK {
+		t.Fatalf("approvals change = %d %s", rec.Code, rec.Body)
+	}
+	if rec := <-done; rec.Code != http.StatusOK {
+		t.Fatalf("targets edit = %d %s", rec.Code, rec.Body)
+	}
+	got := readFile(t, filepath.Join(source, config.ConfigFileName))
+	if !strings.Contains(got, "companion: false") || !strings.Contains(got, "codex") {
+		t.Errorf("an edit was lost:\n%s", got)
+	}
+}
+
+// TestSettings_ChecksExpectedAgainstTheReadItWrites: the value the page
+// expected is checked against the same read the change is built from, so
+// a hand edit landing after that read stops the change.
+func TestSettings_ChecksExpectedAgainstTheReadItWrites(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\napprovals:\n  mode: review\n")
+	path := filepath.Join(source, config.ConfigFileName)
+	const hand = "version: 1\napprovals:\n  mode: ask\n"
+	approvalsWritePause = func() { writeFile(t, path, hand) }
+	t.Cleanup(func() { approvalsWritePause = func() {} })
+	rec, _ := postSetting(t, h, `{"key":"approvals.mode","value":"yolo","expected":"review"}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("POST = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, path); got != hand {
+		t.Errorf("the hand edit was lost:\n%s", got)
 	}
 }

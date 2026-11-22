@@ -47,6 +47,9 @@ type editHandler struct {
 	// web session key. A user-level hook or MCP server runs commands as
 	// the user on their next sync, so writing one needs it.
 	proven func(*http.Request) bool
+	// homeLocked says the caller already holds the approvals lock, so a
+	// home config edit does not take it again.
+	homeLocked bool
 }
 
 // level names the served level in messages: project, or global.

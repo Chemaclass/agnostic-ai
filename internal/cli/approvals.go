@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -507,46 +506,46 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 
 // writeApprovalsAsk sets approvals.mode: ask in source's local home
 // file, keeping its other keys, comments, always-ask patterns and
-// companion key. Without proven it first checks the policy the edit
-// gives and refuses one looser than before; the caller holds the lock.
-func writeApprovalsAsk(source string, proven bool) (string, error) {
+// companion key. It builds and checks from snap; without proven it
+// refuses a policy looser than before. The caller holds the lock.
+func writeApprovalsAsk(source string, snap homeSnapshot, proven bool) (string, error) {
 	path := userConfigPaths(source)[1]
-	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return "", fmt.Errorf("read %s: %w", path, err)
-	}
+	data := snap.of(path)
 	out, err := approvalsAskYAML(data)
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", path, err)
 	}
-	before, loadErr := config.LoadHomeApprovals(source)
+	before, loadErr := config.LoadHomeApprovalsFiles(source, snap.files())
 	if loadErr != nil {
 		// A block that does not load asks every time, so a repair that
 		// would turn the buttons on keeps them off.
-		if after, err := config.LoadHomeApprovalsWith(source, path, out); err == nil && after.Companion {
+		if after, err := config.LoadHomeApprovalsFiles(source, snap.with(path, out)); err == nil && after.Companion {
 			if out, err = approvalsSetYAML(out, "companion", false); err != nil {
 				return "", fmt.Errorf("%s: %w", path, err)
 			}
 		}
 	}
 	if !proven {
-		after, err := config.LoadHomeApprovalsWith(source, path, out)
+		after, err := config.LoadHomeApprovalsFiles(source, snap.with(path, out))
 		if err == nil && approvalsLoosened(before, after) {
 			return "", errSettingNeedsProof
 		}
 	}
-	return path, editApprovalsFile(path, func([]byte) ([]byte, error) { return out, nil })
+	return path, editApprovalsFile(snap, path, out)
 }
 
-// editApprovalsFile replaces the home config at path with edit's result.
-func editApprovalsFile(path string, edit func([]byte) ([]byte, error)) error {
-	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return fmt.Errorf("read %s: %w", path, err)
-	}
-	out, err := edit(data)
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+// approvalsWritePause runs between the check of an approvals change and
+// its write; tests use it to change a file in between.
+var approvalsWritePause = func() {}
+
+// editApprovalsFile writes out to the home config at path while both
+// home files still hold snap, the bytes the change was built and checked
+// from. Writers outside agnostic-ai take no lock, so a file that changed
+// since is left alone.
+func editApprovalsFile(snap homeSnapshot, path string, out []byte) error {
+	approvalsWritePause()
+	if err := snap.unchanged(); err != nil {
+		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)
