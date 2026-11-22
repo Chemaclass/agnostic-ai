@@ -181,7 +181,7 @@ function parseOpenReply(raw: unknown): ConversationOpenReply | undefined {
 export async function openConversation(request: ConversationOpenRequest): Promise<ConversationOpenOutcome> {
   let res: Response
   try {
-    res = await fetch(API.conversationOpen, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+    res = await fetch(API.conversationOpen, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...sessionHeaders() }, body: JSON.stringify(request) })
   } catch {
     return { kind: 'failed', message: 'Could not reach the server to open the conversation.' }
   }

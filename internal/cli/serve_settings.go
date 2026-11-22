@@ -153,12 +153,16 @@ func (h *settingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// proven reports whether r carries proof that the person asked: the
-// secret of the companion that started this server.
 // proven reports whether r carries the companion's secret or the key of
 // a page this server opened.
 func (h *settingsHandler) proven(r *http.Request) bool {
 	return h.secret.allows(r) || h.session.allows(r)
+}
+
+// canProve reports whether this server holds a secret or a session key
+// that a request could prove itself with.
+func (h *settingsHandler) canProve() bool {
+	return h.secret != "" || h.session != nil
 }
 
 // askedBy names who asked for a proven change, for the decision log.

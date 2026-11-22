@@ -53,6 +53,38 @@ type Launcher interface {
 // errNotHere means this OS has no supported way to run the route.
 var errNotHere = errors.New("not supported on this system")
 
+// runRefused is what a NoRun launcher returns instead of running or
+// typing a command; the reply gives reason and the command to run by hand.
+type runRefused struct{ reason string }
+
+func (e *runRefused) Error() string { return e.reason }
+
+// noRunLauncher opens links and folders and focuses tabs as its
+// launcher does, and refuses to run or type a command in a terminal.
+type noRunLauncher struct {
+	Launcher
+	reason string
+}
+
+// NoRun wraps launcher for a caller that may not start a command: an
+// open still focuses a live chat, and a resume replies with reason and
+// the command to run by hand.
+func NoRun(launcher Launcher, reason string) Launcher {
+	return noRunLauncher{Launcher: launcher, reason: reason}
+}
+
+func (l noRunLauncher) RunInNewTerminal(context.Context, string) error {
+	return &runRefused{l.reason}
+}
+
+func (l noRunLauncher) RunInNewTab(context.Context, string, string) error {
+	return &runRefused{l.reason}
+}
+
+func (l noRunLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
+	return false, &runRefused{l.reason}
+}
+
 // errControlCharacters means a command holds a character a terminal
 // acts on as it is typed: single quotes stop the shell, not the terminal, so a
 // carriage return or escape in a folder name would run what follows.
@@ -414,7 +446,10 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 // it to run by hand.
 func notOpenedInTab(opened tabOpening, command string) OpenReply {
 	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: command} }
+	refused, isRefused := errors.AsType[*runRefused](opened.err)
 	switch {
+	case isRefused:
+		return byHand(refused.reason + " Run this command in a terminal.")
 	case errors.Is(opened.err, errAutomationDenied):
 		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
 	case opened.window && errors.Is(opened.err, errNotHere):
@@ -455,7 +490,8 @@ func openInTab(ctx context.Context, launcher Launcher, app, command string) tabO
 	if tabApps[app] {
 		err := launcher.RunInNewTab(ctx, app, command)
 		fallsBack := app == "Terminal" || errors.Is(err, errNoTabCommand)
-		if err == nil || !fallsBack || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
+		_, refused := errors.AsType[*runRefused](err)
+		if err == nil || !fallsBack || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) || refused {
 			return tabOpening{app: app, err: err}
 		}
 	}

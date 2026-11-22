@@ -125,3 +125,25 @@ func TestServeMux_UsesOneOriginPolicyForReadsWritesAndPreflights(t *testing.T) {
 		}
 	}
 }
+
+func TestServeMux_ASendNeedsTheCompanionSecret(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	h := newServeMux(func() (*config.Config, spec.Bundle, error) { return nil, spec.Bundle{}, nil }, authority.HandlerOptions{Root: t.TempDir()}, serveMuxOptions{companion: testCompanionSecret})
+	send := func(secret string) int {
+		req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310"+conversationSendPath, strings.NewReader(`{"tool":"claude","id":"`+inProject+`","text":"hi"}`))
+		req.Header.Set("Content-Type", "application/json")
+		if secret != "" {
+			req.Header.Set(companionSecretHeader, secret)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	if got := send(""); got != http.StatusForbidden {
+		t.Errorf("send without the secret = %d, want 403", got)
+	}
+	// With the secret the send passes the proof and finds no such chat.
+	if got := send(string(testCompanionSecret)); got != http.StatusNotFound {
+		t.Errorf("send with the secret = %d, want 404", got)
+	}
+}
