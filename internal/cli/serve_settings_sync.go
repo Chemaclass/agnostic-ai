@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 )
@@ -112,6 +113,8 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 	for _, write := range report.Writes {
 		reply.Written = append(reply.Written, write.Path)
 		if hooks != "" && filepath.Clean(filepath.FromSlash(write.Path)) == filepath.Clean(hooks) && !slices.Contains(reply.Notes, settingsCodexNote) {
+			// The short note replaces sync's own untrusted-hook warning, which names the full command.
+			reply.Notes = slices.DeleteFunc(reply.Notes, func(note string) bool { return strings.Contains(note, "open /hooks in Codex") })
 			reply.Notes = append(reply.Notes, settingsCodexNote)
 		}
 	}

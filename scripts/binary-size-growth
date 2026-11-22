@@ -5,5 +5,5 @@
 # #3913: user-level servers serve the settings document, a settings write
 # route with a proof gate, a YAML setter for the approvals block, and a sync
 # route that runs sync --scope user in process. No new dependency. The build
-# grows by 57344 bytes.
-57344
+# grows by 61440 bytes.
+61440
