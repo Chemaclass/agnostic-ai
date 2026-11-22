@@ -249,7 +249,7 @@ func TestScan_LeavesOutAHiddenConversationUntilItsNextMessage(t *testing.T) {
 
 func TestReopen_TakesACompletionBack(t *testing.T) {
 	const id = "11111111-1111-4111-8111-111111111111"
-	scanner, stores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	scanner.Now = func() time.Time { return now }

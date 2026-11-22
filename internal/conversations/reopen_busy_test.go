@@ -68,7 +68,7 @@ func TestReopen_DoesNotWaitForARunningScan(t *testing.T) {
 
 func TestReopen_WaitsForTheRunningScanBeforeItResumesAnEndedSession(t *testing.T) {
 	const id = "11111111-1111-4111-8111-111111111111"
-	scanner, stores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	var clock atomic.Int64
 	clock.Store(time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC).Unix())
 	scanner.Now = func() time.Time { return time.Unix(clock.Load(), 0).UTC() }

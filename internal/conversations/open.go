@@ -231,10 +231,24 @@ func openRoute(ctx context.Context, c Conversation, processes Processes, launche
 		if held, ok := heldNow(c, processes); ok {
 			return focusTerminal(ctx, held, processes, launcher)
 		}
+		if livenessUnknown(c) {
+			return OpenReply{Message: livenessUnknownMessage, Command: c.Open.Command}
+		}
 		return resumeTerminal(ctx, c, launcher)
 	default:
 		return OpenReply{Message: fmt.Sprintf("No way to open a %s conversation here.", toolLabels[c.Tool])}
 	}
+}
+
+// livenessUnknownMessage says why a terminal session whose process could
+// not be checked is not resumed: a second client would compete with a
+// running one.
+const livenessUnknownMessage = "Could not check whether this session still runs, so it is not resumed from here. If it has ended, run this command in a terminal."
+
+// livenessUnknown: the scan could not tell whether a process still
+// holds this terminal session.
+func livenessUnknown(c Conversation) bool {
+	return c.liveUnknown && !c.Live && c.Open.Command != ""
 }
 
 // subagentFinished is the reply for a subagent its chat no longer

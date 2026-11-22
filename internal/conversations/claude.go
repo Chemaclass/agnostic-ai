@@ -359,6 +359,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) (sourceResul
 		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
 		// Only a terminal session is known to write sessions/<pid>.json while it runs.
 		c.liveRead = liveRead && c.App == AppCLI
+		c.liveUnknown = processErr != nil && c.App == AppCLI
 		conversations = append(conversations, c)
 	}
 	for file := range s.claude {

@@ -168,7 +168,7 @@ Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from
 {% <details summary="Open details, results and status codes"> %}
 
 - For a `focus` route, `opened` is true only when the session's own tab came to the front (never for a running Linux session). None starts twice.
-- `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy.
+- `opened` is false when the app came forward but its tab could not be chosen (Warp, or an editor's terminal), when Codex does not say which of its sessions shows the thread, when no terminal shows a running session, when the system cannot open a terminal, or when macOS refuses Automation access. `message` says where the session runs. `command`, when set, resumes the session by hand. A Claude Code or Codex session that still runs in a terminal gets none, because running it would start a second copy. When the server could not check whether a terminal session still runs, as when the read of open files fails on Windows, it does not resume it: `message` says so and `command` resumes it by hand once you know it has ended.
 - kitty needs [remote control](@/docs/cli-reference/conversations.md#kitty-remote-control).
 - The route comes from the server's own scan, never from the request.
 - macOS asks once for Automation access to each app the server controls: Terminal, Ghostty and iTerm. The prompt names the companion app, or the terminal that runs `agnostic-ai serve`.
@@ -254,7 +254,7 @@ Renames a conversation in its own tool first, then saves the name for every serv
 | 409 | Another rename of the same conversation runs, on this server or another one that shares the marks file. Nothing changes. |
 | 501 | This kind of conversation cannot be renamed yet. |
 | 503 | The program the tool needs is not installed, such as `codex` or `sqlite3`. |
-| 403 | The tool's sign-in is missing or expired. |
+| 403 | The tool's sign-in is missing or expired. Or, for a Claude Code cloud session or a ChatGPT chat, the request carries neither the companion's secret nor a tab's [session key](@/docs/approvals.md#who-can-change-this). Nothing changes. |
 | 409 | A running program holds the conversation and would write the old name back. |
 | 502 | The tool refused the name, did not answer in time, or keeps the conversation in a way this version does not know. |
 
@@ -300,6 +300,7 @@ Accepted limits:
 |--------|---------|
 | 200 | `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file. |
 | 400 | for an unknown tool or any other field. |
+| 403 | for a request without the companion's secret or a tab's [session key](@/docs/approvals.md#who-can-change-this), or from another origin. Nothing is deleted. |
 | 404 | for a conversation outside the list, or one you hid. |
 | 409 | `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it) or `changed` (a file was written at or after the moment it was archived). |
 | 422 | `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link. |

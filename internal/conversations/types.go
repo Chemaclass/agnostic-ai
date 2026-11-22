@@ -302,6 +302,9 @@ type Conversation struct {
 	// liveRead: the scan asked whether a process holds this row and got
 	// an answer, so a row that is not Live is closed, not unknown.
 	liveRead bool
+	// liveUnknown: the read of the processes that may hold this row
+	// failed or could not see it, so it may still run.
+	liveUnknown bool
 	// readAt is when the read that gave this row began. A kept result
 	// or a cloud list can be older than the scan that shows it.
 	readAt time.Time

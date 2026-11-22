@@ -40,5 +40,6 @@ On macOS and Linux, the server scans again and checks that the session still run
 |--------|---------|
 | 200 | The stop request completed. The body is `{forced?, stillRunning?}`: `forced` when the server sent SIGKILL, `stillRunning` when the process is still running. |
 | 400 | The request body or a field is invalid. |
+| 403 | The request carries neither the companion's secret nor a tab's [session key](@/docs/approvals.md#who-can-change-this), or comes from another origin. Nothing is stopped. |
 | 409 | The server refused, for example because the session no longer runs in a terminal here, its process changed, or this server is already stopping it. |
 | 500 | The server could not complete the stop. |

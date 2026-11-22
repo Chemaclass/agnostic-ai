@@ -560,8 +560,8 @@ func TestServeMux_ServesConversations(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusBadRequest {
-		t.Errorf("POST %s = %d, want the handler's own refusal", conversationDeletePath, resp.StatusCode)
+	if resp.StatusCode != http.StatusForbidden {
+		t.Errorf("POST %s = %d, want the handler's refusal without proof", conversationDeletePath, resp.StatusCode)
 	}
 }
 
