@@ -154,6 +154,9 @@ type companionTools struct {
 	builtFor func(ctx context.Context, path string) (string, error)
 	// quit asks the running companion to end and reports whether one ran.
 	quit func(ctx context.Context, path string) (running bool, err error)
+	// running reports whether a process runs a program named like path.
+	// Unlike quit, it leaves that process alone.
+	running func(ctx context.Context, path string) (bool, error)
 	// loginOff removes the companion from what starts at login.
 	loginOff func(ctx context.Context, path string) error
 	// loginOn adds the companion to what starts at login.
@@ -187,6 +190,7 @@ func systemCompanionTools() companionTools {
 		start:       startCompanion,
 		builtFor:    companionBuiltFor,
 		quit:        quitCompanion,
+		running:     companionProgramRuns,
 		loginOff:    func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
 		loginOn:     func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
 		runValueOff: removeCompanionRunValue,

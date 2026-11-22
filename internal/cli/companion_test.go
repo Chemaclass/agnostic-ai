@@ -56,6 +56,7 @@ func builtTools(t *testing.T, lines ...string) companionTools {
 		start:    func(string, []string) error { return nil },
 		builtFor: func(context.Context, string) (string, error) { return "1.2.3", nil },
 		quit:     func(context.Context, string) (bool, error) { return false, nil },
+		running:  func(context.Context, string) (bool, error) { return true, nil },
 		loginOff: func(context.Context, string) error { return nil },
 		loginOn:  func(context.Context, string) error { return nil },
 		runValueOff: func() (bool, error) {
