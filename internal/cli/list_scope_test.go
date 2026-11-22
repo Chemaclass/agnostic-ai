@@ -108,7 +108,7 @@ func TestList_UserScopeNamesTheUserLayers(t *testing.T) {
 		}
 	}
 	if strings.Contains(out, "global") {
-		t.Errorf("list --scope user still prints a global layer:\n%s", out)
+		t.Errorf("list --scope user still prints a user layer:\n%s", out)
 	}
 }
 

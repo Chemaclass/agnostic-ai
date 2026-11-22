@@ -83,7 +83,7 @@ func newWhyCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&format, "format", "text", "Output format: text or json.")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Same as --format json.")
-	addProjectOnlyScopeFlag(cmd, "user-level files have no trace back to a spec; `agnostic-ai explain --scope user <path under the user home>` goes the other way, from a spec to its files")
+	addProjectOnlyScopeFlag(cmd, "user-level files have no trace back to a spec; `agnostic-ai explain --scope user <path under the user source>` goes the other way, from a spec to its files")
 	return cmd
 }
 

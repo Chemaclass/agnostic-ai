@@ -213,7 +213,7 @@ func NoteFieldNoOp(target string, kind spec.Kind, field string, count int, reaso
 }
 
 // NoteSkillFieldNoOp is NoteFieldNoOp for a skill; shared marks a copy
-// in a shared global skills directory, which carries no target overrides.
+// in a shared user-level skills directory, which carries no target overrides.
 func NoteSkillFieldNoOp(target, field string, count int, reason string, shared bool) {
 	noteFieldNoOp(target, spec.KindSkill, field, count, reason, shared)
 }
@@ -340,7 +340,7 @@ func flushFieldNotesLocked() {
 		return
 	}
 	// suggestion is part of the key: one note can need different fixes,
-	// such as a shared global skill folder that has no target overrides.
+	// such as a shared user-level skill folder that has no target overrides.
 	type key struct {
 		kind       spec.Kind
 		field      string

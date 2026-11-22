@@ -33,7 +33,7 @@ type hookMigrationSpecs struct {
 	targets []string
 }
 
-// loadHookMigrationSpecs loads the project, or the global layers and the
+// loadHookMigrationSpecs loads the project, or the user layers and the
 // targets a default sync --scope user writes hooks for.
 func loadHookMigrationSpecs(s migrationScope) (hookMigrationSpecs, error) {
 	if !s.userLevel {

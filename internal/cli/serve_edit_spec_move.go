@@ -23,11 +23,11 @@ import (
 )
 
 // editSpecMovePath copies or moves one shared spec between the project
-// and the global setup.
+// and the user setup.
 const editSpecMovePath = "/api/edit/spec/move"
 
-// movableKinds are the kinds both a project and the global setup read.
-// The global setup reads no commands, reviews, environments, or ignore
+// movableKinds are the kinds both a project and the user setup read.
+// The user setup reads no commands, reviews, environments, or ignore
 // files, and settings merge by key instead of moving whole.
 var (
 	removeMoveStaging = os.RemoveAll
@@ -100,7 +100,7 @@ type specMoveHandler struct {
 	root      string
 	userLevel bool
 	// peer is the other level, fixed when the server starts; nil when a
-	// global server knows no project.
+	// user-level server knows no project.
 	peer *switchPeer
 }
 
@@ -189,7 +189,7 @@ func writeSpecMoveError(w http.ResponseWriter, err error) {
 func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 	kind := spec.Kind(req.Kind)
 	if !slices.Contains(movableKinds, kind) {
-		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "kind must be rule, agent, skill, hook, or mcp; the global setup does not read %s specs", req.Kind)
+		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "kind must be rule, agent, skill, hook, or mcp; the user setup does not read %s specs", req.Kind)
 	}
 	if req.From != h.level() {
 		return specMovePlan{}, moveRefusal(http.StatusBadRequest, "from must be %s, the level this server reads", h.level())
@@ -209,7 +209,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 			return specMovePlan{}, err
 		}
 		if missing {
-			return specMovePlan{}, specMoveError{status: http.StatusConflict, reply: switchMissingReply{Error: "the global setup does not exist yet; create it first", Missing: true, Root: h.peer.root}}
+			return specMovePlan{}, specMoveError{status: http.StatusConflict, reply: switchMissingReply{Error: "the user setup does not exist yet; create it first", Missing: true, Root: h.peer.root}}
 		}
 	}
 	// A project server loads the working folder, so its spec paths are
@@ -249,7 +249,7 @@ func (h *specMoveHandler) plan(req specMoveRequest) (specMovePlan, error) {
 			return specMovePlan{}, err
 		}
 		if conditional {
-			return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s has a scope, paths, or target condition; global rules must apply to every file and tool", req.Name)
+			return specMovePlan{}, moveRefusal(http.StatusUnprocessableEntity, "%s has a scope, paths, or target condition; user-level rules must apply to every file and tool", req.Name)
 		}
 	}
 	var srcDir string
@@ -493,7 +493,7 @@ func readMoveUnit(path string, folder bool) ([]specMoveFile, error) {
 }
 
 // scriptsDirOf is the shared scripts folder of a setup: under
-// .agnostic-ai in a project, at the root of the global setup.
+// .agnostic-ai in a project, at the root of the user setup.
 func scriptsDirOf(root string, userLevel bool) string {
 	if userLevel {
 		return filepath.Join(root, "scripts")
@@ -677,7 +677,7 @@ func (p specMovePlan) swapFolder(work string) error {
 type rollbackError struct{ error }
 
 // userRuleRefused reports whether sync --scope user would refuse rule for
-// the targets the global setup at source selects.
+// the targets the user setup at source selects.
 func userRuleRefused(rule spec.Entry, source string) (bool, error) {
 	targets, err := loadUserTargets(source, io.Discard)
 	if err != nil {

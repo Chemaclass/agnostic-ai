@@ -51,7 +51,7 @@ func TestErrorText_RequiresKeepsOnlyTheContextualFix(t *testing.T) {
 			if strings.Count(got, c.fix) != 1 {
 				t.Errorf("want one contextual fix %q, got:\n%s", c.fix, got)
 			}
-			for _, unwanted := range []string{"PATH shadows", "For an older binary", "global home config"} {
+			for _, unwanted := range []string{"PATH shadows", "For an older binary", "user source config"} {
 				if strings.Contains(got, unwanted) {
 					t.Errorf("unrelated guidance %q in:\n%s", unwanted, got)
 				}

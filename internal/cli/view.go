@@ -44,7 +44,7 @@ func openAuthoritySource(dir string, userLevel bool) (*authoritySource, error) {
 	return src, nil
 }
 
-// load reads the configuration and specs. The global configuration has
+// load reads the configuration and specs. The user configuration has
 // no project config: its targets come from the home config, or are
 // every target sync --scope user writes.
 func (s *authoritySource) load() (*config.Config, spec.Bundle, error) {

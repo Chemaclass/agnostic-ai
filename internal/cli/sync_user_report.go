@@ -121,7 +121,7 @@ func refuseUserOverwrites(writes []userWrite, removals []string, old userState, 
 		return err
 	}
 	if len(edited) > 0 {
-		return fmt.Errorf("edited since the last global sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
+		return fmt.Errorf("edited since the last user-level sync: %s; move the edit into %s, or rerun with --backup to overwrite and keep a .bak copy", strings.Join(edited, ", "), source)
 	}
 	var commented []string
 	for _, w := range writes {
@@ -166,7 +166,7 @@ func checkUserWrites(cmd *cobra.Command, writes []userWrite, removals []string, 
 		return err
 	}
 	if len(drifted) > 0 {
-		return fmt.Errorf("global configuration drift: %s", strings.Join(drifted, ", "))
+		return fmt.Errorf("user configuration drift: %s", strings.Join(drifted, ", "))
 	}
 	return nil
 }
@@ -193,7 +193,7 @@ func userDrift(cmd *cobra.Command, writes []userWrite, removals []string, stateP
 		}
 		if err != nil {
 			if _, werr := fmt.Fprintf(out, "would create %s (%d bytes)\n", filepath.ToSlash(w.path), len(w.data)); werr != nil {
-				return nil, fmt.Errorf("write global diff: %w", werr)
+				return nil, fmt.Errorf("write user-level diff: %w", werr)
 			}
 			continue
 		}
@@ -202,20 +202,20 @@ func userDrift(cmd *cobra.Command, writes []userWrite, removals []string, stateP
 			have, want = string(data), string(w.data)
 		}
 		if _, werr := fmt.Fprint(out, unifiedDiff(w.path, have, want)); werr != nil {
-			return nil, fmt.Errorf("write global diff: %w", werr)
+			return nil, fmt.Errorf("write user-level diff: %w", werr)
 		}
 	}
 	for _, path := range removals {
 		drifted = append(drifted, path)
 		if diff {
 			if _, err := fmt.Fprintf(out, "would remove %s\n", filepath.ToSlash(path)); err != nil {
-				return nil, fmt.Errorf("write global diff: %w", err)
+				return nil, fmt.Errorf("write user-level diff: %w", err)
 			}
 		}
 	}
 	if stateStale && len(drifted) == 0 {
 		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "note: %s\n", userOwnershipNote(statePath)); err != nil {
-			return nil, fmt.Errorf("write global check: %w", err)
+			return nil, fmt.Errorf("write user-level check: %w", err)
 		}
 	}
 	if stateStale && len(drifted) > 0 {
@@ -226,7 +226,7 @@ func userDrift(cmd *cobra.Command, writes []userWrite, removals []string, stateP
 				verb = "create"
 			}
 			if _, err := fmt.Fprintf(out, "would %s ownership state %s\n", verb, filepath.ToSlash(statePath)); err != nil {
-				return nil, fmt.Errorf("write global diff: %w", err)
+				return nil, fmt.Errorf("write user-level diff: %w", err)
 			}
 		}
 	}

@@ -86,7 +86,7 @@ session-retention-days: 3650
 - If Gemini or Qoder has `general.sessionRetention.enabled: false`, sync leaves its age limit alone and prints a note. It never sets the cleanup switch or `maxCount`, and Gemini's existing `maxCount` can still remove younger sessions.
 - Other targets print a note. Kilo's deletion switch and Factory's organization setting are outside this field.
 - Lowering the limit warns that older sessions will be deleted, including when removing the field restores a shorter native limit. Pass `--backup` to replace a native value set outside agnostic-ai.
-- Removing the field restores the original value's bytes, even one that already matched, and removes an empty file that sync created. A value changed by hand stays yours. This restore data needs ownership state version 7 or later. Global sync now writes version 10; older releases refuse that state rather than discard it.
+- Removing the field restores the original value's bytes, even one that already matched, and removes an empty file that sync created. A value changed by hand stays yours. This restore data needs ownership state version 7 or later. User-level sync now writes version 10; older releases refuse that state rather than discard it.
 - `explain --scope user settings/retention.yaml` lists the mapped keys.
 
 agnostic-ai changes settings only; it never reads, copies, or archives transcripts. Claude Code also applies this cutoff to some other session data and orphaned worktrees, and Desktop and Cowork transcripts have a separate setting. See [Claude cleanup](https://code.claude.com/docs/en/claude-directory), [Gemini configuration](https://geminicli.com/docs/reference/configuration/), and [Qoder settings](https://docs.qoder.com/cli/settings-reference).
@@ -119,7 +119,7 @@ voice:
 - Qwen keeps dictation off until a voice model is chosen. Run `/model --voice` or set `x-qwen.voiceModel`; sync prints a note when no model is configured.
 - Gemini's voice keys and Vibe's voice mode are experimental. Gemini has no language key; Vibe has no mode or language key. Sync prints a note for each member without a native key.
 - Grok has no dictation on/off key: `/voice` always works. Set `x-grok.ui.voice_keybind_enabled` to control its shortcut separately. `GROK_HOME` moves its user configuration directory.
-- Kiro CLI maps language only; `auto` detects it. Its on/off and capture mode members print a note. `KIRO_HOME` moves the global directory. Native `x-kiro` keys use literal dotted names, such as `voice.language`.
+- Kiro CLI maps language only; `auto` detects it. Its on/off and capture mode members print a note. `KIRO_HOME` moves the user directory. Native `x-kiro` keys use literal dotted names, such as `voice.language`.
 - Other targets print a note naming their limit.
 - An `x-<target>` key wins over the portable member it overlaps, including a parent map. Set keys such as `x-claude.voice.autoSubmit` there.
 - Pass `--backup` to replace a native value set outside agnostic-ai.

@@ -89,7 +89,7 @@ func TestComparePermissions_ReportsPolicyWithoutWriting(t *testing.T) {
 	if count != 6 {
 		t.Errorf("permission rows = %d, want six", count)
 	}
-	if !strings.Contains(text, "read(src/**): the adapter does not write") || !strings.Contains(text, "global sync") || !strings.Contains(text, ".codex/rules/") {
+	if !strings.Contains(text, "read(src/**): the adapter does not write") || !strings.Contains(text, "user-level sync") || !strings.Contains(text, ".codex/rules/") {
 		t.Errorf("supported output and unsupported restrictions must be visible: %s", text)
 	}
 	if !reflect.DeepEqual(before, snapshot()) {

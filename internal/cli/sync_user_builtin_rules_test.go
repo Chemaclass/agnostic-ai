@@ -63,6 +63,6 @@ func TestCheckScopeUser_SkipsInactiveBuiltinHooksAndKeepsUserHooks(t *testing.T)
 		}
 	}
 	if !foundUser {
-		t.Error("user hook was removed from global validation")
+		t.Error("user hook was removed from user validation")
 	}
 }

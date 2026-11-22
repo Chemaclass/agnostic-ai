@@ -152,7 +152,7 @@ type Session struct {
 
 // SetProjectRoot makes the session refuse an absolute path outside root.
 // Project sync sets it before any write: its paths come from a config a
-// cloned repository commits. Global sync leaves it unset, since it writes
+// cloned repository commits. User-level sync leaves it unset, since it writes
 // tool folders under the user's home.
 func (s *Session) SetProjectRoot(root string) { s.projectRoot = root }
 

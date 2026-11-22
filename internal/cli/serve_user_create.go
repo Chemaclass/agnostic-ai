@@ -14,10 +14,10 @@ import (
 	"sync"
 )
 
-// userCreatePath makes the global setup folder from a project server.
+// userCreatePath makes the user setup folder from a project server.
 const userCreatePath = "/api/global/create"
 
-// userSetupEntries are the names that make a global home count as set up.
+// userSetupEntries are the names that make a user source count as set up.
 // A folder holding none of them is treated as missing.
 var userSetupEntries = []string{
 	"agnostic-ai.yaml", "AGNOSTIC_AI.md", "agents", "rules", "hooks",
@@ -38,7 +38,7 @@ var userStarterFiles = []userStarterFile{
 
 const userGitignore = ".gitignore"
 
-// userHomeMissing reports whether root holds no global setup. A symlink
+// userHomeMissing reports whether root holds no user setup. A symlink
 // whose target is gone is an error, so create never writes through it.
 func userHomeMissing(root string) (bool, error) {
 	info, err := os.Lstat(root)
@@ -107,7 +107,7 @@ func (h *userCreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !missing {
-		writeEditJSON(w, http.StatusConflict, editError{Error: "a global setup already exists in " + h.root})
+		writeEditJSON(w, http.StatusConflict, editError{Error: "a user setup already exists in " + h.root})
 		return
 	}
 	created, err := writeUserStarter(h.root)

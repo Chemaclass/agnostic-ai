@@ -364,8 +364,8 @@ type ItemFinding struct {
 	Fix string `json:"fix,omitempty"`
 	// Explanation says why it matters, when known.
 	Explanation string `json:"explanation,omitempty"`
-	// Layer is "user" for a finding on the global setup, shown in a
-	// project's overview; its Path is relative to the global source.
+	// Layer is "user" for a finding on the user setup, shown in a
+	// project's overview; its Path is relative to the user source.
 	Layer string `json:"layer,omitempty"`
 }
 
@@ -458,12 +458,12 @@ type Finding struct {
 	// Section is the harness section a finding that names no configured
 	// item belongs to, when the check knows it.
 	Section string
-	// Layer is LayerUser for a finding on the global setup shown in a
+	// Layer is LayerUser for a finding on the user setup shown in a
 	// project's overview, and empty for the setup the view shows.
 	Layer string
 }
 
-// LayerUser marks a finding on the global setup (~/.agnostic-ai/),
+// LayerUser marks a finding on the user setup (~/.agnostic-ai/),
 // which reaches every project.
 const LayerUser = "user"
 

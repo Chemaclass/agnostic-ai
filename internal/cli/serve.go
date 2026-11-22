@@ -50,7 +50,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 		Long: "Serves the bundled web interface and its API under /api. Use --ui for a " +
 			"development client or --api-only to serve just the API. Specs load on every request. " +
 			"Project built-in changes preview and apply source and generated files, with undo " +
-			"for the last change in this server session. Global built-ins and settings edits save source choices " +
+			"for the last change in this server session. User-level built-ins and settings edits save source choices " +
 			" without syncing generated files. Stops on Ctrl-C.",
 		Example: `  # Open the bundled interface
   agnostic-ai serve --open
@@ -192,7 +192,7 @@ type serveMuxOptions struct {
 //
 // The overview runs the read-only checks (lint, drift, doctor) in the
 // working directory, which serve has changed into for the project. For
-// --scope user it runs the global lint and compares the files sync --scope user
+// --scope user it runs the user lint and compares the files sync --scope user
 // would write with disk, from any directory.
 func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts serveMuxOptions) http.Handler {
 	switches := muxOpts.switches

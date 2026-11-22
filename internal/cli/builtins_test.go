@@ -268,7 +268,7 @@ func TestBuiltins_UserConfigLocalListReplacesSharedList(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(scope.bundle.Skills) != 1 || scope.bundle.Skills[0].Layer != "builtin" {
-		t.Errorf("global skills = %+v", scope.bundle.Skills)
+		t.Errorf("user-level skills = %+v", scope.bundle.Skills)
 	}
 	writeFile(t, filepath.Join(source, "local", config.ConfigFileName), "builtins: []\n")
 	scope, err = loadSpecScope(true, nil)
@@ -276,7 +276,7 @@ func TestBuiltins_UserConfigLocalListReplacesSharedList(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(scope.bundle.Skills) != 0 {
-		t.Errorf("global local opt-out skills = %+v", scope.bundle.Skills)
+		t.Errorf("user-level local opt-out skills = %+v", scope.bundle.Skills)
 	}
 }
 
@@ -452,7 +452,7 @@ func TestBuiltins_ProjectAndUserShareOriginWithoutNameClash(t *testing.T) {
 	}
 	clashes := userNameClashes(b, []string{"claude"})
 	if len(clashes) != 1 {
-		t.Errorf("custom project override did not clash with global builtin: %+v", clashes)
+		t.Errorf("custom project override did not clash with user-level builtin: %+v", clashes)
 		return
 	}
 	for _, message := range []string{clashes[0].String(), clashes[0].silenced("ignored by sync.global-name-clash")} {
@@ -460,20 +460,20 @@ func TestBuiltins_ProjectAndUserShareOriginWithoutNameClash(t *testing.T) {
 			t.Errorf("clash reported a cache source: %s", message)
 		}
 	}
-	if message := clashes[0].String(); !strings.Contains(message, "builtins") || strings.Contains(message, "rename the global one") || strings.Contains(message, "delete it") {
+	if message := clashes[0].String(); !strings.Contains(message, "builtins") || strings.Contains(message, "rename the user-level one") || strings.Contains(message, "delete it") {
 		t.Errorf("clash recommends editing the bundled source: %s", message)
 	}
 	if err := os.Remove(filepath.Join(dir, ".agnostic-ai", "skills", "handoff.md")); err != nil {
 		t.Fatal(err)
 	}
-	writeFile(t, filepath.Join(source, "skills", "handoff.md"), "---\nname: handoff\ndescription: Global custom handoff\n---\nGlobal body.\n")
+	writeFile(t, filepath.Join(source, "skills", "handoff.md"), "---\nname: handoff\ndescription: User custom handoff\n---\nUser body.\n")
 	_, b, err = loadProject(dir)
 	if err != nil {
 		t.Fatal(err)
 	}
 	clashes = userNameClashes(b, []string{"claude"})
 	if len(clashes) != 1 {
-		t.Fatalf("project builtin did not clash with global override: %+v", clashes)
+		t.Fatalf("project builtin did not clash with user-level override: %+v", clashes)
 	}
 	if message := clashes[0].String(); !strings.Contains(message, "builtin:handoff (agnostic-ai dev)") || strings.Contains(filepath.ToSlash(message), "agnostic-ai/builtins/") {
 		t.Errorf("project builtin clash reported a cache source: %s", message)
@@ -604,18 +604,18 @@ func TestBuiltins_UserSpecsAndPersonalOverridesWin(t *testing.T) {
 	source := t.TempDir()
 	t.Setenv(envUserRoot, source)
 	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\nbuiltins: [handoff]\n")
-	writeFile(t, filepath.Join(source, "skills", "handoff.md"), "---\nname: handoff\ndescription: Global handoff\n---\nGlobal body.\n")
+	writeFile(t, filepath.Join(source, "skills", "handoff.md"), "---\nname: handoff\ndescription: User handoff\n---\nUser body.\n")
 	writeFile(t, filepath.Join(source, "local", "skills", "handoff.md"), "---\nname: handoff\ndescription: Personal handoff\n---\n::parent\nPersonal addition.\n")
 	scope, err := loadSpecScope(true, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(scope.bundle.Skills) != 1 {
-		t.Fatalf("global skills = %+v", scope.bundle.Skills)
+		t.Fatalf("user-level skills = %+v", scope.bundle.Skills)
 	}
 	e := scope.bundle.Skills[0]
-	if e.Layer != "user-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "Global body.\nPersonal addition.") {
-		t.Errorf("global override = %+v", e)
+	if e.Layer != "user-local" || e.Description() != "Personal handoff" || !strings.Contains(e.Body, "User body.\nPersonal addition.") {
+		t.Errorf("user-level override = %+v", e)
 	}
 }
 

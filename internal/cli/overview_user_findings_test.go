@@ -35,7 +35,7 @@ func TestOverviewInputs_IncludesTheUserSetupsLintFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(userLevel) != 1 || userLevel[0].Code != "LINT007" || userLevel[0].Path != "agents/helper.md" || userLevel[0].Fix == "" {
-		t.Fatalf("global findings = %+v, all = %+v", userLevel, in.Findings)
+		t.Fatalf("user-level findings = %+v, all = %+v", userLevel, in.Findings)
 	}
 	if got, _ := filepath.EvalSymlinks(filepath.FromSlash(userLevel[0].OpenPath)); got != want {
 		t.Errorf("open path = %q, want %q", userLevel[0].OpenPath, want)
@@ -64,6 +64,6 @@ func TestOverviewInputs_NoUserSetupAddsNoUserFindings(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := userFindings(in.Findings); len(got) != 0 {
-		t.Errorf("global findings without a global setup = %+v", got)
+		t.Errorf("user-level findings without a user setup = %+v", got)
 	}
 }

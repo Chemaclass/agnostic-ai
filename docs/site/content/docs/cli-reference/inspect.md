@@ -66,7 +66,7 @@ agnostic-ai explain builtin:handoff --json
 - Contributions are grouped by configured target, tagged `(full file)` or `(section "<name>")`, plus a "would emit if enabled" list for other tools.
 - A tool outside `targets` that cannot render your setup is left out. A failure from a tool in `targets` stops the command and names it once.
 - With `--scope user`: an agent or skill is a whole file, a rule a section of the instructions file, a hook its event in a shared hooks file or its standalone hook files, an MCP server its key in the user MCP file, and a settings spec each key it sets, tagged `(key "<key>")`.
-- Directory-based global hooks (Cline, Grok, Kiro) also list copied command scripts, with the same paths and target root settings as `sync --scope user`.
+- Directory-based user-level hooks (Cline, Grok, Kiro) also list copied command scripts, with the same paths and target root settings as `sync --scope user`.
 - A spec with `model` or `effort` lists its [tier](@/docs/spec-format/agents.md#model-tiers) and the model and effort it resolves to per target. `tool default` means the target writes no model. A target with no key for it, such as Codex skills, drops it, and `sync` prints a coverage note.
 - For an agent's `can` or `tools` and settings `permissions`, it lists each target's native names, unsupported rules included.
 - A widening line names extra access a target grants (for Codex, from the merged permissions and any explicit command policy source). `explain` shows it even with `on-unsupported: error`, where `sync` fails.
@@ -297,7 +297,7 @@ Permission rules:
 - A source or native rule holding a credential shows its tool name around `<redacted>`, as `sync --scope user` prints, such as `shell(<redacted>)` or `prefix_rule(<redacted>)`. In an `x-<target>` override, only the command pattern or string that holds it is replaced.
 - Credentials in complete native permission records, such as Augment webhook policies, are hidden in text and JSON summaries but compared as written. Filename patterns and ordinary permission actions stay visible.
 - Codex shell permissions need `outputs.codex.exec-policies-from-permissions: true`.
-- Default-mode applies only to global sync, so project comparison reports it unsupported.
+- Default-mode applies only to user-level sync, so project comparison reports it unsupported.
 - A difference in effective decision or partial support counts, even when both results are translated.
 
 ```json

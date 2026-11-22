@@ -92,7 +92,9 @@ type companionAppDeps struct {
 	prepare func(context.Context, io.Writer, string, string) (string, error)
 	// sameSigner refuses a built app that does not meet the installed app's designated requirement.
 	sameSigner func(ctx context.Context, installed, built string) error
-	start      func(string) error
+	// runBuilt executes the built app's binaries, so it runs only after sameSigner accepts the app.
+	runBuilt func(ctx context.Context, built, version string) error
+	start    func(string) error
 }
 
 // errInstalledUnpinned is an installed app whose signature names no
@@ -160,6 +162,9 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	} else if err != nil {
 		return fmt.Errorf("%s is not signed by this project: %w", built, err)
 	}
+	if err := deps.runBuilt(ctx, built, version); err != nil {
+		return fmt.Errorf("prepare %s: %w", app, err)
+	}
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("update %s: %w", app, err)
 	}
@@ -168,23 +173,47 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if _, err := endCompanion(ctx, tools, filepath.Join(app, "Contents", "MacOS", companionName)); err != nil {
 		return err
 	}
-	err = replaceCompanionApp(tools.rename, built, app, staging)
-	if _, ok := errors.AsType[companionKeptAside](err); ok {
-		keep = true
-		return err
+	aside := filepath.Join(staging, companionAsideName)
+	if err := replaceCompanionApp(tools.rename, built, app, staging); err != nil {
+		_, _ = fmt.Fprintln(out, "Could not replace the companion app.")
+		if _, kept := errors.AsType[companionKeptAside](err); kept {
+			keep = true
+			_, _ = fmt.Fprintf(out, "Could not restore the earlier companion. %v\n", err)
+			return err
+		}
+		return errors.Join(fmt.Errorf("replace %s: %w", app, err), restartEarlierCompanion(out, app, deps.start))
 	}
-	if err == nil {
-		// The restarted companion reads this line to tell a finished swap from a rollback.
-		_, _ = fmt.Fprintln(out, "Replaced the companion app.")
+	_, _ = fmt.Fprintln(out, "Swapped the companion app.")
+	if err := deps.start(app); err != nil {
+		launchErr := fmt.Errorf("start %s: %w", app, err)
+		_, _ = fmt.Fprintln(out, "Could not start the updated companion.")
+		// Move the failed app out of the way before putting the original back.
+		restoreErr := tools.rename(app, built)
+		if restoreErr == nil {
+			restoreErr = tools.rename(aside, app)
+		}
+		if restoreErr != nil {
+			keep = true
+			kept := companionKeptAside{err: errors.Join(launchErr, restoreErr), aside: aside, installed: app}
+			_, _ = fmt.Fprintf(out, "Could not restore the earlier companion. %v\n", kept)
+			return kept
+		}
+		_, _ = fmt.Fprintln(out, "Restored the earlier companion.")
+		return errors.Join(launchErr, restartEarlierCompanion(out, app, deps.start))
 	}
-	if startErr := deps.start(app); startErr != nil {
-		return errors.Join(err, fmt.Errorf("start %s: %w", app, startErr))
-	}
-	if err != nil {
-		return fmt.Errorf("replace %s: %w", app, err)
-	}
+	// Only mark completion after open accepts the launch.
+	_, _ = fmt.Fprintln(out, "Replaced the companion app.")
 	_, err = fmt.Fprintf(out, "Updated %s to %s and started it again.\n", app, version)
 	return err
+}
+
+func restartEarlierCompanion(out io.Writer, app string, start func(string) error) error {
+	if err := start(app); err != nil {
+		_, _ = fmt.Fprintln(out, "Could not start the earlier companion.")
+		return fmt.Errorf("start the earlier companion at %s: %w", app, err)
+	}
+	_, _ = fmt.Fprintln(out, "Started the earlier companion.")
+	return nil
 }
 
 func downloadVerifiedCompanionAsset(ctx context.Context, out io.Writer, client *http.Client, baseURL, version, asset string, verify provenanceCheck) ([]byte, error) {
@@ -242,17 +271,21 @@ func prepareCompanionApp(ctx context.Context, out io.Writer, version, staging st
 	if err := runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", app); err != nil {
 		return "", err
 	}
+	return app, nil
+}
+
+func runBuiltCompanionApp(ctx context.Context, app, version string) error {
 	if err := verifyReleaseBinary(ctx, filepath.Join(app, "Contents", "Resources", binaryName), version); err != nil {
-		return "", err
+		return err
 	}
 	got, err := companionBuiltFor(ctx, filepath.Join(app, "Contents", "MacOS", companionName))
 	if err != nil {
-		return "", err
+		return err
 	}
 	if got != version {
-		return "", fmt.Errorf("%s: companion version %q, expected %s", app, got, version)
+		return fmt.Errorf("%s: companion version %q, expected %s", app, got, version)
 	}
-	return app, nil
+	return nil
 }
 
 func runCompanionAppTool(ctx context.Context, name string, args ...string) error {
@@ -296,7 +329,7 @@ replaces the app, and starts it again.`,
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), companionDownloadWait)
 			defer cancel()
-			return updateCompanionApp(ctx, cmd.OutOrStdout(), updateApp, version, tools, companionAppDeps{prepare: prepareCompanionApp, sameSigner: sameCompanionSigner, start: func(app string) error { return runCompanionAppTool(context.Background(), "open", "-a", app) }})
+			return updateCompanionApp(ctx, cmd.OutOrStdout(), updateApp, version, tools, companionAppDeps{prepare: prepareCompanionApp, sameSigner: sameCompanionSigner, runBuilt: runBuiltCompanionApp, start: func(app string) error { return runCompanionAppTool(context.Background(), "open", "-a", app) }})
 		},
 	}
 	update.Flags().StringVar(&updateApp, "app", "", "Absolute path of the companion app.")

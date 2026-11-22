@@ -43,7 +43,7 @@
 // them in the OpenHands settings store, "Customize > MCP Servers", and
 // read no project config.toml `[mcp]` section, which the vendor calls
 // legacy V0 (#1252), nor ~/.openhands/mcp.json, which only the
-// unmaintained OpenHands-CLI reads (#2576). Project and global sync print
+// unmaintained OpenHands-CLI reads (#2576). Project and user-level sync print
 // one note each. `import openhands` still reads a legacy config.toml, and
 // `import --scope user openhands` a legacy mcp.json, so a team can move its
 // servers into specs.

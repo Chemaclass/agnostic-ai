@@ -132,7 +132,7 @@ func TestResolveTargets_UserKeepsALaterClaudeModelNameForCodex(t *testing.T) {
 		in := Inputs{Cfg: &config.Config{Targets: []string{"claude", "codex"}}, UserLevel: tc.userLevel, Bundle: spec.Bundle{Settings: settings}}
 		codex := resolvedField(t, in, "model")["codex"]
 		if codex.Value != tc.value || codex.From == nil || codex.From.Path != tc.src {
-			t.Errorf("global %v: codex model = %+v, want %s from %s", tc.userLevel, codex, tc.value, tc.src)
+			t.Errorf("user %v: codex model = %+v, want %s from %s", tc.userLevel, codex, tc.value, tc.src)
 		}
 	}
 }

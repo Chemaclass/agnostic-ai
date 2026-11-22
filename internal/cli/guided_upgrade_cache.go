@@ -15,7 +15,10 @@ type upgradeCheckCache struct {
 	CheckedAt time.Time
 	OfferedAt time.Time
 	Current   string
-	Offer     upgradeOffer
+	// GuidedFailureAt throttles guided checks without losing the last release.
+	GuidedFailureAt      time.Time
+	GuidedFailureCurrent string
+	Offer                upgradeOffer
 	// CompanionImageTag is the release whose checksums.txt was read for
 	// this Mac's companion disk image; CompanionImage says it was listed.
 	CompanionImageTag string
@@ -43,29 +46,32 @@ func readUpgradeCache(path string) upgradeCheckCache {
 	return cache
 }
 
-// companionUpdateFresh is how long companionUpdateCacheAt trusts an
-// answer: under a day, so a companion that checks every 24 hours asks again.
-const companionUpdateFresh = 23 * time.Hour
-
 // companionUpdateCacheAt answers the latest stable release, and whether
 // it has a companion disk image, from the update cache the guided upgrade
-// shares. It asks again once the answer is older than companionUpdateFresh
-// or when refresh is set. A failed check keeps the last answer and returns
-// the error. image is checked only for a newer release, and nil skips it;
-// when it fails with no answer kept for that release, the latest release
-// comes back with the error.
+// shares. A failed automatic release lookup uses the last answer. A forced
+// refresh reports a failed lookup even when a matching image result is cached.
+// The image is checked only for a newer release, and nil skips it.
+// keepImageOffer lets the app restore an older verified image offer when
+// the latest release's image cannot be checked.
 // It writes only the fields it owns, over a fresh read of the file.
-func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, fetch func(string) (upgradeOffer, error), image func(string) (bool, error)) (string, bool, error) {
+func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepImageOffer bool, fetch func(string) (upgradeOffer, error), image func(string) (bool, error)) (string, bool, error) {
 	cache := readUpgradeCache(path)
-	fresh := cache.Offer.Latest != "" && !cache.CheckedAt.IsZero() && !cache.CheckedAt.After(now) && now.Sub(cache.CheckedAt) < companionUpdateFresh
-	changed := false
+	fresh := cache.Offer.Latest != "" && recentUpgradeCheck(cache.CheckedAt, now)
+	changed, imageChanged := false, false
 	if refresh || !fresh {
 		offer, err := fetch(current)
 		if err != nil {
+			latest := cache.Offer.Latest
+			matchingImage := cache.CompanionImageTag == latest
+			if !refresh && latest != "" {
+				if image == nil || !newerStableRelease(latest, current) || matchingImage {
+					return latest, matchingImage && cache.CompanionImage, nil
+				}
+				if keepImageOffer && cache.CompanionImage && newerStableRelease(cache.CompanionImageTag, current) {
+					return cache.CompanionImageTag, true, nil
+				}
+			}
 			return "", false, err
-		}
-		if offer.Latest != cache.Offer.Latest {
-			cache.CompanionImageTag, cache.CompanionImage = "", false
 		}
 		cache.CheckedAt, cache.Offer, changed = now, offer, true
 	}
@@ -75,24 +81,28 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh bool, f
 		listed, err := image(latest)
 		switch {
 		case err == nil:
-			cache.CompanionImageTag, cache.CompanionImage, changed = latest, listed, true
-		case cache.CompanionImageTag != latest:
+			cache.CompanionImageTag, cache.CompanionImage, imageChanged = latest, listed, true
+		case refresh || cache.CompanionImageTag != latest:
 			imageErr = err
 		}
 	}
-	if changed {
+	if changed || imageChanged {
 		stored := readUpgradeCache(path)
-		if stored.Offer.Latest != cache.Offer.Latest {
-			stored.OfferedAt = time.Time{}
+		if changed && !stored.CheckedAt.After(cache.CheckedAt) {
+			if stored.Offer.Latest != cache.Offer.Latest {
+				stored.OfferedAt = time.Time{}
+			}
+			stored.CheckedAt, stored.Offer = cache.CheckedAt, cache.Offer
 		}
-		stored.CheckedAt, stored.Offer = cache.CheckedAt, cache.Offer
-		stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
+		if imageChanged && stored.Offer.Latest == latest {
+			stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
+		}
 		_ = writeUpgradeCache(path, stored)
 	}
-	if imageErr != nil {
-		return latest, false, imageErr
+	if imageErr != nil && !refresh && keepImageOffer && cache.CompanionImage && newerStableRelease(cache.CompanionImageTag, current) {
+		return cache.CompanionImageTag, true, nil
 	}
-	return latest, cache.CompanionImageTag == latest && cache.CompanionImage, nil
+	return latest, cache.CompanionImageTag == latest && cache.CompanionImage, imageErr
 }
 
 func cachedUpgradeOffer(current string) (upgradeOffer, error) {
@@ -106,17 +116,24 @@ func cachedUpgradeOffer(current string) (upgradeOffer, error) {
 func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string) (upgradeOffer, error)) (upgradeOffer, error) {
 	cache := readUpgradeCache(path)
 	recent := func(at time.Time) bool { return recentUpgradeCheck(at, now) }
+	if cache.GuidedFailureCurrent == current && cache.GuidedFailureAt.After(cache.CheckedAt) && recent(cache.GuidedFailureAt) {
+		return upgradeOffer{}, nil
+	}
 	if !recent(cache.CheckedAt) || cache.Current != current {
 		offer, err := fetch(current)
+		if err != nil {
+			stored := readUpgradeCache(path)
+			if stored.CheckedAt.Before(now) && stored.GuidedFailureAt.Before(now) {
+				stored.GuidedFailureAt, stored.GuidedFailureCurrent = now, current
+				_ = writeUpgradeCache(path, stored)
+			}
+			return upgradeOffer{}, err
+		}
 		if offer.Latest != cache.Offer.Latest {
 			cache.OfferedAt = time.Time{}
 		}
 		cache.CheckedAt, cache.Current, cache.Offer = now, current, offer
-		if err != nil {
-			cache.Offer = upgradeOffer{}
-			_ = writeUpgradeCache(path, cache)
-			return upgradeOffer{}, err
-		}
+		cache.GuidedFailureAt, cache.GuidedFailureCurrent = time.Time{}, ""
 	}
 	if !newerStableRelease(cache.Offer.Latest, current) || recent(cache.OfferedAt) {
 		_ = writeUpgradeCache(path, cache)

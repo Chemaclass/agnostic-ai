@@ -17,7 +17,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
-// approvalsFixture is a global conversations server with one live
+// approvalsFixture is a user conversations server with one live
 // Claude Code session (inProject, pid 4242), a temporary agnostic-ai
 // home, and a clock the test moves.
 type approvalsFixture struct {

@@ -72,7 +72,7 @@ describe('recheck', () => {
   })
 
   it('reads a stopped lint run only in the layer it ran on', () => {
-    const userStopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'The global setup did not load: bad config', path: 'agnostic-ai.yaml', layer: 'user' }
+    const userStopped: ItemFinding = { source: 'lint', code: LINT_INCOMPLETE, severity: 'error', message: 'The user setup did not load: bad config', path: 'agnostic-ai.yaml', layer: 'user' }
     expect(recheckResult(target(read, [read]), view([read]), view([], [userStopped]))).toEqual({ state: 'resolved', added: [] })
     const userRead: ItemFinding = { ...read, layer: 'user' }
     const projectStopped: ItemFinding = { ...userStopped, layer: undefined }
@@ -83,7 +83,7 @@ describe('recheck', () => {
 
   it('names new findings on the same file only in the same layer', () => {
     const config: ItemFinding = { source: 'lint', code: 'LINT006', severity: 'warning', message: 'Unknown key.', path: 'agnostic-ai.yaml' }
-    const userFinding: ItemFinding = { ...config, message: 'Unknown global key.', layer: 'user' }
+    const userFinding: ItemFinding = { ...config, message: 'Unknown user key.', layer: 'user' }
     const project: ItemFinding = { ...config, message: 'Another unknown key.' }
     const configTarget: RecheckTarget = { id: findingEntryIds([config])[0], finding: config }
     const result = recheckResult(configTarget, view([], [config]), view([], [userFinding, project]))

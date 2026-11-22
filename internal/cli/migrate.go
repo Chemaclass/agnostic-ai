@@ -28,7 +28,7 @@ type specMigration struct {
 	Group   string
 	Release string
 	Summary string
-	// ProjectOnly marks an old form the global home never had, such as
+	// ProjectOnly marks an old form the user source never had, such as
 	// the legacy config file name.
 	ProjectOnly bool
 	Plan        func(s migrationScope) ([]migrationChange, []migrationSkip, error)
@@ -38,7 +38,7 @@ type specMigration struct {
 }
 
 // migrationScope is the spec tree a migration reads and writes: the
-// project at root, or the global home at root that sync --scope user reads.
+// project at root, or the user source at root that sync --scope user reads.
 type migrationScope struct {
 	root      string
 	userLevel bool
@@ -180,7 +180,7 @@ func newMigrateCmd() *cobra.Command {
   agnostic-ai migrate
   agnostic-ai migrate --only config
 
-  # Rewrite the global specs sync --scope user reads
+  # Rewrite the user specs sync --scope user reads
   agnostic-ai migrate --scope user`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			scope, err := resolveMigrationScope(userLevel)
@@ -228,12 +228,12 @@ func newMigrateCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Print the rewrites without writing them.")
 	cmd.Flags().BoolVar(&list, "list", false, "List every migration and whether it applies here.")
 	cmd.Flags().StringSliceVar(&only, "only", nil, "Run only these migration groups (comma-separated).")
-	addScopeFlag(cmd, &userLevel, "Rewrite the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --scope user writes.")
+	addScopeFlag(cmd, &userLevel, "Rewrite the user specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, checked against the targets sync --scope user writes.")
 	cmd.MarkFlagsMutuallyExclusive("list", "dry-run")
 	return cmd
 }
 
-// resolveMigrationScope is the global home with --scope user, else the
+// resolveMigrationScope is the user source with --scope user, else the
 // project in the working directory.
 func resolveMigrationScope(userLevel bool) (migrationScope, error) {
 	if userLevel {
@@ -278,7 +278,7 @@ func selectMigrations(set bool, only []string) ([]specMigration, error) {
 }
 
 // loadSpecs loads the specs the scope syncs and the layers they come
-// from: the project with its packs and local/ layer, or the global home
+// from: the project with its packs and local/ layer, or the user source
 // and its local/ layer.
 func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
 	if s.userLevel {
@@ -292,7 +292,7 @@ func (s migrationScope) loadSpecs() (spec.Bundle, []spec.Layer, error) {
 	return withoutBuiltinEntries(b), withoutBuiltinLayers(layers), err
 }
 
-// loadUserSpecs loads the global layers as sync --scope user reads them,
+// loadUserSpecs loads the user layers as sync --scope user reads them,
 // after the home config's requires holds.
 func (s migrationScope) loadUserSpecs() (spec.Bundle, []spec.Layer, error) {
 	if err := requireUserVersion(s.root, nil); err != nil {
@@ -355,7 +355,7 @@ func (s migrationScope) keepInSpecRoots(changes []migrationChange) ([]migrationC
 
 // specRoots resolves the directories a migration may write in, and the
 // directory of each pack by name. Packs sit inside the project, but
-// migrate never rewrites them. A global home kept as a project's source
+// migrate never rewrites them. A user source kept as a project's source
 // dir holds its packs under packs/.
 func (s migrationScope) specRoots() ([]string, map[string]string) {
 	local := filepath.Join(s.root, defaultProjectUser)
@@ -391,7 +391,7 @@ func (s migrationScope) outsideSpecRoots(c migrationChange, roots []string, pack
 	}
 	where := "the project"
 	if s.userLevel {
-		where = "the global home"
+		where = "the user source"
 	}
 	for _, path := range paths {
 		real, err := realAbs(path)

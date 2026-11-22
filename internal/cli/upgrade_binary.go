@@ -142,8 +142,11 @@ func downloadReleaseAssetContext(ctx context.Context, client *http.Client, asset
 func releaseChecksum(data []byte, asset string) ([sha256.Size]byte, error) {
 	for _, line := range strings.Split(string(data), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) != 2 || fields[1] != asset {
+		if len(fields) == 0 || fields[len(fields)-1] != asset {
 			continue
+		}
+		if len(fields) != 2 {
+			return [sha256.Size]byte{}, fmt.Errorf("checksums.txt: invalid checksum for %s", asset)
 		}
 		decoded, err := hex.DecodeString(fields[0])
 		if err != nil || len(decoded) != sha256.Size {

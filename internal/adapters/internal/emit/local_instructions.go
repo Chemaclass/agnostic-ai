@@ -15,7 +15,7 @@ import (
 // git-ignored instructions file in the local layer
 // (`.agnostic-ai/local/`). Its text extends the shared
 // AgnosticEntryPointPath body in every entry-point file sync writes,
-// the same way `~/.agnostic-ai/local/AGNOSTIC_AI.md` extends the global
+// the same way `~/.agnostic-ai/local/AGNOSTIC_AI.md` extends the user
 // instructions.
 const ProjectLocalEntryPointPath = ".agnostic-ai/local/AGNOSTIC_AI.md"
 

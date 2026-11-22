@@ -43,7 +43,7 @@ func lintPortableHooks(hooks []spec.Entry, targets []string) []lintFinding {
 // lintPortableHookForms names the on: and match: for each native hook
 // the hooks-portable-events migration rewrites (LINT034, warn). A plan
 // that fails suggests nothing, since migrate then rewrites nothing, and
-// so does a project command run in the global home, where migrate needs
+// so does a project command run in the user source, where migrate needs
 // --scope user.
 func lintPortableHookForms(s migrationScope, cfg *config.Config, b spec.Bundle) []lintFinding {
 	if refuseUserSource(s.root, "") != nil {

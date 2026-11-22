@@ -143,7 +143,7 @@ func TestInit_StartsAProjectUnderAUserSourceThatIsTheHomeDir(t *testing.T) {
 	cmd.SetErr(&out)
 	cmd.SetArgs([]string{"init"})
 	if err := cmd.Execute(); err != nil {
-		t.Fatalf("init under the global home: %v\n%s", err, out.String())
+		t.Fatalf("init under the user source: %v\n%s", err, out.String())
 	}
 	if _, err := os.Stat("agnostic-ai.yaml"); err != nil {
 		t.Errorf("init wrote no config: %v", err)

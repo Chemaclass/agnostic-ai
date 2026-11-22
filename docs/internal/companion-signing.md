@@ -118,6 +118,20 @@ hdiutil detach "/Volumes/agnostic-ai companion"
 
 The hash must match `cert.sha1`. To check that the grant survives, grant Accessibility to one version, install the next one over it, and check that **System Settings > Privacy & Security > Accessibility** still lists the app as allowed.
 
+## First live update
+
+No published release has shipped a disk image yet, so the app's own update has run only against test fixtures. Once two releases in a row ship disk images:
+
+1. Check that the `Sign the macOS companion` job log of each prints the hash pinned in `scripts/companion-sign.sh`.
+2. Install the older disk image in Applications, open it, and grant Accessibility.
+3. Choose **Update to vX.Y.Z**, then **Update and restart**. The list should show each step, and the app should come back on the new version.
+4. Check the version in the app and with the bundled CLI's `--version`. Open the settings and confirm the old choices are still shown.
+5. Check that the new app opened without a Gatekeeper dialog and still has Accessibility access.
+6. Confirm the release checksum and, when `gh` is available and logged in, the build provenance. Check that an app signed with a different certificate is refused before swap, and install it by hand to verify certificate rotation.
+7. Check that `~/Library/Application Support/agnostic-ai/companion-update.log` has the line `Replaced the companion app.`
+
+Record the result in the update details of `docs/site/content/docs/cli-reference/companion.md`.
+
 ## Troubleshooting
 
 | Message | Cause | Fix |

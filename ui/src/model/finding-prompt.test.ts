@@ -39,7 +39,7 @@ describe('finding fix prompts', () => {
       'Explanation: The selected tool accepts this permission.',
       'Suggested fix: Scope read to the intended paths.',
       '',
-      'Inspect the source and confirm the cause before editing. Change the canonical specs, not generated files. Preserve unrelated content and tool behavior. Keep the same project or global scope. Do not disable the check or raise its budget to hide the finding.',
+      'Inspect the source and confirm the cause before editing. Change the canonical specs, not generated files. Preserve unrelated content and tool behavior. Keep the same project or user scope. Do not disable the check or raise its budget to hide the finding.',
       '',
       'Run the relevant agnostic-ai checks after the change. If generated files need updating, review sync --plan, then run sync and sync --check. Report what changed and any remaining findings.',
     ].join('\n'))
@@ -55,13 +55,13 @@ describe('finding fix prompts', () => {
     expect(prompt).not.toContain('Suggested fix:')
   })
 
-  it('points a global finding at the global setup, not the project', () => {
+  it('points a user-level finding at the user setup, not the project', () => {
     const prompt = findingFixPrompt({
       source: 'lint', code: 'LINT007', severity: 'warn',
       path: 'agents/helper.md', line: 4, openPath: '/home/u/.agnostic-ai/agents/helper.md',
       message: 'Unknown key modl.', layer: 'user',
     }, '/tmp/project')
-    expect(prompt).toContain('Layer: global setup, which reaches every project; edit it there, not in this project')
+    expect(prompt).toContain('Layer: user setup, which reaches every project; edit it there, not in this project')
     expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md:4')
     expect(prompt).not.toContain('Source: agents/helper.md')
   })

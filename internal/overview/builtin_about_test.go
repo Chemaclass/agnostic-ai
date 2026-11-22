@@ -42,7 +42,7 @@ func TestBuiltinItems_ProjectHidesApprovals(t *testing.T) {
 		t.Error("project overview offers the approvals built-in, which only sync --scope user writes")
 	}
 	if !has(builtinItems(Inputs{UserLevel: true})) {
-		t.Error("global overview has no approvals built-in")
+		t.Error("user overview has no approvals built-in")
 	}
 }
 

@@ -54,7 +54,7 @@ See [Rule activation](#rule-activation) and [target behavior](@/docs/target-beha
 - stdio: `command`, `args`, `env`, `cwd`, no `type`. Remote: `type`, `url`, `headers`.
 - Other keys (`mcp.enableAllProjectMcpServers`, permissions, custom models) are kept.
 - Optional fields ([MCP reference](https://docs.qoder.com/cli/mcp-reference)), written as declared: `timeout` (ms), `description`, `trust` (skip confirmation), `includeTools`, `excludeTools`, `alwaysAllow`, `disabled` (keep config, server off), `oauth`. See [`disabled` support by target](@/docs/spec-format/mcps-reference.md#disabled-support-by-target).
-- Set `x-qoder.protocolVersion` on an MCP spec to pin Qoder's protocol revision. Project and global imports store the revision there. Sync also reads the top-level field written by older imports.
+- Set `x-qoder.protocolVersion` on an MCP spec to pin Qoder's protocol revision. Project and user-level imports store the revision there. Sync also reads the top-level field written by older imports.
 - `type: ws` gets only a sync note: Qoder's ws transport takes a TCP host and port that a spec cannot express.
 - The file may be JSONC ([settings](https://docs.qoder.com/cli/settings)). Sync keeps keys, drops comments and trailing commas, and warns.
 

@@ -49,7 +49,7 @@ func preflightUserWrites(writes []userWrite, trees []string, old userState) ([]s
 						return nil, err
 					}
 					if !same {
-						return nil, fmt.Errorf("%s: unmanaged global skill collision", dir)
+						return nil, fmt.Errorf("%s: unmanaged user-level skill collision", dir)
 					}
 					if _, err := os.Stat(w.path); err == nil {
 						adopted = append(adopted, dir)
@@ -59,7 +59,7 @@ func preflightUserWrites(writes []userWrite, trees []string, old userState) ([]s
 			}
 			if _, err := os.Stat(w.path); err == nil {
 				if data, err := os.ReadFile(w.path); err != nil || !bytes.Equal(data, w.data) {
-					return nil, fmt.Errorf("%s: unmanaged global spec collision", w.path)
+					return nil, fmt.Errorf("%s: unmanaged user-level spec collision", w.path)
 				}
 				if !inManagedTree(w.path, folders) {
 					adopted = append(adopted, w.path)

@@ -61,7 +61,7 @@ At user scope, sync and import use the first existing file:
 2. deprecated `~/.codebuddy/mcp.json`
 3. legacy `~/.codebuddy.json`
 
-New output uses the preferred file. Comments, account state, the global `projects` map, and unmanaged servers stay intact.
+New output uses the preferred file. Comments, account state, the user `projects` map, and unmanaged servers stay intact.
 
 ## Fields and limits
 
@@ -95,7 +95,7 @@ Empty tool lists:
 - CodeBuddy applies agent, model, and hook overrides only with `context: fork`.
 - Bundled files are copied unchanged.
 - Commands keep description, argument hint, model, allowed tools, invocation control, and body placeholders.
-- Global commands are not managed by agnostic-ai, although CodeBuddy has a user command directory.
+- User-level commands are not managed by agnostic-ai, although CodeBuddy has a user command directory.
 
 ### MCP permission rules
 

@@ -83,7 +83,7 @@ func newLintCmd() *cobra.Command {
   # Treat warnings as errors (useful in CI)
   agnostic-ai lint --strict
 
-  # Lint the global specs before sync --scope user writes them
+  # Lint the user specs before sync --scope user writes them
   agnostic-ai lint --scope user
 
   # List finding codes in a script
@@ -174,7 +174,7 @@ func newLintCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat warnings as errors.")
 	cmd.Flags().BoolVar(&asJSON, "json", false, "Print findings as JSON on stdout.")
 	cmd.Flags().BoolVar(&onlyFiles, "files", false, "Report only findings on the paths given as arguments; - reads paths from stdin.")
-	addScopeFlag(cmd, &userLevel, "Lint the global specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes.")
+	addScopeFlag(cmd, &userLevel, "Lint the user specs in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai) and its local/ layer, against the targets sync --scope user writes.")
 	return cmd
 }
 

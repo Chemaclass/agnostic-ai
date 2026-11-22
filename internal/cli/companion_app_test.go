@@ -96,6 +96,7 @@ func TestCompanionUpdateApp_VerifiesBeforeStoppingAndReplacesTogether(t *testing
 		},
 	}
 	deps.sameSigner = acceptSigner
+	deps.runBuilt = acceptBuilt
 	if err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps); err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +166,7 @@ func TestCompanionUpdateApp_RestoresOldAppWhenReplacementFails(t *testing.T) {
 	restarted := false
 	deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
 		return testDownloadableApp(t, staging), nil
-	}, sameSigner: acceptSigner, start: func(string) error { restarted = true; return nil }}
+	}, sameSigner: acceptSigner, runBuilt: acceptBuilt, start: func(string) error { restarted = true; return nil }}
 	err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps)
 	if err == nil || !restarted {
 		t.Errorf("update = %v, restarted %v", err, restarted)
@@ -205,8 +206,8 @@ func TestCompanionUpdateApp_NamesEachStepForTheCompanion(t *testing.T) {
 			t.Errorf("prepared after %q", out.String())
 		}
 		return testDownloadableApp(t, staging), nil
-	}, sameSigner: acceptSigner, start: func(string) error {
-		if !strings.HasSuffix(out.String(), "Replaced the companion app.\n") {
+	}, sameSigner: acceptSigner, runBuilt: acceptBuilt, start: func(string) error {
+		if !strings.HasSuffix(out.String(), "Swapped the companion app.\n") {
 			t.Errorf("started after %q", out.String())
 		}
 		return nil
@@ -215,9 +216,54 @@ func TestCompanionUpdateApp_NamesEachStepForTheCompanion(t *testing.T) {
 	if err := updateCompanionApp(context.Background(), &out, app, "2.0.0", tools, deps); err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(out.String(), "Replaced the companion app.\n") {
+		t.Errorf("completed update log = %q", out.String())
+	}
 }
 
 func acceptSigner(context.Context, string, string) error { return nil }
+
+func acceptBuilt(context.Context, string, string) error { return nil }
+
+func TestCompanionUpdateApp_RunsNoDownloadedBinaryBeforeTheSignerCheck(t *testing.T) {
+	app := testDownloadableApp(t, t.TempDir())
+	for _, signer := range []error{errors.New("codesign: test-requirement: failed"), fmt.Errorf("%s: %w", app, errInstalledUnpinned)} {
+		deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
+			return testDownloadableApp(t, staging), nil
+		}, sameSigner: func(context.Context, string, string) error { return signer }, runBuilt: func(context.Context, string, string) error {
+			t.Errorf("ran a binary from the downloaded app before refusing its signer %v", signer)
+			return nil
+		}}
+
+		if err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", builtTools(t), deps); err == nil {
+			t.Errorf("signer %v: updated anyway", signer)
+		}
+	}
+}
+
+func TestCompanionUpdateApp_RefusesAnAppWhoseBinariesFailTheirCheck(t *testing.T) {
+	app := testDownloadableApp(t, t.TempDir())
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) {
+		t.Error("stopped the companion for an app whose binaries failed")
+		return false, nil
+	}
+	signed := false
+	deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
+		return testDownloadableApp(t, staging), nil
+	}, sameSigner: func(context.Context, string, string) error { signed = true; return nil }, runBuilt: func(_ context.Context, built, version string) error {
+		if !signed || filepath.Base(built) != companionAppName+".app" || version != "2.0.0" {
+			t.Errorf("ran %q for %q, signer checked %v", built, version, signed)
+		}
+		return errors.New("companion version \"1.0.0\", expected 2.0.0")
+	}}
+
+	err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps)
+
+	if err == nil || !strings.Contains(err.Error(), "expected 2.0.0") {
+		t.Errorf("error %v", err)
+	}
+}
 
 func TestCompanionUpdateApp_RefusesAnAppSignedByAnotherCertificate(t *testing.T) {
 	app := testDownloadableApp(t, t.TempDir())
@@ -294,5 +340,63 @@ func TestCompanionUpdateApp_BlamesAnInstalledAppWithoutAProjectSignature(t *test
 
 	if err == nil || strings.Contains(err.Error(), "is not signed by this project") || !strings.Contains(err.Error(), "Download the new disk image by hand once") {
 		t.Errorf("error %v", err)
+	}
+}
+
+func TestCompanionUpdateApp_RestoresAndRelaunchesOldAppWhenOpenFails(t *testing.T) {
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) { return false, nil }
+	refused := errors.New("open failed")
+	for _, rollbackFails := range []bool{false, true} {
+		t.Run(fmt.Sprintf("rollback fails %t", rollbackFails), func(t *testing.T) {
+			app := testDownloadableApp(t, t.TempDir())
+			tools := tools
+			tools.rename = func(from, to string) error {
+				if rollbackFails && filepath.Base(from) == companionAsideName {
+					return errors.New("restore failed")
+				}
+				return os.Rename(from, to)
+			}
+			var out bytes.Buffer
+			var launches []string
+			deps := companionAppDeps{
+				prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
+					built := testDownloadableApp(t, staging)
+					if err := os.WriteFile(filepath.Join(built, "Contents", "Resources", binaryName), []byte("new cli"), 0o700); err != nil {
+						t.Fatal(err)
+					}
+					return built, nil
+				}, sameSigner: acceptSigner, runBuilt: acceptBuilt, start: func(path string) error {
+					raw, err := os.ReadFile(filepath.Join(path, "Contents", "Resources", binaryName))
+					if err != nil {
+						t.Fatal(err)
+					}
+					launches = append(launches, string(raw))
+					if string(raw) == "new cli" {
+						return refused
+					}
+					return nil
+				},
+			}
+			err := updateCompanionApp(context.Background(), &out, app, "2.0.0", tools, deps)
+			if !errors.Is(err, refused) || !strings.Contains(out.String(), "Could not start the updated companion.") {
+				t.Errorf("error = %v, log = %s; want the launch failure", err, &out)
+			}
+			if rollbackFails {
+				kept, ok := errors.AsType[companionKeptAside](err)
+				if !ok {
+					t.Fatalf("error = %v; want the saved app path", err)
+				}
+				if !strings.Contains(out.String(), kept.aside) {
+					t.Errorf("log %q does not name the saved app %s", &out, kept.aside)
+				}
+				raw, err := os.ReadFile(filepath.Join(kept.aside, "Contents", "Resources", binaryName))
+				if err != nil || string(raw) != "cli" {
+					t.Errorf("saved CLI = %q, %v; want the old CLI", raw, err)
+				}
+			} else if strings.Join(launches, ", ") != "new cli, cli" || !strings.Contains(out.String(), "Started the earlier companion.") {
+				t.Errorf("launches = %q, log = %s; want a relaunch of the restored app", launches, &out)
+			}
+		})
 	}
 }

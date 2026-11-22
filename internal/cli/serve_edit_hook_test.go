@@ -151,11 +151,11 @@ func TestServeEditHook_UserSavesUnderTheUserSource(t *testing.T) {
 	request := hookEditBody("note-start", "session-start", "echo hi")
 	preview := hookEditPreview(t, h, request)
 	if preview.File != "hooks/note-start.yaml" || preview.SyncCommand != "agnostic-ai sync --scope user" {
-		t.Errorf("global preview = %#v", preview)
+		t.Errorf("user-level preview = %#v", preview)
 	}
 	hookEditApply(t, h, request, preview)
 	if got := readOptional(t, filepath.Join(source, "hooks", "note-start.yaml")); got != preview.Spec {
-		t.Errorf("global spec = %q", got)
+		t.Errorf("user-level spec = %q", got)
 	}
 }
 
@@ -474,7 +474,7 @@ func TestServeEditHook_UserAcceptsAToolTheUserSetupWritesNoHooksFor(t *testing.T
 	request["targetsExclude"] = []string{"windsurf"}
 	got := hookEditPreview(t, h, request)
 	if strings.Contains(got.Spec, "targets-exclude") {
-		t.Errorf("spec = %q, want no exclusion for a tool with no global hooks", got.Spec)
+		t.Errorf("spec = %q, want no exclusion for a tool with no user-level hooks", got.Spec)
 	}
 }
 

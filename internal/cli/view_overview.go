@@ -34,7 +34,7 @@ type viewServer struct {
 	UserLevel bool   `json:"global"`
 	UI        bool   `json:"ui"`
 	Version   string `json:"version,omitempty"`
-	// ProjectRoot is set by a global server started in a project.
+	// ProjectRoot is set by a user-level server started in a project.
 	ProjectRoot string `json:"projectRoot,omitempty"`
 }
 

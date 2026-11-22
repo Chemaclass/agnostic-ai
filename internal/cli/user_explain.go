@@ -15,7 +15,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
-// runExplainUser lists where sync --scope user places one global spec for
+// runExplainUser lists where sync --scope user places one user-level spec for
 // each target it writes: a whole file, a section of a shared file, or a
 // key of a user settings file. A settings key a later spec overrides is
 // not this spec's to claim.

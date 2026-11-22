@@ -114,7 +114,7 @@ func TestSyncUserOpenCodeSkillKeepsNativeInvocationForms(t *testing.T) {
 		t.Fatal(err)
 	}
 	if native.Meta["disable-model-invocation"] != true {
-		t.Errorf("global policy lost: %#v", native.Meta)
+		t.Errorf("user policy lost: %#v", native.Meta)
 	}
 	metadata, _ := native.Meta["metadata"].(map[string]any)
 	if metadata["opencode/autoinvoke"] != "false" {

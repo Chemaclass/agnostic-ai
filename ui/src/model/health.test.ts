@@ -83,7 +83,7 @@ describe('setup health', () => {
 
   it('builds one prompt for every finding, errors first', () => {
     const prompt = healthFixPrompt(scenario(), '/tmp/project')
-    expect(prompt).toMatch(/^Fix these 4 agnostic-ai findings in the project or global configuration, errors first:/)
+    expect(prompt).toMatch(/^Fix these 4 agnostic-ai findings in the project or user configuration, errors first:/)
     expect(prompt).toContain('Configuration root: /tmp/project')
     expect(prompt.indexOf('1. Lifecycle: prepare')).toBeGreaterThan(0)
     expect(prompt.indexOf('1. Lifecycle: prepare')).toBeLessThan(prompt.indexOf('2. Context: review'))
@@ -102,7 +102,7 @@ describe('setup health', () => {
     const idOf = (name: string) => places.find((place) => place.item?.name === name)!.ids[0]
     const [error, warning] = [idOf('prepare'), idOf('review')]
     const prompt = healthFixPrompt(overview, '/tmp/project', { findings: new Set([warning, error]), gaps: new Set(['kind:skill']) })
-    expect(prompt).toMatch(/^Work through these 3 agnostic-ai items in the project or global configuration, errors first, then suggestions:/)
+    expect(prompt).toMatch(/^Work through these 3 agnostic-ai items in the project or user configuration, errors first, then suggestions:/)
     expect(prompt.indexOf('1. Lifecycle: prepare')).toBeLessThan(prompt.indexOf('2. Context: review'))
     expect(prompt).toContain('3. Context: Skills (suggestion)\nAdd a skill.')
     expect(prompt).not.toContain('Add a rule.')
@@ -113,16 +113,16 @@ describe('setup health', () => {
   it('leaves the finding guidance out of a prompt with only suggestions', () => {
     const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
     const prompt = healthFixPrompt({ ...scenario(), health: { gaps: [skills] } }, undefined, { findings: new Set(), gaps: new Set(['kind:skill']) })
-    expect(prompt).toMatch(/^Work through this agnostic-ai item in the project or global configuration:\n\n1\. Context: Skills \(suggestion\)/)
+    expect(prompt).toMatch(/^Work through this agnostic-ai item in the project or user configuration:\n\n1\. Context: Skills \(suggestion\)/)
     expect(prompt).not.toContain('canonical specs')
   })
 
   it('names a single finding in the singular', () => {
     const one = view([section('lifecycle', 4, [structuredClone(hook)])])
-    expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the project or global configuration:\n\n1\. Lifecycle: prepare/)
+    expect(healthFixPrompt(one)).toMatch(/^Fix this agnostic-ai finding in the project or user configuration:\n\n1\. Lifecycle: prepare/)
   })
 
-  it('counts global findings and lists them apart from the project findings, with the section page link ids', () => {
+  it('counts user-level findings and lists them apart from the project findings, with the section page link ids', () => {
     const overview = view([section('settings', 5, [], [sectionError, userWarning])])
     expect(countFindings(overview)).toMatchObject({ errors: 1, warnings: 1 })
     const ids = findingEntryIds([sectionError, userWarning])
@@ -130,11 +130,11 @@ describe('setup health', () => {
     expect(errors.sections[0].entries[0]).toMatchObject({ place: 'health:error:section:settings', ids: [ids[0]] })
     const userEntry = warnings.sections[0].entries[0]
     expect(userEntry).toMatchObject({ place: 'health:warning:global:section:settings', ids: [ids[1]], userLevel: true, findings: [userWarning] })
-    expect(placeLabel(userEntry)).toBe('Global setup')
+    expect(placeLabel(userEntry)).toBe('User setup')
     expect(placeLabel(errors.sections[0].entries[0])).toBe('Other findings')
   })
 
-  it('keeps a global place a recheck started from', () => {
+  it('keeps a user place a recheck started from', () => {
     const before = view([section('settings', 5, [], [userWarning])])
     const after = view([section('settings', 5, [], [])])
     const place = 'health:warning:global:section:settings'
@@ -142,9 +142,9 @@ describe('setup health', () => {
     expect(kept[0].sections[0].entries[0]).toMatchObject({ place, findings: [], userLevel: true })
   })
 
-  it('names the global setup in the combined prompt', () => {
+  it('names the user setup in the combined prompt', () => {
     const prompt = healthFixPrompt(view([section('settings', 5, [], [userWarning])]), '/tmp/project')
-    expect(prompt).toContain('1. Settings: Global setup')
+    expect(prompt).toContain('1. Settings: User setup')
     expect(prompt).toContain('Source: /home/u/.agnostic-ai/agents/helper.md')
   })
 
@@ -158,7 +158,7 @@ describe('setup health', () => {
     expect(healthFixPrompt(withGap)).not.toContain('Add a skill.')
   })
 
-  it('counts a global finding once beside the gaps, which stay out of the counts', () => {
+  it('counts a user-level finding once beside the gaps, which stay out of the counts', () => {
     const skills = { id: 'kind:skill', section: 'context', label: 'Skills', supported: ['claude'], missing: 'no skill yet', fix: 'Add a skill.' }
     const overview = { ...view([section('settings', 5, [], [userWarning])]), health: { gaps: [skills] } }
     expect(countFindings(overview)).toMatchObject({ errors: 0, warnings: 1 })

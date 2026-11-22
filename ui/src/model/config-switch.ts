@@ -4,7 +4,7 @@ import { API, type UserCreateReply, type SwitchReply } from '../contract'
 export interface ServedConfig {
   root: string
   userLevel: boolean
-  /** The project a global server started in. */
+  /** The project a user-level server started in. */
   projectRoot?: string
   /** The agnostic-ai version that serves the page, as `--version` prints it. */
   version?: string
@@ -46,7 +46,7 @@ export function baseName(path: string): string {
 export function switchOffer(served: ServedConfig): SwitchOffer | undefined {
   if (!served.userLevel) {
     return {
-      label: 'Open global settings',
+      label: 'Open user-level settings',
       title: 'Open the user configuration in a new tab, starting its server when none runs',
       command: 'agnostic-ai ui --scope user',
     }
@@ -75,7 +75,7 @@ export function parseSwitchReply(value: unknown): SwitchReply {
   return { url: url.toString(), root: reply.root, global: reply.global === true, started: reply.started === true }
 }
 
-export const USER_SETUP_TITLE = 'No global setup yet'
+export const USER_SETUP_TITLE = 'No user setup yet'
 export const USER_SETUP_BODY =
   'One folder for your own rules, skills, agents, hooks, settings and MCP servers. Run "agnostic-ai sync --scope user" and every project gets them. Project specs never merge with it, so team defaults stay in the project. Put private files in "local/", which git ignores. Keep the folder in its own git repo and push it to a remote to back it up.'
 
@@ -83,7 +83,7 @@ export function userSetupCreated(root: string): string {
   return `Created ${root}. Add files, then run "agnostic-ai sync --scope user".`
 }
 
-/** The switch found no global setup; the page offers to create it. */
+/** The switch found no user setup; the page offers to create it. */
 export class UserSetupError extends Error {
   readonly root: string
   constructor(root: string, message: string) {
@@ -129,7 +129,7 @@ export async function createUserSetup(git: boolean, fetcher: typeof fetch = fetc
   try {
     res = await fetcher(API.globalCreate, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ git }) })
   } catch {
-    throw new Error('Could not reach the server to create the global setup.')
+    throw new Error('Could not reach the server to create the user setup.')
   }
   const body = await readJSON(res)
   if (!res.ok) throw new Error(errorText(body, res.status))

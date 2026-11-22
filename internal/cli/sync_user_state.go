@@ -131,7 +131,7 @@ func loadUserStateUpTo(path string, version int) (userState, error) {
 	}
 	var state userState
 	if err := json.Unmarshal(data, &state); err != nil || state.Version < 1 || state.Version > version {
-		return userState{}, fmt.Errorf("parse %s: corrupt global ownership state", path)
+		return userState{}, fmt.Errorf("parse %s: corrupt user-level ownership state", path)
 	}
 	if len(state.MCP["pi"]) > 0 {
 		ordered, err := piMCPMap(path, data, "mcp", "pi")

@@ -140,7 +140,7 @@ function ProjectName({ overview, served, servedPending }: { overview: Remote<Ove
       <span className="sr-only">{served?.userLevel ? 'User configuration ' : 'Project '}</span>
       <span className="project-title">
         <span className="project-label">{projectName}</span>
-        {served && <span className="chip chip-source" aria-hidden="true">{served.userLevel ? 'Global' : 'Project'}</span>}
+        {served && <span className="chip chip-source" aria-hidden="true">{served.userLevel ? 'User' : 'Project'}</span>}
         {repository && (
           <a className="project-repo" href={repository.url} target="_blank" rel="noopener noreferrer" title={`${repository.name} on GitHub`}>
             <Icon name="github" />

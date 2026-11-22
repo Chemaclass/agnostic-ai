@@ -172,7 +172,7 @@ Keep the subject under 72 characters.
 - Command at a tool event: add a [hook](@/docs/spec-format/hooks.md).
 - Standing convention: add a [rule](@/docs/spec-format/rules.md).
 - One folder, different instructions: [directory-specific instructions](@/docs/scoped-context.md).
-- Personal specs for every project: [global configuration](@/docs/global-configuration.md), via `agnostic-ai sync --scope user`.
+- Personal specs for every project: [user configuration](@/docs/global-configuration.md), via `agnostic-ai sync --scope user`.
 - Composer: [set up its Claude Code and Codex providers](@/docs/composer.md).
 
 [Why agnostic-ai?](@/docs/why-agnostic-ai.md#what-to-add-and-when) lists every spec kind.

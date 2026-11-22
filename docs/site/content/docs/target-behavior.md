@@ -19,7 +19,7 @@ targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 
 ## Memory and local state {#memory-and-local-state .legacy-anchor}
 
-## Global output {#global-output .legacy-anchor}
+## User-level output {#global-output .legacy-anchor}
 
 One spec becomes different files per tool: a rule is `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Discovery, permissions, and fields differ too. [Compare targets](@/docs/compare.md) shows samples; `agnostic-ai compare` checks your specs.
 
@@ -79,7 +79,7 @@ In mergeable files such as `.claude/settings.json`, `.gemini/settings.json`, `.c
 <details>
 <summary>MCP names, Warp, and cleanup</summary>
 
-- Warp global voice settings use the same per-key ownership in its platform settings file ([Warp voice dictation](@/docs/targets/warp.md#voice-dictation)).
+- Warp user-level voice settings use the same per-key ownership in its platform settings file ([Warp voice dictation](@/docs/targets/warp.md#voice-dictation)).
 - Sync tracks MCP servers in mergeable maps by name. A spec with the same name can replace your server and print a note.
 - Name tracking does not apply to files sync rebuilds whole, such as Claude's `.mcp.json` or Cursor's `.cursor/mcp.json`. Check the target's import and overwrite behavior before the first sync.
 - When a target leaves the setup, cleanup removes only its recorded values.
@@ -139,5 +139,5 @@ Cursor, Copilot, and Trae can read `.claude/settings.json` beside their own hook
 
 - [Shared memory](@/docs/memory.md): one store every tool reads, beside each tool's own memory.
 - [Target selection](@/docs/configuration.md#targets): which tools sync writes by default.
-- [Global output](@/docs/global-configuration-reference.md#global-output): user-level files and the variables that move a tool's config folder.
+- [User-level output](@/docs/global-configuration-reference.md#global-output): user-level files and the variables that move a tool's config folder.
 - [Adding adapters](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/adding-adapters.md), or [open an issue](https://github.com/Chemaclass/agnostic-ai/issues) to request a target.

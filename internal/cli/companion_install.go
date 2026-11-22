@@ -252,7 +252,11 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 		return keepStaging, err
 	}
 	// A companion that ran is started again whatever happened since: the
-	// one that is installed now, old or new.
+	// one that is installed now, old or new. Write a failure before starting
+	// it, so a companion that opens immediately can read the result.
+	if err != nil && os.Getenv(envCompanionUpdate) != "" {
+		_, _ = fmt.Fprintf(out, "Could not install the updated companion: %v\n", err)
+	}
 	if startErr := startInstalledCompanion(tools, installed); startErr != nil {
 		return keepStaging, errors.Join(err, startErr)
 	}

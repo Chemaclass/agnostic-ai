@@ -119,7 +119,7 @@ func TestAuditKiloUser_TrustedShellOnly(t *testing.T) {
 			writeFile(t, filepath.Join(source, "skills", "probe", "SKILL.md"), "---\nname: probe\ndescription: Show context.\n---\nLive: !`printf audit-probe`\n")
 			_, warnings, err := runUserAgentTest("--only", "kilo")
 			if err != nil {
-				t.Fatalf("trusted global shell: %v", err)
+				t.Fatalf("trusted user shell: %v", err)
 			}
 			if strings.Contains(warnings, "command does not run") {
 				t.Errorf("false shell diagnostic: %s", warnings)

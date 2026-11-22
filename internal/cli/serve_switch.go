@@ -16,7 +16,7 @@ import (
 )
 
 // switchPath finds or starts the server for the other configuration:
-// the user configuration from a project, or the project a global server
+// the user configuration from a project, or the project a user-level server
 // started in.
 const switchPath = "/api/switch"
 
@@ -30,7 +30,7 @@ const (
 type switchPeer struct {
 	root      string
 	userLevel bool
-	// dir is where a started global server runs, so its health names the
+	// dir is where a started user-level server runs, so its health names the
 	// project it came from.
 	dir string
 	// back is this server's address. A started peer tries it first on
@@ -51,7 +51,7 @@ type switchReply struct {
 	Started   bool   `json:"started"`
 }
 
-// switchMissingReply answers a switch to a global home that does not exist
+// switchMissingReply answers a switch to a user source that does not exist
 // yet, so the page can offer to create it. No server is started.
 type switchMissingReply struct {
 	Error   string `json:"error"`
@@ -77,7 +77,7 @@ func newSwitchHandler(peer *switchPeer, ports []string, probe func(string, time.
 }
 
 // switchPeerFor names the other configuration of a server reading root:
-// the user configuration for a project, or for a global server the
+// the user configuration for a project, or for a user-level server the
 // project that contains the directory it started in.
 func switchPeerFor(root string, userLevel bool) *switchPeer {
 	abs, err := filepath.Abs(root)
@@ -141,7 +141,7 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if missing {
-			writeEditJSON(w, http.StatusConflict, switchMissingReply{Error: "no global setup in " + peer.root, Missing: true, Root: peer.root})
+			writeEditJSON(w, http.StatusConflict, switchMissingReply{Error: "no user setup in " + peer.root, Missing: true, Root: peer.root})
 			return
 		}
 	}
@@ -177,7 +177,7 @@ func (h *switchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	writeEditJSON(w, http.StatusServiceUnavailable, editError{Error: "no free port " + h.portRange() + " served the other configuration; run " + peer.command()})
 }
 
-// serves also requires a global server to link back to this project, so
+// serves also requires a user-level server to link back to this project, so
 // its page offers the right way back and it does not stop with another
 // project's server. A live server this one started counts too: in a
 // folder without a config its health names an ancestor project or none.
@@ -274,7 +274,7 @@ func (h *switchHandler) close() {
 }
 
 // peerServerCommand returns the serve arguments and working directory
-// for a peer. A global server runs in the project so its health names it.
+// for a peer. A user-level server runs in the project so its health names it.
 func peerServerCommand(peer switchPeer, addr string) ([]string, string) {
 	args := []string{"serve", "--addr", addr}
 	dir := ""

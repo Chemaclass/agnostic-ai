@@ -130,4 +130,4 @@ For every current agent, sync removes a generated copy at the old `.trae/rules/a
 - Shared skills keep the same checks for existing specs and generated assets. Sync still writes `.trae/skills/` by default.
 - Consecutive hook commands with the same event, matcher, and timeout share a spec with a `command:` list.
 - Fresh imports keep native command order with position prefixes in spec names. Keep those prefixes when renaming imported hooks.
-- Import skips `version` (always 1), a `loop_limit` of 0 (Trae treats it as unset), and the global `~/.trae/hooks.json`.
+- Import skips `version` (always 1), a `loop_limit` of 0 (Trae treats it as unset), and the user `~/.trae/hooks.json`.

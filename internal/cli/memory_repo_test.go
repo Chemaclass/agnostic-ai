@@ -584,7 +584,7 @@ func TestMemoryPath_FailsOutsideAProject(t *testing.T) {
 	}
 }
 
-// The user's global source root is often a Git checkout. It is never a
+// The user source root is often a Git checkout. It is never a
 // project, whichever path reaches it.
 func TestMemoryProjectRoot_RejectsTheUserSourceRootCheckout(t *testing.T) {
 	real := t.TempDir()
@@ -601,10 +601,10 @@ func TestMemoryProjectRoot_RejectsTheUserSourceRootCheckout(t *testing.T) {
 		t.Run(filepath.Base(dir), func(t *testing.T) {
 			testutil.Chdir(t, dir)
 			if out, err := runRoot(t, "memory", "path"); err == nil {
-				t.Errorf("memory path treated the global root as a project:\n%s", out)
+				t.Errorf("memory path treated the user-level root as a project:\n%s", out)
 			}
 			if got := runHookMemory(t); got != "" {
-				t.Errorf("hook memory printed for the global root:\n%s", got)
+				t.Errorf("hook memory printed for the user-level root:\n%s", got)
 			}
 		})
 	}
@@ -648,7 +648,7 @@ func TestMemoryPath_NoConfigUsesTheCheckoutFolders(t *testing.T) {
 	}
 }
 
-// On a case-insensitive filesystem, a global root spelled with another
+// On a case-insensitive filesystem, a user-level root spelled with another
 // case is still the same folder as Git's top level.
 func TestMemoryProjectRoot_RejectsTheUserRootSpelledInAnotherCase(t *testing.T) {
 	real := filepath.Join(t.TempDir(), "Global-Home")
@@ -670,7 +670,7 @@ func TestMemoryProjectRoot_RejectsTheUserRootSpelledInAnotherCase(t *testing.T) 
 	for _, dir := range []string{real, filepath.Join(real, "sub")} {
 		testutil.Chdir(t, dir)
 		if out, err := runRoot(t, "memory", "path"); err == nil {
-			t.Errorf("memory path treated the global root as a project from %s:\n%s", dir, out)
+			t.Errorf("memory path treated the user-level root as a project from %s:\n%s", dir, out)
 		}
 	}
 }

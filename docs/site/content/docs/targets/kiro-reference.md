@@ -20,7 +20,7 @@ Start with the [Kiro setup](@/docs/targets/kiro.md).
 - **Memory**: with `builtins: [memory]`, `.kiro/steering/kiro-memory-index.md` includes `.agnostic-ai/memory/MEMORY.md` and `.agnostic-ai/local/memory/MEMORY.md` with `#[[file:...]]`, so Kiro loads both [shared memory](@/docs/memory.md) lists every session. No other tool gets the file, and `sync --scope user` leaves it out. Kiro resolves each path from the workspace root and shows a marker for a list that does not exist yet. It applies its file read permissions and ignore rules to a reference, so a list they block does not load. With `memory.personal: repo`, the file includes only the project list. The shared policy tells Kiro to find personal memory with `agnostic-ai memory path`.
 - **Skills**: [native](https://kiro.dev/docs/skills/) at `.kiro/skills/<name>/SKILL.md`, read by the skill picker. The file (`name` and `description` frontmatter) is identical to the shared `.agents/skills/` one. Bundled `scripts/`, `references/`, and `assets/` are copied with it.
 - **Agents**: [native custom agents](https://kiro.dev/docs/custom-agents/) in YAML-frontmatter Markdown, read by the agent picker. `description` (default: the agent name) and `model` are copied as written. The spec name stays the file name. `x-kiro.name` sets Kiro's optional display name and survives import.
-- **Settings**: `model` writes `chat.defaultModel` in `.kiro/settings/cli.json`, keeping every other key. In terminal UI sessions, Kiro CLI uses this workspace value over the global one in `~/.kiro/settings/cli.json`.
+- **Settings**: `model` writes `chat.defaultModel` in `.kiro/settings/cli.json`, keeping every other key. In terminal UI sessions, Kiro CLI uses this workspace value over the user-level one in `~/.kiro/settings/cli.json`.
 
   Kiro ids use dots (`claude-sonnet-4.6`), so set `model: {default: ..., kiro: claude-sonnet-4.6}` when the shared value is a Claude Code id. A Claude alias such as `sonnet` raises a note and writes nothing. `permissions` raise a note, because the file has no allow, deny, or ask list.
 
@@ -37,7 +37,7 @@ Kiro expands `$ARGUMENTS`, `${1}` through `${10}`, and `${@}`. Sync keeps these 
 
 `outputs.kiro.commands-dir` changes the prompt folder. Otherwise, `outputs.kiro.dir` puts prompts under `<dir>/prompts`. Import reads the same folder into `sources.commands`.
 
-Kiro also has a global prompt folder. `sync --scope user` does not write commands.
+Kiro also has a user prompt folder. `sync --scope user` does not write commands.
 
 <details>
 <summary>Unmanaged AGENTS.md</summary>
@@ -91,7 +91,7 @@ agnostic-ai sync --scope user --only kiro
 agnostic-ai sync --scope user --only kiro --check
 ```
 
-Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to a valid absolute profile directory to change where agnostic-ai writes these folders and Kiro's other global files. Like [Kiro CLI](https://kiro.dev/docs/reference/settings/#environment-variables), sync uses `~/.kiro` when the value is relative, a filesystem root, your home directory, or one of its ancestors. Global hooks and workspace hooks both run.
+Sync writes `~/.kiro/hooks/<name>.json` and copies shared scripts to `~/.kiro/scripts/`. Set `KIRO_HOME` to a valid absolute profile directory to change where agnostic-ai writes these folders and Kiro's other user-level files. Like [Kiro CLI](https://kiro.dev/docs/reference/settings/#environment-variables), sync uses `~/.kiro` when the value is relative, a filesystem root, your home directory, or one of its ancestors. User-level hooks and workspace hooks both run.
 
 Sync removes only recorded files after their specs are removed. A conflicting or edited file stops sync.
 
@@ -167,6 +167,6 @@ The imported spec loses some data, but the Kiro files sync writes stay the same:
 - Two hook files with the same `name` keep both hooks. The second gets a generated name, because spec names are unique file names.
 - <code>{&#123;filePath}}</code> stays as written. Kiro documents it as new in 3.0, and it means nothing elsewhere.
 
-## Global voice language
+## User-level voice language {#global-voice-language}
 
 `agnostic-ai sync --scope user --only kiro` writes home `voice.language` to the literal `"voice.language"` key in `~/.kiro/settings/cli.json`, or `settings/cli.json` under `KIRO_HOME`. Use `auto` to detect the transcription language. Kiro CLI has no on/off or capture mode key, so sync prints a note for `voice.enabled` and `voice.mode`. Other voice settings, including `voice.autoSubmit`, stay as written. Removing the portable language restores its previous value; a value you changed by hand stays yours. See [voice dictation](@/docs/spec-format/settings-reference.md#voice-dictation).

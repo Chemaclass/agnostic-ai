@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -103,8 +104,9 @@ var updateStepLines = []struct{ prefix, step string }{
 
 // What a check someone asked for found, when it found no release to offer.
 const (
-	updateLatest      = "latest"
-	updateUnreachable = "unreachable"
+	updateLatest         = "latest"
+	updateUnreachable    = "unreachable"
+	updateReleaseChanged = "release-changed"
 )
 
 // updateStatus is what the update entry shows; Version names the newer release.
@@ -148,8 +150,8 @@ type release struct {
 // from the terminal.
 var terminalCommand = findBinary
 
-// separateCommand finds an agnostic-ai command installed apart from the disk image app.
-var separateCommand = separateBinary
+// separateCommands lists candidates for a standalone CLI.
+var separateCommands = standaloneCandidates
 
 // terminalOneClick says agnostic-ai upgrade can replace and restart the
 // companion here; elsewhere the panel shows the command to copy.
@@ -171,6 +173,21 @@ func updateStep(log string) string {
 // updateFailureReason says in plain words why an update stopped at step.
 func updateFailureReason(log, step string) string {
 	switch {
+	case strings.Contains(log, "Could not restore the earlier companion."):
+		return "the earlier companion could not be restored. See the log for its saved location"
+	case strings.Contains(log, "Could not start the earlier companion."):
+		return "the earlier companion could not restart. Open it again"
+	case strings.Contains(log, "Could not start the updated companion."):
+		return "the updated companion could not restart"
+	case strings.Contains(log, "CLI upgrade succeeded, but companion update failed:"):
+		if strings.Contains(log, "start the companion:") {
+			return "the CLI was upgraded, but the companion could not restart"
+		}
+		return "the CLI was upgraded, but the companion update failed"
+	case strings.Contains(log, "Could not install the updated companion:"):
+		return "the companion could not finish installing the update"
+	case strings.Contains(log, "companion update failed:") && strings.Contains(log, "start the companion:"):
+		return "the companion could not restart"
 	case strings.Contains(log, "does not serve"):
 		return "the package manager does not serve the new version yet. Try again later"
 	case strings.Contains(log, "executable file not found") || strings.Contains(log, "command not found"):
@@ -238,7 +255,6 @@ func (s *shell) ownAppCommands() *appCommands {
 		controls.latest = func(ctx context.Context, refresh bool) (release, error) {
 			return cliRelease(ctx, command, version, refresh, true)
 		}
-		controls.current = failedUpdateAfterRestart(controls.logPath())
 	} else if command, err := terminalCommand(); err == nil {
 		controls.command = command
 		controls.latest = func(ctx context.Context, refresh bool) (release, error) {
@@ -247,6 +263,7 @@ func (s *shell) ownAppCommands() *appCommands {
 	} else {
 		return nil
 	}
+	controls.current = failedUpdateAfterRestart(controls.logPath(), controls.app == "")
 	controls.inform = func(title, message string) {
 		dialog := s.app.Dialog.Info().SetTitle(title).SetMessage(message)
 		dialog.AddButton("OK").SetAsDefault()
@@ -269,21 +286,28 @@ func cliRelease(ctx context.Context, command, current string, refresh, app bool)
 		args = append(args, "--refresh")
 	}
 	ask := exec.CommandContext(ctx, command, args...)
+	if app {
+		ask.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_KEEP_IMAGE_OFFER=1")
+	} else {
+		ask.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_SKIP_IMAGE=1")
+	}
 	withoutConsoleWindow(ask)
 	out, err := ask.Output()
 	if err != nil {
 		return release{}, fmt.Errorf("check for companion updates: %w", err)
 	}
 	var status struct {
-		Latest     string `json:"latest"`
-		OneClick   bool   `json:"oneClick"`
-		Image      bool   `json:"image"`
-		ImageError string `json:"imageError"`
+		Installed       string `json:"installed"`
+		Latest          string `json:"latest"`
+		OneClick        bool   `json:"oneClick"`
+		ConfirmsRelease bool   `json:"confirmsRelease"`
+		Image           bool   `json:"image"`
+		ImageError      string `json:"imageError"`
 	}
 	if err := json.Unmarshal(out, &status); err != nil {
 		return release{}, fmt.Errorf("check for companion updates: %w", err)
 	}
-	if !newerRelease(status.Latest, current) {
+	if !newerRelease(status.Latest, current) || !app && newerRelease(status.Installed, status.Latest) {
 		return release{}, nil
 	}
 	next := release{Version: strings.TrimPrefix(status.Latest, "v")}
@@ -296,7 +320,7 @@ func cliRelease(ctx context.Context, command, current string, refresh, app bool)
 		}
 		return next, nil
 	}
-	if !status.OneClick || !terminalOneClick {
+	if _, stable := stableReleaseVersion(status.Installed); !stable || !status.OneClick || !status.ConfirmsRelease || !terminalOneClick {
 		next.Command = upgradeCommand
 	}
 	return next, nil
@@ -369,28 +393,43 @@ func (s *shell) checkNow(w http.ResponseWriter, _ *http.Request) {
 }
 
 // startUpdate answers the list's Update and restart, and Retry.
-func (s *shell) startUpdate(w http.ResponseWriter, _ *http.Request) {
+func (s *shell) startUpdate(w http.ResponseWriter, r *http.Request) {
 	c := s.appCommands
 	if c == nil {
 		writeJSON(w, http.StatusNotFound, apiError{Error: "this companion cannot update itself; run agnostic-ai upgrade"})
 		return
 	}
-	status := c.status()
-	if status.State != updateAvailable && status.State != updateFailed {
-		writeJSON(w, http.StatusConflict, apiError{Error: "no update is known; check for updates first"})
-		return
-	}
-	if status.State == updateAvailable && status.Command != "" {
-		writeJSON(w, http.StatusConflict, apiError{Error: "the companion cannot update this install itself; run " + status.Command + " in a terminal"})
-		return
-	}
-	if !c.begin(func() { c.update(status.Version) }) {
-		writeJSON(w, http.StatusConflict, apiError{Error: "the companion is busy with an update or an install; try again in a moment"})
+	if err := c.start(r.URL.Query().Get("version")); err != nil {
+		writeJSON(w, http.StatusConflict, apiError{Error: err.Error()})
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (c *appCommands) start(expected string) error {
+	if !c.busy.TryLock() {
+		return errors.New("the companion is busy with an update or an install; try again in a moment")
+	}
+	status := c.status()
+	var err error
+	switch {
+	case status.State != updateAvailable && status.State != updateFailed:
+		err = errors.New("no update is known; check for updates first")
+	case expected != "" && status.Version != expected:
+		err = errors.New("the offered release changed; check for updates again")
+	case status.State == updateAvailable && status.Command != "":
+		err = fmt.Errorf("the companion cannot update this install itself; run %s in a terminal", status.Command)
+	}
+	if err != nil {
+		c.busy.Unlock()
+		return err
+	}
+	go func() {
+		defer c.busy.Unlock()
+		c.update(status.Version)
+	}()
+	return nil
+}
 func (c *appCommands) status() updateStatus {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -473,31 +512,35 @@ func (c *appCommands) noteOlderCLI(ctx context.Context) {
 }
 
 func findOlderCLI(ctx context.Context) *olderCLI {
-	path, err := separateCommand()
-	if err != nil {
-		return nil
-	}
-	resolved, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return nil
-	}
-	// Any app's bundled command refuses upgrade and points to its menu.
-	if strings.HasSuffix(filepath.Dir(resolved), filepath.Join(".app", "Contents", "Resources")) {
-		return nil
-	}
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	ask := exec.CommandContext(ctx, path, "--version")
-	withoutConsoleWindow(ask)
-	out, err := ask.Output()
-	if err != nil {
-		return nil
+	seen := make(map[string]bool)
+	for path := range separateCommands() {
+		resolved, err := filepath.EvalSymlinks(path)
+		if err != nil || seen[resolved] {
+			continue
+		}
+		seen[resolved] = true
+		// A bundled command refuses upgrade and points to its app's menu.
+		if strings.HasSuffix(filepath.Dir(resolved), filepath.Join(".app", "Contents", "Resources")) {
+			continue
+		}
+		ask := exec.CommandContext(ctx, path, "--version")
+		withoutConsoleWindow(ask)
+		out, err := ask.Output()
+		if err != nil {
+			continue
+		}
+		named, ok := strings.CutPrefix(strings.TrimSpace(string(out)), "agnostic-ai version ")
+		if _, stable := stableReleaseVersion(named); !ok || !stable {
+			continue
+		}
+		if !newerRelease(version, named) {
+			return nil
+		}
+		return &olderCLI{Path: path, Version: named, Command: shellQuote(path) + " upgrade"}
 	}
-	named := strings.TrimPrefix(strings.TrimSpace(string(out)), "agnostic-ai version ")
-	if !newerRelease(version, named) {
-		return nil
-	}
-	return &olderCLI{Path: path, Version: named, Command: shellQuote(path) + " upgrade"}
+	return nil
 }
 
 // shellQuote writes path as one word for a POSIX shell.
@@ -551,33 +594,50 @@ func (c *appCommands) logPath() string {
 	return filepath.Join(filepath.Dir(c.shell.settingsPath), "companion-update.log")
 }
 
-// The lines update-app writes around the swap: a log that reached the
-// restart but not the swap ended in a rollback this companion never saw.
+// Update commands log their outcomes before exiting. An earlier app
+// may also see the inferred failure of an interrupted disk image swap.
 const (
 	restartingLine = "Restarting the companion."
 	replacedLine   = "Replaced the companion app."
-	// shownLine marks a failure already shown, so the next start stays quiet.
-	shownLine = "The companion showed this failure."
+	terminalTarget = "Updating the terminal companion to "
+	shownLine      = "The companion showed this failure."
 )
 
-// failedUpdateAfterRestart is the status a disk image app starts with:
-// failed when the last update stopped after it ended the companion.
-func failedUpdateAfterRestart(path string) updateStatus {
+func failedUpdateAfterRestart(path string, terminalInstall bool) updateStatus {
 	idle := updateStatus{State: updateIdle}
 	raw, err := os.ReadFile(path)
 	text := string(raw)
-	if err != nil || !strings.Contains(text, restartingLine) || strings.Contains(text, replacedLine) || strings.Contains(text, shownLine) {
+	if err != nil || strings.Contains(text, shownLine) {
 		return idle
 	}
 	var next string
+	var terminal bool
 	for line := range strings.Lines(text) {
+		line = strings.TrimSpace(line)
 		if named, ok := strings.CutPrefix(line, "Downloading agnostic-ai "); ok {
-			next = strings.TrimSuffix(strings.TrimSpace(named), ".")
+			next = strings.TrimSuffix(named, ".")
+		}
+		if named, ok := strings.CutPrefix(line, terminalTarget); ok {
+			terminal = true
+			next = strings.TrimSuffix(named, ".")
 		}
 	}
-	// A bundled CLI from before replacedLine finished the update into this version.
-	if !newerRelease(next, version) {
+	if _, valid := stableReleaseVersion(next); !valid || terminal != terminalInstall || newerRelease(version, next) {
 		return idle
+	}
+	if terminal {
+		if !strings.Contains(text, "Terminal update failed:") && !strings.Contains(text, "Could not install the updated companion:") {
+			return idle
+		}
+	} else {
+		if !strings.Contains(text, restartingLine) || strings.Contains(text, replacedLine) {
+			return idle
+		}
+		// Older updaters did not report explicit outcomes. Running the
+		// target version is evidence that their replacement worked.
+		if !newerRelease(next, version) && !strings.Contains(text, "Could not start the updated companion.") {
+			return idle
+		}
 	}
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
@@ -587,7 +647,24 @@ func failedUpdateAfterRestart(path string) updateStatus {
 	if closeErr := file.Close(); err != nil || closeErr != nil {
 		return idle
 	}
-	return updateStatus{State: updateFailed, Version: next, Reason: updateFailureReason(text, updateRestarting), Log: path}
+	if reason := terminalConfirmationFailure(text); terminal && reason != "" {
+		return updateStatus{State: updateIdle, Result: updateReleaseChanged, Reason: reason, Log: path}
+	}
+	status := updateStatus{State: updateFailed, Version: next, Reason: updateFailureReason(text, updateRestarting), Log: path}
+	if terminal {
+		status.Command = upgradeCommand
+	}
+	return status
+}
+func terminalConfirmationFailure(text string) string {
+	switch {
+	case strings.Contains(text, "Terminal update failed: release changed since confirmation:"):
+		return "The release changed. Check for updates again."
+	case strings.Contains(text, "Terminal update failed: could not confirm release "):
+		return "Could not confirm the release. Check for updates again."
+	default:
+		return ""
+	}
 }
 
 func (c *appCommands) update(next string) {
@@ -622,8 +699,13 @@ func (c *appCommands) update(next string) {
 	// app, so it writes to the log file and never to a pipe.
 	command := exec.Command(c.command, "companion", "update-app", "--app", c.app, "--version", next)
 	if c.app == "" {
-		command = exec.Command(c.command, "upgrade")
-		command.Env = append(os.Environ(), "PATH="+packageManagerPath(os.Getenv("PATH")))
+		command = exec.Command(c.command, "upgrade", "--companion-confirmed-release", next)
+		command.Env = append(os.Environ(), "PATH="+packageManagerPath(os.Getenv("PATH")), "AGNOSTIC_AI_COMPANION_UPDATE=1")
+		if _, err := fmt.Fprintf(file, "%s%s.\n", terminalTarget, next); err != nil {
+			log.Print(err)
+			failed("the update log could not be written")
+			return
+		}
 	}
 	detached(command)
 	command.Stdout, command.Stderr = file, file
@@ -641,6 +723,11 @@ func (c *appCommands) update(next string) {
 		case err := <-done:
 			out, _ := os.ReadFile(path)
 			if err != nil {
+				if reason := terminalConfirmationFailure(string(out)); reason != "" {
+					_, _ = fmt.Fprintln(file, shownLine)
+					c.setStatus(updateStatus{State: updateIdle, Result: updateReleaseChanged, Reason: reason, Log: path})
+					return
+				}
 				failed(updateFailureReason(string(out), updateStep(string(out))))
 				return
 			}
@@ -664,13 +751,7 @@ func (c *appCommands) update(next string) {
 // path: an app started from the desktop gets a short PATH without them.
 func packageManagerPath(path string) string {
 	folders := filepath.SplitList(path)
-	extra := usualSystemFolders
-	if home, err := os.UserHomeDir(); err == nil {
-		for _, folder := range usualFolders {
-			extra = append(extra, filepath.Join(home, folder))
-		}
-	}
-	for _, folder := range extra {
+	for _, folder := range usualBinaryFolders() {
 		if !slices.Contains(folders, folder) {
 			folders = append(folders, folder)
 		}

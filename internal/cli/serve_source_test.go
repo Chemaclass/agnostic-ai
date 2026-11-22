@@ -257,7 +257,7 @@ func TestServeSource_ServesUserAndLocalFilesInTheUserView(t *testing.T) {
 	t.Setenv(envUserRoot, home)
 	project := budgetProject(t, "targets: [claude]\n")
 	writeFile(t, filepath.Join(project, ".agnostic-ai", "rules", "style.md"), "---\nname: style\n---\nProject rule.\n")
-	writeFile(t, filepath.Join(home, "AGNOSTIC_AI.md"), "Global guidance.\n")
+	writeFile(t, filepath.Join(home, "AGNOSTIC_AI.md"), "User guidance.\n")
 	writeFile(t, filepath.Join(home, "local", "AGNOSTIC_AI.md"), "Local guidance.\n")
 	writeFile(t, filepath.Join(home, "local", "rules", "mine.md"), "---\nname: mine\n---\nLocal rule.\n")
 	srv := httptest.NewServer(newServeMux(nil, authority.HandlerOptions{Root: home, UserLevel: true}, serveMuxOptions{compareInstalled: true}))

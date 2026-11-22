@@ -55,10 +55,10 @@ All fields are optional. A skill's scope comes from its folder: `skills/services
 - `workspaces`: Cursor loads skills only from the workspace it opens, so a session or SDK agent started in `apps/web` misses a root skill. The skill stays at the root for every tool.
 - `import cursor` writes `workspaces` when a root `.cursor/skills/<name>` links to a skill folder under a project directory.
 - `scope:` in the frontmatter has no effect, and `lint` warns about it (LINT018).
-- Sync, including global sync, prints a note for each skill field a tool leaves out, such as `argument-hint`, `model`, or `effort`.
+- Sync, including user-level sync, prints a note for each skill field a tool leaves out, such as `argument-hint`, `model`, or `effort`.
 - A field kept in the tool's frontmatter, a command copy of the skill, or a policy file gets no note.
 - `agnostic-ai compare claude codex` shows which fields each tool keeps, translates, or drops.
-- Shared global directories leave out per-target overrides.
+- Shared user directories leave out per-target overrides.
 {% </details> %}
 
 ## Allowed tools {#allowed-tools}
@@ -106,11 +106,11 @@ Other targets do not expand this syntax in project skills. Sync copies the body 
   note: `!`command`` on 1 skill has no effect on codex (the command does not run at .agnostic-ai/skills/pr/SKILL.md:8; put the line in a ::target claude fence)
 ```
 
-{% <details summary="Details: note options, lint code and global sync"> %}
+{% <details summary="Details: note options, lint code and user-level sync"> %}
 - `on-unsupported: error` fails the sync instead of printing the note. `silent` hides it.
 - `lint` reports each line as LINT019.
 - `sync --scope user` checks the user-level destination and reads `on-unsupported` from the `agnostic-ai.yaml` in the source root.
-- In global sync, Kilo's [inline shell placeholders](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) in trusted user skill directories pass. Argument placeholders and Claude dynamic code blocks still raise notes.
+- In user-level sync, Kilo's [inline shell placeholders](@/docs/targets/kilo-reference.md#shell-commands-in-global-skills) in trusted user skill directories pass. Argument placeholders and Claude dynamic code blocks still raise notes.
 
 {% </details> %}
 

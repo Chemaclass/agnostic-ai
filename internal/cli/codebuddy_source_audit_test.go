@@ -236,7 +236,7 @@ func TestCodebuddy_SourceAuditUserNativeFields(t *testing.T) {
 		t.Fatalf("sync: %v\n%s", err, warnings)
 	}
 	if got := readFile(t, filepath.Join(home, ".codebuddy/agents/reviewer.md")); !strings.Contains(got, "disable-model-invocation: true") {
-		t.Fatal("manual-only flag lost from global agent")
+		t.Fatal("manual-only flag lost from user-level agent")
 	}
 	servers, err := readJSONMapAt(filepath.Join(home, ".codebuddy/.mcp.json"), "mcpServers")
 	if err != nil {
@@ -244,7 +244,7 @@ func TestCodebuddy_SourceAuditUserNativeFields(t *testing.T) {
 	}
 	got, _ := servers["docs"].(map[string]any)
 	if got["cwd"] != "backend" || got["description"] != "Native description" || got["type"] != "stdio" {
-		t.Fatalf("global native fields lost: %v", got)
+		t.Fatalf("user-level native fields lost: %v", got)
 	}
 	if _, warnings, err := runUserAgentTest("--only", "codebuddy", "--check"); err != nil {
 		t.Fatalf("check: %v\n%s", err, warnings)

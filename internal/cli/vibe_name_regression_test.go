@@ -83,7 +83,7 @@ func TestImportVibe_NativeMCPIdentityRejectsBeforeWrites(t *testing.T) {
 					t.Error("duplicate identity imported")
 				}
 				if _, err := os.Stat(source); !os.IsNotExist(err) {
-					t.Error("invalid global import wrote sources")
+					t.Error("invalid user-level import wrote sources")
 				}
 			} else {
 				writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [vibe]\n")

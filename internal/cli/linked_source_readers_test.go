@@ -54,11 +54,11 @@ func TestSkillAssets_LinkedSourceDetectsUserDifference(t *testing.T) {
 	userLevel := project
 	userLevel.Path = filepath.Join(userRoot, "SKILL.md")
 	if got := compareSkillAssets(project, userLevel); got != contentIdentical {
-		t.Errorf("same linked and global assets = %v, want identical", got)
+		t.Errorf("same linked and user assets = %v, want identical", got)
 	}
 	writeFile(t, filepath.Join(userRoot, "references", "guide.txt"), "Changed asset.\n")
 	if got := compareSkillAssets(project, userLevel); got != contentDiffers {
-		t.Errorf("changed global asset = %v, want differs", got)
+		t.Errorf("changed user asset = %v, want differs", got)
 	}
 	assets, err := skillAssets(project)
 	if err != nil {
@@ -84,13 +84,13 @@ func TestAddUserSkill_LinkedSourceCopiesNestedAsset(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := files["native/demo/references/guide.txt"]; string(got) != "Initial asset.\n" {
-		t.Errorf("global asset = %q, want Initial asset", got)
+		t.Errorf("user asset = %q, want Initial asset", got)
 	}
 	if !bytes.Contains(files["native/demo/SKILL.md"], []byte("Steps.")) {
-		t.Errorf("global SKILL.md missing rendered body: %s", files["native/demo/SKILL.md"])
+		t.Errorf("user SKILL.md missing rendered body: %s", files["native/demo/SKILL.md"])
 	}
 	if _, ok := files["native/demo/nested-link/outside.txt"]; ok {
-		t.Error("global sync traversed a nested directory link")
+		t.Error("user-level sync traversed a nested directory link")
 	}
 }
 
