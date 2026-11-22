@@ -101,21 +101,19 @@ func ValidateSend(from conversations.Ref, req SendRequest) *Refusal {
 	if utf8.RuneCountInString(req.Body) > maxBodyRunes {
 		return NewRefusal("size")
 	}
-	if req.Type != ReviewRequest && (req.Refs != nil || req.Models != nil) || req.Type != Handoff && req.Gives != nil {
+	if req.Type != ReviewRequest && (req.Refs != nil || req.Models != nil) ||
+		req.Type != Handoff && (req.Gives != nil || req.Resume != nil) {
 		return NewRefusal("format")
 	}
 	switch req.Type {
 	case Question, Finding, Handoff:
-		if req.Type == Handoff {
-			if req.Gives == nil {
-				return NewRefusal("ownership")
-			}
+		if req.Gives != nil {
 			if refused := validateClaimPaths(*req.Gives); refused != nil {
 				return refused
 			}
 		}
 		body := conversations.CleanSendText(req.Body)
-		if strings.TrimSpace(body) == "" {
+		if req.Type != Handoff && strings.TrimSpace(body) == "" {
 			return &Refusal{"format", "This message type needs a body.", "Write a message and try again."}
 		}
 		if body != req.Body && preview.ProseSensitive(body) {
@@ -131,6 +129,37 @@ func ValidateSend(from conversations.Ref, req SendRequest) *Refusal {
 		return &Refusal{"format", "This mailbox accepts questions, findings, review requests, handoffs and done messages.", "Choose a supported message type."}
 	}
 	return nil
+}
+
+func (r Resume) validate() *Refusal {
+	if !filepath.IsAbs(r.Worktree) || !objectID.MatchString(r.Head) {
+		return NewRefusal("format")
+	}
+	if r.Project != "" {
+		relative, err := filepath.Rel(r.Worktree, r.Project)
+		if err != nil || !filepath.IsLocal(relative) {
+			return NewRefusal("format")
+		}
+	}
+	switch r.NoteKind {
+	case "":
+		if r.Note != "" {
+			return NewRefusal("format")
+		}
+	case "manual", "auto":
+		if !filepath.IsAbs(r.Note) {
+			return NewRefusal("format")
+		}
+	default:
+		return NewRefusal("format")
+	}
+	fields := []string{r.Worktree, r.Project, r.Branch, r.Note}
+	for _, field := range fields {
+		if !utf8.ValidString(field) || strings.ContainsRune(field, 0) {
+			return NewRefusal("format")
+		}
+	}
+	return checkStrings(fields...)
 }
 
 // checkSender keeps the stated model to agents and the companion's model pair to people.

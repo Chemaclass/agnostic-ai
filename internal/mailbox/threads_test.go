@@ -188,3 +188,28 @@ func TestRecordModel_KeepsTheLabelAPersonEntered(t *testing.T) {
 		t.Errorf("model after a new label = %+v", got)
 	}
 }
+
+func TestStore_ReadsOlderClaimOffersWithoutResume(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	offer := claimAndOffer(t, s, root, "scope/a.go")
+	editThread(t, s, offer.Thread, func(thread *Thread) { thread.Messages[0].Resume = nil })
+	message := onlyThread(t, s).Messages[0]
+	if message.Handoff != Offered || message.Gives == nil || message.Resume != nil {
+		t.Errorf("legacy offer = %+v", message)
+	}
+	if err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"); err != nil {
+		t.Fatal(err)
+	}
+	expectedOwner(t, s, root, "scope/a.go", codex)
+}
+
+func TestMessage_RejectsResumeOnQuestionsAndOffersWithoutPaths(t *testing.T) {
+	pointer := testResume(t.TempDir())
+	if (Message{Type: Question, Body: "What changed?", Resume: pointer}).validType() {
+		t.Error("question with a resume pointer is valid")
+	}
+	if (Message{Type: Handoff, Handoff: Offered, Resume: pointer}).validType() {
+		t.Error("offer without paths is valid")
+	}
+}

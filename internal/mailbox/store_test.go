@@ -171,3 +171,62 @@ func TestStore_RefusesToUseASymlinkAsTheLock(t *testing.T) {
 		t.Errorf("unrelated file = %q, %v", data, err)
 	}
 }
+
+func testResume(root string) *Resume {
+	return &Resume{
+		Worktree: root, Branch: "feature", Head: strings.Repeat("a", 40),
+		Note: filepath.Join(root, "feature.md"), NoteKind: "manual",
+	}
+}
+
+func TestStore_QueuesTaskHandoffWithoutChangingClaims(t *testing.T) {
+	ctx := t.Context()
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(ctx, claude, Gives{root, []string{"scope/a.go"}}, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	pointer := testResume(root)
+	receipt, err := s.SendFromWorktree(ctx, claude, SendRequest{To: codex, Type: Handoff, Resume: pointer}, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.State != Waiting || receipt.Resume == nil || *receipt.Resume != *pointer {
+		t.Errorf("handoff receipt = %+v", receipt)
+	}
+	message := onlyThread(t, s).Messages[0]
+	if message.Type != Handoff || message.State != Waiting || message.Body != "" || message.Gives != nil ||
+		message.Handoff != "" || message.Resume == nil || *message.Resume != *pointer {
+		t.Errorf("stored handoff = %+v", message)
+	}
+	expectedOwner(t, s, root, "scope/a.go", claude)
+}
+
+func TestStore_RefusesInvalidHandoffPointers(t *testing.T) {
+	root := t.TempDir()
+	const secret = "api_key=example-secret-sentinel"
+	for _, scenario := range []struct {
+		name  string
+		edit  func(*Resume)
+		guard string
+	}{
+		{"relative worktree", func(r *Resume) { r.Worktree = "relative" }, "format"},
+		{"short commit", func(r *Resume) { r.Head = "1234" }, "format"},
+		{"relative note", func(r *Resume) { r.Note = "feature.md" }, "format"},
+		{"missing note kind", func(r *Resume) { r.NoteKind = "" }, "format"},
+		{"credential in worktree", func(r *Resume) { r.Worktree = filepath.Join(root, secret) }, "secret"},
+		{"credential in branch", func(r *Resume) { r.Branch = secret }, "secret"},
+		{"credential in note", func(r *Resume) { r.Note = filepath.Join(root, secret) }, "secret"},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			s := Store{Dir: t.TempDir()}
+			pointer := testResume(root)
+			scenario.edit(pointer)
+			_, err := s.Send(t.Context(), claude, SendRequest{To: codex, Type: Handoff, Resume: pointer})
+			requireGuard(t, err, scenario.guard)
+			if list, err := s.Threads(t.Context()); err != nil || len(list.Threads) != 0 || list.Warning != "" {
+				t.Errorf("threads after refusal = %+v, %v", list, err)
+			}
+		})
+	}
+}

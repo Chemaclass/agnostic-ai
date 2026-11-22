@@ -335,6 +335,7 @@ func TestMailboxSend_RefusesFieldsTheMailboxSets(t *testing.T) {
 		`{"to":"` + mailboxCodexID + `","type":"question","body":"Hi"}`,
 		`["not an object"]`,
 		`{` + to + `,"type":"handoff","body":"Take it","gives":{"worktree":"/tmp","paths":["a"],"owner":"x"}}`,
+		`{` + to + `,"type":"handoff","resume":{"worktree":"/tmp/unrelated"}}`,
 	} {
 		out, err := f.send(payload)
 		requireMailboxRefusal(t, out, err, "format")
@@ -368,7 +369,7 @@ func TestMailboxSend_PrintsEachGuardsRefusal(t *testing.T) {
 		{"echo", `{` + to + `,"type":"review_request","body":"Looks good to me.","refs":{"worktree":"/tmp","base":"HEAD"}}`},
 		{"echo", `{` + to + `,"type":"review_request","refs":{"worktree":"/tmp","base":"HEAD","verdict":"approve"}}`},
 		{"refs", `{` + to + `,"type":"review_request"}`},
-		{"ownership", `{` + to + `,"type":"handoff","body":"Take it."}`},
+		{"refs", `{` + to + `,"type":"handoff","body":"Take it."}`},
 		{"unknown-session", `{"to":"claude:` + inWorktree + `","type":"question","body":"Hi"}`},
 		{"unknown-session", `{"to":"cursor:` + inWorktree + `","type":"question","body":"Hi"}`},
 		{"not-in-thread", `{"thread":"th_20261121_7f3a9c10","type":"finding","body":"Hi"}`},
@@ -414,6 +415,27 @@ func TestMailboxSend_IsHeldUntilApproved(t *testing.T) {
 	}
 	if got := runHookMailbox(t, "codex", prompt); !strings.Contains(got, "Does the lock cover claims?") {
 		t.Errorf("approved message delivery = %q", got)
+	}
+}
+
+func TestMailboxSend_HoldsABareHandoffAndPrintsItsNote(t *testing.T) {
+	f := newMailboxAgentFixture(t)
+	_, head := makeReviewRepo(t, f.project)
+	git(t, f.project, "branch", "-M", "main")
+	writeFile(t, filepath.Join(f.project, ".gitignore"), ".agnostic-ai/local/\n")
+	note := filepath.Join(f.project, ".agnostic-ai", "local", "handoffs", "main.md")
+	writeListHandoff(t, note, "main", f.project, head, "active", "none")
+	f.as(agentClaude)
+
+	out := f.mustSend(`{"to":"codex:` + mailboxCodexID + `","type":"handoff"}`)
+	if !strings.Contains(out, "Held for approval in the companion.") || !strings.Contains(out, "Handoff note: "+canonicalDir(note)+".") {
+		t.Errorf("mailbox send output = %q", out)
+	}
+	thread := f.thread(threadOf(t, out))
+	m := thread.Messages[0]
+	if m.State != mailbox.Held || m.Resume == nil || m.Resume.Note != canonicalDir(note) ||
+		m.Resume.NoteKind != "manual" || m.Gives != nil || m.Body != "" {
+		t.Errorf("held handoff = %+v, resume = %+v", m, m.Resume)
 	}
 }
 

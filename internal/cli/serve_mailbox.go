@@ -185,6 +185,14 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		refuse(req, mailbox.NewRefusal("refs"))
 		return
 	}
+	if req.Type == mailbox.Handoff {
+		resume, refused := handoffResume(ctx, source.Folder)
+		if refused != nil {
+			refuse(req, refused)
+			return
+		}
+		req.Resume = resume
+	}
 	// Only the companion's secret proves a person sent it; any other local client counts as an agent.
 	send := store.SendFromAgent
 	if h.companion.allows(r) {

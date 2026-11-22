@@ -52,6 +52,16 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 	if refused == nil && req.To.Tool == "" {
 		refused = NewRefusal("unknown-session")
 	}
+	var resume *Resume
+	if refused == nil && req.Type == Handoff {
+		if req.Resume == nil {
+			refused = NewRefusal("format")
+		} else {
+			pointer := *req.Resume
+			refused = pointer.validate()
+			resume = &pointer
+		}
+	}
 	if refused != nil {
 		return Receipt{}, errors.Join(refused, s.RecordRefusal(ctx, from, req, refused))
 	}
@@ -68,6 +78,9 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 		}
 		refs = &resolved
 	case Handoff:
+		if req.Gives == nil {
+			break
+		}
 		resolved, _, err := normalizeClaimPaths(ctx, sourceFolder, *req.Gives)
 		if err != nil {
 			if refused, ok := errors.AsType[*Refusal](err); ok {
@@ -95,7 +108,7 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 
 	message := Message{
 		N: len(thread.Messages) + 1, Type: req.Type, From: Actor{Ref: from, By: by},
-		To: req.To, Body: conversations.CleanSendText(req.Body), Model: req.Model, Refs: refs, Gives: gives,
+		To: req.To, Body: conversations.CleanSendText(req.Body), Model: req.Model, Refs: refs, Gives: gives, Resume: resume,
 		State: Waiting, At: at, QueuedAt: at,
 	}
 	if by == "agent" && s.Settings().ApproveAgentSends {
@@ -144,7 +157,7 @@ func (s Store) send(ctx context.Context, from conversations.Ref, req SendRequest
 	if err := s.writeThread(thread); err != nil {
 		return Receipt{}, err
 	}
-	return Receipt{Thread: thread.ID, N: message.N, State: message.State}, nil
+	return Receipt{Thread: thread.ID, N: message.N, State: message.State, Resume: message.Resume}, nil
 }
 
 func (s Store) threadForSend(at time.Time, from conversations.Ref, req SendRequest) (Thread, error) {

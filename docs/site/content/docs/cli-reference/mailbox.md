@@ -41,12 +41,12 @@ Reads one JSON object on standard input. It takes these keys, each at most once:
 | `to` | The reader as `tool:id`, such as `claude:4e8b1c2d-9a3f-4b6e-8c7d-1f2a3b4c5d6e`. Starts a thread. |
 | `thread` | A thread this session is in. Replies to the other session. Use `to` or `thread`, not both. |
 | `type` | `question`, `finding`, `review_request`, `handoff` or `done`. |
-| `body` | The text of a question, finding or handoff, up to 4,000 characters. |
+| `body` | Up to 4,000 characters. Required for a question or finding and optional for a handoff. |
 | `refs` | The output of [`mailbox refs`](#mailbox-refs), for a review request. |
-| `gives` | `{worktree, paths}` for a handoff. |
+| `gives` | Optional `{worktree, paths}` for a handoff that offers claimed files. |
 | `model` | The model the agent says it runs: up to 80 letters, digits, spaces and `. _ : / -`. The thread stores it as stated by the agent. |
 
-Any other key, such as `from`, `by`, `state`, `n`, a time stamp, `cap` or `events`, is refused with `format`. A review request with a `body` or an unknown `refs` key is refused with `echo`. The store checks the refs again, and drops the `branch` and `uncommitted` values it computes itself. Run a review request or a handoff from inside the worktree it names.
+Any other key, such as `from`, `by`, `state`, `n`, a time stamp, `cap` or `events`, is refused with `format`. A review request with a `body` or an unknown `refs` key is refused with `echo`. The store checks the refs again, and drops the `branch` and `uncommitted` values it computes itself. Run a review request or handoff from inside the source worktree. For a handoff, the command fills in the worktree, branch, commit and any handoff note itself.
 
 ```bash
 agnostic-ai mailbox send <<'MSG'
@@ -59,6 +59,16 @@ Held for approval in the companion. Thread th_20261121_033e736b, message 1.
 ```
 
 With [approval](@/docs/mailbox.md#approve-agent-messages) off, the line reads `Queued for delivery with the reader's next prompt.` instead.
+
+Send a whole-task handoff from the session's worktree.
+
+```bash
+agnostic-ai mailbox send <<'MSG'
+{"to": "codex:0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50", "type": "handoff"}
+MSG
+```
+
+The receipt names the saved handoff note or says when there is none. The reader finds the newest note when you ask it to resume. [Hand a session over](@/docs/mailbox.md#hand-a-session-over).
 
 ## mailbox done
 

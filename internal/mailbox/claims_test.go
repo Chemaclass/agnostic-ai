@@ -38,7 +38,7 @@ func offerPaths(t *testing.T, s Store, root string, paths ...string) Receipt {
 	t.Helper()
 	gives := Gives{root, paths}
 	receipt, err := s.SendFromWorktree(t.Context(), claude, SendRequest{
-		To: codex, Type: Handoff, Body: "See the handoff note.", Gives: &gives,
+		To: codex, Type: Handoff, Body: "See the handoff note.", Resume: testResume(root), Gives: &gives,
 	}, root)
 	if err != nil {
 		t.Fatal(err)
@@ -312,7 +312,7 @@ func TestClaims_HandoffChecksOwnershipAndCredentials(t *testing.T) {
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			_, err := s.SendFromWorktree(t.Context(), claude, SendRequest{
-				To: codex, Type: Handoff, Body: "See the handoff note.", Gives: &Gives{root, scenario.paths},
+				To: codex, Type: Handoff, Body: "See the handoff note.", Resume: testResume(root), Gives: &Gives{root, scenario.paths},
 			}, root)
 			requireGuard(t, err, scenario.guard)
 		})
@@ -325,7 +325,7 @@ func TestClaims_HandoffCountsTowardTheCapAndRespectsPauseAndClose(t *testing.T) 
 	root := claimRepo(t)
 	offer := claimAndOffer(t, s, root, "scope/a.go")
 	gives := Gives{root, []string{"scope/a.go"}}
-	request := SendRequest{To: codex, Type: Handoff, Body: "See the handoff note.", Gives: &gives, Thread: offer.Thread}
+	request := SendRequest{To: codex, Type: Handoff, Body: "See the handoff note.", Resume: testResume(root), Gives: &gives, Thread: offer.Thread}
 	if err := s.Change(ctx, offer.Thread, "pause"); err != nil {
 		t.Fatal(err)
 	}

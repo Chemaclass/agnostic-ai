@@ -1,6 +1,6 @@
 +++
 title = "Session mailbox"
-description = "Send questions, findings, code reviews and file handoffs between local Claude Code and Codex sessions, from the companion or from the agents themselves."
+description = "Send questions, findings, code reviews and task handoffs between local Claude Code and Codex sessions, from the companion or from the agents themselves."
 weight = 80
 
 [extra]
@@ -42,6 +42,12 @@ The preview skips external Git filters and changes inside nested submodule workt
 Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path is limited to 400 bytes. The same credential check applies to Git references. For a read-only preview in a terminal, use [`agnostic-ai mailbox refs`](@/docs/cli-reference/mailbox.md#mailbox-refs).
 
 {% </details> %}
+
+## Hand a session over {#hand-a-session-over}
+
+From a Claude Code or Codex session in a Git worktree, run [`agnostic-ai mailbox send`](@/docs/cli-reference/mailbox.md#mailbox-send) with the receiver and `"type": "handoff"`. You can write a [handoff note](@/docs/handoff.md) before or after sending.
+
+The request includes the source worktree, branch, commit and any saved note. It arrives on the recipient's next prompt. The recipient tells you it arrived and waits for you to ask it to resume. On resume it finds the newest note in the source project, including one saved after you sent the request.
 
 ## Hand off files
 
@@ -127,7 +133,7 @@ The guards keep cooperating sessions to the supported mailbox actions. Read a he
 
 {% <details summary="Message format and refusals"> %}
 
-A question or finding carries up to 4,000 characters. Each JSON message line fits in 5,000 bytes. The recipient sees JSON inside one `<agnostic-ai-mailbox>` block, with its thread, message number, type and sender. When an agent states its model, the sender entry gains `"model": "<name> (stated by sender)"`. Nothing checks that the name is true, and it counts toward the 5,000 bytes. The wrapper labels the message as quoted data. The mailbox refuses text that looks like a credential.
+Questions and findings carry up to 4,000 characters. An optional handoff message shares that limit. Each JSON message line fits in 5,000 bytes. The recipient sees JSON inside one `<agnostic-ai-mailbox>` block, with its thread, message number, type and sender. When an agent states its model, the sender entry gains `"model": "<name> (stated by sender)"`. Nothing checks that the name is true, and it counts toward the 5,000 bytes. The wrapper labels the message as quoted data. The mailbox refuses text that looks like a credential.
 
 A refusal gives the guard, reason and next step. For example, `cap` means the thread reached its limit. `unknown-session` means the destination is missing, ambiguous or outside the supported local sessions. See the [mailbox API](#mailbox-api) for the request format.
 
@@ -166,7 +172,9 @@ The thread, stage, claim, release, conflict dismiss, handoff, approve and queue 
 
 Questions and findings take `body`. A `review_request` takes `refs: {worktree, base, commit?, paths?}` and optional `models: {from?, to?}`. Pass the preview’s commit, base and paths to keep the selection pinned. The server checks the worktree against the source chat and verifies any supplied paths against Git. A review request with a `body`, verdict or unknown field is refused with `echo`. An invalid base, commit or path selection is refused with `refs`.
 
-A `handoff` takes `body` and `gives: {worktree, paths}`. Sending creates an offer. Acceptance checks the same paths again before moving them. An overlap or missing claim is refused with `ownership`.
+A `handoff` accepts optional `body` and `gives: {worktree, paths}`. The server adds `resume` from the source session's Git worktree and returns it in the receipt. For a project in a subfolder, it includes the project folder. A client-supplied `resume` is refused. A handoff with `gives` creates an offer. Acceptance checks the paths again before moving them. An overlap or missing claim is refused with `ownership`.
+
+Update the CLI and companion together before sending a task handoff. Earlier CLIs skip threads containing the new handoff format, and the list reports that the thread could not be read.
 
 A request that sets a field the store owns, such as `from.by`, `state`, a time stamp or `cap`, is refused with `format`. A refused send or review preview answers HTTP 422 with `{error, guard}`. The error says what stopped it and what to do next.
 

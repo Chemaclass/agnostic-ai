@@ -162,7 +162,7 @@ func TestApprove_HandoffChecksOwnershipAgainAndCannotBeAcceptedWhileHeld(t *test
 		t.Fatal(err)
 	}
 	gives := Gives{root, []string{"scope/a.go"}}
-	held, err := s.SendFromAgent(ctx, claude, SendRequest{To: codex, Type: Handoff, Body: "Take it.", Gives: &gives}, root)
+	held, err := s.SendFromAgent(ctx, claude, SendRequest{To: codex, Type: Handoff, Body: "Take it.", Resume: testResume(root), Gives: &gives}, root)
 	if err != nil || held.State != Held {
 		t.Fatalf("held handoff = %+v, %v", held, err)
 	}
@@ -228,7 +228,7 @@ func TestApprove_AHeldOrRejectedHandoffCannotBeAnswered(t *testing.T) {
 		t.Fatal(err)
 	}
 	gives := Gives{root, []string{"scope/a.go"}}
-	held, err := s.SendFromAgent(ctx, claude, SendRequest{To: codex, Type: Handoff, Body: "Take it.", Gives: &gives}, root)
+	held, err := s.SendFromAgent(ctx, claude, SendRequest{To: codex, Type: Handoff, Body: "Take it.", Resume: testResume(root), Gives: &gives}, root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,4 +242,14 @@ func TestApprove_AHeldOrRejectedHandoffCannotBeAnswered(t *testing.T) {
 	if got := onlyThread(t, s).Messages[0].Handoff; got != Offered {
 		t.Errorf("handoff answer = %q", got)
 	}
+}
+
+func TestAnswerHandoff_RefusesAnAnswerForATaskWithoutOfferedPaths(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	receipt, err := s.Send(t.Context(), claude, SendRequest{To: codex, Type: Handoff, Resume: testResume(t.TempDir())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.AnswerHandoff(t.Context(), receipt.Thread, receipt.N, "accept"), "format")
+	requireGuard(t, s.AnswerHandoff(t.Context(), receipt.Thread, receipt.N, "decline"), "format")
 }

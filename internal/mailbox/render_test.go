@@ -102,3 +102,25 @@ func TestRenderLine_LabelsTheModelTheSenderStates(t *testing.T) {
 		t.Errorf("rendered line without a stated model = %s", line)
 	}
 }
+
+func TestRenderLine_HandoffWithPathsKeepsBothNotices(t *testing.T) {
+	pointer := testResume(t.TempDir())
+	message := Message{
+		N: 1, Type: Handoff, From: Actor{Ref: claude, By: "human"},
+		Resume: pointer, Gives: &Gives{Worktree: pointer.Worktree, Paths: []string{"a.go"}},
+	}
+	line, err := renderLine("th_20261121_abcdef01", message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload renderedMessage
+	if err := json.Unmarshal(line, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Gives == nil || payload.Resume == nil || *payload.Resume != *pointer {
+		t.Errorf("rendered handoff = %+v", payload)
+	}
+	if want := "Paths move only after the receiving session accepts this handoff. The sender hands this task to you. Tell the user it arrived. After the user agrees, resume it with the handoff skill."; payload.Notice != want {
+		t.Errorf("notice = %q, want %q", payload.Notice, want)
+	}
+}

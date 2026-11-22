@@ -50,12 +50,18 @@ func (t Thread) valid(id string) bool {
 func (m Message) validType() bool {
 	switch m.Type {
 	case Question, Finding, Done:
-		return m.Refs == nil && m.Gives == nil && m.Handoff == ""
+		return m.Refs == nil && m.Gives == nil && m.Resume == nil && m.Handoff == ""
 	case ReviewRequest:
-		return m.Body == "" && m.Refs != nil && m.Gives == nil && m.Handoff == "" &&
+		return m.Body == "" && m.Refs != nil && m.Gives == nil && m.Resume == nil && m.Handoff == "" &&
 			objectID.MatchString(m.Refs.Commit) && objectID.MatchString(m.Refs.Base)
 	case Handoff:
-		if m.Refs != nil || m.Gives == nil || validateClaimPaths(*m.Gives) != nil {
+		if m.Refs != nil || m.Resume != nil && m.Resume.validate() != nil {
+			return false
+		}
+		if m.Gives == nil {
+			return m.Resume != nil && m.Handoff == "" && m.AcceptedAt == nil && m.AcceptedBy == nil
+		}
+		if validateClaimPaths(*m.Gives) != nil {
 			return false
 		}
 		switch m.Handoff {

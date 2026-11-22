@@ -40,7 +40,7 @@ func (t Thread) viewFor(me conversations.Ref) AgentThread {
 				models[string(m.From.Tool)+":"+m.From.ID] = Model{Name: m.Model, StatedBy: "agent"}
 			}
 		} else {
-			m.Body, m.Refs, m.Model = "", nil, ""
+			m.Body, m.Refs, m.Resume, m.Model = "", nil, nil, ""
 			// Paths a session accepted are its own claims now.
 			if m.Handoff != Accepted || m.AcceptedBy == nil || *m.AcceptedBy != me {
 				m.Gives = nil
