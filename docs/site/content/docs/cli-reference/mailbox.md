@@ -11,7 +11,7 @@ group = "Reference"
 
 An agent runs these commands from inside its own Claude Code or Codex session to use the [session mailbox](@/docs/mailbox.md#let-agents-send). The [`mailbox` built-in](@/docs/mailbox.md#deliver-with-the-next-prompt) ships a skill that tells it when and how.
 
-Each command except `refs` detects the session it runs in and acts as that session. There is no flag or field to pick another sender. Detection is context, not proof of identity: see [what sender detection is not](@/docs/mailbox.md#what-sender-detection-is-not).
+Each command except `refs` and `stats` detects the session it runs in and acts as that session. There is no flag or field to pick another sender. Detection is context, not proof of identity: see [what sender detection is not](@/docs/mailbox.md#what-sender-detection-is-not).
 
 A command only checks a message and stores it. It never types into a terminal, uses the clipboard, moves focus or starts a process. The reader's [prompt hook](@/docs/mailbox.md#deliver-with-the-next-prompt) delivers it.
 
