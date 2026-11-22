@@ -354,7 +354,7 @@ func (s *server) runningHealth(ctx context.Context) serverHealth {
 // reply is one answer from the server.
 type reply struct {
 	status int
-	// tag is the list's ETag; empty on other answers.
+	// tag is the answer's ETag; empty when it has none.
 	tag  string
 	body []byte
 }

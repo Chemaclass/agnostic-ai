@@ -129,6 +129,16 @@ Any of these stops hook approvals from the next request, without syncing or rest
 
 To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A user-level sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
 
+## Who can change this {#who-can-change-this}
+
+Any program on the machine can reach the server's local port, including an agent that runs with automatic approvals. So a change that makes approvals less strict needs proof that you asked for it. A change that makes them stricter does not.
+
+- Stricter, from any page of the server's own origin: `ask`, turning off **Approve and Deny** in the list, and turning approval of agent messages back on.
+- Less strict, only from the companion: `review`, `yolo`, turning on **Approve and Deny** in the list, turning off approval of agent messages, and running a sync from a page. The companion proves it with the secret it hands its server at launch. Any other request gets 403 and no file changes.
+- Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`.
+
+The home config stays the place to change anything by hand. See the [settings routes](@/docs/cli-reference/serve-api.md#post-api-settings).
+
 ## The decision log
 
 In `yolo`, the hook logs each request to `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl`. It also logs `asked` with rule `mode` when a session sets `AGNOSTIC_AI_APPROVALS=ask` while home config allows automatic answers. The companion needs the record because it cannot read the session's environment.
@@ -136,7 +146,7 @@ In `yolo`, the hook logs each request to `$AGNOSTIC_AI_HOME/local/approvals/deci
 `agnostic-ai approvals log` prints oldest first. Use `--since 1h` for the last hour or `--json` for an array.
 
 {% <details summary="Log fields and rotation"> %}
-Each line has `time`, `tool`, `session`, `cwd`, `call` (tool name), `detail`, `mode`, `decision` (`approved`, `asked`, or `denied`), `rule` (what made it ask), and `by` (`companion` for a request held for the companion). The detail leaves out text that might hold a credential. For Codex `apply_patch`, it lists the affected files.
+Each line has `time`, `tool`, `session`, `cwd`, `call` (tool name), `detail`, `mode`, `decision` (`approved`, `asked`, `denied`, or `changed` for a settings change made from the companion), `rule` (what made it ask), and `by` (`companion` for a request held for the companion). The detail leaves out text that might hold a credential. For Codex `apply_patch`, it lists the affected files.
 
 At 5 MB the log rotates to `decisions.jsonl.1`. It keeps one older file and asks if it cannot write.
 {% </details> %}

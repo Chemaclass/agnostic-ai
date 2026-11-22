@@ -279,7 +279,7 @@ change made in one shows in the other.
   `install`, `upgrade`, `uninstall` and logging out also end it without
   asking.
 - `agnostic-ai companion uninstall` ends the companion, turns off **Start at
-  login**, and deletes the built program, `companion.json` and
+  login**, and deletes the built program, `companion.json`, its lock file and
   `companion-command`. Your read and archive marks stay, because
   `agnostic-ai serve` uses them too. It also removes a login entry that a
   deleted program left behind. On Linux, from a shell without a D-Bus session
@@ -376,6 +376,9 @@ Both are in the `agnostic-ai` folder of your user configuration folder
   animates, whether it dims when idle, and whether it is small. A file that is
   not JSON moves to `companion.json.bad`, and the companion starts with the
   defaults.
+- `companion.json.lock`: held for each save of `companion.json`. A save reads
+  the file again under this lock and changes only its own value, so a value
+  another program wrote in the meantime stays.
 
 ## When it reads
 

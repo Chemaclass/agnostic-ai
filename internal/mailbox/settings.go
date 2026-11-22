@@ -15,6 +15,9 @@ type storedSettings struct {
 
 func (s Store) settingsPath() string { return filepath.Join(s.Dir, "settings.json") }
 
+// SettingsPath is the file Settings reads.
+func (s Store) SettingsPath() string { return s.settingsPath() }
+
 // Settings reads without the lock because writes replace the file atomically.
 // Anything but a readable, valid file that turns approval off keeps it on.
 func (s Store) Settings() Settings {

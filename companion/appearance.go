@@ -56,7 +56,7 @@ func (s *shell) changeLook(change func(*settings)) error {
 	s.mu.Lock()
 	before := s.settings
 	change(&s.settings)
-	err := writeSettings(s.settingsPath, s.settings)
+	err := saveSettingsChange(s.settingsPath, change)
 	if err != nil {
 		s.settings = before
 	}

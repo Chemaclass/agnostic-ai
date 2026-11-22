@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSettings_AnimateIsOnWhenTheFileHasNoKey(t *testing.T) {
@@ -198,5 +199,56 @@ func TestWebviewDataPath_IsInsideTheCompanionFolder(t *testing.T) {
 
 	if want := filepath.Join(config, "agnostic-ai", "companion", "webview"); got != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// A drag of the circle saves its place after a web page turned the small
+// circle on: the save must not write the companion's older copy back.
+func TestChangeSettings_KeepsAValueAnotherProcessWrote(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	if err := s.changeSettings(func(saved *settings) { saved.Shortcut = "Cmd+Shift+K" }); err != nil {
+		t.Fatal(err)
+	}
+	outside, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside.SmallCompanion = true
+	if err := writeSettings(s.settingsPath, outside); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: 3, Y: 4} }); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.SmallCompanion || saved.Bubble == nil || *saved.Bubble != (point{X: 3, Y: 4}) || saved.Shortcut != "Cmd+Shift+K" {
+		t.Errorf("saved %+v; want the outside value, the new place and the shortcut", saved)
+	}
+}
+
+func TestSaveSettingsChange_WaitsForTheLock(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "companion.json")
+	release, err := lockSettings(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- saveSettingsChange(path, func(saved *settings) { saved.DimWhenIdle = true }) }()
+	select {
+	case err := <-done:
+		t.Fatalf("the save did not wait for the lock: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	release()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := readSettings(path); err != nil || !saved.DimWhenIdle {
+		t.Errorf("saved %+v, %v", saved, err)
 	}
 }

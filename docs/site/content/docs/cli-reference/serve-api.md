@@ -277,13 +277,57 @@ Takes no input. Returns the [approvals](@/docs/cli-reference/companion.md#approv
 
 ## `POST /api/approvals/ask`
 
-Body: `{"mode": "ask"}` with `Content-Type: application/json`. It is the only write approvals have here: no request loosens them.
+Body: `{"mode": "ask"}` with `Content-Type: application/json`. It only tightens. To loosen, see [`POST /api/settings`](#post-api-settings).
 
 - Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. That block replaces the shared one and keeps its `always-ask` patterns. The agnostic-ai approvals hook stops answering prompts immediately. A native reviewer stays active until its settings change.
 - It works from the next request, with no sync and no restart.
 - Replies `{"mode": "ask", "path": "<the file it wrote>"}`.
 - Any other mode, any other field, or a body that is not JSON is a 400. A request from another origin is a 403.
 - A file it cannot edit safely, such as one with two YAML documents or an anchor on `approvals`, is a 409 that says to set it by hand.
+
+## `GET /api/views/settings`
+
+Takes no input. A user-level server only; a project server answers 404. Returns the `settings/v1` document that the companion's settings menu shows. Each read builds it from the files, so the companion's server and the web server agree.
+
+- `approvals.mode` and `approvals.companion` are what the home config asks for. `approvals.modeFile` is the home file whose `approvals` block is in effect, relative to `configRoot`, or empty when neither file has one.
+- `approvals.overrides` counts the per-tool modes, per-folder modes and extra always-ask patterns. `approvals.shadowed` names the keys of the shared file that a block in `local/agnostic-ai.yaml` hides.
+- `approvals.tools` uses the same fields as [`GET /api/views/approvals`](#get-api-views-approvals).
+- `mailbox.approveAgentSends` is the mailbox switch.
+- `sync.needed` is `true` when `sync --scope user` would put the asked mode in effect: the hook is not installed, `approvals` is missing from `builtins`, or a native reviewer key is missing or left over. `sync.reasons` says which.
+- `canLoosen` says whether this request carried the companion's secret.
+- The answer has an `ETag`. A request with `If-None-Match` set to it answers 304 while nothing changed.
+
+```json
+{"schemaVersion": "settings/v1", "configRoot": "/Users/you/.agnostic-ai",
+ "approvals": {"mode": "ask", "modeFile": "local/agnostic-ai.yaml", "companion": false,
+  "overrides": {"tools": 0, "projects": 0, "alwaysAsk": 0}, "shadowed": [], "tools": []},
+ "mailbox": {"approveAgentSends": true}, "sync": {"needed": false, "reasons": []}, "canLoosen": false}
+```
+
+## `POST /api/settings`
+
+Body: `{"key", "value", "expected"}` with `Content-Type: application/json`. A user-level server only. `expected` is optional: the value the page showed. Changes one setting:
+
+| Key | Value | Where it lands |
+| --- | --- | --- |
+| `approvals.mode` | `ask`, `review` or `yolo` | `ask` writes what [`POST /api/approvals/ask`](#post-api-approvals-ask) writes. Another mode goes to the home file whose `approvals` block is in effect, so per-tool and per-folder modes beside it stay; with no block, to `local/agnostic-ai.yaml`. |
+| `approvals.companion` | `true` or `false` | The same file as a mode other than `ask`. |
+| `mailbox.approveAgentSends` | `true` or `false` | The mailbox `settings.json`. |
+
+- A change that makes the machine less safe needs the companion's secret: `review`, `yolo`, `approvals.companion: true` and `approveAgentSends: false`. Without it the answer is 403 and no file changes. `ask`, `approvals.companion: false` and `approveAgentSends: true` need only a request from the server's own origin.
+- `review`, `yolo` and `approvals.companion: true` need the approvals hook. When `approvals` is not in the home `builtins`, the same request adds it to `local/agnostic-ai.yaml`.
+- Replies `{"settings": <the new document>, "changed": [<each file it wrote>]}`. The hook reads the new mode on its next request; installing the hook still needs [a sync](#post-api-settings-sync).
+- An `expected` that no longer matches answers 409 with `{"error", "settings"}` and changes nothing. So does a file it cannot edit safely, such as one with two YAML documents or a merge key.
+- Each loosening write adds a line to the [decision log](@/docs/approvals.md#the-decision-log) with `decision: changed` and `by: companion`.
+- An origin added with `--allow-origin` is refused.
+
+## `POST /api/settings/sync`
+
+Body: `{"action": "plan"}` or `{"action": "apply", "id"}`. A user-level server only, and it needs the companion's secret: a sync installs hooks. Without it the answer is 403.
+
+- `plan` runs `sync --scope user --plan --json` and replies `{id, files: [{path, change, target, keys}], notes}`. The list holds every pending user-level change, not only approvals.
+- `apply` plans again. A plan that differs from `id` answers 409 with the new plan. Otherwise it runs `sync --scope user` and replies `{written, notes, settings}`. When the sync wrote the Codex hooks file, `notes` says to trust it in Codex's `/hooks`.
+- A sync that fails answers 422 with `{error, command}`, where `command` is the one to run by hand.
 
 ## When `path` is omitted
 

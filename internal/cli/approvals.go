@@ -507,11 +507,16 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 // writeApprovalsAsk sets approvals.mode: ask in the home config at path,
 // keeping its other keys, comments, and always-ask patterns.
 func writeApprovalsAsk(path string) error {
+	return editApprovalsFile(path, approvalsAskYAML)
+}
+
+// editApprovalsFile replaces the home config at path with edit's result.
+func editApprovalsFile(path string, edit func([]byte) ([]byte, error)) error {
 	data, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	out, err := approvalsAskYAML(data)
+	out, err := edit(data)
 	if err != nil {
 		return fmt.Errorf("%s: %w", path, err)
 	}
@@ -524,11 +529,64 @@ func writeApprovalsAsk(path string) error {
 	return nil
 }
 
-const approvalsAskBlock = "approvals:\n  mode: ask\n"
-
-// approvalsAskYAML is data with approvals.mode: ask. A file without an
-// approvals block gets one appended as text, so its layout stays.
+// approvalsAskYAML is data with approvals.mode: ask. The block keeps
+// only its always-ask patterns, so no tool or project keeps review or
+// yolo.
 func approvalsAskYAML(data []byte) ([]byte, error) {
+	return editApprovalsYAML(data, "mode", config.ApprovalsAsk, func(old *yaml.Node) *yaml.Node {
+		block := approvalsMapping("mode", config.ApprovalsAsk)
+		if old != nil && old.Kind == yaml.MappingNode {
+			for j := 0; j+1 < len(old.Content); j += 2 {
+				if old.Content[j].Value == "always-ask" {
+					block.Content = append(block.Content, old.Content[j], old.Content[j+1])
+				}
+			}
+		}
+		return block
+	})
+}
+
+// approvalsSetYAML is data with one scalar key of the approvals block
+// set to value, a string or a bool. The other keys stay.
+func approvalsSetYAML(data []byte, key string, value any) ([]byte, error) {
+	return editApprovalsYAML(data, key, value, func(old *yaml.Node) *yaml.Node {
+		if old == nil || old.Kind != yaml.MappingNode {
+			return approvalsMapping(key, value)
+		}
+		for j := 0; j+1 < len(old.Content); j += 2 {
+			if old.Content[j].Value == key {
+				node := approvalsScalar(value)
+				node.LineComment, node.HeadComment, node.FootComment = old.Content[j+1].LineComment, old.Content[j+1].HeadComment, old.Content[j+1].FootComment
+				old.Content[j+1] = node
+				return old
+			}
+		}
+		set := approvalsMapping(key, value)
+		old.Content = append(old.Content, set.Content...)
+		return old
+	})
+}
+
+func approvalsScalar(value any) *yaml.Node {
+	if on, ok := value.(bool); ok {
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: fmt.Sprint(on)}
+	}
+	return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: fmt.Sprint(value)}
+}
+
+func approvalsMapping(key string, value any) *yaml.Node {
+	return &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
+		{Kind: yaml.ScalarNode, Tag: "!!str", Value: key},
+		approvalsScalar(value),
+	}}
+}
+
+// editApprovalsYAML is data with its approvals block replaced by what
+// block makes of the old one, nil when there is none. A file without an
+// approvals block gets one appended as text, so its layout stays. key
+// and value name the change in a refusal.
+func editApprovalsYAML(data []byte, key string, value any, block func(old *yaml.Node) *yaml.Node) ([]byte, error) {
+	byHand := fmt.Sprintf("set approvals.%s: %v by hand", key, value)
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	var doc yaml.Node
 	if err := dec.Decode(&doc); err != nil && !errors.Is(err, io.EOF) {
@@ -536,7 +594,7 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 	}
 	var extra yaml.Node
 	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
-		return nil, errors.New("holds more than one YAML document; set approvals.mode: ask by hand")
+		return nil, errors.New("holds more than one YAML document; " + byHand)
 	}
 	var root *yaml.Node
 	if len(doc.Content) > 0 && doc.Content[0].Tag != "!!null" {
@@ -556,7 +614,7 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 			merged = merged || key.Tag == "!!merge"
 		}
 		if index < 0 && merged {
-			return nil, errors.New("merges keys with a YAML merge key; set approvals.mode: ask by hand")
+			return nil, errors.New("merges keys with a YAML merge key; " + byHand)
 		}
 	}
 	if index < 0 && (root == nil || root.Style&yaml.FlowStyle == 0) {
@@ -564,33 +622,29 @@ func approvalsAskYAML(data []byte) ([]byte, error) {
 		if text != "" && !strings.HasSuffix(text, "\n") {
 			text += "\n"
 		}
-		return []byte(text + approvalsAskBlock), nil
+		return []byte(text + fmt.Sprintf("approvals:\n  %s: %v\n", key, value)), nil
 	}
-	block := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map", Content: []*yaml.Node{
-		{Kind: yaml.ScalarNode, Tag: "!!str", Value: "mode"},
-		{Kind: yaml.ScalarNode, Tag: "!!str", Value: config.ApprovalsAsk},
-	}}
 	if index < 0 {
-		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "approvals"}, block)
+		root.Content = append(root.Content, &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: "approvals"}, block(nil))
 	} else {
 		old := root.Content[index]
 		if old.Anchor != "" {
-			return nil, fmt.Errorf("approvals carries the YAML anchor &%s; set approvals.mode: ask by hand", old.Anchor)
+			return nil, fmt.Errorf("approvals carries the YAML anchor &%s; %s", old.Anchor, byHand)
 		}
 		if old.Kind == yaml.AliasNode {
-			return nil, fmt.Errorf("approvals is the YAML alias *%s; set approvals.mode: ask by hand", old.Value)
+			return nil, fmt.Errorf("approvals is the YAML alias *%s; %s", old.Value, byHand)
 		}
-		if old.Kind == yaml.MappingNode {
+		if old.Kind != yaml.MappingNode {
+			// A broken block must not block the change: it is replaced.
+			old = nil
+		} else {
 			for j := 0; j+1 < len(old.Content); j += 2 {
 				if old.Content[j].Tag == "!!merge" {
-					return nil, errors.New("approvals merges keys with a YAML merge key; set approvals.mode: ask by hand")
-				}
-				if old.Content[j].Value == "always-ask" {
-					block.Content = append(block.Content, old.Content[j], old.Content[j+1])
+					return nil, errors.New("approvals merges keys with a YAML merge key; " + byHand)
 				}
 			}
 		}
-		root.Content[index] = block
+		root.Content[index] = block(old)
 	}
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)

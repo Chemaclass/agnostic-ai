@@ -172,7 +172,7 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` when nothing runs: it succeeds and says so.
 - **Quit Agnostic AI companion** in the menus does the same as `stop`.
-- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices), `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
+- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) and its lock file, `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
 - When the companion cannot run at all, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
 - `stop` and `uninstall` manage the terminal-installed companion. For the disk-image app, quit from its menu, turn off **Start at login**, remove any CLI link you installed, then move the app from Applications to Trash.

@@ -615,7 +615,7 @@ func (s *shell) changeSettings(change func(saved *settings)) error {
 	defer s.mu.Unlock()
 	before := s.settings
 	change(&s.settings)
-	err := writeSettings(s.settingsPath, s.settings)
+	err := saveSettingsChange(s.settingsPath, change)
 	if err != nil {
 		s.settings = before
 	}
@@ -682,6 +682,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/stop-session", in.pass(serverStopSessionPath))
 	mux.HandleFunc("POST /api/approvals/ask", in.pass(serverApprovalsAskPath))
 	mux.HandleFunc("POST "+serverApprovalsDecidePath, in.pass(serverApprovalsDecidePath))
+	mux.HandleFunc("GET /api/settings", in.readSettings)
+	mux.HandleFunc("POST "+serverSettingsPath, in.pass(serverSettingsPath))
+	mux.HandleFunc("POST "+serverSettingsSyncPath, in.pass(serverSettingsSyncPath))
 	mux.HandleFunc("GET /api/clipboard", in.clipboard)
 	mux.HandleFunc("POST /api/send", in.send)
 	mux.HandleFunc("POST "+serverMailboxSendPath, in.pass(serverMailboxSendPath))
