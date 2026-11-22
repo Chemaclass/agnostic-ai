@@ -93,7 +93,7 @@ func TestServeEditMCP_UserPreviewAndApplyOnlyTheChosenServer(t *testing.T) {
 		t.Fatal(err)
 	}
 	testutil.Chdir(t, t.TempDir())
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)
 	if preview.File != "mcps/notion.yaml" || preview.SyncCommand != "agnostic-ai sync --scope user" {
@@ -152,7 +152,7 @@ func TestServeEditMCP_RewritesEnvCredentialBeforePreviewAndApply(t *testing.T) {
 	const token = "ghp_synthetic123"
 	source, path := mcpEditUser(t, `{"mcpServers":{"github":{"command":"github-mcp","env":{"GITHUB_TOKEN":"`+token+`"}}}}`)
 	native := readOptional(t, path)
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := mcpEditIdentity("github", "shared", "user", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)
 	if strings.Contains(preview.Spec, token) || !strings.Contains(preview.Spec, "GITHUB_TOKEN: ${GITHUB_TOKEN}") || !slices.Contains(preview.Variables, "GITHUB_TOKEN") {
@@ -170,7 +170,7 @@ func TestServeEditMCP_RewritesEnvCredentialBeforePreviewAndApply(t *testing.T) {
 func TestServeEditMCP_RefusesAnArgsCredentialImportCannotRewrite(t *testing.T) {
 	source, path := mcpEditUser(t, `{"mcpServers":{"unsafe":{"command":"sh","args":["-c","exec npx mcp-remote https://x.example/mcp?token='T0KEN'"]}}}`)
 	native := readOptional(t, path)
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := mcpEditIdentity("unsafe", "shared", "user", "~/.claude.json")
 	for _, action := range []string{"preview", "apply"} {
 		request["action"] = action
@@ -195,7 +195,7 @@ func TestServeEditMCP_RefusesAnExistingSpecByName(t *testing.T) {
 	file := filepath.Join(source, "mcps", "different-file.yaml")
 	before := "name: notion\ncommand: existing-mcp\n"
 	writeFile(t, file, before)
-	rec := mcpEditRequest(t, newEditHandler(source, true), mcpEditIdentity("notion", "shared", "user", "~/.claude.json"))
+	rec := mcpEditRequest(t, provenUserEdits(source), mcpEditIdentity("notion", "shared", "user", "~/.claude.json"))
 	if rec.Code < 400 || !strings.Contains(rec.Body.String(), "A spec named notion already exists") {
 		t.Errorf("existing spec = %d %s", rec.Code, rec.Body)
 	}
@@ -206,7 +206,7 @@ func TestServeEditMCP_RefusesAnExistingSpecByName(t *testing.T) {
 
 func TestServeEditMCP_RefusesASpecCreatedAfterPreview(t *testing.T) {
 	source, _ := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)
 	file := filepath.Join(source, preview.File)
@@ -251,7 +251,7 @@ func TestServeEditMCP_UserPersonalSaveStaysOutOfGit(t *testing.T) {
 	git(t, source, "init", "-q")
 	git(t, source, "add", ".")
 	git(t, source, "commit", "-qm", "base")
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := mcpEditIdentity("notion", "personal", "user", "~/.claude.json")
 	preview := mcpEditPreview(t, h, request)
 	if preview.File != "local/mcps/notion.yaml" {
@@ -284,7 +284,7 @@ func TestServeEditMCP_ProjectPageImportsAUserServerToProjectSpecs(t *testing.T) 
 
 func TestServeEditMCP_RefusesAnApplyWithoutPreviewOrAfterNativeChange(t *testing.T) {
 	source, path := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := mcpEditIdentity("notion", "shared", "user", "~/.claude.json")
 	request["action"] = "apply"
 	if rec := mcpEditRequest(t, h, request); rec.Code < 400 {
@@ -304,7 +304,7 @@ func TestServeEditMCP_RefusesAnApplyWithoutPreviewOrAfterNativeChange(t *testing
 
 func TestServeEditMCP_PreviewListsShellVariablesOnly(t *testing.T) {
 	source, _ := mcpEditUser(t, `{"mcpServers":{"workspace":{"command":"node","args":["${workspaceFolder}/mcp.js","${API_TOKEN}"]}}}`)
-	preview := mcpEditPreview(t, newEditHandler(source, true), mcpEditIdentity("workspace", "shared", "user", "~/.claude.json"))
+	preview := mcpEditPreview(t, provenUserEdits(source), mcpEditIdentity("workspace", "shared", "user", "~/.claude.json"))
 	if !slices.Equal(preview.Variables, []string{"API_TOKEN"}) {
 		t.Errorf("variables to set = %v, want only API_TOKEN", preview.Variables)
 	}
@@ -316,7 +316,7 @@ func TestServeEditMCP_PreviewListsShellVariablesOnly(t *testing.T) {
 func TestServeEditMCP_RefusesRequestsAnotherSiteCouldSend(t *testing.T) {
 	source, nativePath := mcpEditUser(t, `{"mcpServers":{"notion":{"type":"http","url":"https://mcp.notion.com/mcp"}}}`)
 	native := readOptional(t, nativePath)
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	body, err := json.Marshal(mcpEditIdentity("notion", "shared", "user", "~/.claude.json"))
 	if err != nil {
 		t.Fatal(err)

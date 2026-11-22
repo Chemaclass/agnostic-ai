@@ -116,7 +116,7 @@ func newApprovalsAskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			path, err := writeApprovalsAskLocked(source)
+			path, err := writeApprovalsAskLocked(source, true)
 			if err != nil {
 				return err
 			}
@@ -505,10 +505,37 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 	}
 }
 
-// writeApprovalsAsk sets approvals.mode: ask in the home config at path,
-// keeping its other keys, comments, and always-ask patterns.
-func writeApprovalsAsk(path string) error {
-	return editApprovalsFile(path, approvalsAskYAML)
+// writeApprovalsAsk sets approvals.mode: ask in source's local home
+// file, keeping its other keys, comments, always-ask patterns and
+// companion key. Without proven it first checks the policy the edit
+// gives and refuses one looser than before; the caller holds the lock.
+func writeApprovalsAsk(source string, proven bool) (string, error) {
+	path := userConfigPaths(source)[1]
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return "", fmt.Errorf("read %s: %w", path, err)
+	}
+	out, err := approvalsAskYAML(data)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", path, err)
+	}
+	before, loadErr := config.LoadHomeApprovals(source)
+	if loadErr != nil {
+		// A block that does not load asks every time, so a repair that
+		// would turn the buttons on keeps them off.
+		if after, err := config.LoadHomeApprovalsWith(source, path, out); err == nil && after.Companion {
+			if out, err = approvalsSetYAML(out, "companion", false); err != nil {
+				return "", fmt.Errorf("%s: %w", path, err)
+			}
+		}
+	}
+	if !proven {
+		after, err := config.LoadHomeApprovalsWith(source, path, out)
+		if err == nil && approvalsLoosened(before, after) {
+			return "", errSettingNeedsProof
+		}
+	}
+	return path, editApprovalsFile(path, func([]byte) ([]byte, error) { return out, nil })
 }
 
 // editApprovalsFile replaces the home config at path with edit's result.
@@ -531,14 +558,16 @@ func editApprovalsFile(path string, edit func([]byte) ([]byte, error)) error {
 }
 
 // approvalsAskYAML is data with approvals.mode: ask. The block keeps
-// only its always-ask patterns, so no tool or project keeps review or
-// yolo.
+// only its always-ask patterns and its companion key, so no tool or
+// project keeps review or yolo, and a local companion: false still hides
+// a shared true.
 func approvalsAskYAML(data []byte) ([]byte, error) {
 	return editApprovalsYAML(data, "mode", config.ApprovalsAsk, func(old *yaml.Node) *yaml.Node {
 		block := approvalsMapping("mode", config.ApprovalsAsk)
 		if old != nil && old.Kind == yaml.MappingNode {
 			for j := 0; j+1 < len(old.Content); j += 2 {
-				if old.Content[j].Value == "always-ask" {
+				var on bool
+				if key := old.Content[j].Value; key == "always-ask" || key == "companion" && old.Content[j+1].Decode(&on) == nil {
 					block.Content = append(block.Content, old.Content[j], old.Content[j+1])
 				}
 			}

@@ -5,6 +5,7 @@ import { PageHeader, useApp } from './app-context'
 import { ErrorPanel } from './Banner'
 import { CodingTools } from './CodingTools'
 import { EditorSettings } from './EditorSettings'
+import { UserSettings } from './UserSettings'
 import { ContextUsage } from './ContextUsage'
 import { ContextFacts, ContextReportProvider, ContextVerdict } from './context-report'
 import { BuiltinChangeControls, BuiltinChangeProvider, ChangeStatus } from './BuiltinChange'
@@ -183,7 +184,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
   const fieldMatches = section.fields?.filter((field) => matches(fieldSearchText(field)))
   const matchingFields = section.fields?.filter((field) => fieldMatches?.includes(field) || fieldEntryId(field) === entry)
   const visibleItems = section.items.filter((item) => matchingItems.has(item) || item.findings.length > 0 || itemEntryId(item) === entry || itemEntryId(item) === pendingPlace || itemEntryId(item) === rechecked?.place)
-  const tabs = sectionTabs(section).filter((tab) => tab.extra !== 'editor' || app.source.kind === 'api')
+  const tabs = sectionTabs(section).filter((tab) => (tab.extra !== 'editor' && tab.extra !== 'user') || app.source.kind === 'api')
   const nativeMatches = section.native?.filter((server) => matches(nativeSearchText(server))) ?? []
   const toolMatches = query ? filterTools(app.overview?.tools.items ?? [], query, false, audience ?? 'shared').length : 0
   const hasMatches = (tab: typeof tabs[number]) => tab.kinds.some((kind) => section.items.some((item) => item.kind === kind && matchingItems.has(item)) || kind === 'settings' && (fieldMatches?.length ?? 0) > 0) || tab.extra === 'native' && nativeMatches.length > 0 || tab.extra === 'targets' && toolMatches > 0
@@ -326,6 +327,7 @@ function SectionContentsBody({ section, changes }: { section: Section; changes: 
       {panel.extra === 'usage' && <ContextUsage />}
       {panel.extra === 'targets' && <CodingTools />}
       {panel.extra === 'editor' && <EditorSettings />}
+      {panel.extra === 'user' && <UserSettings />}
       </div>)}
       {section.id === 'tools' && app.source.kind === 'api' && mcpSaved && <MCPSpecNotice saved={mcpSaved} dismiss={() => saveMCPNotice()} />}
       {errors === 0 && warningDetails}

@@ -81,7 +81,7 @@ agnostic-ai serve --api-only
 | Authority | Permission rules and protected paths. |
 | Tools | MCP server specs. |
 | Lifecycle | Hooks by stage. |
-| Settings | Built-ins, coding tools, model, effort, editor. |
+| Settings | Built-ins, coding tools, model, effort, editor, and with `--scope user` the [approvals and companion settings](@/docs/approvals.md#change-it-from-the-web-page). |
 
 Every edit shows a preview first. **Apply** writes only the source file; then run the `agnostic-ai sync` command the page names.
 

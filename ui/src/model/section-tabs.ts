@@ -5,7 +5,7 @@ export interface SectionTab {
   id: string
   label: string
   kinds: string[]
-  extra?: 'native' | 'usage' | 'targets' | 'editor'
+  extra?: 'native' | 'usage' | 'targets' | 'editor' | 'user'
 }
 
 const contextTabs: SectionTab[] = [
@@ -26,6 +26,7 @@ const settingsTabs: SectionTab[] = [
   { id: 'preferences', label: 'Preferences', kinds: ['settings'] },
   { id: 'configuration', label: 'Config files', kinds: ['config'] },
   { id: 'editor', label: 'Editor', kinds: [], extra: 'editor' },
+  { id: 'user', label: 'Approvals and companion', kinds: [], extra: 'user' },
 ]
 
 export function sectionTabs(section: Section): SectionTab[] {

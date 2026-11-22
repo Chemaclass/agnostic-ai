@@ -159,7 +159,7 @@ test('retains a personal model draft and audience while changing Settings tabs',
   await selectTab(page, 'Preferences')
   await expect(personal).toHaveAttribute('aria-pressed', 'true')
   await expect(model).toHaveValue('opus')
-  await expect(page.getByRole('tabpanel', { includeHidden: true })).toHaveCount(5)
+  await expect(page.getByRole('tabpanel', { includeHidden: true })).toHaveCount(6)
   expect(edits).toEqual([])
 })
 

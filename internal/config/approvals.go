@@ -225,13 +225,24 @@ func pathHolds(root, path string) bool {
 // local block and must not turn the buttons off. A relative source is
 // refused: it would read a file in whatever folder the session runs in.
 func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
+	return LoadHomeApprovalsWith(source, "", nil)
+}
+
+// LoadHomeApprovalsWith is LoadHomeApprovals with the home file at path
+// read as data, so a writer can check the policy an edit gives before it
+// writes.
+func LoadHomeApprovalsWith(source, path string, data []byte) (ApprovalsConfig, error) {
 	if !filepath.IsAbs(source) {
 		return ApprovalsConfig{}, fmt.Errorf("approvals: the home folder %q is not an absolute path", source)
 	}
 	var out ApprovalsConfig
 	var alwaysAsk []string
+	replaced := path
 	for _, path := range []string{filepath.Join(source, ConfigFileName), filepath.Join(source, "local", ConfigFileName)} {
 		node, err := approvalsNode(path)
+		if replaced != "" && filepath.Clean(path) == filepath.Clean(replaced) {
+			node, err = topLevelNodeOf(path, data, "approvals")
+		}
 		if err != nil {
 			return ApprovalsConfig{}, err
 		}
@@ -291,6 +302,11 @@ func topLevelNode(path, key string) (*yaml.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
+	return topLevelNodeOf(path, data, key)
+}
+
+// topLevelNodeOf is topLevelNode on data read from path.
+func topLevelNodeOf(path string, data []byte, key string) (*yaml.Node, error) {
 	var doc map[string]yaml.Node
 	if err := yaml.Unmarshal(data, &doc); err != nil {
 		return nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)

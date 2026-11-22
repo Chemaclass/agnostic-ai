@@ -211,6 +211,9 @@ func runUserSync(cmd *cobra.Command, o userSyncOptions) error {
 		writes: writes, removals: removals, existing: existingPaths(removals), adopted: adopted, trees: trees,
 		old: old, next: next, drops: drops, targets: len(targets), jsonWritten: &jsonWritten,
 	}
+	if pin, ok := cmd.Context().Value(userSyncPinKey{}).(*userSyncPin); ok {
+		pin.commands = userSyncCommands(bundle)
+	}
 	if err := run.checkPin(cmd.Context()); err != nil {
 		return err
 	}

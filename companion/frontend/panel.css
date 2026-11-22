@@ -1561,6 +1561,10 @@ kbd {
   user-select: text;
 }
 
+.menu-confirm-commands {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 .menu-approvals:focus {
   outline: none;
 }

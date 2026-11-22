@@ -46,7 +46,10 @@ type settingsSyncFile struct {
 type settingsSyncPlan struct {
 	ID    string             `json:"id"`
 	Files []settingsSyncFile `json:"files"`
-	Notes []string           `json:"notes"`
+	// Commands are the hook and MCP server commands the tools run after
+	// the sync, so nothing staged by another program installs unseen.
+	Commands []string `json:"commands"`
+	Notes    []string `json:"notes"`
 	// fingerprint sums the content of the planned changes.
 	fingerprint string
 }
@@ -88,7 +91,7 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 	// A sync can outlast the server's write timeout; the companion waits a minute for it.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.syncReplyWait))
 	if !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "A sync installs hooks, so only the companion can run it here. Run " + settingsSyncCommand + " in a terminal."})
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "A sync installs hooks, so it needs the companion or a page opened with agnostic-ai view --scope user. Run " + settingsSyncCommand + " in a terminal."})
 		return
 	}
 	var req settingsSyncRequest
@@ -129,7 +132,7 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	source, _ := h.reader.source()
-	h.logChange(source, "sync", "sync --scope user")
+	h.logChange(source, h.askedBy(r), "sync", "sync --scope user")
 	reply := settingsSyncReply{Written: []string{}, Notes: report.shortNotes(), Settings: h.document(r)}
 	for _, write := range report.Writes {
 		reply.Written = append(reply.Written, write.Path)
@@ -163,11 +166,17 @@ func (h *settingsHandler) syncPlan(ctx context.Context) (settingsSyncPlan, error
 	if err != nil {
 		return settingsSyncPlan{}, err
 	}
-	plan := settingsSyncPlan{Files: []settingsSyncFile{}, Notes: report.shortNotes()}
+	plan := settingsSyncPlan{Files: []settingsSyncFile{}, Commands: pin.commands, Notes: report.shortNotes()}
+	if plan.Commands == nil {
+		plan.Commands = []string{}
+	}
 	for _, write := range report.Writes {
 		plan.Files = append(plan.Files, settingsSyncFile{Path: write.Path, Change: write.Action, Target: write.Target, Keys: write.Keys})
 	}
-	files, err := json.Marshal(plan.Files)
+	files, err := json.Marshal(struct {
+		Files    []settingsSyncFile
+		Commands []string
+	}{plan.Files, plan.Commands})
 	if err != nil {
 		return settingsSyncPlan{}, fmt.Errorf("encode the sync plan: %w", err)
 	}

@@ -157,7 +157,7 @@ The section search matches names, paths, descriptions, and values. It opens matc
 
 **Search** in the rail foot or mobile top bar, also `Cmd+K` / `Ctrl+K`, searches all loaded sections and findings without a server request. Arrow keys select a result, `Enter` opens it, and `Esc` closes search and restores focus. Results link to an item, setting, or finding; links survive reload and browser history. A missing entry is reported without selecting another. These links require access to the same server or snapshot.
 
-Context, Tools, and Settings use tabs. Context starts with context size, then guidance, rules, agents, and skills. Tools separates MCP servers, servers found in tools, and environments. Settings separates built-ins, coding tools, preferences, config files, and the editor. Authority keeps permissions together; Lifecycle uses a timeline.
+Context, Tools, and Settings use tabs. Context starts with context size, then guidance, rules, agents, and skills. Tools separates MCP servers, servers found in tools, and environments. Settings separates built-ins, coding tools, preferences, config files, the editor, and the user approvals settings. Authority keeps permissions together; Lifecycle uses a timeline.
 
 Tabs support Left/Right, Home, and End. The `tab` URL parameter survives refresh and history but clears when changing pages. Search covers every tab and opens a matching group; linked results open their owning tab. Tab tooltips list the types they contain. Counts appear once and only above zero. Switching tabs keeps drafts, previews, and context-size state. The tab row scrolls on narrow screens without widening the page. Findings and tool-support controls remain outside the panels.
 
@@ -238,6 +238,8 @@ Values render as chips for lists, switches for booleans, and text otherwise. Nat
 Change previews keep Apply and Cancel at the top. Affected tools, changed files, and review notes start collapsed; notes group by tool, scroll within a bounded area, and offer **Copy notes** for the full text. Pending source changes stay visible above these details.
 
 Markdown and YAML items open in the editor selected in Settings: Cursor (default), VS Code, VS Code Insiders, VSCodium, Zed, or a custom template using `{path}` and `{line}`. Links use `<scheme>://file/<absolute path>:<line>`. Choices persist in `agnostic-ai.editor` and `agnostic-ai.editor-template`. The Editor tab requires a server.
+
+The **Approvals and companion** tab (`src/components/UserSettings.tsx`, `src/settings-api.ts`) reads `GET /api/views/settings` every 2 seconds while visible, with its `ETag`, and saves through `POST /api/settings`. On load, `main.tsx` trades a `#unlock=<code>` in the address for the session key, drops the code from the address, and keeps the key in `sessionStorage` for that tab. Without the key the server answers `canLoosen: false`, and the tab locks the looser choices. A project view shows only a pointer to the user-level view.
 
 Items carry lint and doctor findings for their files. Editor links use the server's `openPath` and line when available. **Copy path** accompanies each link because the browser cannot confirm that the editor opened. Mock and static data show paths without editor links. The overview also reports whether generated files match sync output.
 

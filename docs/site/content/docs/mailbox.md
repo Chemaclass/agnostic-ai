@@ -160,7 +160,7 @@ The local user-level server provides these routes to the companion. The conversa
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
 | `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
 | `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |
-| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. Writing `false` needs the companion's secret; without it the answer is 403. |
+| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. Writing `false` needs the companion's secret; without it the answer is 403. The web page changes this switch through [`POST /api/settings`](@/docs/cli-reference/serve-api.md#post-api-settings) instead. |
 
 The thread, stage, claim, release, conflict dismiss, handoff, approve and queue routes record your action, so each needs the companion's secret; without it the answer is 403 and nothing changes.
 

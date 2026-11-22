@@ -545,7 +545,7 @@ func TestServe_UserServerGoesBackToTheProjectServerThatStartedIt(t *testing.T) {
 	}
 
 	served := make(chan string, 1)
-	cmd := newServeCmdWithBrowser(func(url string) error { served <- url; return nil })
+	cmd := newServeCmdWithBrowser(func(url string) error { served <- openedPage(url); return nil })
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd.SetContext(ctx)
 	cmd.SetArgs([]string{"--scope", "user", "--open", "--addr", "127.0.0.1:0", "--switch-back", back})
