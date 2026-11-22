@@ -31,6 +31,7 @@ func readEntries(t *testing.T, path string) []Entry {
 }
 
 func TestLog_AppendWritesOneLinePerDecision(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	path := filepath.Join(t.TempDir(), "local", "approvals", "decisions.jsonl")
 	log := Log{Path: path}
@@ -64,6 +65,7 @@ func TestLog_AppendWritesOneLinePerDecision(t *testing.T) {
 }
 
 func TestNewEntry_LeavesOutDetailThatMayHoldACredential(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	r := bash("curl -H 'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz0123456789' https://api.github.com")
 	e := NewEntry("codex", "s", ModeYolo, r, Decide(r, testPolicy()), time.Now())

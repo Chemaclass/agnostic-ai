@@ -550,7 +550,7 @@ func TestValidate_IgnoreSpecNoTargetReadsIsANote(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Errorf("validate failed on an ignore spec lint and sync accept: %v\n%s", err, out)
 	}
-	if !strings.Contains(errOut.String(), "note: .agnostic-ai/ignore/secrets.md: 1 ignore spec configured but no enabled target supports ignores") {
+	if !strings.Contains(errOut.String(), "note: "+filepath.FromSlash(".agnostic-ai/ignore/secrets.md")+": 1 ignore spec configured but no enabled target supports ignores") {
 		t.Errorf("want a note naming the ignore spec, got stderr:\n%s", errOut)
 	}
 }

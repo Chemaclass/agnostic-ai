@@ -141,7 +141,7 @@ func cursorWorkspaceCopies(root, dstDir string) map[string]flatWorkspaceCopy {
 		}
 		workspaces, _ := skill.Meta["workspaces"].([]any)
 		native := filepath.Join(cursorSkillsDirs[0], name, "SKILL.md")
-		sum := outputs[filepath.ToSlash(native)]
+		sum := ledgerSum(outputs, native)
 		if len(workspaces) == 0 || sum == "" {
 			continue
 		}
@@ -161,7 +161,7 @@ func cursorWorkspaceCopies(root, dstDir string) map[string]flatWorkspaceCopy {
 				continue
 			}
 			copyPath := filepath.Join(scope, native)
-			if outputs[filepath.ToSlash(copyPath)] != sum {
+			if ledgerSum(outputs, copyPath) != sum {
 				continue
 			}
 			target := filepath.Join(dstDir, scope)
@@ -172,6 +172,15 @@ func cursorWorkspaceCopies(root, dstDir string) map[string]flatWorkspaceCopy {
 		}
 	}
 	return copies
+}
+
+// ledgerSum is the recorded sum of path, which the ledger keeps in the
+// separator the writer used.
+func ledgerSum(sums map[string]string, path string) string {
+	if sum, ok := sums[path]; ok {
+		return sum
+	}
+	return sums[filepath.ToSlash(path)]
 }
 
 // importFlatMarkdownFiles copies every top-level `*.md` in src into

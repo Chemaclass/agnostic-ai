@@ -11,6 +11,8 @@ import (
 func approvalsUserHome(t *testing.T) string {
 	t.Helper()
 	home := filepath.Dir(approvalsHome(t, ""))
+	t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
+	t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 	for _, g := range userTargets {
 		if g.rootEnv != "" {
 			t.Setenv(g.rootEnv, "")

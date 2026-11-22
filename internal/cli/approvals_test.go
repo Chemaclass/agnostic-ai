@@ -159,6 +159,9 @@ func TestApprovalsStatus_WindowsFallsBack(t *testing.T) {
 }
 
 func TestApprovalsStatus_HookNotInstalled(t *testing.T) {
+	saved := approvalsGOOS
+	t.Cleanup(func() { approvalsGOOS = saved })
+	approvalsGOOS = "linux"
 	approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
 
@@ -171,7 +174,7 @@ func TestApprovalsStatus_HookNotInstalled(t *testing.T) {
 func TestApprovalsStatus_ClaudeHookInstalled(t *testing.T) {
 	approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
-	home, _ := os.UserHomeDir()
+	home, _ := userHomeDir()
 	writeFile(t, filepath.Join(home, ".claude", "settings.json"), `{"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target claude"}]}]}}`)
 	saved := approvalsGOOS
 	t.Cleanup(func() { approvalsGOOS = saved })
@@ -198,7 +201,7 @@ func TestApprovalsStatus_ClaudeHookOffOrElsewhere(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			approvalsHome(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n")
 			t.Setenv("CLAUDE_CONFIG_DIR", "")
-			home, _ := os.UserHomeDir()
+			home, _ := userHomeDir()
 			writeFile(t, filepath.Join(home, ".claude", "settings.json"), body)
 			claude := toolStatus(t, approvalsStatusJSON(t), "claude")
 			if claude.Effective != config.ApprovalsAsk || claude.Reason == "" {
@@ -474,7 +477,7 @@ func TestApprovalsStatus_KiroHook(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			approvalsHome(t, "version: 1\ntargets: [kiro]\napprovals:\n  mode: yolo\n")
-			home, _ := os.UserHomeDir()
+			home, _ := userHomeDir()
 			root := filepath.Join(home, ".kiro")
 			if tc.override {
 				root = filepath.Join(t.TempDir(), "kiro[profile]")
@@ -521,7 +524,7 @@ func TestApprovalsStatus_QwenHook(t *testing.T) {
 			t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "s.json"))
 			t.Setenv("QWEN_CODE_SAFE_MODE", "")
 			t.Setenv("QWEN_CODE_SIMPLE", "")
-			home, _ := os.UserHomeDir()
+			home, _ := userHomeDir()
 			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), tc.body)
 			qwen := toolStatus(t, approvalsStatusJSON(t), "qwen")
 			if tc.routed != (qwen.Effective == config.ApprovalsYolo) || !tc.routed && qwen.Reason == "" {
@@ -562,7 +565,7 @@ func TestApprovalsStatus_QwenHookOffElsewhere(t *testing.T) {
 			t.Setenv("QWEN_CODE_SYSTEM_SETTINGS_PATH", filepath.Join(t.TempDir(), "s.json"))
 			t.Setenv("QWEN_CODE_SAFE_MODE", "")
 			t.Setenv("QWEN_CODE_SIMPLE", "")
-			home, _ := os.UserHomeDir()
+			home, _ := userHomeDir()
 			writeFile(t, filepath.Join(home, ".qwen", "settings.json"), user)
 			setup(t)
 			if qwen := toolStatus(t, approvalsStatusJSON(t), "qwen"); qwen.Effective == config.ApprovalsYolo || qwen.Reason == "" {
@@ -592,7 +595,7 @@ func TestApprovalsStatus_QoderHook(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			approvalsHome(t, "version: 1\ntargets: [qoder]\napprovals:\n  mode: yolo\n")
-			home, _ := os.UserHomeDir()
+			home, _ := userHomeDir()
 			writeFile(t, filepath.Join(home, ".qoder", "settings.json"), tc.body)
 			if tc.project != "" {
 				project := t.TempDir()
@@ -624,7 +627,7 @@ func TestApprovalsStatus_KiroReview(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			approvalsHome(t, "version: 1\ntargets: [kiro]\napprovals:\n  mode: "+tc.mode+"\n")
-			home, _ := os.UserHomeDir()
+			home, _ := userHomeDir()
 			if tc.rules != "" {
 				writeFile(t, filepath.Join(home, ".kiro", "settings", "permissions.yaml"), tc.rules)
 			}

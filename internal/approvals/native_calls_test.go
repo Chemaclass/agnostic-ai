@@ -7,6 +7,7 @@ import (
 )
 
 func TestNativeRequest_Kiro(t *testing.T) {
+	skipGateOnWindows(t)
 	r := NativeRequest("kiro", Request{Call: "execute_bash", Input: map[string]any{"command": "go test ./...", "summary": "Run tests"}, Cwd: testRoot})
 	if r.Call != "Bash" || r.Input["description"] != "Run tests" || r.Input["summary"] != nil {
 		t.Errorf("execute_bash = %+v", r)
@@ -33,6 +34,7 @@ func TestNativeRequest_Kiro(t *testing.T) {
 }
 
 func TestNativeRequest_Qwen(t *testing.T) {
+	skipGateOnWindows(t)
 	shell := NativeRequest("qwen", Request{Call: "run_shell_command", Input: map[string]any{"command": "go test ./...", "is_background": false, "description": "x"}, PermissionMode: "default", Cwd: testRoot})
 	if shell.Call != "Bash" || shell.Input["run_in_background"] != false {
 		t.Errorf("run_shell_command = %+v", shell)
@@ -52,6 +54,7 @@ func TestNativeRequest_Qwen(t *testing.T) {
 }
 
 func TestNativeRequest_Qoder(t *testing.T) {
+	skipGateOnWindows(t)
 	for mode, rule := range map[string]string{"default": "", "accept_edits": "", "acceptEdits": "", "ACCEPT_EDITS": "", "auto": RulePermissionMode, "bypass_permissions": RulePermissionMode, "yolo": RulePermissionMode, "dont_ask": RulePermissionMode, "plan": RulePermissionMode, "": RulePermissionMode} {
 		r := NativeRequest("qoder", Request{Call: "Read", Input: map[string]any{"file_path": testRoot + "/a.go"}, PermissionMode: mode, Cwd: testRoot})
 		wantDecision(t, Decide(r, testPolicy()), rule)

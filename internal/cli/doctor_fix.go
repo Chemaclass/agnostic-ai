@@ -127,13 +127,13 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			}
 		}
 	}
-	for _, p := range sess.RemovedEdits() {
+	for _, p := range sessionPaths([]*adapters.Session{sess}, (*adapters.Session).RemovedEdits) {
 		summaryf("%s removed a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
 	}
-	for _, p := range sess.OverwroteEdits() {
+	for _, p := range sessionPaths([]*adapters.Session{sess}, (*adapters.Session).OverwroteEdits) {
 		summaryf("%s overwrote a hand edit to %s (saved as %s.bak); move the edit into .agnostic-ai/\n", bang(), p, p)
 	}
-	if blocked := sess.BackupBlockedEdits(); len(blocked) > 0 {
+	if blocked := sessionPaths([]*adapters.Session{sess}, (*adapters.Session).BackupBlockedEdits); len(blocked) > 0 {
 		for _, p := range blocked {
 			fmt.Fprintf(os.Stderr, "%s kept a hand edit to %s: %s.bak already holds an earlier one; move both into .agnostic-ai/, then delete the .bak\n", bang(), p, p)
 		}

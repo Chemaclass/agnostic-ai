@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -29,15 +30,17 @@ func TestSync_OpenhandsMovesOwnedScopedRuleOutOfSharedSkillFolder(t *testing.T) 
 		t.Fatal(err)
 	}
 	editLedger(t, func(state map[string]any) {
+		// The ledger keeps each path in the separator sync wrote it with.
 		outputs := state["outputs"].([]any)
 		for i, path := range outputs {
-			if path == flat {
-				outputs[i] = old
+			if filepath.ToSlash(path.(string)) == flat {
+				outputs[i] = filepath.FromSlash(old)
 			}
 		}
 		sums := state["output_sums"].(map[string]any)
-		sums[old] = sha256Hex([]byte(legacyRule))
+		sums[filepath.FromSlash(old)] = sha256Hex([]byte(legacyRule))
 		delete(sums, flat)
+		delete(sums, filepath.FromSlash(flat))
 	})
 
 	execCLI(t, "sync")

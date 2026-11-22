@@ -7,6 +7,7 @@ import (
 )
 
 func TestDecide_PathAskRulesCoverShellCommands(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.AlwaysAsk = []string{"Read(./private/**)"}
@@ -23,6 +24,7 @@ func TestDecide_PathAskRulesCoverShellCommands(t *testing.T) {
 }
 
 func TestDecide_WholeToolAskRulesCoverShellAndSearch(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, rule := range []string{"Read", "Read(*)", "Edit", "Edit(*)", "Write"} {
 		p := testPolicy()
@@ -37,6 +39,7 @@ func TestDecide_WholeToolAskRulesCoverShellAndSearch(t *testing.T) {
 }
 
 func TestDecide_AnchoredRulesThroughALink(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	base := t.TempDir()
 	if real, err := filepath.EvalSymlinks(base); err == nil {
@@ -105,6 +108,7 @@ func TestQwenDotEnvMovesPolicy_FollowsALinkedCwd(t *testing.T) {
 }
 
 func TestDecide_RtkPrefixKeepsBashAskRules(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.AlwaysAsk = []string{"Bash(git commit*)", "Bash(go test:*)"}
@@ -114,6 +118,7 @@ func TestDecide_RtkPrefixKeepsBashAskRules(t *testing.T) {
 }
 
 func TestDecide_HomeAsProjectAsks(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.ProjectRoot = testHome
@@ -130,6 +135,7 @@ func TestDecide_HomeAsProjectAsks(t *testing.T) {
 }
 
 func TestDecide_PathAskRulesFollowLinksAndCase(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	root := t.TempDir()
 	if real, err := filepath.EvalSymlinks(root); err == nil {
@@ -154,6 +160,7 @@ func TestDecide_PathAskRulesFollowLinksAndCase(t *testing.T) {
 }
 
 func TestDecide_SecretThroughALinkAsks(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	root := t.TempDir()
 	if real, err := filepath.EvalSymlinks(root); err == nil {
@@ -179,6 +186,7 @@ func TestDecide_SecretThroughALinkAsks(t *testing.T) {
 }
 
 func TestDecide_ReadOfGitInternalsAsks(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/.git/config"}), p), RuleProtectedPath)
@@ -201,6 +209,7 @@ func TestDecide_RtkEvasionsKeepBashAskRules(t *testing.T) {
 }
 
 func TestDecide_ToolFoldersUnderHomeAsk(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for root, file := range map[string]string{
 		testHome + "/.claude":       "settings.json",
@@ -226,6 +235,7 @@ func TestDecide_ToolFoldersUnderHomeAsk(t *testing.T) {
 }
 
 func TestDecide_PathRulesThroughALinkedRoot(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	base := t.TempDir()
 	real := filepath.Join(base, "real")
@@ -247,6 +257,7 @@ func TestDecide_PathRulesThroughALinkedRoot(t *testing.T) {
 }
 
 func TestDecide_HomeRuleMatchesInAnyCase(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -279,6 +290,7 @@ func TestDecide_LinkedHomeAsProjectAsks(t *testing.T) {
 }
 
 func TestDecide_GitConfigReadsAndGlobsAsk(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	wantDecision(t, Decide(call("Read", map[string]any{"file_path": testRoot + "/.gitconfig"}), p), RuleProtectedPath)
@@ -305,6 +317,7 @@ func TestDotEnvSetsPolicy_DotenvForms(t *testing.T) {
 }
 
 func TestDecide_ToolFoldersInsideAProjectDoNotProtectIt(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, root := range []string{
 		testHome + "/Code/proj/.claude/worktrees/x", testHome + "/Code/.idea/p",
@@ -332,6 +345,7 @@ func TestDotEnvSetsPolicy_UnicodeBlanks(t *testing.T) {
 }
 
 func TestDecide_GitGlobWildcardsAsk(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	for _, glob := range []string{".gi?/config", ".git*/config", ".[g]it/config", "*.gitconfig", "**/.git/**",

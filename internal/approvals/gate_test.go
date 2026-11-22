@@ -3,6 +3,7 @@ package approvals
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -13,6 +14,14 @@ const (
 	testRoot = "/work/proj"
 	testHome = "/home/me"
 )
+
+// Without a hook route, hook approve asks before it reaches the gate.
+func skipGateOnWindows(t *testing.T) {
+	t.Helper()
+	if RouteFor("claude").Mechanism(ModeYolo, runtime.GOOS) == nil {
+		t.Skip("approvals fall back to ask on Windows")
+	}
+}
 
 func testPolicy() Policy {
 	return Policy{
@@ -47,6 +56,7 @@ func wantDecision(t *testing.T, got Decision, rule string) {
 // One approved and at least one asked case per row of the gate in
 // issue #3700, "Always-ask gate".
 func TestDecide_GateRows(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name string
@@ -591,6 +601,7 @@ func TestDecide_ShellEvasions(t *testing.T) {
 // Everyday commands a coding agent runs in yolo mode. They must pass, or
 // yolo is useless.
 func TestDecide_EverydayCommandsPass(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, command := range []string{
 		"go test ./...",
@@ -672,6 +683,7 @@ func TestDecide_EverydayCommandsPass(t *testing.T) {
 }
 
 func TestDecide_ModeAndInput(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name   string
@@ -705,6 +717,7 @@ func TestDecide_ModeAndInput(t *testing.T) {
 }
 
 func TestDecide_EditInputs(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		name string
@@ -751,6 +764,7 @@ func TestDecide_EditInputs(t *testing.T) {
 }
 
 func TestDecide_AgnosticHomeInsideProject(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.ProjectRoot = testHome + "/dotfiles"
@@ -764,6 +778,7 @@ func TestDecide_AgnosticHomeInsideProject(t *testing.T) {
 }
 
 func TestDecide_SettingsProtectedPaths(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.Protected = []spec.ProtectGroup{{Paths: []string{"migrations/**", "go.sum"}, Decision: spec.ProtectAsk}}
@@ -774,6 +789,7 @@ func TestDecide_SettingsProtectedPaths(t *testing.T) {
 }
 
 func TestDecide_AgentSpecsAsk(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, path := range []string{".agnostic-ai/agents/reviewer.md", ".agnostic-ai/local/agents/mine.md"} {
 		wantDecision(t, Decide(call("Edit", map[string]any{"file_path": testRoot + "/" + path}), testPolicy()), RuleProtectedPath)
@@ -794,6 +810,7 @@ func fakeSpecSources(sources map[string][]string) func(string) ([]string, error)
 }
 
 func TestDecide_MovedSpecFoldersAsk(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.SpecSources = fakeSpecSources(map[string][]string{
@@ -812,6 +829,7 @@ func TestDecide_MovedSpecFoldersAsk(t *testing.T) {
 }
 
 func TestDecide_SpecFoldersFromTheSessionFolder(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	calls := map[string]int{}
@@ -841,6 +859,7 @@ func TestDecide_SpecFoldersFromTheSessionFolder(t *testing.T) {
 }
 
 func TestDecide_MovedSpecFolderInShellPaths(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.SpecSources = fakeSpecSources(map[string][]string{testRoot: {testRoot + "/config/hooks"}})
@@ -855,6 +874,7 @@ func TestDecide_MovedSpecFolderInShellPaths(t *testing.T) {
 }
 
 func TestDecide_SourceOutsideItsFolderFromALinkedSession(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.SpecSources = fakeSpecSources(map[string][]string{testRoot + "/real/api": {testRoot + "/shared/hooks"}})
@@ -870,6 +890,7 @@ func TestDecide_SourceOutsideItsFolderFromALinkedSession(t *testing.T) {
 }
 
 func TestDecide_MovedSpecFolderThroughALink(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	root := t.TempDir()
 	proj := filepath.Join(root, "proj")
@@ -889,6 +910,7 @@ func TestDecide_MovedSpecFolderThroughALink(t *testing.T) {
 }
 
 func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.AlwaysAsk = []string{"Bash(make deploy*)", "Edit(/docs/**)"}
@@ -920,6 +942,7 @@ func TestDecide_AlwaysAskPatternsOnlyAdd(t *testing.T) {
 }
 
 func TestDecide_AskRulesCoverEveryEditAndReadTool(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.AlwaysAsk = []string{"Write(/src/**)", "Read(/notes/**)"}
@@ -940,6 +963,7 @@ func TestDecide_AskRulesCoverEveryEditAndReadTool(t *testing.T) {
 }
 
 func TestDecide_AskRulesMatchFromEveryRuleRoot(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	p := testPolicy()
 	p.AlwaysAsk = []string{"Edit(/src/**)", "Edit(src/gen/**)"}
@@ -952,6 +976,7 @@ func TestDecide_AskRulesMatchFromEveryRuleRoot(t *testing.T) {
 }
 
 func TestDecide_SymlinkedProjectRoot(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	base := t.TempDir()
 	real := filepath.Join(base, "real")
@@ -1054,6 +1079,7 @@ func TestParseShell_Words(t *testing.T) {
 // each of which may pipe into read-only filters. Inputs the third
 // review approved are here too.
 func TestDecide_MinimalGrammar(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		command string
@@ -1223,6 +1249,7 @@ func TestDecide_MinimalGrammar(t *testing.T) {
 }
 
 func TestDecide_GrepToolGlobs(t *testing.T) {
+	skipGateOnWindows(t)
 	t.Parallel()
 	for _, tc := range []struct {
 		glob string

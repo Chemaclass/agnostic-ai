@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -448,7 +449,11 @@ func TestConversationsHandler_OpensWithTheRouteItScanned(t *testing.T) {
 	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"opened":true,"message":"Resumed in a new Terminal window."}` {
 		t.Fatalf("open = %d %s", rec.Code, rec.Body)
 	}
-	if actual := strings.Join(launcher.calls, "; "); actual != "terminal cd '"+filepath.Join(project, "src")+"' && claude --resume "+inProject {
+	want := "terminal cd '" + filepath.Join(project, "src") + "' && claude --resume " + inProject
+	if runtime.GOOS == "windows" {
+		want = "terminal Set-Location -LiteralPath '" + filepath.Join(project, "src") + "' -ErrorAction Stop; claude --resume " + inProject
+	}
+	if actual := strings.Join(launcher.calls, "; "); actual != want {
 		t.Errorf("launcher calls = %q", actual)
 	}
 }
