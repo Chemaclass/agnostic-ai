@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 
 	"mvdan.cc/sh/v3/syntax"
@@ -148,12 +149,15 @@ func sensitiveShellTree(file *syntax.File) bool {
 			}
 		case *syntax.CallExpr:
 			nextSensitive, header := false, false
-			mysql := len(n.Args) > 0 && mysqlClient(shellWord(n.Args[0]))
+			words := make([]string, len(n.Args))
+			for i, word := range n.Args {
+				words[i] = shellWord(word)
+			}
+			if passesPasswordArg(words) {
+				hidden = true
+				break
+			}
 			for _, word := range n.Args {
-				if mysql && mysqlPasswordArg(shellWord(word)) {
-					hidden = true
-					break
-				}
 				value := shellWord(word)
 				name, inline, hasValue := strings.Cut(strings.TrimPrefix(value, "--"), "=")
 				flag := strings.HasPrefix(value, "--") && CredentialName(name)
@@ -271,4 +275,30 @@ func mysqlClient(command string) bool {
 func mysqlPasswordArg(arg string) bool {
 	value, ok := strings.CutPrefix(arg, "-p")
 	return ok && value != "" && !PureReference(value)
+}
+
+// passesPasswordArg reports whether a command's words, its name first,
+// pass a literal password to -p: glued to it for a MySQL client, glued
+// or as the next word for sshpass. Other tools read -p as a port.
+func passesPasswordArg(args []string) bool {
+	if len(args) == 0 {
+		return false
+	}
+	if mysqlClient(args[0]) {
+		return slices.ContainsFunc(args[1:], mysqlPasswordArg)
+	}
+	if filepath.Base(args[0]) != "sshpass" {
+		return false
+	}
+	for i := 1; i < len(args) && strings.HasPrefix(args[i], "-"); i++ {
+		switch {
+		case args[i] == "-p":
+			return i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") && !PureReference(args[i+1])
+		case mysqlPasswordArg(args[i]):
+			return true
+		case args[i] == "-f" || args[i] == "-d" || args[i] == "-P":
+			i++
+		}
+	}
+	return false
 }

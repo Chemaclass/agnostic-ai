@@ -274,7 +274,22 @@ func TestShowCommand_WithholdsOrMasksCredentialsAndKeepsLongCommands(t *testing.
 		{"plain long command", plain, plain},
 		{"cut at the limit", strings.Repeat("ls ", 1000), strings.TrimSpace(strings.Repeat("ls ", 1000)[:shellCommandRunes-1]) + "…"},
 		{"several lines", "make\n  test", "make test"},
-		{"known miss: a password after -p", "mysql -u root -p hunter2pass", "mysql -u root -p hunter2pass"},
+		{"mysql password after -p", "mysql -u root -p hunter2pass", "mysql -u root -p " + preview.Redacted},
+		{"mysql password glued to -p", "mysql -u root -phunter2pass app", "mysql -u root -p" + preview.Redacted + " app"},
+		{"mysql --password=", "mysql --password=hunter2pass app", "mysql --password=" + preview.Redacted + " app"},
+		{"mariadb --password", "mariadb --password hunter2pass app", "mariadb --password " + preview.Redacted + " app"},
+		{"sshpass -p", "sshpass -p hunter2pass ssh -p 2222 host", "sshpass -p " + preview.Redacted + " ssh -p 2222 host"},
+		{"PGPASSWORD", "PGPASSWORD=hunter2pass psql -h db", "PGPASSWORD=" + preview.Redacted + " psql -h db"},
+		{"MYSQL_PWD", "MYSQL_PWD='hunter2 pass' mysql -u root", "MYSQL_PWD='" + preview.Redacted + "' mysql -u root"},
+		{"curl -u", "curl -u alice:hunter2pass https://api.example.com/v1", "curl -u alice:" + preview.Redacted + " https://api.example.com/v1"},
+		{"curl --user", "curl --user=alice:hunter2pass https://api.example.com/v1", "curl --user=alice:" + preview.Redacted + " https://api.example.com/v1"},
+		{"masked flag with a token elsewhere", "PGPASSWORD=hunter2pass psql -c 'select 1' ghp_abcdefghijklmnop1234", ""},
+		{"ssh port", "ssh -p 2222 host", "ssh -p 2222 host"},
+		{"docker port", "docker run -p 8080:80 nginx", "docker run -p 8080:80 nginx"},
+		{"npm port", "npm run dev -- -p 3000", "npm run dev -- -p 3000"},
+		{"mysql prompts for the password", "mysql -u root -p", "mysql -u root -p"},
+		{"mysql password from a variable", "mysql -u root -p$DB_PASS app", "mysql -u root -p$DB_PASS app"},
+		{"curl asks for the password", "curl -u alice https://api.example.com/v1", "curl -u alice https://api.example.com/v1"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

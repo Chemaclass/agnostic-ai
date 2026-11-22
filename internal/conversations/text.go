@@ -360,12 +360,12 @@ func showTextsOf(t texts, readLinks bool) shownTexts {
 	return shown
 }
 
-// showCommand is the text a stuck shell's command shows: none when it
-// may hold a credential or reads as a secret, else the command on one
-// line with any credential in a URL masked.
+// showCommand is the text a stuck shell's command shows: the command on
+// one line with a password passed as a known flag or variable, or in a
+// URL, masked, and none when the rest may hold a credential.
 func showCommand(command string) string {
-	line := oneLine(command)
-	if line == "" || mayHoldCredential(line) {
+	line, rest := preview.MaskCommandPasswords(oneLine(command))
+	if line == "" || mayHoldCredential(rest) {
 		return ""
 	}
 	line = preview.RedactText(line)
