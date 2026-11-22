@@ -6,63 +6,62 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.97.0 - 2026-11-23
+
 ### Highlights
 
-- **Breaking:** layer names in `list`, `status`, `explain --layers`, the web interface and adapter input changed, and `--global` is now `--scope user` (#3856).
-- Send questions, reviews and file handoffs between local Claude Code and Codex sessions from the companion or from the agents themselves (#3832, #3836).
+- **Breaking:** layer names changed and scripts can no longer send text to chats through the local server (#3856, #3930).
+- Send questions, reviews and file handoffs between Claude Code and Codex sessions from the companion or from the agents themselves (#3832, #3836).
 - Approve or deny a Claude Code or Codex permission request from its companion row (#3906, #3908, #3909, #3911).
-- Companion updates check the signer, show progress, and restore the earlier app when the new one fails to start (#3850, #3888).
-- The companion opens and resumes chats on Windows and Linux, and switches to the exact tab in iTerm2, WezTerm, kitty, tmux and Konsole (#3221, #3222, #3843).
+- Companion updates verify the signer, show progress and try to restore the earlier app if the new one fails to start (#3850, #3888).
+- Open or resume chats on Windows and Linux, and switch to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843).
 
 ### General
 
-- **Breaking:** layer names changed: `project-user` is `local`, `global` is `user`, `global-local` is `user-local`. Update scripts that match them (#3856).
-- **Deprecated:** `--global` is now `--scope user`, `new rule --scope <dir>` is `--dir`, and `doctor --scope` is `--checks`. The old spellings warn (#3856).
-- The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you. Only the companion can approve them or act as you (#3832-#3837, #3872, #3891, #3898, #3915).
-- The companion and the CLI must match: a new companion refuses an older CLI, also for **Dashboard**, and an older companion with a newer CLI says to run `agnostic-ai companion install` (#3938, #3939).
-- Typing into a chat or resuming one in a terminal through the local server needs the companion or a tab `view` opened. Scripts that sent through the API stop working; an open without proof returns the command to run (#3930).
-- Companion updates check the signer, show each step, keep the earlier app until the new one starts, and keep Accessibility access (#3601, #3850, #3874, #3888). On macOS, grant Accessibility once more after this first update.
-- The companion opens chats on Windows and Linux and switches to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
-- Each companion row under Needs you says why, stuck shells say how many still run and which subagent left each, with passwords masked, and the approvals mode is a small chip (#3912, #3917, #3921, #3923).
-- Click a chat's name in the companion to rename it. The Rename button is gone, so row text uses the full width, and the other buttons show over the title only on hover (#3924).
-- The companion's ⋯ menu and a new **Settings > Approvals and companion** tab in `view --scope user` set the approvals mode and the Approve button. **Apply to my tools** lists the files and every hook or MCP command before it syncs. Only the companion, its **Dashboard** or a tab `view` opened can loosen approvals (#3913, #3916, #3922, #3935).
-- The web settings tab also sets the companion's Animate, Dim when idle, Small companion and Check for updates switches; a running companion applies them within 5 seconds (#3913, #3934).
-- File claims show only while one exists, as a chip on the chat that holds them, with a "?" to the docs. Gone sessions' claims release in one step, and a path two sessions want puts both under Needs you until it is released or dismissed (#3914, #3919, #3920).
-- The companion settings menu scrolls within the list in short windows (#3942).
-- The local server requires the companion or an unlocked web tab to delete archived chats, stop sessions or shells, or rename cloud chats (#3938, #3941).
-- If the local server cannot tell whether a session still runs, it shows a manual resume command (#3938, #3941).
-- Settings saves share a lock and preserve config edits made after the file was read (#3938, #3940).
-- **Apply to my tools** shows hook and MCP commands, arguments, folders, and URLs for each tool, with credentials masked (#3938, #3940).
+- **Breaking:** `project-user` is now `local`, `global` is `user` and `global-local` is `user-local`. Update scripts that read layer names (#3856).
+- **Breaking:** chat send, terminal resume, delete, stop and cloud rename need the companion or an unlocked tab opened by `view` (#3930, #3938, #3941).
+- **Deprecated:** use `--scope user` for `--global`, `new rule --dir` for folder scopes and `doctor --checks` for `doctor --scope` (#3856).
+- Send, review and hand off files between sessions, with messages from agents held for you to approve (#3832-#3837, #3872, #3891, #3898, #3915).
+- **Apply to my tools** previews the effective hook and MCP commands with credentials masked, and settings saves protect other edits (#3938, #3940).
 
 ### By tool
 
+#### Companion
+
+- Updates verify the signer and can restore the earlier app, and the companion requires a matching CLI (#3601, #3850, #3874, #3888, #3938, #3939).
+- Open and resume chats on Windows and Linux and bring supported terminal tabs to the front (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
+- Set approvals and companion options in the list menu or the web dashboard, and scroll the menu in short windows (#3913, #3916, #3922, #3934, #3935, #3942).
+- Both chats in a file claim conflict show under Needs you, and you can release claims for sessions that have gone (#3914, #3919, #3920).
+- Rename a chat by clicking its title and see why a row needs you, with known passwords masked in shell commands (#3912, #3917, #3921, #3923, #3924).
+
 #### Claude Code
 
-- With `approvals.companion: true`, the companion shows a request and its folder with **Approve** and **Deny**. The hook timeout is now 310 seconds (#3906, #3908, #3911).
-- The companion lists agent team teammates as subagents in a tree, and a click on one in tmux brings its pane forward (#3905, #3907, #3911).
-- An `x-<target>` block on a hook spec now sets `timeout` and `statusMessage` for that target. A spec with such a block gets them on the next `sync` (#3906, #3909).
+- With `approvals.companion: true`, answer permission requests from the companion row with **Approve** or **Deny** (#3906, #3908, #3911).
+- The companion lists agent teammates with subagents and can switch to their tmux panes (#3905, #3907, #3911).
+- Set a hook's `timeout` and `statusMessage` in `x-claude` and sync to apply them (#3906, #3909).
 
 #### Codex
 
-- With `approvals.companion: true`, the companion shows a Codex request with **Approve**, **Deny** and **Answer in terminal**, for up to 60 seconds (#3909, #3911).
-- After `sync --scope user`, Codex asks once to review the changed approvals hook. Trust it again in `/hooks` to keep hook approvals (#3909).
+- With `approvals.companion: true`, answer a request from its row within 60 seconds or choose **Answer in terminal** (#3909, #3911).
+- Trust the changed approvals hook once in Codex's `/hooks` after `sync --scope user` to keep hook approvals (#3909).
+- Set a hook's `timeout` and `statusMessage` in `x-codex` and sync to apply them (#3906, #3909).
 
 #### Kiro
 
-- With approvals in `review`, `sync --scope user` adds the `approve-for-me` preset to `~/.kiro/settings/permissions.yaml` and keeps your rules (#3809).
+- With approvals in `review`, `sync --scope user` adds the `approve-for-me` preset and keeps your permission rules (#3809).
 
 #### Qwen Code
 
-- With `yolo`, `approvals status` accepts the `auto-edit` value of `tools.approvalMode` and the other spellings Qwen Code reads (#3861).
+- With `yolo`, `approvals status` recognizes `auto-edit` and other spellings Qwen Code reads in `tools.approvalMode` (#3861).
 
 #### Pi
 
-- `approvals status` says Pi has no local permission prompt, instead of saying its hooks can only block or observe (#3862).
+- `approvals status` reports that Pi has no local permission prompt (#3862).
 
 ### Site
 
-- The companion docs say where a companion started from Finder looks for Homebrew and npm, and what ran for updates (#3850).
-- New [Scopes](https://agnostic-ai.org/docs/scopes/) page: project, local and user in one table, which wins, and what each command takes (#3856).
+- The companion docs explain where an app opened from Finder looks for Homebrew and npm (#3850).
+- The new [Scopes](https://agnostic-ai.org/docs/scopes/) page explains project, local and user settings, and which one wins (#3856).
 
 ## v0.96.0 - 2026-11-20
 
