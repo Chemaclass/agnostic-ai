@@ -108,8 +108,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   A cloud chat gives you its cloud ID. Use the tool that owns the chat to
   decide how to open it. Copying keeps the chat state and marks.
 - Choose **Message another session…** on a local Claude Code or Codex chat to start
-  a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). The thread appears under both chats.
-  Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
+  a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). Pick a receiver and send the default **Handoff** to hand a session over.
+  The thread appears under both chats. Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
   A message an agent sends shows as **Held for you** until you choose **Approve** or **Reject**.
   **Queue for delivery** hands a staged message back to the
   [mailbox built-in](https://agnostic-ai.org/docs/mailbox/#deliver-with-the-next-prompt),

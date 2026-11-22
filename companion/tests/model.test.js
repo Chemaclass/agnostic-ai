@@ -4,7 +4,7 @@ import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
-import { arrivalOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
+import { arrivalOf, handoffSentOf, messageLabelOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
 
 import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
@@ -1226,9 +1226,30 @@ test('the type help line names the receiver, or the other session without one', 
     'Ask Draft the tests something. Its reply comes back to this thread.',
     'Tell Draft the tests what you found. It can reply or close the thread.',
     "Ask Draft the tests to review the changes in this chat's worktree.",
-    'Offer Draft the tests the files you claimed, so it can take them over.',
+    "Hand this session's task to Draft the tests. It gets the worktree, branch and handoff note, and resumes when you say so.",
   ])
   assert.equal(typeHelpOf('question', undefined), 'Ask the other session something. Its reply comes back to this thread.')
+})
+
+test('handoff receipts name the note or say how to ask for one', () => {
+  assert.equal(
+    handoffSentOf({ resume: { note: 'C:\\repo\\.agnostic-ai\\local\\handoffs\\feat-mailbox.md' } }, 'Draft the tests', 'Review the parser'),
+    'Handoff waiting for Draft the tests, with the note feat-mailbox.md.',
+  )
+  assert.equal(
+    handoffSentOf({ resume: { branch: 'feat/mailbox' } }, 'Draft the tests', 'Review the parser'),
+    'Handoff waiting for Draft the tests. Review the parser has no handoff note for feat/mailbox yet. Ask it to "write a handoff".',
+  )
+  assert.equal(
+    handoffSentOf({ resume: {} }),
+    'Handoff waiting for the other session. The sender has no handoff note for its detached HEAD yet. Ask it to "write a handoff".',
+  )
+})
+
+test('only a handoff labels its message as an optional note', () => {
+  assert.equal(messageLabelOf('handoff'), 'Note (optional)')
+  assert.equal(messageLabelOf('question'), 'Message')
+  assert.equal(messageLabelOf('finding'), 'Message')
 })
 
 test('the arrival line follows the receiver group and is empty without a receiver', () => {

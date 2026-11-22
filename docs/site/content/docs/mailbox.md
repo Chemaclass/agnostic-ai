@@ -45,7 +45,11 @@ Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path i
 
 ## Hand a session over {#hand-a-session-over}
 
-From a Claude Code or Codex session in a Git worktree, run [`agnostic-ai mailbox send`](@/docs/cli-reference/mailbox.md#mailbox-send) with the receiver and `"type": "handoff"`. You can write a [handoff note](@/docs/handoff.md) before or after sending.
+1. Right-click a local Claude Code or Codex chat in a Git worktree and choose **Message another session…**.
+2. Pick the receiver. A new thread starts on **Handoff**.
+3. Choose **Send to** and the receiver's name. The note and claimed files are optional.
+
+From a session, you can also run [`agnostic-ai mailbox send`](@/docs/cli-reference/mailbox.md#mailbox-send) with the receiver and `"type": "handoff"`. You can write a [handoff note](@/docs/handoff.md) before or after sending.
 
 The request includes the source worktree, branch, commit and any saved note. It arrives on the recipient's next prompt. The recipient tells you it arrived and waits for you to ask it to resume. On resume it finds the newest note in the source project, including one saved after you sent the request.
 
@@ -54,7 +58,7 @@ The request includes the source worktree, branch, commit and any saved note. It 
 A file claim notes which session works on which paths of a Git worktree. It does not block edits: any session can still change a claimed file. Claims help two sessions avoid working on the same file, and a handoff moves them from one session to another.
 
 1. Choose **Claim files…** on the source chat and enter paths relative to its Git worktree. A directory claims its contents. Use `.` to claim the whole worktree.
-2. Open **Message another session…** and choose **Handoff**. Enter the paths to give and a short message pointing to your [handoff note](@/docs/handoff.md).
+2. Open **Message another session…** and choose **Handoff**. Open **Also give claimed files (optional)** and enter the paths. Leave it open when you send. Add a note if the receiver needs more context.
 3. Open the thread from the receiving chat and choose **Accept**. The files move to its claim when the offer is accepted. **Decline** leaves ownership with the sender.
 
 If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends.

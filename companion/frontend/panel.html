@@ -48,9 +48,9 @@
         <p class="mailbox-muted" id="mailbox-target-status" role="status"></p>
         <p class="mailbox-muted"><button class="mailbox-link" id="mailbox-use-list" type="button">Choose from the list</button></p>
       </div>
-      <label>Type <select id="mailbox-type" aria-describedby="mailbox-type-help"><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option><option value="handoff">Handoff</option></select></label>
+      <label>Type <select id="mailbox-type" aria-describedby="mailbox-type-help"><option value="handoff">Handoff</option><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option></select></label>
       <p class="mailbox-muted" id="mailbox-type-help"></p>
-      <label id="mailbox-body-field">Message <textarea id="mailbox-body" rows="2"></textarea></label>
+      <label id="mailbox-body-field"><span id="mailbox-body-label">Message</span><textarea id="mailbox-body" rows="2"></textarea></label>
       <div class="mailbox-review" id="mailbox-review" hidden>
         <label>Base branch or commit <input id="mailbox-review-base" autocomplete="off" spellcheck="false" aria-describedby="mailbox-review-status"></label>
         <p id="mailbox-review-status" class="mailbox-muted" role="status"></p>
@@ -61,14 +61,17 @@
         </div>
         <p id="mailbox-review-comparison" class="mailbox-muted" role="status"></p>
       </div>
-      <div class="mailbox-path-fields" id="mailbox-handoff" hidden>
-        <label>Worktree <input id="mailbox-handoff-worktree" autocomplete="off" spellcheck="false" aria-describedby="mailbox-handoff-status"></label>
-        <p class="mailbox-muted" id="mailbox-handoff-status" role="status"></p>
-        <label>Paths, one per line <textarea id="mailbox-handoff-paths" rows="2" spellcheck="false" aria-describedby="mailbox-handoff-help mailbox-handoff-hint"></textarea></label>
-        <p class="mailbox-muted claim-help"><span id="mailbox-handoff-help" data-claim-help></span> <button class="help-link" type="button" data-help="file-claims"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.5 1.6c-.5.3-.8.6-.8 1.2v.4M8 11.3v.1" fill="none" stroke="currentColor" stroke-linecap="round"/></svg></button></p>
-        <p class="mailbox-muted" id="mailbox-handoff-hint">Use paths relative to the Git worktree root. Use <code>.</code> for the whole worktree.</p>
-        <button class="confirm-cancel" id="mailbox-claim-offer" type="button">Claim these paths</button>
-      </div>
+      <details id="mailbox-handoff" hidden>
+        <summary>Also give claimed files (optional)</summary>
+        <div class="mailbox-path-fields">
+          <label>Worktree <input id="mailbox-handoff-worktree" autocomplete="off" spellcheck="false" aria-describedby="mailbox-handoff-status"></label>
+          <p class="mailbox-muted" id="mailbox-handoff-status" role="status"></p>
+          <label>Paths, one per line <textarea id="mailbox-handoff-paths" rows="2" spellcheck="false" aria-describedby="mailbox-handoff-help mailbox-handoff-hint"></textarea></label>
+          <p class="mailbox-muted claim-help"><span id="mailbox-handoff-help" data-claim-help></span> <button class="help-link" type="button" data-help="file-claims"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.5 1.6c-.5.3-.8.6-.8 1.2v.4M8 11.3v.1" fill="none" stroke="currentColor" stroke-linecap="round"/></svg></button></p>
+          <p class="mailbox-muted" id="mailbox-handoff-hint">Use paths relative to the Git worktree root. Use <code>.</code> for the whole worktree.</p>
+          <button class="confirm-cancel" id="mailbox-claim-offer" type="button">Claim these paths</button>
+        </div>
+      </details>
       <p class="mailbox-muted" id="mailbox-arrival" hidden></p>
       <div class="mailbox-actions">
         <button class="confirm-cancel" id="mailbox-cancel" type="button">Cancel</button>

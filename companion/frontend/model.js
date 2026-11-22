@@ -742,12 +742,28 @@ const TYPE_HELP = {
   question: (name) => `Ask ${name} something. Its reply comes back to this thread.`,
   finding: (name) => `Tell ${name} what you found. It can reply or close the thread.`,
   review_request: (name) => `Ask ${name} to review the changes in this chat's worktree.`,
-  handoff: (name) => `Offer ${name} the files you claimed, so it can take them over.`,
+  handoff: (name) => `Hand this session's task to ${name}. It gets the worktree, branch and handoff note, and resumes when you say so.`,
 }
 
 /** The line under Type: what a message of that type asks of the receiver. */
 export function typeHelpOf(type, name) {
   return TYPE_HELP[type]?.(name || 'the other session') ?? ''
+}
+
+export function handoffSentOf(receipt, receiverName, senderName) {
+  const waiting = `Handoff waiting for ${receiverName || 'the other session'}`
+  const resume = receipt?.resume
+  if (resume?.note) {
+    const file = resume.note.split(/[/\\]/).at(-1)
+    return `${waiting}, with the note ${file}.`
+  }
+  if (!resume) return `${waiting}.`
+  const branch = resume.branch || 'its detached HEAD'
+  return `${waiting}. ${senderName || 'The sender'} has no handoff note for ${branch} yet. Ask it to "write a handoff".`
+}
+
+export function messageLabelOf(type) {
+  return type === 'handoff' ? 'Note (optional)' : 'Message'
 }
 
 const ARRIVAL = {

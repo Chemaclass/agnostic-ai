@@ -102,7 +102,7 @@ Right-click a chat and choose **Copy session ID**. The clipboard gets the exact 
 
 ## Message another session {#message-another-session}
 
-Right-click a local Claude Code or Codex chat and choose **Message another session…**. Pick the receiver under **To**, click its row, or enter its session ID. The [mailbox](@/docs/mailbox.md) shows the thread under both chats and gives you controls to pause, close or stop it.
+Right-click a local Claude Code or Codex chat and choose **Message another session…**. New threads start on **Handoff** and replies start on **Question**. See [the mailbox guide](@/docs/mailbox.md#hand-a-session-over).
 
 [Claim files…](@/docs/mailbox.md#hand-off-files) notes which files a session works on. It does not block edits.
 
