@@ -449,6 +449,26 @@ export const FIXTURES = {
       ]
     },
   },
+  'subagent-tree': {
+    label: 'Teammates and subagents as a tree: a pane teammate, a teammate with three levels under it, and a lost parent',
+    conversations: (now) => {
+      const helper = (id, title, minutesAgo, extra = {}) => ({ tool: 'claude', id, title, state: 'working', updatedAt: new Date(now - minutesAgo * MINUTE).toISOString(), ...extra })
+      return [
+        {
+          ...conversation(now, 'claude', 'tree-1', 'Ship the subagent tree', 'working', { minutesAgo: 0 }),
+          workingSubagents: 6,
+          helpers: [
+            helper('echo@session-tree', 'echo', 1, { kind: 'general-purpose', reach: 'pane' }),
+            helper('areviewer-1', 'Review the diff', 2, { kind: 'reviewer', reach: 'rows' }),
+            helper('agrep-1', 'Find call sites', 3, { kind: 'Explore', parentId: 'areviewer-1', reach: 'nested', parentName: 'reviewer' }),
+            helper('aread-1', 'Read the open path', 4, { kind: 'Explore', parentId: 'agrep-1', reach: 'nested', parentName: 'Find call sites' }),
+            helper('acheck-1', 'Check one file', 5, { parentId: 'aread-1', reach: 'nested', parentName: 'Read the open path' }),
+            helper('alost-1', 'Started by a finished subagent', 6, { parentId: 'agone', reach: 'nested', parentName: 'gone' }),
+          ],
+        },
+      ]
+    },
+  },
   'needs-you-mark-failure': {
     label: 'Mark all as read failure',
     conversations: needsYou,

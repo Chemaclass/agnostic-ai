@@ -553,24 +553,24 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 }
 
 // ReopenHelper reopens the chat a Claude Code subagent runs in, as
-// Reopen does, and names that subagent in the reply. A subagent the
-// chat does not list opens nothing. An empty subagent is Reopen. Opens
-// of one chat share one open, whichever subagents they name.
+// Reopen does, and names that subagent in the reply. A subagent with a
+// terminal pane of its own, or inside one with a pane, gets that pane
+// instead. A subagent the chat no longer lists has finished: its chat
+// still opens. An empty subagent is Reopen. Opens of one chat share one
+// open, whichever subagents they name; the first one's subagent picks
+// whether a pane comes to the front.
 func (s *Scanner) ReopenHelper(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
 	key := markKey(tool, id)
 	s.openingMu.Lock()
 	if running, ok := s.opening[key]; ok {
 		s.openingMu.Unlock()
 		<-running.done
-		if !running.outcome.ran {
-			return s.ReopenHelper(ctx, tool, id, subagent, opts, launcher)
-		}
 		return running.outcome.replyFor(subagent)
 	}
 	if s.opening == nil {
 		s.opening = map[string]*sharedOpen{}
 	}
-	this := &sharedOpen{done: make(chan struct{}), outcome: openOutcome{reply: OpenReply{Message: "The conversation could not be opened. Try again."}, found: true, ran: true}}
+	this := &sharedOpen{done: make(chan struct{}), outcome: openOutcome{reply: OpenReply{Message: "The conversation could not be opened. Try again."}, found: true}}
 	s.opening[key] = this
 	s.openingMu.Unlock()
 	defer func() {
@@ -595,11 +595,14 @@ type sharedOpen struct {
 type openOutcome struct {
 	reply OpenReply
 	found bool
-	// ran is false when the open stopped at a subagent the chat does not
-	// list, before anything opened.
-	ran bool
 	// chat is the conversation the open found.
 	chat Conversation
+	// pane is the helper whose own pane came to the front, instead of
+	// the chat; empty when the chat did.
+	pane string
+	// attach is the command that shows the pane of helper attachFor,
+	// which no terminal shows.
+	attach, attachFor string
 	// unmarked is why the opened chat could not be marked seen.
 	unmarked string
 }
@@ -611,11 +614,33 @@ func (o openOutcome) replyFor(subagent string) (OpenReply, bool) {
 	reply := o.reply
 	if subagent != "" {
 		picked, listed := subagentIn(o.chat.Helpers, subagent)
-		if !listed {
-			return OpenReply{Message: subagentGone}, true
+		// A joined open may have shown another helper's pane: only the
+		// open's own target counts for this one.
+		target, _ := paneTarget(o.chat.Helpers, subagent)
+		pane, attach := "", ""
+		if target.ID != "" && target.ID == o.pane {
+			pane = o.pane
 		}
-		if reply.Opened {
-			reply = subagentReply(reply, o.chat, picked)
+		if target.ID != "" && target.ID == o.attachFor {
+			attach = o.attach
+		}
+		switch {
+		case reply.Opened && o.pane != "" && pane == "":
+			// Another helper's pane is in front, not the chat.
+			reply.Reached = reachedParent
+			if listed {
+				reply.Helper = &picked
+				if name := picked.shownName(); name != "" {
+					reply.Message += fmt.Sprintf(" Its subagent is '%s'.", name)
+				}
+			} else {
+				reply.Message += " That subagent has finished."
+			}
+		case !listed && reply.Opened:
+			reply.Message += " " + subagentFinished
+			reply.Reached = reachedParent
+		case listed && reply.Opened:
+			reply = subagentReply(reply, o.chat, picked, pane, attach)
 		}
 	}
 	if o.unmarked != "" {
@@ -627,14 +652,25 @@ func (o openOutcome) replyFor(subagent string) (OpenReply, bool) {
 func (s *Scanner) reopen(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) openOutcome {
 	conversation, found := s.findToOpen(ctx, tool, id, opts)
 	if !found {
-		return openOutcome{ran: true}
+		return openOutcome{}
 	}
 	out := openOutcome{found: true, chat: conversation}
-	if _, listed := subagentIn(conversation.Helpers, subagent); subagent != "" && !listed {
-		return out
+	if pane, ok := paneTarget(conversation.Helpers, subagent); ok {
+		opening := openTeammatePane(ctx, conversation, pane.member, s.Processes, launcher)
+		if opening.shown {
+			out.reply, out.pane = opening.reply, pane.ID
+		}
+		if opening.attach != "" {
+			out.attach, out.attachFor = opening.attach, pane.ID
+		}
 	}
-	out.ran = true
-	out.reply = Open(ctx, conversation, s.Processes, launcher)
+	if out.pane == "" {
+		out.reply = Open(ctx, conversation, s.Processes, launcher)
+	}
+	if conversation.subagent != "" && conversation.Open.Kind == RouteFocus && out.reply.Opened {
+		out.reply.Message += fmt.Sprintf(" Type /subagents to switch to '%s'.", conversation.subagent)
+		out.reply.Reached = reachedParent
+	}
 	if !out.reply.Opened || s.MarksPath == "" {
 		return out
 	}

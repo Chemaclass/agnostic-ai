@@ -991,10 +991,50 @@ export function workingHelpersOf(conversation) {
   return (conversation.helpers ?? []).filter((helper) => helper.state === 'working')
 }
 
-/** The toggle on the line under a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded. It counts working subagents only. */
+/**
+ * The toggle on the line under a chat's meta line: "▸ 3 subagents", "▾ 1 subagent" while unfolded, and
+ * "▸ 4 subagents, 2 levels" when some run inside others. It counts working subagents only.
+ */
 export function helpersToggleOf(conversation, open) {
-  const count = workingHelpersOf(conversation).length
+  const { total, depth } = helperTreeOf(conversation)
+  const levels = depth > 1 ? `, ${depth} levels` : ''
+  return `${open ? '▾' : '▸'} ${total} subagent${total === 1 ? '' : 's'}${levels}`
+}
+
+/** The toggle under a subagent that started others: "▾ 2 subagents" while they show, counting every level under it. */
+export function subtreeToggleOf(node, open) {
+  const countOf = (n) => n.children.reduce((sum, child) => sum + 1 + countOf(child), 0)
+  const count = countOf(node)
   return `${open ? '▾' : '▸'} ${count} subagent${count === 1 ? '' : 's'}`
+}
+
+/**
+ * A chat's working subagents as a tree: each under the subagent that started it, newest first on each level.
+ * One whose parent is not listed, or whose parents lead back to it, sits at the top. No depth limit.
+ * Returns the top nodes, each `{ helper, children }`, the total, and how many levels deep the tree goes.
+ */
+export function helperTreeOf(conversation) {
+  const working = workingHelpersOf(conversation).sort(byAge)
+  const byId = new Map(working.map((helper) => [helper.id, helper]))
+  /** The parent a helper hangs under, or undefined for the top: one in a cycle of parents sits at the top. */
+  const parentOf = (helper) => {
+    const parent = byId.get(helper.parentId)
+    const seen = new Set()
+    for (let up = parent; up && !seen.has(up.id); up = byId.get(up.parentId)) {
+      if (up === helper) return undefined
+      seen.add(up.id)
+    }
+    return parent
+  }
+  const nodes = new Map(working.map((helper) => [helper.id, { helper, children: [] }]))
+  const roots = []
+  for (const helper of working) {
+    const parent = parentOf(helper)
+    if (parent) nodes.get(parent.id).children.push(nodes.get(helper.id))
+    else roots.push(nodes.get(helper.id))
+  }
+  const depthOf = (node) => 1 + Math.max(0, ...node.children.map(depthOf))
+  return { roots, total: working.length, depth: Math.max(0, ...roots.map(depthOf)) }
 }
 
 /** Newest first. */
@@ -1003,13 +1043,14 @@ function byAge(a, b) {
 }
 
 /**
- * The working subagents a chat shows unfolded, newest first, and how many more a "+N more" button hides:
- * HELPERS_SHOWN at most, or every one once the person asked for all.
+ * The top working subagents a chat shows unfolded, newest first, each with the subagents under it, and how many
+ * more top ones a "+N more" button hides: HELPERS_SHOWN at most, or every one once the person asked for all.
+ * Each row is `{ helper, children }`, as helperTreeOf gives.
  */
 export function helperRowsOf(conversation, showAll) {
-  const ordered = workingHelpersOf(conversation).sort(byAge)
-  if (showAll || ordered.length <= HELPERS_SHOWN) return { rows: ordered, more: 0 }
-  return { rows: ordered.slice(0, HELPERS_SHOWN), more: ordered.length - HELPERS_SHOWN }
+  const { roots } = helperTreeOf(conversation)
+  if (showAll || roots.length <= HELPERS_SHOWN) return { rows: roots, more: 0 }
+  return { rows: roots.slice(0, HELPERS_SHOWN), more: roots.length - HELPERS_SHOWN }
 }
 
 /** A subagent's title; one whose tool gave none, or whose title may hold a credential, gets a neutral label. */
@@ -1039,16 +1080,21 @@ export function helperOpenOf(parent, helper) {
   return { tool: parent.tool, id: parent.id, ...(parent.title ? { title: parent.title } : {}), helper: helper.id }
 }
 
+/** What a click on a subagent row does, by how it is reached. */
 export function helperTooltipOf(helper) {
-  return helper.tool === 'codex' ? 'Open this Codex thread' : 'Open the chat it runs in, and show how to reach this subagent'
+  if (helper.tool === 'codex') return 'Open this Codex thread'
+  if (helper.reach === 'pane') return 'Switch to its pane'
+  return 'Open the chat it runs in, and show how to reach this subagent'
 }
 
 /**
- * The notice an opened Claude Code subagent leaves: which one it was and how to reach it; undefined for any other
- * open. It is a `hint`: any failure that comes after it takes its place.
+ * The notice an open of a subagent leaves when its own view did not come to the front: which one it was and how
+ * to reach it, or that it finished; undefined for any other open. A server older than `reached` names the helper
+ * only, which reads as the chat it runs in. It is a `hint`: any failure that comes after it takes its place.
  */
 export function subagentNoticeOf(reply) {
-  return reply.opened && reply.helper ? { message: reply.message, hint: true } : undefined
+  if (!reply.opened || reply.reached === 'subagent') return undefined
+  return reply.reached === 'parent' || reply.helper ? { message: reply.message, hint: true } : undefined
 }
 
 /** Whether a late open failure may take the notice's place: none shows, or only a hint does. */

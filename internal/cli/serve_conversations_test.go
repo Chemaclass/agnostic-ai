@@ -458,6 +458,19 @@ func TestConversationsHandler_OpensWithTheRouteItScanned(t *testing.T) {
 	}
 }
 
+func TestConversationsHandler_OpensTheChatOfASubagentThatFinished(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+
+	rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`","helper":"explore"}`, nil)
+
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"opened":true,"message":"Resumed in a new Terminal window. That subagent has finished. Its chat is open.","reached":"parent"}` {
+		t.Fatalf("open = %d %s", rec.Code, rec.Body)
+	}
+	if len(launcher.calls) != 1 {
+		t.Errorf("the chat opens once, actual %v", launcher.calls)
+	}
+}
+
 func TestConversationsHandler_RefusesWhatItDidNotList(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
 	for name, tc := range map[string]struct {
@@ -465,13 +478,12 @@ func TestConversationsHandler_RefusesWhatItDidNotList(t *testing.T) {
 		status            int
 		reply             string
 	}{
-		"outside the project":             {`{"tool":"claude","id":"` + elsewhere + `"}`, "application/json", http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
-		"unknown tool":                    {`{"tool":"gemini","id":"` + inProject + `"}`, "application/json", http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
-		"a command field":                 {`{"tool":"claude","id":"` + inProject + `","command":"rm -rf ~"}`, "application/json", http.StatusBadRequest, `{"error":"send {tool, id, editor, helper}"}`},
-		"a helper that is no agent id":    {`{"tool":"claude","id":"` + inProject + `","helper":"../x"}`, "application/json", http.StatusBadRequest, `{"error":"helper must be an agent id"}`},
-		"a helper the chat does not list": {`{"tool":"claude","id":"` + inProject + `","helper":"explore"}`, "application/json", http.StatusOK, `{"opened":false,"message":"That subagent no longer works in this chat, so nothing was opened. Refresh the list."}`},
-		"two objects":                     {`{"tool":"claude","id":"x"}{}`, "application/json", http.StatusBadRequest, `{"error":"send one JSON object"}`},
-		"form post":                       {`tool=claude`, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType, `{"error":"send Content-Type: application/json"}`},
+		"outside the project":          {`{"tool":"claude","id":"` + elsewhere + `"}`, "application/json", http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
+		"unknown tool":                 {`{"tool":"gemini","id":"` + inProject + `"}`, "application/json", http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
+		"a command field":              {`{"tool":"claude","id":"` + inProject + `","command":"rm -rf ~"}`, "application/json", http.StatusBadRequest, `{"error":"send {tool, id, editor, helper}"}`},
+		"a helper that is no agent id": {`{"tool":"claude","id":"` + inProject + `","helper":"../x"}`, "application/json", http.StatusBadRequest, `{"error":"helper must be an agent id"}`},
+		"two objects":                  {`{"tool":"claude","id":"x"}{}`, "application/json", http.StatusBadRequest, `{"error":"send one JSON object"}`},
+		"form post":                    {`tool=claude`, "application/x-www-form-urlencoded", http.StatusUnsupportedMediaType, `{"error":"send Content-Type: application/json"}`},
 	} {
 		t.Run(name, func(t *testing.T) {
 			rec := postEdit(t, h, conversationOpenPath, tc.body, func(r *http.Request) { r.Header.Set("Content-Type", tc.contentType) })

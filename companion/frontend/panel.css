@@ -1455,6 +1455,18 @@ button:focus-visible {
   border-left: 1.5px solid var(--hairline);
 }
 
+/* Each level of subagents a subagent started sits one step further in,
+   on its own tree line, under a toggle that folds it. */
+.helpers.is-nested {
+  margin: 0 0 2px 12px;
+}
+
+.helpers-toggle.is-nested {
+  display: block;
+  margin: -2px 0 2px 36px;
+  font-size: 11px;
+}
+
 .helper-row {
   display: grid;
   grid-template-columns: 24px 1fr;
