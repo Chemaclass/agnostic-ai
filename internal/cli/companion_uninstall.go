@@ -17,6 +17,11 @@ import (
 // first, while the program that knows how to remove it is still there;
 // loginEntries are the files that hold it, removed too when they are left.
 func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools, dir, goos string, loginEntries []string) error {
+	unlock, err := lockCompanionFolder(companionFolder(dir))
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	installed, found, err := companionInstalled(dir, goos)
 	if err != nil {
 		return err

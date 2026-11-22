@@ -406,7 +406,7 @@ func TestCompanionUpdateApp_RefusesASecondUpdateOfTheSameApp(t *testing.T) {
 		t.Skip("update-app runs on macOS; Windows takes no folder lock")
 	}
 	app := testDownloadableApp(t, t.TempDir())
-	release, err := lockCompanionUpdate(app)
+	release, err := lockCompanionFolder(filepath.Dir(app))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -417,11 +417,11 @@ func TestCompanionUpdateApp_RefusesASecondUpdateOfTheSameApp(t *testing.T) {
 
 	err = updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", builtTools(t), deps)
 
-	if err == nil || !strings.Contains(err.Error(), "another update of "+app+" is running") {
+	if err == nil || !strings.Contains(err.Error(), "another install or update of the companion in "+filepath.Dir(app)+" is running") {
 		t.Errorf("err = %v; want the second update refused", err)
 	}
 	release()
-	again, err := lockCompanionUpdate(app)
+	again, err := lockCompanionFolder(filepath.Dir(app))
 	if err != nil {
 		t.Fatalf("the refused update kept the lock: %v", err)
 	}

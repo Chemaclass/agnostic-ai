@@ -117,6 +117,15 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 			return fmt.Errorf("the companion needs macOS %d or later, and this Mac runs macOS %s", companionMinMacOS, version)
 		}
 	}
+	if err := os.MkdirAll(companionFolder(dir), 0o700); err != nil {
+		return fmt.Errorf("install the companion: %w", err)
+	}
+	// Held until the staging folder, which can hold the earlier app, is gone.
+	unlock, err := lockCompanionFolder(companionFolder(dir))
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	staging, err := stageCompanion(dir)
 	if err != nil {
 		return err
@@ -236,6 +245,9 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 	if _, ok := errors.AsType[companionKeptAside](err); ok {
 		keepStaging = true
 	}
+	// A failure to record the install after the swap still lets a new
+	// companion that does not start be swapped back.
+	swapped := err == nil
 	if err != nil {
 		err = fmt.Errorf("install the companion: %w", err)
 	} else {
@@ -260,16 +272,68 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 	if err != nil && os.Getenv(envCompanionUpdate) != "" {
 		_, _ = fmt.Fprintf(out, "Could not install the updated companion: %v\n", err)
 	}
-	if startErr := startInstalledCompanion(tools, installed); startErr != nil {
-		if err != nil || restore == nil {
+	start := func() error { return startInstalledCompanion(tools, installed) }
+	if !swapped || restore == nil {
+		if startErr := start(); startErr != nil {
 			return keepStaging, errors.Join(err, startErr)
 		}
-		return restartEarlierInstalledCompanion(out, tools, dir, installed, restore, startErr)
+	} else if startErr := launchUpdatedCompanion(ctx, out, tools, installed, start); startErr != nil {
+		kept, restartErr := restartEarlierInstalledCompanion(out, tools, dir, installed, restore, startErr)
+		return kept, errors.Join(err, restartErr)
 	}
 	if err == nil {
 		_, _ = fmt.Fprintln(out, "✓ Started it again")
 	}
 	return keepStaging, err
+}
+
+// The updated companion counts as started once the process list shows it
+// companionSettleTries times in a row, within companionStartTries looks.
+// open returns once macOS accepts the launch, before the app opens its
+// windows, so an app that quits while it starts would otherwise pass.
+const (
+	companionStartPause  = 500 * time.Millisecond
+	companionStartTries  = 20
+	companionSettleTries = 6
+)
+
+// launchUpdatedCompanion starts the updated companion with start and waits
+// until it stays up. One that does not is asked to quit, in case it is
+// only slow, so the earlier one can take its place.
+func launchUpdatedCompanion(ctx context.Context, out io.Writer, tools companionTools, program string, start func() error) error {
+	if err := start(); err != nil {
+		return err
+	}
+	err := companionStaysUp(ctx, out, tools, program)
+	if err != nil {
+		_, _ = endCompanion(ctx, tools, program)
+	}
+	return err
+}
+
+// companionStaysUp waits until the process list shows program for a few
+// looks in a row. When the list cannot be read it warns and keeps the
+// new companion, as before this check existed.
+func companionStaysUp(ctx context.Context, out io.Writer, tools companionTools, program string) error {
+	seen := 0
+	for try := 1; ; try++ {
+		tools.pause(companionStartPause)
+		running, err := tools.running(ctx, program)
+		switch {
+		case err != nil:
+			_, _ = fmt.Fprintf(out, "! Could not check that the updated companion stays open (%v).\n", err)
+			return nil
+		case running:
+			seen++
+			if seen == companionSettleTries {
+				return nil
+			}
+		case seen > 0:
+			return errors.New("the updated companion quit right after it started")
+		case try >= companionStartTries:
+			return fmt.Errorf("the updated companion did not start within %s", companionStartPause*companionStartTries)
+		}
+	}
 }
 
 // restartEarlierInstalledCompanion puts the earlier app back after the new

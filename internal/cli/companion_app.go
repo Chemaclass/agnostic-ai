@@ -141,7 +141,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return fmt.Errorf("update %s: version %q is not a stable release; use X.Y.Z, such as 1.4.0", app, version)
 	}
 	version = release
-	unlock, err := lockCompanionUpdate(app)
+	unlock, err := lockCompanionFolder(filepath.Dir(app))
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,8 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	}
 	ctx = context.WithoutCancel(ctx)
 	_, _ = fmt.Fprintln(out, "Restarting the companion.")
-	if _, err := endCompanion(ctx, tools, filepath.Join(app, "Contents", "MacOS", companionName)); err != nil {
+	program := filepath.Join(app, "Contents", "MacOS", companionName)
+	if _, err := endCompanion(ctx, tools, program); err != nil {
 		return err
 	}
 	aside := filepath.Join(staging, companionAsideName)
@@ -189,7 +190,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return errors.Join(fmt.Errorf("replace %s: %w", app, err), restartEarlierCompanion(out, app, deps.start))
 	}
 	_, _ = fmt.Fprintln(out, "Swapped the companion app.")
-	if err := deps.start(app); err != nil {
+	if err := launchUpdatedCompanion(ctx, out, tools, program, func() error { return deps.start(app) }); err != nil {
 		launchErr := fmt.Errorf("start %s: %w", app, err)
 		_, _ = fmt.Fprintln(out, "Could not start the updated companion.")
 		// Move the failed app out of the way before putting the original back.
@@ -206,7 +207,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		_, _ = fmt.Fprintln(out, "Restored the earlier companion.")
 		return errors.Join(launchErr, restartEarlierCompanion(out, app, deps.start))
 	}
-	// Only mark completion after open accepts the launch.
+	// Only mark completion once the new app stays up.
 	_, _ = fmt.Fprintln(out, "Replaced the companion app.")
 	_, err = fmt.Fprintf(out, "Updated %s to %s and started it again.\n", app, version)
 	return err

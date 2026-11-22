@@ -128,6 +128,32 @@ func quitCompanion(ctx context.Context, path string) (bool, error) {
 	}
 }
 
+// companionProgramRuns reports whether the process list holds a program
+// named like path. macOS lists each program by the path it started from,
+// and that path can be spelled another way than path, so only the name is
+// compared. The earlier companion has ended by then, so the one listed is
+// the one just started.
+func companionProgramRuns(ctx context.Context, path string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ps", "-axo", "comm=").Output()
+	if err != nil {
+		return false, fmt.Errorf("list the running programs: %w", err)
+	}
+	return programListed(string(out), path), nil
+}
+
+// programListed reports whether one line of list names a program called like path.
+func programListed(list, path string) bool {
+	name := filepath.Base(path)
+	for line := range strings.Lines(list) {
+		if filepath.Base(strings.TrimSpace(line)) == name {
+			return true
+		}
+	}
+	return false
+}
+
 // withWhatItSaid adds what a failed program printed to its error.
 func withWhatItSaid(err error, out []byte) error {
 	if said := strings.TrimSpace(string(out)); said != "" {
