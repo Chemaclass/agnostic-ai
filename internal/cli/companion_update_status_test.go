@@ -353,3 +353,69 @@ func TestUpgradeCache_ReplacesACheckTimeFromTheFuture(t *testing.T) {
 		})
 	}
 }
+
+func TestUpgradeCache_ALateCheckKeepsTheNewerResultSavedMeanwhile(t *testing.T) {
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	// A manual refresh that started after this check saves release B while this one still waits on release A.
+	newer := upgradeCheckCache{CheckedAt: now.Add(time.Minute), Current: "0.96.0", Offer: upgradeOffer{Latest: "0.98.0"}, CompanionImageTag: "0.98.0", CompanionImage: true}
+	for name, tc := range map[string]struct {
+		check func(path string, fetch func(string) (upgradeOffer, error)) (string, error)
+	}{
+		"guided": {func(path string, fetch func(string) (upgradeOffer, error)) (string, error) {
+			offer, err := cachedUpgradeOfferAt(path, "0.96.0", now, fetch)
+			return offer.Latest, err
+		}},
+		"companion": {func(path string, fetch func(string) (upgradeOffer, error)) (string, error) {
+			latest, _, err := companionUpdateCacheAt(path, "0.96.0", now, false, false, fetch, func(string) (bool, error) { return false, nil })
+			return latest, err
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "update-check.json")
+			if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(-48 * time.Hour), Current: "0.96.0", Offer: upgradeOffer{Latest: "0.96.0"}}); err != nil {
+				t.Fatal(err)
+			}
+			fetch := func(string) (upgradeOffer, error) {
+				if err := writeUpgradeCache(path, newer); err != nil {
+					t.Fatal(err)
+				}
+				return upgradeOffer{Latest: "0.97.0"}, nil
+			}
+
+			latest, err := tc.check(path, fetch)
+
+			if err != nil || latest != "0.98.0" {
+				t.Errorf("answer = %q, %v; want the newer result", latest, err)
+			}
+			cache := readUpgradeCache(path)
+			if cache.Offer.Latest != "0.98.0" || !cache.CheckedAt.Equal(newer.CheckedAt) || cache.CompanionImageTag != "0.98.0" || !cache.CompanionImage {
+				t.Errorf("cache = %+v; want the newer result kept", cache)
+			}
+		})
+	}
+}
+
+func TestUpgradeCache_TheGuidedOfferTimeNamesTheReleaseItOffered(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(-48 * time.Hour), Current: "0.96.0", Offer: upgradeOffer{Latest: "0.96.0"}}); err != nil {
+		t.Fatal(err)
+	}
+	// Another guided check saves and offers 0.98.0 while this one still waits on 0.97.0.
+	offered := now.Add(time.Minute)
+	fetch := func(string) (upgradeOffer, error) {
+		if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: offered, OfferedAt: offered, Current: "0.96.0", Offer: upgradeOffer{Latest: "0.98.0"}}); err != nil {
+			t.Fatal(err)
+		}
+		return upgradeOffer{Latest: "0.97.0"}, nil
+	}
+
+	offer, err := cachedUpgradeOfferAt(path, "0.96.0", now, fetch)
+
+	if err != nil || offer.Latest != "" {
+		t.Errorf("offer = %+v, %v; want no second offer of a release offered a minute ago", offer, err)
+	}
+	if cache := readUpgradeCache(path); !cache.OfferedAt.Equal(offered) || cache.Offer.Latest != "0.98.0" {
+		t.Errorf("cache = %+v; want the other offer and its time kept", cache)
+	}
+}

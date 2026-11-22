@@ -37,6 +37,13 @@ func recentUpgradeCheck(at, now time.Time) bool {
 	return !at.IsZero() && !at.After(now) && now.Sub(at) < 24*time.Hour
 }
 
+// savedLater reports whether stored was saved by a process that started
+// after ours, so ours finished late and must not replace it. A time a day
+// or more ahead comes from a clock that was wrong, and is replaced.
+func savedLater(stored, ours time.Time) bool {
+	return stored.After(ours) && stored.Sub(ours) < 24*time.Hour
+}
+
 func readUpgradeCache(path string) upgradeCheckCache {
 	var cache upgradeCheckCache
 	if f, err := os.Open(path); err == nil {
@@ -86,8 +93,14 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 			imageErr = err
 		}
 	}
+	var later *upgradeCheckCache
 	if changed || imageChanged {
 		_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
+			if changed && savedLater(stored.CheckedAt, cache.CheckedAt) {
+				kept := *stored
+				later = &kept
+				return
+			}
 			if changed {
 				if stored.Offer.Latest != cache.Offer.Latest {
 					stored.OfferedAt = time.Time{}
@@ -98,6 +111,9 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 				stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
 			}
 		})
+	}
+	if later != nil {
+		return later.Offer.Latest, later.CompanionImageTag == later.Offer.Latest && later.CompanionImage, nil
 	}
 	if imageErr != nil && !refresh && keepImageOffer && cache.CompanionImage && newerStableRelease(cache.CompanionImageTag, current) {
 		return cache.CompanionImageTag, true, nil
@@ -136,22 +152,32 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 		cache.CheckedAt, cache.Current, cache.Offer = now, current, offer
 		cache.GuidedFailureAt, cache.GuidedFailureCurrent = time.Time{}, ""
 	}
-	offering := newerStableRelease(cache.Offer.Latest, current) && !recent(cache.OfferedAt)
-	if offering {
-		cache.OfferedAt = now
+	// The offer and the time it was made are decided on a fresh read, so
+	// OfferedAt always belongs to the release stored beside it.
+	var offered upgradeOffer
+	offer := func(c *upgradeCheckCache) {
+		if newerStableRelease(c.Offer.Latest, current) && !recent(c.OfferedAt) && !savedLater(c.OfferedAt, now) {
+			c.OfferedAt, offered = now, c.Offer
+		}
 	}
+	read := false
 	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
 	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-		if fetched {
+		read = true
+		if fetched && !savedLater(stored.CheckedAt, cache.CheckedAt) {
+			if stored.Offer.Latest != cache.Offer.Latest {
+				stored.OfferedAt = time.Time{}
+			}
 			stored.CheckedAt, stored.Current, stored.Offer = cache.CheckedAt, cache.Current, cache.Offer
 			stored.GuidedFailureAt, stored.GuidedFailureCurrent = cache.GuidedFailureAt, cache.GuidedFailureCurrent
 		}
-		stored.OfferedAt = cache.OfferedAt
+		offer(stored)
 	})
-	if !offering {
-		return upgradeOffer{}, nil
+	if !read {
+		// The cache could not be locked, so the offer comes from what was read before.
+		offer(&cache)
 	}
-	return cache.Offer, nil
+	return offered, nil
 }
 
 // Writers retry the cache lock this long; the holder only reads and replaces one small file.
