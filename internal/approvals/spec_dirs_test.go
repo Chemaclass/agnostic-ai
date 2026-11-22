@@ -10,15 +10,16 @@ import (
 
 func TestSpecSources_ReadsMovedFolders(t *testing.T) {
 	root := t.TempDir()
+	settings := filepath.Join(t.TempDir(), "settings")
 	writeFile(t, filepath.Join(root, "agnostic-ai.yaml"), "version: 1\nsources:\n  hooks: config/hooks\n  agents: specs/agents\n  skills: config/skills\n")
-	writeFile(t, filepath.Join(root, "agnostic-ai.local.yaml"), "sources:\n  settings: /abs/settings\n")
+	writeFile(t, filepath.Join(root, "agnostic-ai.local.yaml"), "sources:\n  settings: "+filepath.ToSlash(settings)+"\n")
 	writeFile(t, filepath.Join(root, "agnostic.config.yaml"), "version: 1\nsources:\n  mcps: old/mcps\n")
 
 	got, err := approvals.SpecSources(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, dir := range []string{filepath.Join(root, "config/hooks"), filepath.Join(root, "specs/agents"), filepath.Join(root, "old/mcps"), "/abs/settings"} {
+	for _, dir := range []string{filepath.Join(root, "config/hooks"), filepath.Join(root, "specs/agents"), filepath.Join(root, "old/mcps"), settings} {
 		if !slices.Contains(got, dir) {
 			t.Errorf("spec folders %v miss %s", got, dir)
 		}
