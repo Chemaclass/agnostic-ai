@@ -22,6 +22,7 @@ const (
 	mailboxClaimsPath   = "/api/mailbox/claims"
 	mailboxClaimPath    = "/api/mailbox/claim"
 	mailboxReleasePath  = "/api/mailbox/release"
+	mailboxDismissPath  = "/api/mailbox/conflict/dismiss"
 	mailboxHandoffPath  = "/api/mailbox/handoff"
 	mailboxApprovePath  = "/api/mailbox/approve"
 	mailboxQueuePath    = "/api/mailbox/queue"
@@ -80,6 +81,8 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		h.readMailboxRefs(w, r)
 	case mailboxClaimPath, mailboxReleasePath:
 		h.changeMailboxClaim(w, r, store)
+	case mailboxDismissPath:
+		h.dismissMailboxConflict(w, r, store)
 	case mailboxHandoffPath:
 		h.answerMailboxHandoff(w, r, store)
 	case mailboxApprovePath:
@@ -204,6 +207,17 @@ func mailboxParticipants(ctx context.Context, scanner *conversations.Scanner, op
 		return conversations.Conversation{}, conversations.Ref{}, mailbox.NewRefusal("unknown-session")
 	}
 	return source, destination, nil
+}
+
+// claimOwnerGone reports whether a claim's owner is known to be gone:
+// its row cannot use the mailbox, or a complete read of its tool did not
+// list its files. An owner whose store could not be read in full, or
+// whose files were listed without a row, is not gone.
+func claimOwnerGone(read conversations.RefsRead, owner conversations.Ref) bool {
+	if row, found := read.Rows[owner]; found {
+		return !canUseMailbox(row)
+	}
+	return read.Complete[owner.Tool] && !read.Listed[owner]
 }
 
 func canUseMailbox(c conversations.Conversation) bool {
@@ -368,11 +382,12 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 	if len(missing) == 0 && len(offPage) == 0 {
 		return
 	}
-	peers := h.scanner.RecentRefs(opts, append(missing, offPage...)...)
+	read, recent := h.scanner.RecentRefsRead(opts, append(missing, offPage...)...)
+	peers := read.Rows
 	// Without a recent read nothing is known, so no claim counts as stale.
-	if peers != nil {
+	if recent {
 		for _, owner := range offPage {
-			if !canUseMailbox(peers[owner]) {
+			if claimOwnerGone(read, owner) {
 				view.MailboxClaims.Stale++
 			}
 		}

@@ -1381,6 +1381,53 @@ test('Release all frees every claim of a gone session in one click', async ({ pa
   expect((await (await page.request.get('/api/mailbox/claims')).json()).claims).toEqual([])
 })
 
+test('Release all frees more claims than one request takes, in batches', async ({ page }) => {
+  await openPanel(page, 'mailbox-many-stale-claims')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 250 paths, 250 stale')
+  await claimsButton(page).click()
+  const releases: Array<{ paths: string[], gone: boolean }> = []
+  page.on('request', (request) => { if (request.url().endsWith('/api/mailbox/release')) releases.push(request.postDataJSON()) })
+  await fileClaims(page).getByRole('button', { name: 'Release all' }).click()
+  await expect(fileClaims(page)).toContainText('No claims left.')
+  expect(releases.map((ask) => [ask.paths.length, ask.gone])).toEqual([[200, true], [50, true]])
+  await expect(claimsButton(page)).toBeHidden()
+})
+
+test('a Release all that fails after an earlier batch says how far it got', async ({ page }) => {
+  await openPanel(page, 'mailbox-many-stale-claims')
+  let sent = 0
+  await page.route('**/api/mailbox/release', async (route) => {
+    sent++
+    if (sent === 2) {
+      await route.fulfill({ status: 422, json: { error: 'Not sent (guard: ownership). Those claims changed since the list was read.\nReload the file claims and try again.', guard: 'ownership' } })
+      return
+    }
+    await route.continue()
+  })
+  await claimsButton(page).click()
+  await fileClaims(page).getByRole('button', { name: 'Release all' }).click()
+  await expect(page.locator('#toast')).toContainText('Released 200 of 250 paths.')
+  await expect(page.locator('#toast')).toContainText('Those claims changed since the list was read.')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 50 paths, 50 stale')
+})
+
+test('Dismiss clears a refused claim from the footer and keeps the holder\'s claim', async ({ page }) => {
+  await openPanel(page, 'mailbox-claim-conflict')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path, 1 conflict')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+  await claimsButton(page).click()
+  await fileClaims(page).getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await expect(page.locator('#toast')).toContainText('Conflict dismissed.')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path')
+  await expect(claimsButton(page)).not.toHaveClass(/is-warning/)
+  await page.reload()
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path')
+  await expect(claimsButton(page)).not.toHaveClass(/is-warning/)
+  const left = await (await page.request.get('/api/mailbox/claims')).json()
+  expect(left.conflicts).toEqual([])
+  expect(left.claims).toMatchObject([{ owner: { id: '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50' }, paths: ['internal/mailbox/handoff.go'] }])
+})
+
 test('with no claims the footer shows no File claims button', async ({ page }) => {
   await openPanel(page, 'mailbox-handoff')
   await expect(page.locator('#mailbox-open-claims')).toBeHidden()

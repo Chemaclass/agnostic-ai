@@ -448,3 +448,65 @@ func TestClaims_AcceptRefusesAPathThatNowResolvesElsewhere(t *testing.T) {
 		t.Error("a path swapped for a symlink counts as unchanged")
 	}
 }
+
+func TestClaims_DismissRemovesOnlyTheRequestersConflictWithNoThread(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	offer := claimAndOffer(t, s, root, "scope/a.go")
+	file := Gives{root, []string{"scope/a.go"}}
+	if err := s.Release(t.Context(), claude, file); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Claim(t.Context(), mailThird, file, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"), "ownership")
+	requireGuard(t, s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root, "human"), "ownership")
+	conflicts := func() []ClaimConflict {
+		view, err := s.Claims(t.Context())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return view.Conflicts
+	}
+	if got := conflicts(); len(got) != 2 {
+		t.Fatalf("conflicts before dismiss = %+v", got)
+	}
+	for _, unknown := range []struct {
+		requester conversations.Ref
+		path      string
+	}{{codex, "scope/a.go"}, {claude, "scope/b.go"}} {
+		if err := s.DismissConflict(t.Context(), unknown.requester, root, unknown.path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := conflicts(); len(got) != 2 {
+		t.Errorf("an unknown or threaded conflict was dismissed: %+v", got)
+	}
+	if err := s.DismissConflict(t.Context(), claude, root, "scope/a.go"); err != nil {
+		t.Fatal(err)
+	}
+	if got := conflicts(); len(got) != 1 || got[0].Thread != offer.Thread {
+		t.Errorf("after dismiss = %+v, want only the handoff conflict", got)
+	}
+	expectedOwner(t, s, root, "scope/a.go", mailThird)
+}
+
+func TestClaims_ReleaseExactFreesOnlyWholeClaimsOfTheOwner(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope", "other.go"}}, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.ReleaseExact(t.Context(), claude, Gives{root, []string{"scope/a.go"}}), "ownership")
+	requireGuard(t, s.ReleaseExact(t.Context(), codex, Gives{root, []string{"other.go"}}), "ownership")
+	requireGuard(t, s.ReleaseExact(t.Context(), claude, Gives{root, []string{"other.go", "gone.go"}}), "ownership")
+	expectedOwner(t, s, root, "scope/a.go", claude)
+	expectedOwner(t, s, root, "other.go", claude)
+	if err := s.ReleaseExact(t.Context(), claude, Gives{root, []string{"scope", "other.go"}}); err != nil {
+		t.Fatal(err)
+	}
+	if view, err := s.Claims(t.Context()); err != nil || len(view.Claims) != 0 {
+		t.Errorf("claims after exact release = %+v, %v", view.Claims, err)
+	}
+}

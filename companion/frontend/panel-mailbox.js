@@ -1,5 +1,5 @@
-import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
+import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
+import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
   approve: 'Approve',
@@ -597,17 +597,12 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     if (warning) claimsList.append(element('p', 'mailbox-refusal', warning))
     const card = claimsCardOf(current.reply, current.owner && nameOf(current.owner))
     if (card.empty) claimsList.append(element('p', 'mailbox-muted', card.empty))
-    const release = (claims) => mutateClaim(current, async () => {
-      const asks = new Map()
-      for (const claim of claims) {
-        const key = JSON.stringify([keyOf(claim.owner), claim.worktree])
-        const ask = asks.get(key) ?? { ...refOf(claim.owner), worktree: claim.worktree, paths: [] }
-        ask.paths.push(...claim.paths)
-        asks.set(key, ask)
-      }
-      let reply = {}
-      for (const ask of asks.values()) reply = await releasePaths(ask)
-      return reply
+    // A gone session's claims go with `gone`, so the server checks again that the session is gone and the claims unchanged.
+    const release = (claims, gone = false) => mutateClaim(current, async () => {
+      const result = await releaseInBatches(releaseBatchesOf(claims, gone ? { gone: true } : {}), releasePaths)
+      if (!result.error) return { version: result.version }
+      if (!(result.error instanceof CallError) || result.released === 0) throw result.error
+      return { version: result.version, problem: partialReleaseOf(result, refusalText(result.error)) }
     }, 'Paths released.')
     if (card.stale.length) {
       const group = element('section', 'mailbox-claims-gone')
@@ -615,13 +610,22 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       heading.id = 'mailbox-claims-gone'
       group.setAttribute('aria-labelledby', heading.id)
       group.append(heading)
-      if (card.stale.length > 1) group.append(button('Release all', 'release-all', () => release(card.stale)))
-      for (const claim of card.stale) group.append(claimEntry(claim, release, current.owner))
+      if (card.stale.length > 1) group.append(button('Release all', 'release-all', () => release(card.stale, true)))
+      for (const claim of card.stale) group.append(claimEntry(claim, (claims) => release(claims, true), current.owner))
       claimsList.append(group)
     }
     for (const claim of card.active) claimsList.append(claimEntry(claim, release, current.owner))
     for (const conflict of conflicts ?? []) {
-      claimsList.append(element('p', 'mailbox-refusal', conflictText(conflict)))
+      const line = element('p', 'mailbox-refusal', conflictText(conflict))
+      // A conflict with no thread is the requester's to drop, from its own card or the footer's, where a requester
+      // with no row can still be cleared; a thread's conflict clears with its thread.
+      if (!conflict.thread && (!current.owner || keyOf(conflict.requester) === keyOf(current.owner))) {
+        claimsList.append(line, button('Dismiss', 'dismiss-conflict', () => mutateClaim(current, () => dismissConflict({
+          ...refOf(conflict.requester), worktree: conflict.worktree, path: conflict.path,
+        }), 'Conflict dismissed.')))
+      } else {
+        claimsList.append(line)
+      }
     }
     if (current.pending) for (const control of claimsList.querySelectorAll('button')) control.disabled = true
   }
@@ -669,8 +673,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     current.pending = true
     renderClaims(current)
     try {
-      const { version } = await change()
-      say(message)
+      const { version, problem } = await change()
+      say(problem ?? message, problem ? 'error' : undefined)
       await afterChange(version)
     } catch (error) {
       if (!(error instanceof CallError)) throw error

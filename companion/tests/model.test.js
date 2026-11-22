@@ -1362,3 +1362,38 @@ test('a kept shell names its wake time before its command', async () => {
   const { keptShellNoteOf } = await import('../frontend/model.js')
   assert.equal(keptShellNoteOf({ ...shell, keptUntil: new Date(shellNow + 30 * 60000).toISOString() }, shellNow), 'Kept running · asks again in 30 min')
 })
+
+test('a release splits into requests within the path and byte limits, one owner and worktree each', async () => {
+  const { RELEASE_LIMITS, releaseBatchesOf } = await import('../frontend/model.js')
+  const owner = { tool: 'codex', id: 'gone-1' }
+  const many = Array.from({ length: 450 }, (_, i) => ({ owner, worktree: '/w', paths: [`p${i}.go`] }))
+  const batches = releaseBatchesOf(many, { gone: true })
+  assert.deepEqual(batches.map((batch) => batch.paths.length), [200, 200, 50])
+  assert.ok(batches.every((batch) => batch.gone === true && batch.worktree === '/w' && batch.id === 'gone-1'))
+  assert.deepEqual(batches.flatMap((batch) => batch.paths), many.map((claim) => claim.paths[0]))
+
+  const long = Array.from({ length: 199 }, (_, i) => ({ owner, worktree: '/w', paths: [`${'d/'.repeat(190)}${i}.go`] }))
+  const byBytes = releaseBatchesOf(long)
+  assert.ok(byBytes.length > 1, 'long paths split before 200')
+  for (const batch of byBytes) assert.ok(new TextEncoder().encode(JSON.stringify(batch)).length <= RELEASE_LIMITS.bytes)
+  assert.equal(byBytes.reduce((sum, batch) => sum + batch.paths.length, 0), 199)
+
+  const two = releaseBatchesOf([{ owner, worktree: '/a', paths: ['x'] }, { owner, worktree: '/b', paths: ['y'] }, { owner, worktree: '/a', paths: ['z'] }])
+  assert.deepEqual(two.map((batch) => [batch.worktree, batch.paths]), [['/a', ['x', 'z']], ['/b', ['y']]])
+})
+
+test('a release that fails after an earlier batch reports how far it got', async () => {
+  const { partialReleaseOf, releaseInBatches } = await import('../frontend/model.js')
+  const batches = [{ paths: ['a', 'b'] }, { paths: ['c'] }, { paths: ['d'] }]
+  const refusal = new Error('Those claims changed since the list was read.')
+  const sent = []
+  const result = await releaseInBatches(batches, async (batch) => {
+    sent.push(batch)
+    if (sent.length === 2) throw refusal
+    return { version: 'v' + sent.length }
+  })
+  assert.deepEqual(result, { released: 2, total: 4, version: 'v1', error: refusal })
+  assert.equal(sent.length, 2)
+  assert.equal(partialReleaseOf(result, refusal.message), 'Released 2 of 4 paths. Those claims changed since the list was read.')
+  assert.deepEqual(await releaseInBatches(batches, async () => ({ version: 'v' })), { released: 4, total: 4, version: 'v' })
+})

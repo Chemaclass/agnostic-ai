@@ -12,7 +12,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FIXTURES, arrival } from './fixtures.mjs'
-import { mailboxAnswer, mailboxClaimTotals, mailboxApprove, mailboxChange, mailboxClaim, mailboxClaims, mailboxQueue, mailboxRefs, mailboxRelease, mailboxRows, mailboxSaveSettings, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
+import { mailboxAnswer, mailboxClaimTotals, mailboxDismiss, mailboxApprove, mailboxChange, mailboxClaim, mailboxClaims, mailboxQueue, mailboxRefs, mailboxRelease, mailboxRows, mailboxSaveSettings, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const FRONTEND = resolve(here, '../frontend')
@@ -43,7 +43,7 @@ function fixtureState(name, now) {
     conversations,
     mailbox: fixture.mailbox?.(now) ?? [],
     claims: fixture.mailboxClaims?.(now) ?? [],
-    claimConflicts: [],
+    claimConflicts: fixture.claimConflicts?.() ?? [],
     mailboxSettings: { approveAgentSends: fixture.approveAgentSends ?? true },
     knownClosed: new Set(fixture.knownClosed),
     /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */
@@ -472,6 +472,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     },
     'POST /api/mailbox/claim': mailboxRoute('/api/mailbox/claim', mailboxClaim),
     'POST /api/mailbox/release': mailboxRoute('/api/mailbox/release', mailboxRelease),
+    'POST /api/mailbox/conflict/dismiss': mailboxRoute('/api/mailbox/conflict/dismiss', mailboxDismiss),
     'POST /api/mailbox/handoff': mailboxRoute('/api/mailbox/handoff', mailboxAnswer),
     'POST /api/mailbox/refs': mailboxRoute('/api/mailbox/refs', mailboxRefs),
     'POST /api/mailbox/send': mailboxRoute('/api/mailbox/send', mailboxSend),
