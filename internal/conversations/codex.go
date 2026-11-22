@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -243,6 +244,11 @@ func (s *Scanner) markLiveCodexThreads(conversations []Conversation, rollouts ma
 		unseen := outOfSight(locksDir, locks, held)
 		for lock, i := range lockOf {
 			conversations[i].liveRead = conversations[i].App == AppCLI && !unseen[lock]
+			conversations[i].liveUnknown = conversations[i].App == AppCLI && unseen[lock]
+		}
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		for _, i := range lockOf {
+			conversations[i].liveUnknown = conversations[i].App == AppCLI
 		}
 	}
 	for lock, pid := range held {

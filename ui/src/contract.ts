@@ -1154,11 +1154,11 @@ export interface ConversationOpenReply {
 //   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
 //   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations; the reply's ETag sent back as If-None-Match answers 304 while the list holds
 //   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen and its completion taken back
-//   POST /api/conversations/stop-shell                   → ConversationStopShellReply (body: ConversationStopShellRequest); 409 if refused
-//   POST /api/conversations/stop-session                 → ConversationStopSessionReply (body: ConversationStopSessionRequest); 409 if it no longer runs here
+//   POST /api/conversations/stop-shell                   → ConversationStopShellReply (body: ConversationStopShellRequest); 403 without the companion secret or session key, 409 if refused
+//   POST /api/conversations/stop-session                 → ConversationStopSessionReply (body: ConversationStopSessionRequest); 403 without the companion secret or session key, 409 if it no longer runs here
 //   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 403 without the companion secret or session key, 404 when not listed, 413 over 256 KB
 //   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
-//   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
+//   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 403 without the companion secret or session key, 404 when not listed, else ConversationDeleteRefusal
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet?, scanningSince? }; scanningSince is when the running conversation read began, set only while one runs
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no user setup
 //   POST /api/global/create                               → UserCreateReply (body: { git })

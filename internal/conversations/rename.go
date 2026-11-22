@@ -238,6 +238,12 @@ func (r *Renamer) Rename(ctx context.Context, c Conversation, title string) erro
 	return &RenameError{Tool: c.Tool, Reason: RenameNotSupported, Kind: fmt.Sprintf("%s %s conversations", toolLabels[c.Tool], c.App)}
 }
 
+// RenameReachesCloud reports whether Rename sends c's name to an online
+// service with the person's sign-in.
+func RenameReachesCloud(c Conversation) bool {
+	return (c.Tool == ToolClaude && c.App == AppCloud) || (c.Tool == ToolChatGPT && c.App == AppChat)
+}
+
 // claudeTitleLine is the line Claude Code's own /rename appends to a
 // session's transcript; its session list shows the last one.
 type claudeTitleLine struct {

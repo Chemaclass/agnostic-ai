@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -296,7 +297,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) (sourceResul
 	}
 	// Subagent transcripts live one level deeper, under <session>/subagents.
 	files, listedAll := listTree(projects, 1, "*.jsonl")
-	live, liveRead, liveNote, processErr := s.claudeLiveSessions()
+	live, liveRead, liveUnknown, liveNote, processErr := s.claudeLiveSessions()
 	jobs := s.claudeActiveJobs()
 	editor := extensionEditor(s.Stores.Home, "anthropic.claude-code", opts.Editor)
 	if s.claude == nil {
@@ -359,6 +360,7 @@ func (s *Scanner) scanClaude(ctx context.Context, opts ScanOptions) (sourceResul
 		claudeRoute(&c, entrypoint, jobs[id], session.process, isLive, editor)
 		// Only a terminal session is known to write sessions/<pid>.json while it runs.
 		c.liveRead = liveRead && c.App == AppCLI
+		c.liveUnknown = liveUnknown && c.App == AppCLI
 		conversations = append(conversations, c)
 	}
 	for file := range s.claude {
@@ -622,8 +624,10 @@ func claudeContentText(raw json.RawMessage) (text string, typed bool) {
 // process that wrote it. The sibling *.key files hold credentials and
 // are never read. read is false when the sessions folder or the process
 // table could not be read, or a session file could not be read while the
-// process its name gives still runs; note then says which.
-func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bool, note string, processErr error) {
+// process its name gives still runs; note then says which. unknown is
+// the same, except that a missing sessions folder is not unknown: older
+// Claude Code versions keep none.
+func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read, unknown bool, note string, processErr error) {
 	entries, unreadable, entriesErr := s.claudeLiveEntries()
 	var processes []ProcessRef
 	for _, entry := range entries {
@@ -656,7 +660,8 @@ func (s *Scanner) claudeLiveSessions() (sessions map[string]liveSession, read bo
 			live[entry.SessionID] = liveSession{process: liveProcess{PID: entry.PID, ProcStart: entry.ProcStart}, activity: claudeActivity[entry.Status], status: entry.Status, entrypoint: entry.Entrypoint, bridge: entry.BridgeSessionID, startedAt: startedAt, waitingFor: entry.WaitingFor, statusSince: statusSince}
 		}
 	}
-	return live, err == nil && entriesErr == nil, note, err
+	unknown = err != nil || note != "" || (entriesErr != nil && !errors.Is(entriesErr, fs.ErrNotExist))
+	return live, err == nil && entriesErr == nil, unknown, note, err
 }
 
 // unreadableHeld is the error for the unreadable session files whose

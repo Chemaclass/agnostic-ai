@@ -200,7 +200,7 @@ export async function openConversation(request: ConversationOpenRequest): Promis
 export async function stopConversationShell(request: ConversationStopShellRequest): Promise<ConversationStopShellReply> {
   let res: Response
   try {
-    res = await fetch(API.conversationStopShell, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+    res = await fetch(API.conversationStopShell, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...sessionHeaders() }, body: JSON.stringify(request) })
   } catch {
     throw new Error('Could not reach the server to stop the shell.')
   }

@@ -131,8 +131,9 @@ type conversationsHandler struct {
 	// server; a list read without it shows no held request.
 	companion companionSecret
 	// proven says whether a request carries the companion secret or the
-	// web session key. A send types into another session's terminal as
-	// the person, so it needs one; nil proves nothing.
+	// web session key. A send, a start, a delete, a session or shell
+	// stop and an online rename act as the person, so each needs one; nil proves
+	// nothing.
 	proven func(*http.Request) bool
 	// canProve says whether this server has a secret or session key at
 	// all; nil means it has neither.
@@ -381,18 +382,29 @@ func (h *conversationsHandler) canProveAny() bool {
 	return h.canProve != nil && h.canProve()
 }
 
+// refuseUnproven answers 403 to a request that carries neither the
+// companion secret nor the web session key, and reports whether it did.
+// doing names the action ("Sending"), unchanged what stayed as it was,
+// and cannot what a server with no proof source cannot do.
+func (h *conversationsHandler) refuseUnproven(w http.ResponseWriter, r *http.Request, doing, unchanged, cannot string) bool {
+	if h.proven != nil && h.proven(r) {
+		return false
+	}
+	message := doing + " needs the companion's secret or the key of a tab that view opened. " + unchanged
+	if !h.canProveAny() {
+		message = "This server cannot " + cannot + ". Use the companion, or a page that agnostic-ai view --scope user opened."
+	}
+	writeEditJSON(w, http.StatusForbidden, editError{Error: message})
+	return true
+}
+
 // send types text into a conversation's input without submitting it.
 func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
-	if h.proven == nil || !h.proven(r) {
-		message := "Sending needs the companion's secret or the key of a tab that view opened. Nothing was typed."
-		if !h.canProveAny() {
-			message = "This server cannot type into sessions. Use the companion, or a page that agnostic-ai view --scope user opened."
-		}
-		writeEditJSON(w, http.StatusForbidden, editError{Error: message})
+	if h.refuseUnproven(w, r, "Sending", "Nothing was typed.", "type into sessions") {
 		return
 	}
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))
@@ -500,6 +512,9 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeConversationGone(w)
 		return
 	}
+	if conversations.RenameReachesCloud(conversation) && h.refuseUnproven(w, r, "Renaming an online conversation", "The name did not change.", "rename online conversations") {
+		return
+	}
 	// The tool takes the name first, so the list never shows a name the
 	// tool behind it does not have. It may take seconds.
 	if err := h.renameInTool(r.Context(), conversation, title); err != nil {
@@ -566,6 +581,9 @@ func (h *conversationsHandler) logRenameFailure(c conversations.Conversation, er
 func (h *conversationsHandler) delete(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	if h.refuseUnproven(w, r, "Deleting", "Nothing was deleted.", "delete conversations") {
 		return
 	}
 	var req conversationDeleteRequest

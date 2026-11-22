@@ -13,6 +13,9 @@ func (h *conversationsHandler) stopSession(w http.ResponseWriter, r *http.Reques
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	if h.refuseUnproven(w, r, "Stopping a session", "Nothing was stopped.", "stop sessions") {
+		return
+	}
 	var req conversationStopShellRequest
 	const usage = "send {tool, id, pid, procStart}"
 	if !readConversationRequest(w, r, usage, &req) {

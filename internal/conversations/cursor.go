@@ -503,6 +503,7 @@ func (s *Scanner) markLiveCursorAgentChats(chats []Conversation) {
 	}
 	for i := range chats {
 		chats[i].liveRead = err == nil && !unseen[chats[i].store]
+		chats[i].liveUnknown = !chats[i].liveRead
 	}
 	for store, pid := range held {
 		i, ok := chatOf[store]
