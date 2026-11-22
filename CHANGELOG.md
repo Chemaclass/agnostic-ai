@@ -28,6 +28,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The companion's ⋯ menu and a new **Settings > Approvals and companion** tab in `view --scope user` set the approvals mode and the Approve button. **Apply to my tools** lists the files and every hook or MCP command before it syncs. Only the companion, its **Dashboard** or a tab `view` opened can loosen approvals (#3913, #3916, #3922, #3935).
 - The web settings tab also sets the companion's Animate, Dim when idle, Small companion and Check for updates switches; a running companion applies them within 5 seconds (#3913, #3934).
 - File claims show only while one exists, as a chip on the chat that holds them, with a "?" to the docs. Gone sessions' claims release in one step, and a path two sessions want puts both under Needs you until it is released or dismissed (#3914, #3919, #3920).
+- The companion settings menu scrolls within the list in short windows (#3942).
 
 ### By tool
 
