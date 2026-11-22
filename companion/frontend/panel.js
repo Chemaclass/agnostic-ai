@@ -2,7 +2,7 @@ import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
@@ -162,7 +162,6 @@ function drawPlaces() {
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
   complete: 'M3 8.5l3 3 7-7.5',
-  rename: 'M10.5 2.5l3 3-8 8h-3v-3zM8.5 4.5l3 3',
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
   agents: 'M8 2.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4M4 13v-1a4 4 0 0 1 8 0v1M3 4a1.5 1.5 0 1 0 0 3M13 4a1.5 1.5 0 1 1 0 3M1 12v-1a3 3 0 0 1 2-2.8M15 12v-1a3 3 0 0 0-2-2.8',
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
@@ -208,6 +207,9 @@ function actionButton(iconName, label, press) {
   button.setAttribute('aria-label', label)
   button.append(icon(iconName, '0 0 16 16'))
   button.addEventListener('click', (event) => {
+    // A pointer click on a row's buttons while they still fade in was aimed at the row under them.
+    const showing = button.closest('.actions')
+    if (showing && event.detail > 0 && Number(getComputedStyle(showing).opacity) < 1) return
     event.stopPropagation()
     press(button)
   })
@@ -297,6 +299,9 @@ function claimChip(conversation, text) {
   return chip
 }
 
+/** True while a redraw puts the keys back on a name, which is not a person choosing that row. */
+let restoringFocus = false
+
 function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
   const needsYou = needsPersonOf(conversation)
@@ -323,7 +328,7 @@ function rowOf(conversation, order, folderNames, under) {
   if (renaming) {
     text.append(renameField(conversation, renaming))
   } else {
-    text.append(element('div', 'title', titleOf(conversation)))
+    text.append(renames(conversation) ? renamableTitle(conversation, tip) : element('div', 'title', titleOf(conversation)))
   }
   const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
@@ -375,11 +380,16 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const page = cloudPageOf(conversation)
   if (page) actions.prepend(actionButton('web', CLOUD_PAGE_LABEL, () => openRow(page)))
-  actions.prepend(actionButton('rename', 'Rename', () => startRename(conversation)))
 
-  row.append(stateMark(conversation), text, actions)
+  // The buttons sit on the title line, where the name field would be under them.
+  if (actions.childElementCount > 0 && !renaming) text.append(actions)
+  row.append(stateMark(conversation), text)
   row.addEventListener('click', () => chooseRow(conversation))
   row.addEventListener('mousemove', () => setActive(key))
+  // F2 and Enter answer the selected row, so a focused name or button selects its row.
+  row.addEventListener('focusin', () => {
+    if (!restoringFocus) setActive(key)
+  })
   row.addEventListener('contextmenu', (event) => {
     // Right-clicking only offers the menu: the chat stays closed and unread.
     event.preventDefault()
@@ -620,7 +630,7 @@ function approvedLine(conversation, key, now) {
 
 /** Gives the keys back to the control a redraw replaced, as the person left them on it. */
 function refocus(selector) {
-  document.querySelector(selector)?.focus()
+  document.querySelector(selector)?.focus({ preventScroll: true })
 }
 
 /** The requests approvals approved for a chat, newest first, folded out under it. */
@@ -726,6 +736,32 @@ function helperRow(conversation, helper, now) {
   return row
 }
 
+const RENAME_TIP = 'Click to rename, or press F2'
+
+/** The row's name: a click on it starts the rename, except while the row is being picked as a target. */
+function renamableTitle(conversation, rowTip) {
+  const title = element('div', 'title', titleOf(conversation))
+  title.dataset.tooltip = rowTip + '\n' + RENAME_TIP
+  title.tabIndex = 0
+  title.setAttribute('role', 'button')
+  // A label would replace the name in the row's own accessible name, which the search reads out.
+  title.setAttribute('aria-description', 'Rename')
+  title.setAttribute('aria-keyshortcuts', 'F2')
+  title.addEventListener('click', (event) => {
+    if (state.pick || mailbox.composing) return
+    event.stopPropagation()
+    startRename(conversation)
+  })
+  title.addEventListener('keydown', (event) => {
+    if ((event.key !== 'Enter' && event.key !== ' ') || event.repeat) return
+    event.preventDefault()
+    event.stopPropagation()
+    if (state.pick || mailbox.composing) chooseRow(conversation)
+    else startRename(conversation)
+  })
+  return title
+}
+
 function renameField(conversation, renaming) {
   const input = element('input', 'title rename')
   input.type = 'text'
@@ -740,6 +776,11 @@ function renameField(conversation, renaming) {
   input.addEventListener('input', () => { renaming.draft = input.value })
   input.addEventListener('keydown', (event) => {
     event.stopPropagation()
+    // A key held on the name that opened the field would save it at once, or type over it.
+    if (event.repeat && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault()
+      return
+    }
     if (confirmsCandidate(event)) return
     if (event.key === 'Enter') {
       event.preventDefault()
@@ -891,6 +932,7 @@ function draw({ force } = { force: false }) {
 
   const groups = grouped(view.conversations)
   const scroll = list.scrollTop
+  const focusedName = document.activeElement?.matches?.('#list .row .title[role="button"]') ? document.activeElement.closest('.row').dataset.key : undefined
   list.replaceChildren()
   if (groups.length === 0) {
     list.append(emptyMessage(), ...asidesOf(view))
@@ -914,6 +956,12 @@ function draw({ force } = { force: false }) {
   }
   list.append(...asidesOf(view))
   list.scrollTop = scroll
+  if (focusedName !== undefined) {
+    // Giving the name its keys back must not move the selection the keys or the pointer set since.
+    restoringFocus = true
+    refocus(`.row[data-key="${CSS.escape(focusedName)}"] .title[role="button"]`)
+    restoringFocus = false
+  }
   mailbox.markRows()
   holdWorkPhase(list)
   announceActive()
@@ -932,7 +980,9 @@ const tip = { timer: undefined, target: undefined, pointer: undefined }
 
 /** What a hover shows: the nearest element with a tooltip, unless a button, a field or a native title is nearer; those keep their own. */
 function tipTargetOf(element) {
-  const hit = element?.closest?.('button, input, select, textarea, [title], [data-tooltip]')
+  let hit = element?.closest?.('button, input, select, textarea, [title], [data-tooltip]')
+  // While a click on the name picks the row, the name says what the row says.
+  if (hit?.matches('.title[data-tooltip]') && (state.pick || mailbox.composing)) hit = hit.closest('.row')
   return hit && hit.hasAttribute('data-tooltip') && list.contains(hit) ? hit : null
 }
 
@@ -1651,6 +1701,7 @@ function keepRowMenuCurrent() {
 }
 
 function startRename(conversation) {
+  if (!renames(conversation)) return
   closeRowMenu()
   state.renaming = { key: keyOf(conversation), draft: conversation.title }
   draw({ force: true })
@@ -2584,7 +2635,19 @@ document.addEventListener('keydown', (event) => {
   const step = KEY_STEPS[event.key]
   if (step !== undefined) {
     event.preventDefault()
+    // The keys move the selection from the search, so a focused name, which F2 and Enter would answer, gives them back.
+    if (event.target.closest('.row .title[role="button"]')) queryInput.focus()
     moveActive(step)
+    return
+  }
+  if (!mailbox.composing && startsRename(event)) {
+    // F2 on a row's own button renames that row; a button outside the rows keeps the key.
+    const inRow = event.target.closest('.row')
+    if (event.target.closest('button') && !inRow) return
+    const conversation = inRow ? shownView()?.conversations.find((shown) => keyOf(shown) === inRow.dataset.key) : activeConversation()
+    if (!conversation) return
+    event.preventDefault()
+    startRename(conversation)
     return
   }
   // A focused button takes Enter as its own click.
@@ -2594,11 +2657,6 @@ document.addEventListener('keydown', (event) => {
     if (state.pick && state.searching) return
     const conversation = activeConversation()
     if (conversation) chooseRow(conversation)
-  } else if (!mailbox.composing && startsRename(event)) {
-    const conversation = activeConversation()
-    if (!conversation) return
-    event.preventDefault()
-    startRename(conversation)
   }
 })
 
