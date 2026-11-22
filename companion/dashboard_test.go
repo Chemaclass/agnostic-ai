@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -25,10 +26,14 @@ func TestOpenDashboard_ReportsStartupFailureAndAllowsRetry(t *testing.T) {
 		t.Fatalf("startup failure = %v; opened %q", err, opened)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/health" {
+		switch r.URL.Path {
+		case "/api/health":
+			_, _ = fmt.Fprint(w, `{"ok":true,"global":true,"ui":true}`)
+		case "/api/session/offer":
+			http.NotFound(w, r)
+		default:
 			t.Errorf("unexpected request %s", r.URL.Path)
 		}
-		_, _ = fmt.Fprint(w, `{"ok":true,"global":true,"ui":true}`)
 	}))
 	defer srv.Close()
 	fakeCommand(t, "echo '"+srv.URL+"/'")
@@ -95,5 +100,81 @@ func TestFindBinary_CLIManagedLaunchUsesRecordedCommand(t *testing.T) {
 	fakeBundledCommand(t)
 	if got, err := findBinary(); err != nil || got == command {
 		t.Errorf("packaged launch used the recorded command: %q, %v", got, err)
+	}
+}
+
+// TestOpenDashboard_OpensTheUnlockFileTheServerOffers: the page the
+// companion opens gets the session key. A missing file, one others can
+// read, a link, or a file in a linked folder outside the unlock folder
+// opens the plain address instead.
+func TestOpenDashboard_OpensTheUnlockFileTheServerOffers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no unlock files on Windows")
+	}
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	config, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	offered := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/health":
+			_, _ = fmt.Fprint(w, `{"ok":true,"global":true,"ui":true}`)
+		case "/api/session/offer":
+			_, _ = fmt.Fprintf(w, `{"file":%q}`, offered)
+		}
+	}))
+	defer srv.Close()
+	port := srv.URL[strings.LastIndex(srv.URL, ":")+1:]
+	folder := filepath.Join(config, "agnostic-ai", "unlock")
+	outside := t.TempDir()
+	place := func(dir, id string, mode os.FileMode) string {
+		t.Helper()
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, "unlock-"+port+"-"+id+".html")
+		if err := os.WriteFile(path, []byte("<!doctype html>"), mode); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	ours := place(folder, "0123456789ab", 0o600)
+	resolved, err := filepath.EvalSymlinks(ours)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readable := place(folder, "aaaaaaaaaaaa", 0o644)
+	linked := filepath.Join(folder, "unlock-"+port+"-bbbbbbbbbbbb.html")
+	if err := os.Symlink(place(outside, "cccccccccccc", 0o600), linked); err != nil {
+		t.Fatal(err)
+	}
+	linkedFolder := filepath.Join(config, "agnostic-ai", "linked")
+	if err := os.Symlink(outside, linkedFolder); err != nil {
+		t.Fatal(err)
+	}
+	locked := srv.URL + "/"
+	for _, c := range []struct{ file, want string }{
+		{ours, ours},
+		{resolved, resolved},
+		{"/Users/Shared/x.command", locked},
+		{filepath.Join(folder, "unlock-1-0123456789ab.html"), locked},
+		{filepath.Join(folder, "unlock-"+port+"-dddddddddddd.html"), locked},
+		{readable, locked},
+		{linked, locked},
+		{filepath.Join(linkedFolder, "unlock-"+port+"-cccccccccccc.html"), locked},
+	} {
+		offered = c.file
+		opened := ""
+		fakeCommand(t, "echo '"+srv.URL+"/'")
+		if err := openDashboard(t.Context(), exec.Command(os.Getenv("AGNOSTIC_AI_BIN")), func(target string) error { opened = target; return nil }); err != nil || opened != c.want {
+			t.Errorf("offer %q: opened %q, %v; want %q", c.file, opened, err, c.want)
+		}
 	}
 }

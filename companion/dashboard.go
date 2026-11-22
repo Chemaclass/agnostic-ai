@@ -3,15 +3,18 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"iter"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -171,7 +174,68 @@ func openReadyDashboard(ctx context.Context, raw string, open func(string) error
 	if !health.OK || !health.Global || !health.UI {
 		return fmt.Errorf("%s did not serve the global dashboard", raw)
 	}
+	file, err := offerUnlockFile(ctx, client, address)
+	if err == nil {
+		return open(file)
+	}
+	// An older CLI or a server without sessions, such as on Windows, opens locked.
+	log.Printf("open the dashboard locked: %v", err)
 	return open(raw)
+}
+
+// unlockFileName is how the server names an unlock file: its port and a
+// random id.
+var unlockFileName = regexp.MustCompile(`^unlock-([0-9]+)-[0-9a-f]{12}\.html$`)
+
+// offerUnlockFile asks the dashboard server for an unlock file, as a
+// later agnostic-ai view does, so the page it opens gets the key that
+// lets it loosen approvals. It returns the file only when it sits in this
+// account's unlock folder and names the server's port: another program
+// holding the port must not choose what the companion opens.
+func offerUnlockFile(ctx context.Context, client *http.Client, address *url.URL) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address.JoinPath("api", "session", "offer").String(), http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unlock offer answered %s", resp.Status)
+	}
+	var reply struct {
+		File string `json:"file"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&reply); err != nil {
+		return "", fmt.Errorf("read the unlock offer: %w", err)
+	}
+	config, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	file := filepath.Clean(reply.File)
+	name := unlockFileName.FindStringSubmatch(filepath.Base(file))
+	if !filepath.IsAbs(file) || name == nil || name[1] != address.Port() {
+		return "", fmt.Errorf("the unlock offer named %q, outside the unlock folder", reply.File)
+	}
+	folder, err := filepath.EvalSymlinks(filepath.Join(config, "agnostic-ai", "unlock"))
+	if err != nil {
+		return "", fmt.Errorf("find the unlock folder: %w", err)
+	}
+	if parent, err := filepath.EvalSymlinks(filepath.Dir(file)); err != nil || parent != folder {
+		return "", fmt.Errorf("the unlock offer named %q, outside the unlock folder", reply.File)
+	}
+	info, err := os.Lstat(file)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", file, err)
+	}
+	if err := ownUnlockFile(info); err != nil {
+		return "", fmt.Errorf("%s: %w", file, err)
+	}
+	return file, nil
 }
 
 func (s *shell) dashboard(w http.ResponseWriter, r *http.Request) {
@@ -181,7 +245,12 @@ func (s *shell) dashboard(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 		view := exec.Command(binary, "view", "--global")
 		view.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_VIEW=1")
-		err = openDashboard(ctx, view, s.app.Browser.OpenURL)
+		err = openDashboard(ctx, view, func(target string) error {
+			if filepath.IsAbs(target) {
+				return s.app.Browser.OpenFile(target)
+			}
+			return s.app.Browser.OpenURL(target)
+		})
 	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
