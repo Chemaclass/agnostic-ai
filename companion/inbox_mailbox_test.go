@@ -244,6 +244,9 @@ func TestMailboxProxy_ForwardsClaimsAndRefreshesAnOwnershipConflict(t *testing.T
 			}
 			_, _ = w.Write([]byte(`{"claims":[],"conflicts":[]}`))
 		case "/api/mailbox/claim", "/api/mailbox/release", "/api/mailbox/conflict/dismiss", "/api/mailbox/handoff":
+			if r.Header.Get(secretHeader) == "" {
+				t.Errorf("%s reached the server without the companion secret", r.URL.Path)
+			}
 			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 				t.Errorf("mutation = %s %s", r.Method, r.URL)
 			}

@@ -13,6 +13,9 @@ import (
 type mailboxClaimRequest struct {
 	conversations.Ref
 	mailbox.Gives
+	// Gone asks to release a gone session's own claims: the server checks
+	// again that the owner is gone and that each path is still its claim.
+	Gone bool `json:"gone,omitempty"`
 }
 
 func (h *conversationsHandler) readMailboxClaims(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
@@ -48,16 +51,16 @@ func (h *conversationsHandler) readMailboxClaims(w http.ResponseWriter, r *http.
 	for _, claim := range view.Claims {
 		owners = append(owners, claim.Owner)
 	}
-	var found map[conversations.Ref]conversations.Conversation
+	var read conversations.RefsRead
 	if len(owners) > 0 {
-		found = h.scanner.FindRefs(ctx, h.scanOptions(""), owners...)
+		read = h.scanner.FindRefsRead(ctx, h.scanOptions(""), owners...)
 	}
 	for i := range view.Claims {
 		claim := &view.Claims[i]
-		claim.Stale = !canUseMailbox(found[claim.Owner])
+		claim.Stale = claimOwnerGone(read, claim.Owner)
 	}
 	worktree := ""
-	if row := found[ref]; canUseMailbox(row) {
+	if row := read.Rows[ref]; canUseMailbox(row) {
 		worktree, _ = mailbox.ResolveClaimWorktree(ctx, row.Folder)
 	}
 	writeEditJSON(w, http.StatusOK, struct {
@@ -68,7 +71,11 @@ func (h *conversationsHandler) readMailboxClaims(w http.ResponseWriter, r *http.
 
 func (h *conversationsHandler) changeMailboxClaim(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
 	var req mailboxClaimRequest
-	if refusal := readMailboxFields(w, r, &req, "tool", "id", "worktree", "paths"); refusal != nil {
+	keys := []string{"tool", "id", "worktree", "paths"}
+	if r.URL.Path == mailboxReleasePath {
+		keys = append(keys, "gone")
+	}
+	if refusal := readMailboxFields(w, r, &req, keys...); refusal != nil {
 		writeMailboxError(w, refusal)
 		return
 	}
@@ -78,9 +85,17 @@ func (h *conversationsHandler) changeMailboxClaim(w http.ResponseWriter, r *http
 	}
 	ctx := r.Context()
 	var err error
-	if r.URL.Path == mailboxReleasePath {
+	switch {
+	case r.URL.Path == mailboxReleasePath && req.Gone:
+		if !claimOwnerGone(h.scanner.FindRefsRead(ctx, h.scanOptions(""), req.Ref), req.Ref) {
+			writeMailboxError(w, &mailbox.Refusal{Guard: "ownership", Reason: "That session is still listed, or its store could not be read in full.",
+				Next: "Release its claims from its own row, or reload and try again."})
+			return
+		}
+		err = store.ReleaseExact(ctx, req.Ref, req.Gives)
+	case r.URL.Path == mailboxReleasePath:
 		err = store.Release(ctx, req.Ref, req.Gives)
-	} else {
+	default:
 		row, found := h.scanner.Find(ctx, req.Tool, req.ID, h.scanOptions(""))
 		if !found || !canUseMailbox(row) {
 			writeMailboxError(w, mailbox.NewRefusal("unknown-session"))
@@ -95,7 +110,14 @@ func (h *conversationsHandler) changeMailboxClaim(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func dismissMailboxConflict(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+// dismissMailboxConflict removes a conflict with no thread. Only the
+// companion that started this server may: the request must carry its
+// per-launch secret, on top of the local origin check every mailbox route has.
+func (h *conversationsHandler) dismissMailboxConflict(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+	if !h.companion.allows(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Dismiss a conflict from the companion that started this server."})
+		return
+	}
 	var req struct {
 		conversations.Ref
 		Worktree string `json:"worktree"`

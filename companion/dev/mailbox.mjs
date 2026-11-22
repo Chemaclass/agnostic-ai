@@ -240,6 +240,12 @@ export function mailboxClaim(state, ask, now) {
 
 export function mailboxRelease(state, ask, now) {
   if (!ask?.worktree || !validPaths(ask.paths)) return refused('format', undefined, now)
+  if (ask.paths.length > 200 || new TextEncoder().encode(JSON.stringify(ask)).length > 64 * 1024) return refused('size', undefined, now)
+  if (ask.gone) {
+    const listed = state.conversations.some((row) => mailboxSessionOf(row) && same(row, ask))
+    const exact = ask.paths.every((path) => state.claims.some((claim) => same(claim.owner, ask) && claim.worktree === ask.worktree && claim.paths[0] === path))
+    if (listed || !exact) return refused('ownership', undefined, now)
+  }
   releaseIn(state, ask, ask.worktree, ask.paths)
   const ownsReleased = (conflict) => same(conflict.holder, ask) && conflict.worktree === ask.worktree &&
     ask.paths.some((path) => overlap(path, conflict.path))
@@ -249,8 +255,8 @@ export function mailboxRelease(state, ask, now) {
 
 /** Like the server: the requester drops its conflict with no thread; anything else changes nothing. */
 export function mailboxDismiss(state, ask, now) {
-  if (!ask?.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
-  if (!/^[0-9a-f-]{36}$/.test(ask.id ?? '')) return refused('unknown-session', undefined, now)
+  if (!/^[0-9a-f-]{36}$/.test(ask?.id ?? '')) return refused('unknown-session', undefined, now)
+  if (!ask.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
   state.claimConflicts = state.claimConflicts.filter((conflict) =>
     conflict.thread || !same(conflict.requester, ask) || conflict.worktree !== ask.worktree || conflict.path !== ask.path)
   return changed({})

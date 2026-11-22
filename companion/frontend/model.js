@@ -856,6 +856,63 @@ export function claimMetaOf(claim, now = Date.now()) {
   return `Claimed by ${who}, ${day}${clockOf(since)}`
 }
 
+/** What one release request may carry: the server takes up to 200 paths and a 64 KiB body. */
+export const RELEASE_LIMITS = { paths: 200, bytes: 64 * 1024 }
+
+const bodyBytes = (ask) => new TextEncoder().encode(JSON.stringify(ask)).length
+
+/**
+ * The release requests for `claims`: one per owner and worktree, split so each stays within `limits`.
+ * `extra` goes on every request, such as `{ gone: true }`.
+ */
+export function releaseBatchesOf(claims, extra = {}, limits = RELEASE_LIMITS) {
+  const groups = new Map()
+  for (const claim of claims) {
+    const key = JSON.stringify([claim.owner.tool, claim.owner.id, claim.worktree])
+    if (!groups.has(key)) groups.set(key, { base: { tool: claim.owner.tool, id: claim.owner.id, worktree: claim.worktree, ...extra }, paths: [] })
+    groups.get(key).paths.push(...claim.paths)
+  }
+  const batches = []
+  for (const { base, paths } of groups.values()) {
+    let batch = { ...base, paths: [] }
+    for (const path of paths) {
+      const grown = { ...batch, paths: [...batch.paths, path] }
+      if (batch.paths.length > 0 && (grown.paths.length > limits.paths || bodyBytes(grown) > limits.bytes)) {
+        batches.push(batch)
+        batch = { ...base, paths: [path] }
+      } else {
+        batch = grown
+      }
+    }
+    if (batch.paths.length) batches.push(batch)
+  }
+  return batches
+}
+
+/**
+ * Sends each batch in turn and stops at the first refusal, as `{ released, total, version, error }`: the paths the
+ * saved batches freed, the paths asked, the last list version, and the refusal that stopped it, if any.
+ */
+export async function releaseInBatches(batches, send) {
+  const total = batches.reduce((sum, batch) => sum + batch.paths.length, 0)
+  let released = 0
+  let version
+  for (const batch of batches) {
+    try {
+      ({ version } = await send(batch))
+    } catch (error) {
+      return { released, total, version, error }
+    }
+    released += batch.paths.length
+  }
+  return { released, total, version }
+}
+
+/** What a stopped release says: how far it got before the refusal. */
+export function partialReleaseOf({ released, total }, refusal) {
+  return `Released ${released} of ${plural(total, 'path', 'paths')}. ${refusal}`
+}
+
 /** The claims card: its title and empty text for the footer or for one session, and the claims split into gone and live owners. */
 export function claimsCardOf(reply, ownerName) {
   const claims = reply?.claims ?? []

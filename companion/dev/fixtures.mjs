@@ -369,7 +369,7 @@ export const FIXTURES = {
     ],
   },
   'mailbox-claim-conflict': {
-    label: 'One session wants a path another claims',
+    label: 'One session asked for a path another claims',
     conversations: mailboxSessions,
     mailboxClaims: (now) => [
       { owner: MAILBOX_TARGET, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/handoff.go'], since: new Date(now).toISOString(), by: 'agent' },
@@ -377,6 +377,13 @@ export const FIXTURES = {
     claimConflicts: () => [
       { worktree: '/Users/you/Code/agnostic-ai', path: 'internal/mailbox/handoff.go', requester: MAILBOX_SOURCE, holder: MAILBOX_TARGET },
     ],
+  },
+  'mailbox-many-stale-claims': {
+    label: '250 file claims of a missing session, more than one release takes',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => Array.from({ length: 250 }, (_, i) => ({
+      owner: MAILBOX_THIRD, worktree: '/Users/you/Code/agnostic-ai', paths: [`internal/generated/file-${i}.go`], since: new Date(now).toISOString(), by: 'agent',
+    })),
   },
   'mailbox-stale-claims': {
     label: 'Two file claims with missing sessions',
