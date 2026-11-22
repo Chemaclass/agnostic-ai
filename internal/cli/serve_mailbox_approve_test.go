@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -67,6 +66,89 @@ func TestMailboxHTTP_ApproveAndRejectHeldMessages(t *testing.T) {
 		fmt.Sprintf(`{"thread":%q,"n":%d,"action":"approve"}`, second.Thread, second.N)), "rejected")
 }
 
+func TestMailboxHTTP_PersonActionsNeedTheCompanionSecret(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	held := mailboxAgentSend(t, h, "")
+	at := func(action string) string {
+		return fmt.Sprintf(`{"thread":%q,"n":%d,"action":%q}`, held.Thread, held.N, action)
+	}
+	owner := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":["src/a.go"]}`, inWorktree, h.root)
+	calls := []struct{ path, body string }{
+		{"/api/mailbox/approve", at("approve")},
+		{"/api/mailbox/approve", at("reject")},
+		{"/api/mailbox/handoff", at("accept")},
+		{"/api/mailbox/handoff", at("decline")},
+		{"/api/mailbox/queue", fmt.Sprintf(`{"thread":%q,"n":%d}`, held.Thread, held.N)},
+		{"/api/mailbox/stage", fmt.Sprintf(`{"thread":%q,"n":%d,"how":"copy"}`, held.Thread, held.N)},
+		{"/api/mailbox/claim", owner},
+		{"/api/mailbox/release", owner},
+		{"/api/mailbox/conflict/dismiss", fmt.Sprintf(`{"tool":"claude","id":%q,"conflict":"c1"}`, inWorktree)},
+	}
+	for _, action := range []string{"pause", "resume", "stop", "raise-cap"} {
+		calls = append(calls, struct{ path, body string }{"/api/mailbox/thread", fmt.Sprintf(`{"thread":%q,"action":%q}`, held.Thread, action)})
+	}
+	before := mailboxThreadJSON(t, h)
+	claims := func() string {
+		return mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/claims", "").Body.String()
+	}
+	claimsBefore := claims()
+	secret := string(testCompanionSecret)
+	for name, as := range map[string]string{"no secret": "", "a wrong secret": strings.Repeat("0", len(secret))} {
+		for _, call := range calls {
+			if rec := mailboxHTTPAs(t, h, as, http.MethodPost, call.path, call.body); rec.Code != http.StatusForbidden {
+				t.Errorf("%s %s with %s = %d %s, want 403", call.path, call.body, name, rec.Code, rec.Body)
+			}
+		}
+	}
+	if after := mailboxThreadJSON(t, h); after != before {
+		t.Errorf("refused calls changed the thread:\nbefore %s\nafter  %s", before, after)
+	}
+	if after := claims(); after != claimsBefore {
+		t.Errorf("refused calls changed the claims:\nbefore %s\nafter  %s", claimsBefore, after)
+	}
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/approve", at("reject")); rec.Code != http.StatusNoContent {
+		t.Errorf("reject with the secret = %d %s", rec.Code, rec.Body)
+	}
+
+	h.companion = ""
+	other := mailboxAgentSend(t, h, held.Thread)
+	approveOther := fmt.Sprintf(`{"thread":%q,"n":%d,"action":"approve"}`, other.Thread, other.N)
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/approve", approveOther); rec.Code != http.StatusForbidden {
+		t.Errorf("approve on a server started without a secret = %d %s, want 403", rec.Code, rec.Body)
+	}
+}
+
+func TestMailboxNeedsCompanion_GatesEveryChangeRouteButSendRefsAndSettings(t *testing.T) {
+	for path, want := range map[string]bool{
+		mailboxSendPath: false, mailboxRefsPath: false, mailboxSettingsPath: false,
+		mailboxThreadPath: true, mailboxStagePath: true, mailboxClaimPath: true, mailboxReleasePath: true,
+		mailboxDismissPath: true, mailboxHandoffPath: true, mailboxApprovePath: true, mailboxQueuePath: true,
+		"/api/mailbox/added-later": true,
+	} {
+		if got := mailboxNeedsCompanion(path); got != want {
+			t.Errorf("mailboxNeedsCompanion(%s) = %t, want %t", path, got, want)
+		}
+	}
+}
+
+func TestMailboxHTTP_SendWithoutTheSecretIsAnAgentSend(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	secret := string(testCompanionSecret)
+	for name, as := range map[string]string{"no secret": "", "a wrong secret": strings.Repeat("0", len(secret))} {
+		rec := mailboxHTTPAs(t, h, as, http.MethodPost, "/api/mailbox/send", mailboxSendBody(inWorktree, "question", "Ready to merge?", ""))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"held"`) {
+			t.Fatalf("send with %s = %d %s, want a held receipt", name, rec.Code, rec.Body)
+		}
+	}
+	if body := mailboxThreadJSON(t, h); !strings.Contains(body, `"by":"agent"`) || strings.Contains(body, `"by":"human"`) {
+		t.Errorf("a send without the secret was recorded as human: %s", body)
+	}
+	rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/send", mailboxSendBody(inWorktree, "question", "Did the tests pass?", ""))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"waiting"`) {
+		t.Errorf("send with the secret = %d %s, want a waiting receipt", rec.Code, rec.Body)
+	}
+}
+
 func TestMailboxHTTP_QueueForDeliveryPutsAStagedMessageBack(t *testing.T) {
 	h, _ := mailboxHTTPFixture(t)
 	id := mailboxSendThread(t, h, mailboxSendBody(inWorktree, "question", "Did the tests pass?", ""))
@@ -95,25 +177,19 @@ func TestMailboxHTTP_SettingsReadAndWriteTheApprovalSwitch(t *testing.T) {
 	if got := read(); got != `{"approveAgentSends":true}` {
 		t.Errorf("default settings = %s", got)
 	}
-	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":false}`); rec.Code != http.StatusForbidden {
+	if rec := mailboxHTTPAs(t, h, "", http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":false}`); rec.Code != http.StatusForbidden {
 		t.Fatalf("turning approval off without the companion secret = %d %s, want 403", rec.Code, rec.Body)
 	}
 	if got := read(); got != `{"approveAgentSends":true}` {
 		t.Errorf("a refused write changed the settings: %s", got)
 	}
-	h.companion = companionSecret(strings.Repeat("s", minCompanionSecret))
-	off := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310/api/mailbox/settings", strings.NewReader(`{"approveAgentSends":false}`))
-	off.Header.Set("Content-Type", "application/json")
-	off.Header.Set(companionSecretHeader, string(h.companion))
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, off)
-	if rec.Code != http.StatusNoContent {
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":false}`); rec.Code != http.StatusNoContent {
 		t.Fatalf("save settings with the secret = %d %s", rec.Code, rec.Body)
 	}
 	if got := read(); got != `{"approveAgentSends":false}` {
 		t.Errorf("saved settings = %s", got)
 	}
-	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":true}`); rec.Code != http.StatusNoContent {
+	if rec := mailboxHTTPAs(t, h, "", http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":true}`); rec.Code != http.StatusNoContent {
 		t.Fatalf("turning approval on without the secret = %d %s", rec.Code, rec.Body)
 	}
 	for _, body := range []string{`{}`, `{"approveAgentSends":"no"}`, `{"approveAgentSends":true,"cap":16}`} {
