@@ -40,6 +40,7 @@ func (s *shell) watchSettings(ctx context.Context) {
 			return
 		case <-ticker.C:
 			s.takeOutsideSettings()
+			s.touchState()
 		}
 	}
 }
@@ -53,12 +54,8 @@ func (s *shell) takeOutsideSettings() {
 	// Own writes hold mu through the save, so the file read here is never
 	// older than the companion's copy. A missing file is not a change: the
 	// next save writes it again.
-	if _, err := os.Stat(s.settingsPath); err != nil {
-		s.mu.Unlock()
-		return
-	}
-	read, err := readSettings(s.settingsPath)
-	if err != nil {
+	read, _, found, err := readSettingsFields(s.settingsPath)
+	if err != nil || !found {
 		s.mu.Unlock()
 		return
 	}
@@ -107,6 +104,22 @@ func (s *shell) writeState() {
 	defer s.writingState.Unlock()
 	if err := writeCompanionState(statePath(s.settingsPath), companionState{PID: os.Getpid(), preferences: s.preferences()}); err != nil {
 		log.Print(err)
+	}
+}
+
+// touchState marks the state file fresh. agnostic-ai serve treats one
+// untouched for 30 seconds as left by a companion that is gone, even when
+// another process took its id.
+func (s *shell) touchState() {
+	if s.settingsPath == "" {
+		return
+	}
+	now := time.Now()
+	s.writingState.Lock()
+	err := os.Chtimes(statePath(s.settingsPath), now, now)
+	s.writingState.Unlock()
+	if err != nil {
+		s.writeState()
 	}
 }
 

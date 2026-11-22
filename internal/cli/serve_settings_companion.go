@@ -13,9 +13,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 )
 
-// Companion app switches POST /api/settings takes. They only change how
-// the companion looks and whether it checks for updates, so they need no
-// proof.
+// Companion app switches POST /api/settings takes. They change how the
+// companion looks and need no proof, except turning off update checks.
 const (
 	settingCompanionAnimate         = "companion.animate"
 	settingCompanionDimWhenIdle     = "companion.dimWhenIdle"
@@ -110,10 +109,20 @@ func runningCompanion(path string) (*settingsCompanionLive, bool) {
 	if json.Unmarshal(raw, &state) != nil {
 		return nil, false
 	}
-	if !companionProcessRuns(state.PID) {
+	if !companionProcessRuns(state.PID) || !companionStateFresh(path) {
 		return nil, false
 	}
 	return &state.settingsCompanionLive, true
+}
+
+// companionStateStale is how long a state file may go untouched. A
+// running companion touches it every 5 seconds, so an older one was left
+// by a companion that is gone, even when another process took its id.
+const companionStateStale = 30 * time.Second
+
+func companionStateFresh(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && time.Since(info.ModTime()) < companionStateStale
 }
 
 // readCompanionSettings returns the file's top-level fields; a missing
@@ -126,9 +135,13 @@ func readCompanionSettings(path string) (map[string]json.RawMessage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
-	fields := map[string]json.RawMessage{}
+	var fields map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &fields); err != nil {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	if fields == nil {
+		// A file holding null is an empty one, as the companion reads it.
+		return map[string]json.RawMessage{}, nil
 	}
 	return fields, nil
 }

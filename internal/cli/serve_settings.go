@@ -546,19 +546,26 @@ func decodeSettingValue(key string, raw json.RawMessage) (settingValue, error) {
 		}
 		return settingValue{value: mode, loosens: mode != config.ApprovalsAsk}, nil
 	case settingApprovalsCompanion, settingMailboxApprove:
-		var on bool
-		if err := json.Unmarshal(raw, &on); err != nil {
-			return settingValue{}, fmt.Errorf("%s takes true or false", key)
-		}
-		return settingValue{value: on, loosens: on == (key == settingApprovalsCompanion)}, nil
-	case settingCompanionAnimate, settingCompanionDimWhenIdle, settingCompanionSmall, settingCompanionCheckForUpdates:
-		var on bool
-		if err := json.Unmarshal(raw, &on); err != nil {
-			return settingValue{}, fmt.Errorf("%s takes true or false", key)
-		}
-		return settingValue{value: on}, nil
+		on, err := decodeSwitch(key, raw)
+		return settingValue{value: on, loosens: on == (key == settingApprovalsCompanion)}, err
+	case settingCompanionAnimate, settingCompanionDimWhenIdle, settingCompanionSmall:
+		on, err := decodeSwitch(key, raw)
+		return settingValue{value: on}, err
+	case settingCompanionCheckForUpdates:
+		// Off leaves a known fix uninstalled, so it needs proof like a loosening write.
+		on, err := decodeSwitch(key, raw)
+		return settingValue{value: on, loosens: !on}, err
 	}
 	return settingValue{}, fmt.Errorf("key must be %s, %s, %s or a companion.* switch", settingApprovalsMode, settingApprovalsCompanion, settingMailboxApprove)
+}
+
+// decodeSwitch reads true or false; null, which decodes as false, is refused.
+func decodeSwitch(key string, raw json.RawMessage) (bool, error) {
+	var on *bool
+	if err := json.Unmarshal(raw, &on); err != nil || on == nil {
+		return false, fmt.Errorf("%s takes true or false", key)
+	}
+	return *on, nil
 }
 
 // currentSetting is key's value in doc, as the page shows it.
@@ -599,7 +606,11 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if value.loosens && !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "This change makes approvals less strict. To change this here, run agnostic-ai view --scope user again, or use the companion. You can also edit the home config."})
+		message := "This change makes approvals less strict. To change this here, run agnostic-ai view --scope user again, or use the companion. You can also edit the home config."
+		if change.Key == settingCompanionCheckForUpdates {
+			message = "Turning off update checks needs a page opened with agnostic-ai view --scope user, or the companion's menu."
+		}
+		writeEditJSON(w, http.StatusForbidden, editError{Error: message})
 		return
 	}
 	if strings.HasPrefix(change.Key, "approvals.") {

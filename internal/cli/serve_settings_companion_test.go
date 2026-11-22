@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestSettings_CompanionSwitchKeepsTheOtherFields(t *testing.T) {
@@ -42,6 +44,29 @@ func TestSettings_CompanionSwitchKeepsTheOtherFields(t *testing.T) {
 		t.Errorf("shortcut write = %d %s; it is read only", rec.Code, rec.Body)
 	}
 
+	rec, _ = postSetting(t, h, `{"key":"companion.animate","value":null}`, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("null value = %d %s", rec.Code, rec.Body)
+	}
+	rec, _ = postSetting(t, h, `{"key":"companion.checkForUpdates","value":false}`, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Errorf("update checks off without proof = %d %s", rec.Code, rec.Body)
+	}
+	rec, reply = postSetting(t, h, `{"key":"companion.checkForUpdates","value":false}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusOK || reply.Settings.CompanionApp.CheckForUpdates {
+		t.Errorf("update checks off with proof = %d %s", rec.Code, rec.Body)
+	}
+
+	writeFile(t, path, `null`)
+	_, doc = getSettings(t, h, "")
+	if doc.CompanionApp.Problem != "" {
+		t.Errorf("null file problem = %q", doc.CompanionApp.Problem)
+	}
+	rec, _ = postSetting(t, h, `{"key":"companion.dimWhenIdle","value":true}`, nil)
+	if raw, _ := os.ReadFile(path); rec.Code != http.StatusOK || !strings.Contains(string(raw), `"dimWhenIdle": true`) {
+		t.Errorf("write over a null file = %d %s; file %s", rec.Code, rec.Body, raw)
+	}
+
 	writeFile(t, path, `not json`)
 	rec, _ = postSetting(t, h, `{"key":"companion.animate","value":false}`, nil)
 	if raw, _ := os.ReadFile(path); rec.Code != http.StatusConflict || string(raw) != "not json" {
@@ -61,6 +86,14 @@ func TestSettings_CompanionLiveRowsOnlyWhileItRuns(t *testing.T) {
 	writeFile(t, state, `{"pid":2147483646,"shortcut":"Ctrl+Alt+Space"}`)
 	if _, doc := getSettings(t, h, ""); doc.CompanionApp.Running {
 		t.Errorf("a state file left by a crash counts as running: %+v", doc.CompanionApp)
+	}
+	writeFile(t, state, `{"pid":`+jsonInt(os.Getpid())+`,"shortcut":"Ctrl+Alt+Space"}`)
+	old := time.Now().Add(-time.Minute)
+	if err := os.Chtimes(state, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, doc := getSettings(t, h, ""); doc.CompanionApp.Running {
+		t.Errorf("a state file untouched for a minute counts as running: %+v", doc.CompanionApp)
 	}
 	if err := os.Remove(state); err != nil {
 		t.Fatal(err)

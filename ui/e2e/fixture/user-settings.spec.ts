@@ -49,7 +49,7 @@ async function serve(page: Page) {
     const request = route.request()
     const body = request.postDataJSON() as { key: string; value: string | boolean; expected?: string | boolean }
     state.writes.push({ body, key: request.headers()['x-agnostic-ai-session'] })
-    const loosens = body.key.startsWith('companion.') ? false : body.key === 'approvals.mode' ? body.value !== 'ask' : body.key === 'approvals.companion' ? body.value === true : body.value === false
+    const loosens = body.key === 'companion.checkForUpdates' ? body.value === false : body.key.startsWith('companion.') ? false : body.key === 'approvals.mode' ? body.value !== 'ask' : body.key === 'approvals.companion' ? body.value === true : body.value === false
     if (loosens && !withKey(request)) return route.fulfill({ status: 403, json: { error: 'This change makes approvals less strict.' } })
     if (body.key === 'approvals.mode') {
       state.doc.approvals.mode = String(body.value)
@@ -145,6 +145,7 @@ test.describe('user settings', () => {
     await small.click()
     await expect(small).toHaveAttribute('aria-checked', 'true')
     expect(state.writes.at(-1)).toEqual({ body: { key: 'companion.smallCompanion', value: true, expected: false }, key: undefined })
+    await expect(page.getByRole('switch', { name: 'Check for updates' })).toBeDisabled()
 
     state.doc.companionApp.running = true
     state.doc.companionApp.live = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -97,22 +98,38 @@ func webviewDataPath(settingsPath string) string {
 // of the wrong type is skipped and the rest kept; a file that is not
 // JSON at all is an error.
 func readSettings(path string) (settings, error) {
-	raw, err := os.ReadFile(path)
+	s, _, _, err := readSettingsFields(path)
+	return s, err
+}
+
+// readSettingsFields also returns the file's top-level fields, so a save
+// can change its own and keep the rest, and whether the file exists. It
+// opens the file so the server's replace of it still works on Windows.
+func readSettingsFields(path string) (settings, map[string]json.RawMessage, bool, error) {
+	raw, err := readFileShared(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return settings{}, nil
+		return settings{}, map[string]json.RawMessage{}, false, nil
 	}
 	if err != nil {
-		return settings{}, fmt.Errorf("read the companion settings: %w", err)
+		return settings{}, nil, true, fmt.Errorf("read the companion settings: %w", err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return settings{}, nil, true, &unreadableSettings{path: path, cause: err}
+	}
+	if fields == nil {
+		// A file holding null is an empty one.
+		fields = map[string]json.RawMessage{}
 	}
 	var s settings
 	if err := json.Unmarshal(raw, &s); err != nil {
-		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); ok {
-			log.Printf("companion settings %s: %v; kept the other settings", path, err)
-			return fieldsThatParse(raw), nil
+		if _, ok := errors.AsType[*json.UnmarshalTypeError](err); !ok {
+			return settings{}, nil, true, &unreadableSettings{path: path, cause: err}
 		}
-		return settings{}, &unreadableSettings{path: path, cause: err}
+		log.Printf("companion settings %s: %v; kept the other settings", path, err)
+		s = fieldsThatParse(raw)
 	}
-	return s, nil
+	return s, fields, true, nil
 }
 
 // fieldsThatParse reads each top-level field of raw on its own and keeps
@@ -207,36 +224,74 @@ func lockSettings(path string) (release func(), err error) {
 }
 
 // saveSettingsChange applies change to the settings file under its lock.
-// It reads the file again first, so a value another process wrote since
-// stays. A file that is missing or not JSON starts from base, the
-// companion's own copy before the change.
+// It reads the file again first and writes back only the fields change
+// touched, so a value another process wrote since stays, and so does a
+// field this version does not know. A file that is missing or not JSON
+// starts from base, the companion's own copy before the change.
 func saveSettingsChange(path string, base settings, change func(*settings)) error {
 	release, err := lockSettings(path)
 	if err != nil {
 		return err
 	}
 	defer release()
-	saved := base
-	if _, statErr := os.Stat(path); statErr == nil {
-		read, err := readSettings(path)
-		_, unreadable := errors.AsType[*unreadableSettings](err)
-		switch {
-		case err == nil:
-			saved = read
-		case !unreadable:
-			return err
+	read, fields, found, err := readSettingsFields(path)
+	_, unreadable := errors.AsType[*unreadableSettings](err)
+	if err != nil && !unreadable {
+		return err
+	}
+	saved := read
+	if !found || unreadable {
+		saved = base
+		if fields, err = settingsFields(base); err != nil {
+			return fmt.Errorf("write the companion settings: %w", err)
 		}
 	}
+	before, err := settingsFields(saved)
+	if err != nil {
+		return fmt.Errorf("write the companion settings: %w", err)
+	}
 	change(&saved)
-	return writeSettings(path, saved)
+	after, err := settingsFields(saved)
+	if err != nil {
+		return fmt.Errorf("write the companion settings: %w", err)
+	}
+	for name, value := range after {
+		if !bytes.Equal(before[name], value) {
+			fields[name] = value
+		}
+	}
+	for name := range before {
+		if _, kept := after[name]; !kept {
+			delete(fields, name)
+		}
+	}
+	return writeSettingsFields(path, fields)
+}
+
+// settingsFields is s as the file's top-level fields.
+func settingsFields(s settings) (map[string]json.RawMessage, error) {
+	raw, err := json.Marshal(s)
+	if err != nil {
+		return nil, err
+	}
+	fields := map[string]json.RawMessage{}
+	return fields, json.Unmarshal(raw, &fields)
 }
 
 // writeSettings replaces the file in one step.
 func writeSettings(path string, s settings) error {
+	fields, err := settingsFields(s)
+	if err != nil {
+		return fmt.Errorf("write the companion settings: %w", err)
+	}
+	return writeSettingsFields(path, fields)
+}
+
+func writeSettingsFields(path string, fields map[string]json.RawMessage) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("write the companion settings: %w", err)
 	}
-	raw, err := json.MarshalIndent(s, "", "  ")
+	raw, err := json.MarshalIndent(fields, "", "  ")
 	if err != nil {
 		return fmt.Errorf("write the companion settings: %w", err)
 	}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"testing"
@@ -103,5 +104,39 @@ func TestWriteState_HoldsTheProcessAndItsPreferences(t *testing.T) {
 	s.removeState()
 	if _, err := os.Stat(statePath(s.settingsPath)); !os.IsNotExist(err) {
 		t.Errorf("state file after quit: %v", err)
+	}
+}
+
+// TestSaveSettingsChange_KeepsFieldsItDoesNotKnow: the write-back of a
+// shortcut and a drag patch their own fields, so a field a newer
+// version or the server wrote stays, and a file holding null works.
+func TestSaveSettingsChange_KeepsFieldsItDoesNotKnow(t *testing.T) {
+	s, _ := toldShell(t)
+	if err := os.WriteFile(s.settingsPath, []byte(`{"shortcut":"Ctrl+Q","futureField":{"a":1},"smallCompanion":true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.takeOutsideSettings()
+	if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: 7, Y: 8} }); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(s.settingsPath)
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	var future bytes.Buffer
+	_ = json.Compact(&future, fields["futureField"])
+	if future.String() != `{"a":1}` || fields["bubble"] == nil || fields["shortcut"] != nil || string(fields["smallCompanion"]) != "true" {
+		t.Errorf("saved %s; want futureField kept, the bubble saved and the outside shortcut removed", raw)
+	}
+
+	if err := os.WriteFile(s.settingsPath, []byte("null"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.changeSettings(func(saved *settings) { saved.DimWhenIdle = true }); err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := readSettings(s.settingsPath); err != nil || !saved.DimWhenIdle {
+		t.Errorf("after a null file: %+v, %v", saved, err)
 	}
 }

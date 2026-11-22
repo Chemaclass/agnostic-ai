@@ -18,6 +18,7 @@ export const LOCKED_HINT = 'To change this here, run agnostic-ai view --scope us
 
 /** Whether setting key to value makes approvals less strict, which needs the session key. */
 export function loosens(key: SettingKey, value: string | boolean): boolean {
+  if (key === 'companion.checkForUpdates') return value === false
   if (key.startsWith('companion.')) return false
   if (key === 'approvals.mode') return value !== 'ask'
   if (key === 'approvals.companion') return value === true

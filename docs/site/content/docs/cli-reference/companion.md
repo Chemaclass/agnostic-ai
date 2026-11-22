@@ -203,7 +203,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 - The circle shows a solid orange count with a lock and a halo for chats waiting for you (a terminal when all wait on a shell). Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
 - The circle and the list's ⋯ menu hold the same items in the same order, except the mailbox approval switch, which only the ⋯ menu shows.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
-- The web page's **Settings**, then **Approvals and companion**, has the same four switches (Animate, Dim when idle, Small companion, Check for updates). A running companion applies a change made there within 5 seconds. While it runs, the page also shows both shortcuts and Start at login, read only.
+- The web page's **Settings**, then **Approvals and companion**, has the same four switches (Animate, Dim when idle, Small companion, Check for updates). A running companion applies a change made there within 5 seconds. Turning off Check for updates there needs a tab that `view` opened. While it runs, the page also shows both shortcuts and Start at login, read only.
 - A shortcut written into `companion.json` by another program is put back: the system must take the keys first, so change them from the menu.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
 - Send copied text: the shortcut is Ctrl+Alt+V until you change it.

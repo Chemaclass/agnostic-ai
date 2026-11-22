@@ -265,7 +265,7 @@ function UserSettingsPage() {
         </>
       )}
 
-      {doc.companionApp && <CompanionApp app={doc.companionApp} busy={busy} asking={question !== undefined} save={save} />}
+      {doc.companionApp && <CompanionApp app={doc.companionApp} canLoosen={doc.canLoosen} busy={busy} asking={question !== undefined} save={save} />}
     </section>
   )
 }
@@ -276,8 +276,9 @@ function UserSettingsPage() {
  * at login belong to the running app and the system, so they show read
  * only, and only while the companion runs.
  */
-function CompanionApp({ app, busy, asking, save }: {
+function CompanionApp({ app, canLoosen, busy, asking, save }: {
   app: CompanionAppSettings
+  canLoosen: boolean
   busy: boolean
   asking: boolean
   save: (key: SettingKey, value: boolean, expected: boolean) => Promise<void>
@@ -290,7 +291,7 @@ function CompanionApp({ app, busy, asking, save }: {
       {COMPANION_SWITCHES.map(({ key, label }) => (
         <div key={key} className="user-settings-row">
           <span>{label}</span>
-          <Toggle on={app[key]} label={label} pending={busy} disabled={asking || app.problem !== undefined} onToggle={() => void save(`companion.${key}`, !app[key], app[key])} />
+          <Toggle on={app[key]} label={label} pending={busy} disabled={asking || app.problem !== undefined || !canChange({ canLoosen }, `companion.${key}`, !app[key])} onToggle={() => void save(`companion.${key}`, !app[key], app[key])} />
         </div>
       ))}
       {live
