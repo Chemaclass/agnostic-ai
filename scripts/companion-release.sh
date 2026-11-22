@@ -37,15 +37,23 @@ image_diagnostics() {
 
 # On some runners verify fails at once with "Resource temporarily
 # unavailable" for as long as the job runs, and the runner then kills an
-# orphan diskimages-helper that `hdiutil create` left behind. Stopping a
-# helper that still holds the finished image is safe: verify checks the
-# checksums right after.
+# orphan diskimages-helper that `hdiutil create` left behind. On CI, ask a
+# helper that holds the new, unattached image to stop; verify checks the
+# checksums right after. Elsewhere, only report who holds it.
 release_image() {
-  local image="$1" pid pids helpers="" waited=0
+  local image="$1" pid pids attached helpers="" waited=0
   pids="$(lsof -t -- "$image" 2>/dev/null)" || true
   [ -z "$pids" ] && return 0
   echo "hdiutil create left $image open" >&2
   image_diagnostics "$image"
+  if [ "${GITHUB_ACTIONS:-}" != true ]; then
+    return 0
+  fi
+  attached="$(hdiutil info -plist 2>/dev/null)" || return 0
+  if grep -qF -e "<string>$image</string>" -e "<string>/private$image</string>" <<< "$attached"; then
+    echo "$image is attached; leaving its helper alone" >&2
+    return 0
+  fi
   for pid in $pids; do
     if [[ "$(ps -o comm= -p "$pid" 2>/dev/null)" == *diskimages-helper ]]; then
       helpers="$helpers $pid"
@@ -55,13 +63,13 @@ release_image() {
   echo "stopping the disk image helper:$helpers" >&2
   # shellcheck disable=SC2086
   kill $helpers 2>/dev/null || true
-  # shellcheck disable=SC2086
-  while kill -0 $helpers 2>/dev/null && [ "$waited" -lt 10 ]; do
+  while [ "$waited" -lt 10 ] && lsof -t -- "$image" > /dev/null 2>&1; do
     sleep 1
     waited=$((waited + 1))
   done
-  # shellcheck disable=SC2086
-  kill -9 $helpers 2>/dev/null || true
+  if lsof -t -- "$image" > /dev/null 2>&1; then
+    echo "$image is still open after ${waited}s" >&2
+  fi
 }
 
 download_modules() {
@@ -207,12 +215,14 @@ PLIST
   codesign --verify --deep --strict "$app"
   ln -s /Applications "$work/$arch/image/Applications"
   image="$outdir/${name}_darwin_${arch}.dmg"
+  staged="$work/$arch/${name}_darwin_${arch}.dmg"
   hdiutil_retrying create -ov -format UDZO -volname "$app_name" \
-    -srcfolder "$work/$arch/image" "$image"
-  release_image "$image"
-  if ! hdiutil_retrying verify "$image"; then
-    image_diagnostics "$image"
+    -srcfolder "$work/$arch/image" "$staged"
+  release_image "$staged"
+  if ! hdiutil_retrying verify "$staged"; then
+    image_diagnostics "$staged"
     exit 1
   fi
+  mv -f "$staged" "$image"
   echo "$image"
 done
