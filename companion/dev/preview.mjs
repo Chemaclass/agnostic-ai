@@ -12,7 +12,7 @@ import { createServer } from 'node:http'
 import { extname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FIXTURES, arrival } from './fixtures.mjs'
-import { mailboxAnswer, mailboxApprove, mailboxChange, mailboxClaim, mailboxClaims, mailboxQueue, mailboxRefs, mailboxRelease, mailboxRows, mailboxSaveSettings, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
+import { mailboxAnswer, mailboxClaimTotals, mailboxApprove, mailboxChange, mailboxClaim, mailboxClaims, mailboxQueue, mailboxRefs, mailboxRelease, mailboxRows, mailboxSaveSettings, mailboxSend, mailboxStage, mailboxThreads } from './mailbox.mjs'
 
 const here = resolve(fileURLToPath(new URL('.', import.meta.url)))
 const FRONTEND = resolve(here, '../frontend')
@@ -105,6 +105,8 @@ function viewOf(state, conversations, query, all = conversations) {
   if (state.fixture.cloudNote) view.cloudNote = state.fixture.cloudNote
   if (state.fixture.marksNote) view.marksNote = state.fixture.marksNote
   if (state.fixture.mailboxWarning) view.mailboxWarning = state.fixture.mailboxWarning
+  const claims = mailboxClaimTotals(state)
+  if (claims) view.mailboxClaims = claims
   if (state.approvalsMode) view.approvalsMode = state.approvalsMode
   return view
 }
@@ -486,6 +488,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       sendJSON(response, reply.status, reply.body)
     },
     'POST /api/open': open,
+    'POST /api/docs': async (request, response) => {
+      logCall('/api/docs', await bodyOf(request))
+      noContent(response)
+    },
     'GET /api/open/late': (request, response) => {
       logCall('/api/open/late')
       const failure = lateOpen.settled

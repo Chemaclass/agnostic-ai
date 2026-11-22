@@ -359,6 +359,22 @@ export const FIXTURES = {
       since: new Date(now).toISOString(), by: 'human',
     }],
   },
+  'mailbox-claims': {
+    label: 'Two sessions with file claims, one made by an agent',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => [
+      { owner: MAILBOX_SOURCE, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/claims.go'], since: new Date(now).toISOString(), by: 'human' },
+      { owner: MAILBOX_SOURCE, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/store.go'], since: new Date(now).toISOString(), by: 'human' },
+      { owner: MAILBOX_TARGET, worktree: '/Users/you/Code/agnostic-ai', paths: ['companion/frontend/panel.js'], since: new Date(now).toISOString(), by: 'agent' },
+    ],
+  },
+  'mailbox-stale-claims': {
+    label: 'Two file claims with missing sessions',
+    conversations: mailboxSessions,
+    mailboxClaims: (now) => ['internal/mailbox/handoff.go', 'internal/mailbox/claims.go'].map((path) => ({
+      owner: MAILBOX_THIRD, worktree: '/Users/you/Code/agnostic-ai', paths: [path], since: new Date(now).toISOString(), by: 'human',
+    })),
+  },
   'mailbox-review': {
     label: 'Review request with a default base', conversations: mailboxSessions, reviewRefs,
   },

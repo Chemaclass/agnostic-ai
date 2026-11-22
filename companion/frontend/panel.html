@@ -64,7 +64,8 @@
       <div class="mailbox-path-fields" id="mailbox-handoff" hidden>
         <label>Worktree <input id="mailbox-handoff-worktree" autocomplete="off" spellcheck="false" aria-describedby="mailbox-handoff-status"></label>
         <p class="mailbox-muted" id="mailbox-handoff-status" role="status"></p>
-        <label>Paths, one per line <textarea id="mailbox-handoff-paths" rows="2" spellcheck="false" aria-describedby="mailbox-handoff-hint"></textarea></label>
+        <label>Paths, one per line <textarea id="mailbox-handoff-paths" rows="2" spellcheck="false" aria-describedby="mailbox-handoff-help mailbox-handoff-hint"></textarea></label>
+        <p class="mailbox-muted claim-help"><span id="mailbox-handoff-help" data-claim-help></span> <button class="help-link" type="button" data-help="file-claims"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.5 1.6c-.5.3-.8.6-.8 1.2v.4M8 11.3v.1" fill="none" stroke="currentColor" stroke-linecap="round"/></svg></button></p>
         <p class="mailbox-muted" id="mailbox-handoff-hint">Use paths relative to the Git worktree root. Use <code>.</code> for the whole worktree.</p>
         <button class="confirm-cancel" id="mailbox-claim-offer" type="button">Claim these paths</button>
       </div>
@@ -74,14 +75,14 @@
         <button class="mailbox-send" id="mailbox-send" type="submit">Send</button>
       </div>
     </form>
-    <section class="mailbox-card" id="mailbox-claims" aria-labelledby="mailbox-claims-title" hidden>
+    <section class="mailbox-card" id="mailbox-claims" aria-labelledby="mailbox-claims-title" aria-describedby="mailbox-claims-help" hidden>
       <header class="mailbox-header">
         <strong id="mailbox-claims-title">File claims</strong>
         <button class="icon-button" id="mailbox-claims-dismiss" type="button" aria-label="Dismiss file claims" title="Dismiss file claims">
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-linecap="round"/></svg>
         </button>
       </header>
-      <p id="mailbox-claims-owner" class="mailbox-muted" hidden></p>
+      <p class="mailbox-muted claim-help"><span id="mailbox-claims-help" data-claim-help></span> <button class="help-link" type="button" data-help="file-claims"><svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.5 1.6c-.5.3-.8.6-.8 1.2v.4M8 11.3v.1" fill="none" stroke="currentColor" stroke-linecap="round"/></svg></button></p>
       <form class="mailbox-path-fields" id="mailbox-claim-form" aria-label="Claim files" hidden>
         <label>Worktree <input id="mailbox-claim-worktree" autocomplete="off" spellcheck="false"></label>
         <label>Paths, one per line <textarea id="mailbox-claim-paths" rows="2" spellcheck="false" aria-describedby="mailbox-claim-hint"></textarea></label>
@@ -179,7 +180,7 @@
     <footer class="foot">
       <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
       <span class="summary" id="summary" role="status"></span>
-      <button class="confirm-cancel mailbox-global-claims" id="mailbox-open-claims" type="button" aria-controls="mailbox-claims">File claims</button>
+      <button class="confirm-cancel mailbox-global-claims" id="mailbox-open-claims" type="button" aria-controls="mailbox-claims" hidden>File claims <span class="claims-count" id="mailbox-claims-count"></span></button>
       <button class="icon-button" id="menu-button" type="button" aria-label="Settings" title="Settings" aria-haspopup="true" aria-expanded="false">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="3.5" cy="8" r="1.1"/><circle cx="8" cy="8" r="1.1"/><circle cx="12.5" cy="8" r="1.1"/></svg>
       </button>

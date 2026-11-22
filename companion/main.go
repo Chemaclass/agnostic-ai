@@ -765,6 +765,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/update/start", s.startUpdate)
 	mux.HandleFunc("POST /api/update/release-page", s.openReleasePage)
 	mux.HandleFunc("POST /api/dashboard", s.dashboard)
+	mux.HandleFunc("POST /api/docs", s.openDocsPage)
 	mux.HandleFunc("POST /api/hide", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 		s.hide()

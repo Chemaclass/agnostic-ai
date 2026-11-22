@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
+	"github.com/chemaclass/agnostic-ai/internal/conversations"
 )
 
 func mailboxClaimBody(id, root, path string) string {
@@ -243,5 +244,39 @@ func TestMailboxHTTP_ClaimsAndHandoffsRejectAmbiguousAndExtraFields(t *testing.T
 		t.Run(tc.name, func(t *testing.T) {
 			mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, tc.path, tc.body), "format")
 		})
+	}
+}
+
+func TestMailboxHTTP_ListCountsClaimedPathsAndStaleOwners(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	makeReviewRepo(t, h.root)
+	if view := listConversations(t, h); view.MailboxClaims != nil {
+		t.Errorf("no claim should send no totals: %#v", view.MailboxClaims)
+	}
+	body := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":["src/parser.go","README.md"]}`, inProject, h.root)
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", body); rec.Code != http.StatusNoContent {
+		t.Fatalf("claim = %d %s", rec.Code, rec.Body)
+	}
+	const other = "44444444-4444-4444-8444-444444444444"
+	writeClaudeSession(t, h.scanner.Stores.ClaudeDir, other, h.root, "Check the parser")
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", mailboxClaimBody(other, h.root, "README.md")), "ownership")
+	view := listConversations(t, h)
+	want := conversations.MailboxClaims{Paths: 2, Conflicts: 1}
+	if view.MailboxClaims == nil || *view.MailboxClaims != want {
+		t.Errorf("totals = %#v, want %#v", view.MailboxClaims, want)
+	}
+	for _, row := range view.Conversations {
+		if row.ID == inProject && row.ClaimedPaths != 2 {
+			t.Errorf("owner row claimedPaths = %d, want 2", row.ClaimedPaths)
+		}
+	}
+
+	folder := projectFolderName.ReplaceAllString(filepath.Join(h.root, "src"), "-")
+	if err := os.Remove(filepath.Join(h.scanner.Stores.ClaudeDir, "projects", folder, inProject+".jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	want = conversations.MailboxClaims{Paths: 2, Stale: 2, Conflicts: 1}
+	if view := listConversations(t, h); view.MailboxClaims == nil || *view.MailboxClaims != want {
+		t.Errorf("totals with a gone owner = %#v, want %#v", view.MailboxClaims, want)
 	}
 }

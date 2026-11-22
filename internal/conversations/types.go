@@ -160,6 +160,9 @@ type View struct {
 	// the list, on a server that reads them; rows then hold none of them.
 	CloudNote      string `json:"cloudNote,omitempty"`
 	MailboxWarning string `json:"mailboxWarning,omitempty"`
+	// MailboxClaims sums the file claims of every session, listed or not;
+	// nil when no claim and no conflict exists.
+	MailboxClaims *MailboxClaims `json:"mailboxClaims,omitempty"`
 	// ApprovalsMode is the loosest active approvals mode for the list.
 	// It is empty when no approvals route is active.
 	ApprovalsMode string         `json:"approvalsMode,omitempty"`
@@ -257,6 +260,8 @@ type Conversation struct {
 	Open       Route           `json:"open"`
 	Threads    []ThreadSummary `json:"threads,omitempty"`
 	ClaimCount int             `json:"claimCount,omitempty"`
+	// ClaimedPaths counts the paths across the session's file claims.
+	ClaimedPaths int `json:"claimedPaths,omitempty"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess
@@ -336,6 +341,14 @@ type ThreadSummary struct {
 	Held      int               `json:"held,omitempty"`
 	LastType  string            `json:"lastType,omitempty"`
 	Conflicts []MailboxConflict `json:"conflicts,omitempty"`
+}
+
+// MailboxClaims counts claimed paths, the claims whose owner is gone,
+// and the active conflicts.
+type MailboxClaims struct {
+	Paths     int `json:"paths"`
+	Stale     int `json:"stale"`
+	Conflicts int `json:"conflicts"`
 }
 
 type MailboxConflict struct {

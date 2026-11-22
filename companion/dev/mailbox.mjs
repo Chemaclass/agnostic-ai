@@ -66,9 +66,21 @@ export function mailboxRows(state, conversations) {
         waiting: waitingOf(thread), held: heldOf(thread), cap: thread.cap, lastType: thread.messages.at(-1)?.type,
       }
     })
-    const claimCount = state.claims.filter((claim) => same(claim.owner, row)).length
-    return threads.length || claimCount ? { ...row, threads, claimCount } : row
+    const owned = state.claims.filter((claim) => same(claim.owner, row))
+    const claimCount = owned.length
+    const claimedPaths = owned.reduce((sum, claim) => sum + claim.paths.length, 0)
+    return threads.length || claimCount ? { ...row, threads, claimCount, claimedPaths } : row
   })
+}
+
+/** Like the server: the totals behind the footer's File claims button, or undefined when nothing is claimed. */
+export function mailboxClaimTotals(state) {
+  if (!state.claims.length && !state.claimConflicts.length) return undefined
+  return {
+    paths: state.claims.reduce((sum, claim) => sum + claim.paths.length, 0),
+    stale: state.claims.filter((claim) => !state.conversations.some((row) => mailboxSessionOf(row) && same(row, claim.owner))).length,
+    conflicts: state.claimConflicts.length,
+  }
 }
 
 export function mailboxThreads(state, url) {
@@ -172,7 +184,8 @@ function anotherHolder(state, owner, worktree, path) {
 }
 
 function claimIn(state, owner, worktree, paths, now) {
-  state.claims.push({ owner: refOf(owner), worktree, paths: [...paths], since: now.toISOString(), by: 'human' })
+  // Like the server: one claim record per path.
+  for (const path of paths) state.claims.push({ owner: refOf(owner), worktree, paths: [path], since: now.toISOString(), by: 'human' })
 }
 
 function releaseIn(state, owner, worktree, paths) {
@@ -202,7 +215,7 @@ export function mailboxClaims(state, url) {
   const owner = { tool: url.searchParams.get('tool'), id: url.searchParams.get('id') }
   const scoped = owner.tool || owner.id
   const claims = state.claims.filter((claim) => !scoped || same(claim.owner, owner)).map((claim) => ({
-    ...claim, stale: !state.conversations.some((row) => same(row, claim.owner)),
+    ...claim, stale: !state.conversations.some((row) => mailboxSessionOf(row) && same(row, claim.owner)),
   }))
   const conflicts = state.claimConflicts.filter(({ requester, holder, sender }) =>
     !scoped || [requester, holder, sender].some((ref) => same(owner, ref)),

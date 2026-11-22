@@ -440,3 +440,17 @@ test('an answer to a held request needs its digest, then the request leaves the 
   assert.deepEqual(edit.approvals.pending.map((p) => p.id), ['e5f6'])
   assert.equal(body.view.conversations.find((row) => row.id === 'held-bash').approvals.pending.length, 1)
 })
+
+test('the claim fixtures send row path counts and the footer totals the server sends', async (t) => {
+  const preview = await startPreview({ port: 0, fixture: 'mailbox-claims' })
+  t.after(preview.close)
+  const { view } = (await inbox(preview.url)).body
+  assert.deepEqual(view.mailboxClaims, { paths: 3, stale: 0, conflicts: 0 })
+  assert.deepEqual(view.conversations.map((row) => row.claimedPaths), [2, 1])
+
+  await postJSON(preview.url + '/dev/fixture', { name: 'mailbox-stale-claims' })
+  assert.deepEqual((await inbox(preview.url)).body.view.mailboxClaims, { paths: 2, stale: 2, conflicts: 0 })
+
+  await postJSON(preview.url + '/dev/fixture', { name: 'mailbox' })
+  assert.equal((await inbox(preview.url)).body.view.mailboxClaims, undefined)
+})

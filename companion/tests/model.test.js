@@ -982,15 +982,60 @@ test('compares two stated model names without treating the tool as a model', asy
   assert.deepEqual(reviewModelsOf(undefined, undefined), { from: 'model unknown', to: 'model unknown', same: false })
 })
 
-test('names the handoff and claim statuses shown in the panel', async () => {
-  const { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf } = await import('../frontend/model.js')
+test('names the handoff and conflict statuses shown in the panel', async () => {
+  const { conflictLabelOf, handoffLabelOf } = await import('../frontend/model.js')
   assert.deepEqual(['offered', 'accepted', 'declined'].map(handoffLabelOf), ['Offered', 'Accepted', 'Declined'])
-  assert.equal(claimStatusOf({ stale: true }), 'Stale claim')
-  assert.equal(claimStatusOf({}), 'Active claim')
-  assert.equal(claimCountOf(1), '1 claim')
-  assert.equal(claimCountOf(2), '2 claims')
   assert.equal(conflictLabelOf({ path: 'src/a.go' }, 'Parser session'), 'Path conflict: src/a.go is held by Parser session.')
   assert.equal(conflictLabelOf({ path: 'src/a.go' }), 'Path conflict: no session holds src/a.go.')
+})
+
+test('a row chip counts the claimed paths, and none without a claim', async () => {
+  const { claimChipOf } = await import('../frontend/model.js')
+  assert.equal(claimChipOf({}), undefined)
+  assert.equal(claimChipOf({ claimedPaths: 0 }), undefined)
+  assert.equal(claimChipOf({ claimedPaths: 1 }), '1 path claimed')
+  assert.equal(claimChipOf({ claimedPaths: 3 }), '3 paths claimed')
+})
+
+test('the footer button shows only with claims or conflicts, and warns about stale claims and conflicts', async () => {
+  const { claimsButtonOf } = await import('../frontend/model.js')
+  assert.deepEqual(claimsButtonOf({}), { shown: false })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 0, stale: 0, conflicts: 0 } }), { shown: false })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 3, stale: 0, conflicts: 0 } }), { shown: true, text: '3', label: 'File claims: 3 paths', warns: false })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 3, stale: 1, conflicts: 1 } }), { shown: true, text: '3', label: 'File claims: 3 paths, 1 stale, 1 conflict', warns: true })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 0, stale: 0, conflicts: 2 } }), { shown: true, text: '0', label: 'File claims: 0 paths, 2 conflicts', warns: true })
+})
+
+test('a claim says who made it and when', async () => {
+  const { claimMetaOf } = await import('../frontend/model.js')
+  const since = new Date(2026, 10, 22, 14, 2).toISOString()
+  const sameDay = new Date(2026, 10, 22, 18, 0).getTime()
+  assert.equal(claimMetaOf({ by: 'human', since }, sameDay), 'Claimed by you, 14:02')
+  assert.equal(claimMetaOf({ by: 'agent', since }, sameDay), 'Claimed by the agent, 14:02')
+  assert.equal(claimMetaOf({ by: 'human', since }, new Date(2026, 10, 24).getTime()), 'Claimed by you, Nov 22, 14:02')
+  assert.equal(claimMetaOf({ by: 'agent' }, sameDay), 'Claimed by the agent')
+})
+
+test('the claims card names its owner, says what an empty card means, and lists gone owners first', async () => {
+  const { claimsCardOf } = await import('../frontend/model.js')
+  assert.deepEqual(claimsCardOf({ claims: [] }, 'Review the parser'), { title: 'Files claimed by Review the parser', empty: 'This session has no claims yet.', stale: [], active: [] })
+  assert.deepEqual(claimsCardOf({ claims: [] }), { title: 'File claims', empty: 'No claims left.', stale: [], active: [] })
+  assert.equal(claimsCardOf({ claims: [], conflicts: [{ path: 'a' }] }).empty, undefined)
+  const live = { paths: ['a'] }
+  const gone = { paths: ['b'], stale: true }
+  const card = claimsCardOf({ claims: [live, gone] })
+  assert.equal(card.empty, undefined)
+  assert.deepEqual([card.stale, card.active], [[gone], [live]])
+})
+
+test('every help link names a page and points at the docs', async () => {
+  const { HELP_TOPICS, helpOf } = await import('../frontend/model.js')
+  for (const topic of Object.keys(HELP_TOPICS)) {
+    const { path, title } = helpOf(topic)
+    assert.match(path, /^\/docs\/[a-z0-9/-]*\/(#[a-z0-9-]+)?$/)
+    assert.match(title, /^Open the docs: \S/)
+  }
+  assert.deepEqual(helpOf('file-claims'), { path: '/docs/mailbox/#hand-off-files', title: 'Open the docs: Mailbox: Hand off files' })
 })
 
 test('says which tools cannot be read without a command, and none for a tool that is just absent', () => {

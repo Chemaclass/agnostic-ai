@@ -991,6 +991,8 @@ export interface Conversation {
   approvals?: ConversationApprovals
   threads?: ConversationThreadSummary[]
   claimCount?: number
+  /** The paths across this session's file claims; absent when it claims none. */
+  claimedPaths?: number
   open: ConversationRoute
 }
 
@@ -1050,6 +1052,8 @@ export interface ConversationsView {
   /** Why a tool's cloud conversations are missing, on a server started with --cloud-sessions; rows then hold none of them. */
   cloudNote?: string
   mailboxWarning?: string
+  /** File claims of every session, listed or not: claimed paths, claims whose session is gone, and active conflicts. Absent when no claim and no conflict exists. */
+  mailboxClaims?: { paths: number; stale: number; conflicts: number }
   /** The loosest approvals mode the home config sets, `review` or `yolo`; absent when every prompt reaches the person. */
   approvalsMode?: 'review' | 'yolo'
   /** count is every conversation the tool holds; shown is how many this page holds. */

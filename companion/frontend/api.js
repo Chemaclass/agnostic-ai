@@ -194,6 +194,8 @@ export const checkForUpdates = () => post('/api/update')
 /** Updates to the known release and restarts; the update event follows the steps. */
 export const startUpdate = (version) => post('/api/update/start?' + new URLSearchParams({ version }))
 export const openReleasePage = () => post('/api/update/release-page')
+/** Opens a docs page, `/docs/...#section`, in the default browser. */
+export const openDocs = (path) => post('/api/docs', { path })
 /** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
 export const readMenu = () => call('/menu.json')
 

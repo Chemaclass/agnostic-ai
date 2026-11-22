@@ -328,10 +328,19 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 			page[conversations.Ref{Tool: row.Tool, ID: row.ID}] = i
 		}
 	}
+	var offPage []conversations.Ref
+	totals := conversations.MailboxClaims{Conflicts: len(claims.Conflicts)}
 	for _, claim := range claims.Claims {
+		totals.Paths += len(claim.Paths)
 		if at, visible := page[claim.Owner]; visible {
 			view.Conversations[at].ClaimCount++
+			view.Conversations[at].ClaimedPaths += len(claim.Paths)
+		} else {
+			offPage = append(offPage, claim.Owner)
 		}
+	}
+	if len(claims.Claims) > 0 || totals.Conflicts > 0 {
+		view.MailboxClaims = &totals
 	}
 	conflicts := make(map[string][]conversations.MailboxConflict)
 	for _, conflict := range claims.Conflicts {
@@ -356,10 +365,18 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 			view.Conversations[at].Threads = append(view.Conversations[at].Threads, summary)
 		}
 	}
-	if len(missing) == 0 {
+	if len(missing) == 0 && len(offPage) == 0 {
 		return
 	}
-	peers := h.scanner.RecentRefs(opts, missing...)
+	peers := h.scanner.RecentRefs(opts, append(missing, offPage...)...)
+	// Without a recent read nothing is known, so no claim counts as stale.
+	if peers != nil {
+		for _, owner := range offPage {
+			if !canUseMailbox(peers[owner]) {
+				view.MailboxClaims.Stale++
+			}
+		}
+	}
 	for i := range view.Conversations {
 		for j := range view.Conversations[i].Threads {
 			summary := &view.Conversations[i].Threads[j]

@@ -71,7 +71,8 @@ Codex and Cursor stores are read with `sqlite3`.
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?, needs?}`. `count` is every conversation the tool holds, `shown` those on this page, `note` why a store was not read, `needs` the missing command (`sqlite3`).
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, claimCount?, claimedPaths?, open}`.
+- With the [mailbox](@/docs/mailbox.md#hand-off-files), a row that holds file claims has `claimCount` and `claimedPaths`, and the view has `mailboxClaims: {paths, stale, conflicts}` while any claim or conflict exists.
 - `approvalsMode` is the loosest active mode for the project or user list, `review` or `yolo`. It is omitted when inactive.
 - [Mailbox routes](@/docs/mailbox.md#mailbox-api).
 

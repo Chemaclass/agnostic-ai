@@ -1,5 +1,5 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { arrivalOf, claimCountOf, claimStatusOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
+import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
   approve: 'Approve',
@@ -142,7 +142,9 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   const cancel = byId('mailbox-cancel')
   const fields = [toSelect, enterId, target, useList, type, body, base, sendingModel, reviewingModel, handoffWorktree, handoffPaths, claimOffer, cancel]
   const claimsCard = byId('mailbox-claims')
-  const claimsOwner = byId('mailbox-claims-owner')
+  const claimsTitle = byId('mailbox-claims-title')
+  const claimsButton = byId('mailbox-open-claims')
+  const claimsCount = byId('mailbox-claims-count')
   const claimsList = byId('mailbox-claims-list')
   const claimsDismiss = byId('mailbox-claims-dismiss')
   const claimForm = byId('mailbox-claim-form')
@@ -572,8 +574,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     claimForm.reset()
     claimForm.hidden = !owner
     claimWorktree.value = claimsFor.folder
-    claimsOwner.hidden = !owner
-    claimsOwner.textContent = owner ? nameOf(owner) : ''
+    claimsTitle.textContent = claimsCardOf(undefined, owner && nameOf(owner)).title
     claimsCard.hidden = false
     renderClaims(claimsFor)
     if (owner) claimWorktree.focus()
@@ -592,25 +593,48 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       claimsList.append(element('p', 'mailbox-muted', current.problem || 'Reading file claims…'))
       return
     }
-    const { claims, conflicts, warning } = current.reply
+    const { conflicts, warning } = current.reply
     if (warning) claimsList.append(element('p', 'mailbox-refusal', warning))
-    if (!claims?.length) claimsList.append(element('p', 'mailbox-muted', 'No file claims.'))
-    for (const claim of claims ?? []) {
-      const entry = element('article', 'mailbox-message')
-      const release = button('Release', 'release', () => mutateClaim(current, () => releasePaths({
-        ...refOf(claim.owner), worktree: claim.worktree, paths: claim.paths,
-      }), 'Paths released.'))
-      release.disabled = Boolean(current.pending)
-      entry.append(
-        element('p', 'mailbox-muted', `${claimStatusOf(claim)} · ${nameOf(claim.owner, keyOf(claim.owner))}`),
-        ...pathDetails(claim),
-        release,
-      )
-      claimsList.append(entry)
+    const card = claimsCardOf(current.reply, current.owner && nameOf(current.owner))
+    if (card.empty) claimsList.append(element('p', 'mailbox-muted', card.empty))
+    const release = (claims) => mutateClaim(current, async () => {
+      const asks = new Map()
+      for (const claim of claims) {
+        const key = JSON.stringify([keyOf(claim.owner), claim.worktree])
+        const ask = asks.get(key) ?? { ...refOf(claim.owner), worktree: claim.worktree, paths: [] }
+        ask.paths.push(...claim.paths)
+        asks.set(key, ask)
+      }
+      let reply = {}
+      for (const ask of asks.values()) reply = await releasePaths(ask)
+      return reply
+    }, 'Paths released.')
+    if (card.stale.length) {
+      const group = element('section', 'mailbox-claims-gone')
+      const heading = element('h3', 'mailbox-claims-heading', 'Session gone')
+      heading.id = 'mailbox-claims-gone'
+      group.setAttribute('aria-labelledby', heading.id)
+      group.append(heading)
+      if (card.stale.length > 1) group.append(button('Release all', 'release-all', () => release(card.stale)))
+      for (const claim of card.stale) group.append(claimEntry(claim, release, current.owner))
+      claimsList.append(group)
     }
+    for (const claim of card.active) claimsList.append(claimEntry(claim, release, current.owner))
     for (const conflict of conflicts ?? []) {
       claimsList.append(element('p', 'mailbox-refusal', conflictText(conflict)))
     }
+    if (current.pending) for (const control of claimsList.querySelectorAll('button')) control.disabled = true
+  }
+
+  function claimEntry(claim, release, owner) {
+    const entry = element('article', 'mailbox-message')
+    const meta = claimMetaOf(claim)
+    entry.append(
+      element('p', 'mailbox-muted', owner ? meta : `${nameOf(claim.owner, keyOf(claim.owner))} · ${meta}`),
+      ...pathDetails(claim),
+      button('Release', 'release', () => release([claim])),
+    )
+    return entry
   }
 
   async function loadClaims(current) {
@@ -670,14 +694,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
 
   function rowsOf(conversation) {
     const summaries = threadsOf(conversation)
-    if (!summaries.length && !conversation.claimCount) return undefined
+    if (!summaries.length) return undefined
     const box = element('div', 'mailbox-threads')
-    if (conversation.claimCount) {
-      const label = claimCountOf(conversation.claimCount)
-      const control = button(label, 'claims', () => openClaims(conversation), 'mailbox-summary')
-      control.setAttribute('aria-label', `${label} for ${nameOf(conversation)}`)
-      box.append(control)
-    }
     for (const thread of summaries) {
       const other = nameOf(thread.with, thread.withTitle)
       const control = button('', 'open', () => {
@@ -937,6 +955,12 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     if (draft && !draft.pending) refreshReceivers()
     warning.textContent = view?.mailboxWarning ?? ''
     warning.hidden = !warning.textContent
+    const claims = claimsButtonOf(view)
+    claimsButton.hidden = !claims.shown
+    claimsButton.classList.toggle('is-warning', Boolean(claims.warns))
+    claimsCount.textContent = claims.text ?? ''
+    if (claims.shown) claimsButton.setAttribute('aria-label', claims.label)
+    claimsButton.title = claims.label ?? ''
     if (claimsFor && !claimsFor.pending && claimsFor.version !== version) {
       claimsFor.version = version
       loadClaims(claimsFor)

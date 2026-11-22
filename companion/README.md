@@ -113,7 +113,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   **Queue for delivery** hands a staged message back to the
   [mailbox built-in](https://agnostic-ai.org/docs/mailbox/#deliver-with-the-next-prompt),
   which delivers it with the session's next prompt.
-- Choose **Claim files…** to record which paths a session is working on. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
+- Choose **Claim files…** to record which paths a session is working on. A claim does not block edits. A row with claims shows a chip such as "2 paths claimed", and the footer's **File claims** button shows only while a claim exists. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
 - On a chat in Needs you, the same menu offers **Mark as read**. It takes the
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
