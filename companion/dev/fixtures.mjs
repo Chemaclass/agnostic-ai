@@ -250,7 +250,7 @@ function stuckShells(now) {
     },
     {
       ...conversation(now, 'claude', 'shells-working', 'Refactor the search index', 'working'),
-      stuckShells: [makeShell(840, 90, 'npm run dev', 3), makeShell(910, 45, 'npm run watch', 2)],
+      stuckShells: [makeShell(840, 90, 'npm run dev', 3), { ...makeShell(910, 45, 'npm run watch', 2), helperId: 'sweeper', helperName: 'Sweeper' }],
     },
   ]
 }

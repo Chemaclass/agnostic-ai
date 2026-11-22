@@ -1333,6 +1333,24 @@ test('every row under Needs you says why it waits, in one short line', async () 
   assert.equal(reason(row('w', 'working', { waiting: { for: 'shell' } })), undefined)
 })
 
+test('a row says its orange lines are shells still running, unless its reason already does or every shell is kept', async () => {
+  const { shellsLeadOf } = await import('../frontend/model.js')
+  const now = Date.parse('2026-11-09T12:00:00Z')
+  const lead = (conversation) => shellsLeadOf(conversation, now)
+  const other = { ...shell, pid: 43 }
+  assert.equal(lead(row('w', 'working', { live: true, stuckShells: [shell] })), 'A shell is still running')
+  assert.equal(lead(row('w', 'working', { live: true, stuckShells: [shell, other] })), '2 shells are still running')
+  assert.equal(lead(row('s', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell, other] })), undefined)
+  assert.equal(lead(row('s', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell] })), undefined)
+  const kept = { ...other, keptUntil: '2026-11-09T12:30:00Z' }
+  assert.equal(lead(row('k', 'working', { live: true, stuckShells: [{ ...shell, keptUntil: '2026-11-09T12:30:00Z' }, kept] })), undefined)
+  assert.equal(lead(row('k', 'working', { live: true, stuckShells: [shell, kept] })), 'A shell is still running')
+  assert.equal(lead(row('n', 'working', { live: true })), undefined)
+  assert.equal(lead(row('n', 'working', { live: true, stuckShells: [] })), undefined)
+  assert.equal(lead(row('q', 'blocked', { live: true, waiting: { for: 'answer' }, stuckShells: [shell] })), 'A shell is still running')
+  assert.equal(lead(row('u', 'unread', { live: true, reply: 'Done.', stuckShells: [shell, other] })), '2 shells are still running')
+})
+
 test('shell labels tell apart shells whose commands share a long start', async () => {
   const { SHELL_COMMAND_SHOWN, shellLabelsOf } = await import('../frontend/model.js')
   const start = 'node scripts/watch.mjs ' + 'x'.repeat(240)

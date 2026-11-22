@@ -617,6 +617,16 @@ export function needsReasonOf(conversation, now, nameOf) {
 }
 
 /**
+ * The line above a row's stuck shells that says what the orange lines are. Undefined when the row has none, when its
+ * Needs you reason already says it waits on them, or when every shell is kept, since a kept line explains itself.
+ */
+export function shellsLeadOf(conversation, now) {
+  const running = stuckShellsOf(conversation).filter((shell) => !shell.keptUntil).length
+  if (running === 0 || needsReasonOf(conversation, now)?.kind === 'shell') return undefined
+  return running > 1 ? `${running} shells are still running` : 'A shell is still running'
+}
+
+/**
  * The row's tooltip, one fact a line: how it opens, its folder, how long a silent chat has said nothing,
  * the agent's reply when an approval pill takes the reply line's place, and why approvals left the wait to the person.
  */
