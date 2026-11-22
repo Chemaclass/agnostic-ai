@@ -42,6 +42,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 		addr, dir, uiDir, switchBack           string
 		open, userLevel, noInstalled, apiOnly  bool
 		stopWithStdin, cloudSessions, noUnlock bool
+		requireCompanionSecret                 bool
 		allowedOrigins                         []string
 	)
 	cmd := &cobra.Command{
@@ -108,6 +109,14 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				uiDir = abs
 			}
 			companion := takeCompanionSecret()
+			// Only a companion older than this agnostic-ai starts a server
+			// this way without a secret; its sends would all be refused.
+			if apiOnly && stopWithStdin && cloudSessions && companion == "" && !requireCompanionSecret {
+				return errors.New("This companion is older than agnostic-ai. Run: agnostic-ai companion install") //nolint:staticcheck // shown to the user as a full sentence
+			}
+			if requireCompanionSecret && companion == "" {
+				return fmt.Errorf("--require-companion-secret needs a secret of at least %d characters in %s", minCompanionSecret, companionSecretEnv)
+			}
 			stuckShellAfter := servedShellThreshold(cmd.ErrOrStderr())
 			src, err := openAuthoritySource(dir, userLevel)
 			if err != nil {
@@ -200,6 +209,10 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
 	cmd.Flags().BoolVar(&noUnlock, "no-unlock", false, "With --open, open the plain address, without the unlock file that lets the page loosen approvals.")
 	_ = cmd.Flags().MarkHidden("no-unlock")
+	// The companion always passes this, so an older agnostic-ai that would
+	// ignore the secret and leave its routes open rejects the flag instead.
+	cmd.Flags().BoolVar(&requireCompanionSecret, "require-companion-secret", false, "Refuse to start without the companion's secret in the environment.")
+	_ = cmd.Flags().MarkHidden("require-companion-secret")
 	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --scope user.")
 	return cmd
 }

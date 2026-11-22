@@ -84,13 +84,20 @@ func TestServer_StopsAServerWhoseAddressArrivesAfterQuit(t *testing.T) {
 }
 
 func TestServer_SaysTheInstalledAgnosticAIDoesNotMatchAndWaitsBeforeTryingAgain(t *testing.T) {
-	starts := countedCommand(t, "echo 'Error: unknown flag: --cloud-sessions' >&2\nexit 1")
+	starts := countedCommand(t, "echo 'Error: unknown flag: --require-companion-secret' >&2\nexit 1")
 	s := newServer()
 
 	for range 3 {
 		if _, err := s.address(); !errors.Is(err, errMismatchedAgnosticAI) {
 			t.Fatalf("address = %v; want errMismatchedAgnosticAI", err)
 		}
+	}
+	bin := os.Getenv("AGNOSTIC_AI_BIN")
+	if _, err := s.address(); err == nil || err.Error() != "The agnostic-ai at "+bin+", chosen by AGNOSTIC_AI_BIN, does not match this companion. Update it or clear AGNOSTIC_AI_BIN, then restart the companion" {
+		t.Errorf("with AGNOSTIC_AI_BIN, message = %v", err)
+	}
+	if got := mismatched("/elsewhere/agnostic-ai").Error(); got != errMismatchedAgnosticAI.Error() {
+		t.Errorf("for a binary AGNOSTIC_AI_BIN did not choose, message = %q", got)
 	}
 
 	if got := startsIn(starts); got != 2 {

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
@@ -30,6 +31,45 @@ func TestServe_ListsCloudSessionsOnlyOnAUserServer(t *testing.T) {
 	want := "--cloud-sessions needs --scope user: cloud sessions belong to no project folder"
 	if err := cmd.Execute(); err == nil || err.Error() != want {
 		t.Errorf("error = %v, want %q", err, want)
+	}
+}
+
+func TestServe_RequireCompanionSecretRefusesToStartWithoutOne(t *testing.T) {
+	for _, secret := range []string{"", "short"} {
+		t.Setenv(companionSecretEnv, secret)
+		cmd := newServeCmd()
+		cmd.SetArgs([]string{"--api-only", "--addr", "127.0.0.1:0", "--dir", t.TempDir(), "--require-companion-secret"})
+		want := "--require-companion-secret needs a secret of at least 32 characters in AGNOSTIC_AI_COMPANION_SECRET"
+		if err := cmd.Execute(); err == nil || err.Error() != want {
+			t.Errorf("secret %q: error = %v, want %q", secret, err, want)
+		}
+	}
+}
+
+func TestServe_TellsAnOlderCompanionToReinstall(t *testing.T) {
+	t.Setenv(companionSecretEnv, "")
+	t.Setenv(envUserRoot, t.TempDir())
+	cmd := newServeCmd()
+	cmd.SetArgs([]string{"--scope", "user", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions"})
+	cmd.SetIn(strings.NewReader(""))
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	want := "This companion is older than agnostic-ai. Run: agnostic-ai companion install"
+	if err := cmd.Execute(); err == nil || err.Error() != want || strings.Contains(out.String(), "Serving") {
+		t.Errorf("error = %v, output %q; want %q before listening", err, out.String(), want)
+	}
+}
+
+func TestServe_RequireCompanionSecretStartsWithOne(t *testing.T) {
+	t.Setenv(companionSecretEnv, string(testCompanionSecret))
+	cmd := newServeCmd()
+	var out bytes.Buffer
+	cmd.SetArgs([]string{"--api-only", "--addr", "127.0.0.1:0", "--dir", t.TempDir(), "--stop-with-stdin", "--require-companion-secret"})
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetOut(&out)
+	cmd.SetErr(&bytes.Buffer{})
+	if err := cmd.Execute(); err != nil || !strings.Contains(out.String(), "Serving agnostic-ai at http://127.0.0.1:") {
+		t.Errorf("serve startup = %q, %v", out.String(), err)
 	}
 }
 
