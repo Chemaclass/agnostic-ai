@@ -471,6 +471,9 @@ func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 		{"Restarting the companion.\nCould not replace the companion app.\nStarted the earlier companion.\nError: replace /A.app: permission denied", updateRestarting, "the new app could not replace the earlier one, which was kept"},
 		{"Restarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nRestored the earlier companion.\nStarted the earlier companion.\n", updateRestarting, "the updated companion could not start, so the earlier one was restored"},
 		{"Restarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\n", updateRestarting, "the updated companion could not restart"},
+		{"Restarting the companion.\nCould not replace the companion app.\nCould not start the earlier companion.\n", updateRestarting, "the earlier companion could not restart. Open it again"},
+		{"Restarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nRestored the earlier companion.\nCould not start the earlier companion.\n", updateRestarting, "the earlier companion could not restart. Open it again"},
+		{"Restarting the companion.\nCould not replace the companion app.\nCould not restore the earlier companion. rename failed\n", updateRestarting, "the earlier companion could not be restored. See the log for its saved location"},
 		{"→ brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai\nsh: brew: command not found\nError: upgrade: run brew: exit status 127", updateDownloading, "the package manager could not run from the companion"},
 	} {
 		if got := updateFailureReason(tc.log, tc.step); got != tc.want {

@@ -311,7 +311,6 @@ func TestUpgradeCompanion_ConfirmsReleaseBeforeChangingInstall(t *testing.T) {
 		{"changed", "1.0.0", "3.0.0", "Terminal update failed: release changed since confirmation:"},
 		{"unreachable", "1.0.0", "", "Terminal update failed: could not confirm release 2.0.0:"},
 		{"would downgrade", "3.0.0", "2.0.0", "Terminal update failed: release changed since confirmation:"},
-		{"repairs the companion", "2.0.0", "2.0.0", "Terminal update completed."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ran := false
@@ -328,10 +327,38 @@ func TestUpgradeCompanion_ConfirmsReleaseBeforeChangingInstall(t *testing.T) {
 			cmd.SetErr(&log)
 			err := cmd.Execute()
 			wantRun := tc.name == "matched"
-			wantOK := wantRun || tc.name == "repairs the companion"
-			if ran != wantRun || (err == nil) != wantOK || !strings.Contains(log.String(), tc.outcome) {
-				t.Errorf("ran %t, error %v, log %q; want ran %t, success %t and %q", ran, err, &log, wantRun, wantOK, tc.outcome)
+			if ran != wantRun || (err == nil) != wantRun || !strings.Contains(log.String(), tc.outcome) {
+				t.Errorf("ran %t, error %v, log %q; want ran %t and %q", ran, err, &log, wantRun, tc.outcome)
 			}
 		})
+	}
+}
+
+func TestUpgradeCompanion_ConfirmedReleaseRepairsAnOldCompanionWhenTheCLIIsCurrent(t *testing.T) {
+	var commands []string
+	deps := upgradeDeps{
+		detect: func(string) (upgradeInfo, error) {
+			return upgradeInfo{Path: "/tool", Method: installHomebrew, Version: "2.0.0", Latest: "2.0.0", Command: "brew upgrade"}, nil
+		},
+		run: func(io.Writer, string) error { t.Error("upgraded a current CLI"); return nil },
+		companion: &upgradeCompanionDeps{
+			installed: func() (bool, error) { return true, nil },
+			current:   func() (string, bool, error) { return "1.0.0", true, nil },
+			run: func(_, _ string, args []string, _ io.Writer) (string, error) {
+				commands = append(commands, strings.Join(args, " "))
+				return "agnostic-ai version 2.0.0", nil
+			},
+		},
+	}
+	cmd := newUpgradeCmdWithDeps(deps)
+	cmd.SetArgs([]string{"--companion-confirmed-release", "2.0.0"})
+	var log bytes.Buffer
+	cmd.SetOut(&log)
+	cmd.SetErr(&log)
+	if err := cmd.Execute(); err != nil || !strings.Contains(log.String(), "Terminal update completed.") {
+		t.Fatalf("error %v, log %q; want a completed update", err, &log)
+	}
+	if want := []string{"--version", "companion install"}; !reflect.DeepEqual(commands, want) {
+		t.Errorf("commands = %v, want %v", commands, want)
 	}
 }
