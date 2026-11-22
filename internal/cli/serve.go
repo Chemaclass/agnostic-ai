@@ -271,7 +271,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux.Handle(approvalsDecidePath, approvalsRoutes)
 	settings := newSettingsHandler(opts.UserLevel, conversationsHandler.approvals, func() string { return conversationsHandler.scanner.MarksPath }, muxOpts.companion, opts.Version)
 	settings.session = muxOpts.session
-	conversationsHandler.proven = settings.proven
+	conversationsHandler.proven, conversationsHandler.canProve = settings.proven, settings.canProve
 	if userEdits, ok := edits.(*editHandler); ok {
 		userEdits.proven = settings.proven
 	}

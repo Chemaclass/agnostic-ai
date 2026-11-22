@@ -53,6 +53,10 @@ type Launcher interface {
 // errNotHere means this OS has no supported way to run the route.
 var errNotHere = errors.New("not supported on this system")
 
+// ErrRunRefused is what a launcher returns when the caller may not
+// run a command in a terminal; the reply offers the command to run by hand.
+var ErrRunRefused = errors.New("running a command here needs proof")
+
 // errControlCharacters means a command holds a character a terminal
 // acts on as it is typed: single quotes stop the shell, not the terminal, so a
 // carriage return or escape in a folder name would run what follows.
@@ -415,6 +419,8 @@ func resumeTerminal(ctx context.Context, c Conversation, launcher Launcher) Open
 func notOpenedInTab(opened tabOpening, command string) OpenReply {
 	byHand := func(message string) OpenReply { return OpenReply{Message: message, Command: command} }
 	switch {
+	case errors.Is(opened.err, ErrRunRefused):
+		return byHand("Starting it from here needs the companion or a page that agnostic-ai view --scope user opened. Run this command in a terminal.")
 	case errors.Is(opened.err, errAutomationDenied):
 		return byHand(allowControl("opening", opened.app, "or run this command yourself"))
 	case opened.window && errors.Is(opened.err, errNotHere):
@@ -455,7 +461,7 @@ func openInTab(ctx context.Context, launcher Launcher, app, command string) tabO
 	if tabApps[app] {
 		err := launcher.RunInNewTab(ctx, app, command)
 		fallsBack := app == "Terminal" || errors.Is(err, errNoTabCommand)
-		if err == nil || !fallsBack || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
+		if err == nil || !fallsBack || errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, ErrRunRefused) {
 			return tabOpening{app: app, err: err}
 		}
 	}

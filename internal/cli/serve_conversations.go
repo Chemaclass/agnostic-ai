@@ -134,6 +134,9 @@ type conversationsHandler struct {
 	// web session key. A send types into another session's terminal as
 	// the person, so it needs one; nil proves nothing.
 	proven func(*http.Request) bool
+	// canProve says whether this server has a secret or session key at
+	// all; nil means it has neither.
+	canProve func() bool
 }
 
 // conversationOpenReplyTimeout outlasts the companion's openTimeout and
@@ -339,7 +342,12 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	// which conversation. A caller that stops waiting does not stop the
 	// open: a terminal script cut short may leave a tab half opened, and
 	// the caller cannot tell whether it opened.
-	reply, found := h.scanner.ReopenHelper(context.WithoutCancel(r.Context()), req.Tool, req.ID, req.Helper, h.scanOptions(req.Editor), h.launcher)
+	launcher := h.launcher
+	if h.proven == nil || !h.proven(r) {
+		// Focusing a live chat needs no proof; starting a command does.
+		launcher = noRunLauncher{launcher}
+	}
+	reply, found := h.scanner.ReopenHelper(context.WithoutCancel(r.Context()), req.Tool, req.ID, req.Helper, h.scanOptions(req.Editor), launcher)
 	if r.Context().Err() != nil || !time.Now().Before(deadline) {
 		h.logLateOpen(req.Tool, reply, found)
 	}
@@ -363,6 +371,24 @@ func (h *conversationsHandler) logLateOpen(tool conversations.Tool, reply conver
 	_, _ = fmt.Fprintf(h.logOut, "an open of a %s conversation answered after its caller left: %s\n", tool, outcome)
 }
 
+// noRunLauncher opens and focuses as its launcher does, and refuses
+// to run or type a command in a terminal.
+type noRunLauncher struct {
+	conversations.Launcher
+}
+
+func (noRunLauncher) RunInNewTerminal(context.Context, string) error {
+	return conversations.ErrRunRefused
+}
+
+func (noRunLauncher) RunInNewTab(context.Context, string, string) error {
+	return conversations.ErrRunRefused
+}
+
+func (noRunLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
+	return false, conversations.ErrRunRefused
+}
+
 // send types text into a conversation's input without submitting it.
 func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
@@ -370,7 +396,11 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.proven == nil || !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "Sending needs the companion's secret or the key of a tab that view opened. Nothing was typed."})
+		message := "Sending needs the companion's secret or the key of a tab that view opened. Nothing was typed."
+		if h.canProve == nil || !h.canProve() {
+			message = "This server cannot type into sessions. Use the companion, or a page that agnostic-ai view --scope user opened."
+		}
+		writeEditJSON(w, http.StatusForbidden, editError{Error: message})
 		return
 	}
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))

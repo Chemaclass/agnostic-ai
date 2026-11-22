@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -218,5 +219,29 @@ func TestMailboxHTTP_RefusesForgedStoreFields(t *testing.T) {
 	}
 	if body := mailboxThreadJSON(t, h); strings.Count(body, `"type":"question"`) != 1 {
 		t.Errorf("a forged request changed the thread: %s", body)
+	}
+}
+
+func TestMailboxHTTP_TypingAStagedMessageNeedsTheSecret(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	writeFile(t, filepath.Join(h.scanner.Stores.ClaudeDir, "sessions", "77.json"), `{"pid":77,"sessionId":"`+inWorktree+`","status":"idle"}`)
+	h.scanner.Processes = mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}}
+	typed := 0
+	h.launcher = &mailboxTerminalLauncher{typeInTab: func(context.Context, string, string, string, bool) (bool, error) {
+		typed++
+		return true, nil
+	}}
+	id := mailboxSendThread(t, h, mailboxSendBody(inWorktree, "question", "Did the tests pass?", ""))
+	body := fmt.Sprintf(`{"thread":%q,"n":1,"how":"type"}`, id)
+	for _, secret := range []string{"", strings.Repeat("0", len(testCompanionSecret))} {
+		if rec := mailboxHTTPAs(t, h, secret, http.MethodPost, "/api/mailbox/stage", body); rec.Code != http.StatusForbidden {
+			t.Errorf("type a staged message with secret %q = %d %s, want 403", secret, rec.Code, rec.Body)
+		}
+	}
+	if typed != 0 {
+		t.Fatalf("a stage without the secret reached the terminal %d times", typed)
+	}
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/stage", body); rec.Code != http.StatusOK || typed != 1 {
+		t.Errorf("type with the secret = %d %s, typed %d", rec.Code, rec.Body, typed)
 	}
 }
