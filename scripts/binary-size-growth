@@ -4,6 +4,5 @@
 # A pull request that needs more sets the bytes here and says why in a comment above them.
 # #3910: the server checks the companion's secret, rechecks a held request
 # against a fresh list read before it writes a decision, and releases held
-# requests on a timer. No new dependency. The local build grows by 20480
-# bytes; this leaves room for the linux/amd64 build.
-32768
+# requests on a timer. No new dependency. The build grows by 20480 bytes.
+20480
