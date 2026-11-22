@@ -85,8 +85,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   A running chat comes up in the Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab that runs it, ready
   for typing. Inside tmux, its pane is selected first. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
-  kitty needs [remote control](../docs/site/content/docs/cli-reference/conversations.md#kitty-remote-control).
   The reason stays above the list until you dismiss it or open another chat.
+  kitty needs [remote control](../docs/site/content/docs/cli-reference/conversations.md#kitty-remote-control).
   When a chat could not be resumed, **Copy resume command** copies the command
   to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still
   running in a terminal never offers it, because that command would start a
@@ -165,7 +165,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   - A live chat in a Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab gets the text typed in, and the
     list hides. For any other chat, the companion switches to it and says to
     paste with Cmd+V: the clipboard still holds the text. Konsole types text
-    only with [one setting on](../docs/site/content/docs/cli-reference/conversations.md#konsole-on-linux).
+    only with [one setting on](https://agnostic-ai.org/docs/cli-reference/conversations/#konsole-on-linux).
   - A chat that ended is never resumed and typed into. A Cursor chat or a
     working Codex chat is not typed into either. Nor is a chat waiting for
     your answer, where a typed letter could answer it, or one whose state

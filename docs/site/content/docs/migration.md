@@ -116,6 +116,8 @@ These flags are deprecated. The old spellings still work and print a warning:
 | `new rule --scope <dir>` | `new rule --dir <dir>` |
 | `doctor --scope` | `doctor --checks` |
 
+`new rule --scope <dir>` still reads the value as a folder only when it has a slash or names an existing folder, and is not `project`, `local`, `user` or `global`. Use `--dir` to be sure.
+
 See [Scopes](@/docs/scopes.md#older-names).
 
 ### Unmarked MCP literals
