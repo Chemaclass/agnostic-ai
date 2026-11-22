@@ -462,6 +462,8 @@ function heldRequest(held, key) {
 
 async function answerHeld(held, key, decision) {
   answering.add(held.id)
+  // Any list read before the end draws the row's next request; its buttons must already be off.
+  settling.set(key, Infinity)
   redrawKeepingKeys()
   let version
   try {

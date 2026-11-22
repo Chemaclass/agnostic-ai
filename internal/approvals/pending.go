@@ -143,13 +143,28 @@ var showableKeys = map[string][]string{
 	"MultiEdit": {"file_path", "edits"},
 }
 
+// offWhenFalse are input switches that change nothing while false;
+// Claude Code sends "replace_all": false on most edits.
+var offWhenFalse = []string{"replace_all"}
+
+func withoutFalse(input map[string]any) map[string]any {
+	out := make(map[string]any, len(input))
+	for key, value := range input {
+		if on, isBool := value.(bool); isBool && !on && slices.Contains(offWhenFalse, key) {
+			continue
+		}
+		out[key] = value
+	}
+	return out
+}
+
 // ShowableInput is the input of call the panel can show in full. ok is
 // false for a call the companion does not answer, an input with a key
 // the panel would not show, one over MaxPendingInput, or one that may
 // hold a credential.
 func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 	keys, known := showableKeys[call]
-	if !known || !onlyKeys(input, keys) {
+	if !known || !onlyKeys(withoutFalse(input), keys) {
 		return PendingInput{}, false
 	}
 	text := func(key string) string {
@@ -175,7 +190,7 @@ func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 		var olds, news []string
 		for _, e := range edits {
 			edit, ok := e.(map[string]any)
-			if !ok || !onlyKeys(edit, showableKeys["Edit"][1:]) {
+			if !ok || !onlyKeys(withoutFalse(edit), showableKeys["Edit"][1:]) {
 				return PendingInput{}, false
 			}
 			old, _ := edit["old_string"].(string)
