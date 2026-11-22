@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"slices"
 	"strconv"
+	"time"
 )
 
 // presence is how the companion sits on the screen. It is never saved:
@@ -36,8 +38,9 @@ type waiting struct {
 const cloudSource = "cloud"
 
 // waitingIn reads what waits from a list as the server sent it. It
-// reports false for a list it cannot read.
-func waitingIn(list json.RawMessage) (waiting, bool) {
+// reports false for a list it cannot read. A row that waits only on
+// shells the person kept running, until their wake time, does not wait.
+func waitingIn(list json.RawMessage, kept []keptShell, at time.Time) (waiting, bool) {
 	var view struct {
 		MarksNote string `json:"marksNote"`
 		CloudNote string `json:"cloudNote"`
@@ -47,10 +50,15 @@ func waitingIn(list json.RawMessage) (waiting, bool) {
 			Note  string `json:"note"`
 		} `json:"tools"`
 		Conversations []struct {
-			Tool  string `json:"tool"`
-			App   string `json:"app"`
-			ID    string `json:"id"`
-			State string `json:"state"`
+			Tool    string `json:"tool"`
+			App     string `json:"app"`
+			ID      string `json:"id"`
+			State   string `json:"state"`
+			Live    bool   `json:"live"`
+			Waiting struct {
+				For string `json:"for"`
+			} `json:"waiting"`
+			StuckShells []shellRef `json:"stuckShells"`
 		} `json:"conversations"`
 	}
 	if len(list) == 0 || json.Unmarshal(list, &view) != nil {
@@ -62,6 +70,10 @@ func waitingIn(list json.RawMessage) (waiting, bool) {
 	}
 	for _, conversation := range view.Conversations {
 		if conversation.State != "blocked" && conversation.State != "unread" {
+			continue
+		}
+		if conversation.State == "blocked" && conversation.Waiting.For == "shell" && conversation.Live && len(conversation.StuckShells) > 0 &&
+			!slices.ContainsFunc(conversation.StuckShells, func(ref shellRef) bool { return !keptUntil(kept, ref.PID, ref.ProcStart, at) }) {
 			continue
 		}
 		source := conversation.Tool

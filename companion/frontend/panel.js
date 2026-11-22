@@ -1,7 +1,7 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell } from '/api.js'
-import { currentShellOf, shellCommandOf, shellWarningOf, stopShellDetailsOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
+import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
+import { currentShellOf, finishedKeepsOf, keepOf, keptShellLineOf, keptShellsOfRow, keptViewOf, shellCommandOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 
 const card = document.getElementById('card')
@@ -85,6 +85,13 @@ const state = {
   approvedOpen: new Set(),
   /** Pick mode: the copied text as the banner shows it, {preview, words, chars, hash}; undefined outside it. */
   pick: undefined,
+  /** The stuck shells the person kept running, as the companion settings hold them. */
+  keptShells: [],
+  /**
+   * Each shell a Stop on its line was confirmed for, by shellKeyOf: {key, stopping} while the request runs, then
+   * {key, text, problem, version} until a list other than the one the stop made is shown.
+   */
+  shellStops: new Map(),
 }
 
 const mailbox = mailboxPanel({
@@ -104,7 +111,7 @@ function shownPlace() {
 /** The list as the place switch narrows it, and pick mode to the rows it offers; undefined before the first one arrived. */
 function shownView() {
   if (state.view === undefined) return undefined
-  const view = viewIn(state.view, shownPlace())
+  const view = viewIn(keptViewOf(state.view, state.keptShells, Date.now()), shownPlace())
   return state.pick ? pickViewOf(view) : view
 }
 
@@ -143,6 +150,7 @@ const ICONS = {
   hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
   key: 'M2.5 10.8a2.7 2.7 0 1 0 5.4 0a2.7 2.7 0 1 0-5.4 0M7.2 8.8L13 3M11 5l1.6 1.6M9.6 6.4l1.2 1.2',
   lock: 'M4.6 7h6.8a1.6 1.6 0 0 1 1.6 1.6v3.8a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 12.4V8.6A1.6 1.6 0 0 1 4.6 7zM5.5 7V5a2.5 2.5 0 0 1 5 0v2',
+  terminal: 'M3.6 2.5h8.8a1.6 1.6 0 0 1 1.6 1.6v7.8a1.6 1.6 0 0 1-1.6 1.6H3.6A1.6 1.6 0 0 1 2 11.9V4.1a1.6 1.6 0 0 1 1.6-1.6zM5 6l2.2 2L5 10M8.8 10.5h2.4',
 }
 
 function icon(name, viewBox) {
@@ -222,10 +230,11 @@ function stateMark(conversation) {
   if (parentState === 'working') {
     mark.append(workSystem())
   }
-  // The circle's lock, on the chats the circle counts as waiting: apart from unread replies.
-  if (conversation.state === 'blocked') {
+  // The circle's lock, on the chats the circle counts as waiting: apart from unread replies. A shell wait has a terminal instead.
+  const waitIcon = stateIconOf(conversation)
+  if (waitIcon) {
     mark.classList.add('has-lock')
-    mark.append(icon('lock', '0 0 16 16'))
+    mark.append(icon(waitIcon, '0 0 16 16'))
   }
   if (conversation.workingSubagents > 0) {
     const workers = element('span', 'work-workers')
@@ -287,11 +296,11 @@ function rowOf(conversation, order, folderNames, under) {
   text.append(meta)
   const subagents = subagentsLine(conversation, key)
   if (subagents) text.append(subagents)
-  for (const shell of stuckShellsOf(conversation)) {
-    const warning = shellWarningOf(shell, now)
-    const line = element('div', 'shell-warning', warning)
-    line.title = warning
-    text.append(line)
+  const shells = stuckShellsOf(conversation)
+  for (const shell of shells) text.append(shellLine(conversation, shell, now))
+  const listed = new Set(shells.map(shellKeyOf))
+  for (const [shell, stop] of state.shellStops) {
+    if (stop.key === key && stop.text && !listed.has(shell)) text.append(shellStoppedLine(stop))
   }
   const approved = approvedLine(conversation, key, now)
   if (approved) text.append(approved)
@@ -319,6 +328,72 @@ function rowOf(conversation, order, folderNames, under) {
     openRowMenu(conversation, event)
   })
   return row
+}
+
+function shellKeyOf(shell) {
+  return shell.pid + ':' + shell.procStart
+}
+
+function shellButton(label, accessibleName, press) {
+  const button = element('button', 'shell-action', label)
+  button.type = 'button'
+  button.setAttribute('aria-label', accessibleName)
+  button.addEventListener('click', (event) => {
+    event.stopPropagation()
+    press()
+  })
+  return button
+}
+
+/** A stuck shell's line: its warning with Keep running and Stop, the grey line of a kept shell with Stop, or the stop on its way. */
+function shellLine(conversation, shell, now) {
+  const line = element('div', 'shell-warning')
+  const stop = state.shellStops.get(shellKeyOf(shell))
+  if (stop?.text) return shellStoppedLine(stop)
+  if (stop?.stopping) {
+    line.classList.add('is-stopping')
+    line.append(element('span', 'shell-text', 'Stopping the shell…'))
+    return line
+  }
+  const command = shellCommandOf(shell)
+  const said = shell.keptUntil ? keptShellLineOf(shell, now) : shellWarningOf(shell, now)
+  const words = element('span', 'shell-text', said)
+  words.title = said
+  line.append(words)
+  line.classList.toggle('is-kept', Boolean(shell.keptUntil))
+  if (!shell.keptUntil) line.append(shellButton('Keep running', 'Keep running: ' + command, () => keepRunning(conversation, shell)))
+  line.append(shellButton('Stop', 'Stop shell: ' + command, () => openStopShell(conversation, shell)))
+  return line
+}
+
+function shellStoppedLine(stop) {
+  const line = element('div', 'shell-warning is-stopped')
+  line.classList.toggle('is-problem', stop.problem)
+  const words = element('span', 'shell-text', stop.text)
+  words.title = stop.text
+  line.append(words)
+  return line
+}
+
+async function keepRunning(conversation, shell) {
+  try {
+    ({ shells: state.keptShells } = await keepShell(keepOf(conversation, shell, state.keptShells, Date.now())))
+  } catch (error) {
+    sayFailure(error)
+    return
+  }
+  draw({ force: true })
+}
+
+async function forgetKept(records) {
+  if (records.length === 0) return
+  try {
+    ({ shells: state.keptShells } = await forgetShells(records))
+  } catch (error) {
+    sayFailure(error)
+    return
+  }
+  draw({ force: true })
 }
 
 /** The reply line's stand-in while a tool call waits for approval: a key and "Approve edit dashboard.tsx", or a lock and "Needs permission". */
@@ -625,9 +700,9 @@ function draw({ force } = { force: false }) {
   // The quiet notes go in too: a silent chat's "No activity for 7m" tooltip changes with no new row data.
   const now = Date.now()
   const reasons = view.conversations.map((conversation) => quietNoteOf(conversation, now))
-  const shellAges = view.conversations.flatMap((conversation) => stuckShellsOf(conversation).map((shell) => ago(shell.since, now)))
+  const shellAges = view.conversations.flatMap((conversation) => stuckShellsOf(conversation).map((shell) => shell.keptUntil ? keptShellLineOf(shell, now) : ago(shell.since, now)))
   const stillSearching = state.query !== '' && state.readingOlder === state.query
-  const signature = JSON.stringify([view.conversations, reasons, shellAges, view.needsYou, view.matches, said, view.cloudNote, missingToolsNoteOf(state.view ?? view), state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
+  const signature = JSON.stringify([view.conversations, reasons, shellAges, [...state.shellStops], view.needsYou, view.matches, said, view.cloudNote, missingToolsNoteOf(state.view ?? view), state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
   if (!force && signature === state.drawn) return
   state.drawn = signature
 
@@ -814,6 +889,11 @@ function show(reply, problem) {
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
+  for (const [shell, stop] of state.shellStops) {
+    if (!stop.stopping && stop.version !== reply?.version) state.shellStops.delete(shell)
+  }
+  // Only a full list tells a shell is gone: a search leaves chats out.
+  if (state.view && !state.query) forgetKept(finishedKeepsOf(state.view, state.keptShells))
   mailbox.viewChanged(state.view, reply?.version, reply?.mailboxNativeCopy)
   if (reply?.configRoot) {
     const location = document.getElementById('config-location')
@@ -1239,6 +1319,7 @@ const menuItems = {
   delete: document.getElementById('delete'),
   web: document.getElementById('open-web'),
   'stop-shell': document.getElementById('stop-shell'),
+  'ask-shell-again': document.getElementById('ask-shell-again'),
   'stop-session': document.getElementById('stop-session'),
 }
 /** The conversation the row menu was opened on. */
@@ -1555,11 +1636,25 @@ const stopShellGo = document.getElementById('stop-shell-go')
 let stopShellFor
 let stoppingShell = false
 
+const stopShellWorking = document.getElementById('stop-shell-working')
+
 menuItems['stop-shell'].addEventListener('click', () => {
   const conversation = rowMenuTarget('stop-shell')
   closeRowMenu()
   queryInput.focus()
-  if (!conversation || stoppingShell) return
+  if (conversation) openStopShell(conversation)
+})
+
+menuItems['ask-shell-again'].addEventListener('click', () => {
+  const conversation = rowMenuTarget('ask-shell-again')
+  closeRowMenu()
+  queryInput.focus()
+  if (conversation) forgetKept(keptShellsOfRow(conversation, state.keptShells))
+})
+
+/** The stop confirm, on the shell a line's Stop chose, or with a picker when the row has several and none was chosen. */
+function openStopShell(conversation, chosen) {
+  if (stoppingShell) return
   const shells = stuckShellsOf(conversation)
   const now = Date.now()
   stopShellFor = { conversation, shells }
@@ -1567,11 +1662,15 @@ menuItems['stop-shell'].addEventListener('click', () => {
   shells.forEach((shell, index) => {
     stopShellChoice.add(new Option(shellWarningOf(shell, now) + ' (PID ' + shell.pid + ')', String(index)))
   })
-  stopShellChoice.hidden = shells.length === 1
-  showShellChoice(shells.length === 1 ? shells[0] : undefined)
+  const selected = chosen ?? (shells.length === 1 ? shells[0] : undefined)
+  stopShellChoice.hidden = selected !== undefined
+  const working = stopShellWarningOf(conversation)
+  stopShellWorking.hidden = !working
+  stopShellWorking.textContent = working ?? ''
+  showShellChoice(selected)
   stopShellDialog.hidden = false
   stopShellCancel.focus()
-})
+}
 
 function showShellChoice(shell) {
   stopShellFor.selected = shell
@@ -1631,6 +1730,10 @@ stopShellGo.addEventListener('click', async () => {
   stoppingShell = true
   stopShellGo.disabled = true
   stopShellChoice.disabled = true
+  const shellKey = shellKeyOf(selected)
+  const key = keyOf(conversation)
+  state.shellStops.set(shellKey, { key, stopping: true })
+  draw({ force: true })
   let result
   try {
     result = await stopShell(conversation, selected)
@@ -1640,13 +1743,17 @@ stopShellGo.addEventListener('click', async () => {
   } finally {
     stoppingShell = false
     stopShellChoice.disabled = false
+    state.shellStops.delete(shellKey)
     if (stopShellFor) closeStopShell()
   }
   if (result) {
     const message = stoppedShellOf(result.body)
-    if (result.body.stillRunning?.length) showOpenFailure({ message }, NOTICES.shellProcessesLeft)
+    const problem = Boolean(result.body.stillRunning?.length)
+    state.shellStops.set(shellKey, { key, text: message, problem, version: result.version })
+    if (problem) showOpenFailure({ message }, NOTICES.shellProcessesLeft)
     else say(message)
   }
+  draw({ force: true })
   await afterChange(result?.version)
 })
 
@@ -2194,6 +2301,16 @@ document.addEventListener('motion', () => {
 })
 
 drawPlaces()
+Events.On('kept-shells', (event) => {
+  state.keptShells = event.data ?? []
+  draw()
+})
+readKeptShells().then(({ shells }) => {
+  state.keptShells = shells
+  draw()
+}, sayFailure)
+// A kept shell asks again at its wake time, with no new list from the server.
+setInterval(() => draw(), 30 * 1000)
 Events.On('inbox', (event) => {
   // A search costs the server a read of every week it covers; a closed list asks again when it opens.
   if (!listShown && state.query !== '') {

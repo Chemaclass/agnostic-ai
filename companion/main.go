@@ -96,6 +96,8 @@ const (
 	eventUpdate = "update"
 	// eventUpdateAsked says the panel opened on the question whether to update; its data is the corner nearest the bubble.
 	eventUpdateAsked = "update-asked"
+	// eventKeptShells says the kept shells changed; its data is the new list.
+	eventKeptShells = "kept-shells"
 )
 
 // reopenGuard is how soon after the panel hid on losing focus a click
@@ -131,6 +133,7 @@ type shell struct {
 	tell            func(appearance)
 	tellPreferences func(preferences)
 	tellUpdate      func(updateStatus)
+	tellKeptShells  func([]keptShell)
 	// openPage opens a web page in the default browser.
 	openPage func(string) error
 	end      func()
@@ -267,7 +270,7 @@ func (s *shell) placeReturningBubble() {
 // listRead notes what waits in a new list. While hidden, something new
 // waiting brings the circle back faded, without the list or the keys.
 func (s *shell) listRead(list json.RawMessage) {
-	now, ok := waitingIn(list)
+	now, ok := waitingIn(list, s.keptShells(), time.Now())
 	if !ok {
 		return
 	}
@@ -688,6 +691,9 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/appearance/animate", s.setAppearanceSwitch(s.setAnimate))
 	mux.HandleFunc("POST /api/appearance/dim-when-idle", s.setAppearanceSwitch(s.setDimWhenIdle))
 	mux.HandleFunc("POST /api/appearance/small-companion", s.setAppearanceSwitch(s.setSmallCompanion))
+	mux.HandleFunc("GET /api/kept-shells", s.getKeptShells)
+	mux.HandleFunc("POST /api/kept-shells/keep", s.keepShell)
+	mux.HandleFunc("POST /api/kept-shells/forget", s.forgetShells)
 	mux.HandleFunc("GET /api/update", s.getUpdate)
 	mux.HandleFunc("POST /api/update", s.checkNow)
 	mux.HandleFunc("POST /api/update/start", s.startUpdate)
@@ -833,6 +839,9 @@ func main() {
 	}
 	s.tellUpdate = func(status updateStatus) {
 		s.app.Event.Emit(eventUpdate, status)
+	}
+	s.tellKeptShells = func(kept []keptShell) {
+		s.app.Event.Emit(eventKeptShells, kept)
 	}
 	s.openPage = s.app.Browser.OpenURL
 	if err := s.bubbleMenu(); err != nil {

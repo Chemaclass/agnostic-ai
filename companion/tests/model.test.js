@@ -975,3 +975,84 @@ test('says which messages an agent sent, the model it states and who answered a 
   assert.equal(handoffAnswerOf(thread, { n: 4, handoff: 'offered' }), 'Offered')
   assert.equal(handoffAnswerOf({}, { n: 1 }), undefined)
 })
+
+test('a shell wait shows a terminal in the state mark, and every other wait the lock', async () => {
+  const { stateIconOf } = await import('../frontend/model.js')
+  assert.equal(stateIconOf(row('a', 'blocked', { waiting: { for: 'shell' } })), 'terminal')
+  assert.equal(stateIconOf(row('a', 'blocked', { waiting: { for: 'permission' } })), 'lock')
+  assert.equal(stateIconOf(row('a', 'blocked', { waiting: { for: 'answer' } })), 'lock')
+  assert.equal(stateIconOf(row('a', 'blocked')), 'lock')
+  assert.equal(stateIconOf(row('a', 'working', { waiting: { for: 'shell' } })), undefined)
+})
+
+test('Keep running waits 30 min, then doubles up to 4 h', async () => {
+  const { keepOf, keepWaitOf, keptShellLineOf } = await import('../frontend/model.js')
+  assert.deepEqual([0, 1, 2, 3, 4].map((keeps) => keepWaitOf(keeps) / 60000), [30, 60, 120, 240, 240])
+  const conversation = row('a', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
+  const first = keepOf(conversation, shell, [], shellNow)
+  assert.deepEqual(first, { tool: 'claude', id: 'a', pid: 42, procStart: 'shell-start', wakeAt: '2026-11-09T12:30:00.000Z', keeps: 1 })
+  assert.equal(keepOf(conversation, shell, [first], shellNow).wakeAt, '2026-11-09T13:00:00.000Z')
+  assert.equal(keepOf(conversation, shell, [{ ...first, procStart: 'other' }], shellNow).keeps, 1)
+  const line = (minutes) => keptShellLineOf({ ...shell, keptUntil: new Date(shellNow + minutes * 60000).toISOString() }, shellNow)
+  assert.equal(line(30), 'Kept running · asks again in 30 min: npm run dev')
+  assert.equal(line(60), 'Kept running · asks again in 1 h: npm run dev')
+  assert.equal(line(120), 'Kept running · asks again in 2 h: npm run dev')
+  assert.equal(line(240), 'Kept running · asks again in 4 h: npm run dev')
+  assert.equal(line(90), 'Kept running · asks again in 1 h 30 min: npm run dev')
+})
+
+test('a row waiting only on kept shells sits under Active until the wake time', async () => {
+  const { keptViewOf } = await import('../frontend/model.js')
+  const waitingRow = row('a', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
+  const view = { needsYou: 2, conversations: [waitingRow, row('b', 'unread')] }
+  const record = { tool: 'claude', id: 'a', pid: 42, procStart: 'shell-start', wakeAt: '2026-11-09T12:30:00Z', keeps: 1 }
+
+  const kept = keptViewOf(view, [record], shellNow)
+  assert.equal(kept.conversations[0].state, 'active')
+  assert.equal(kept.conversations[0].waiting, undefined)
+  assert.equal(kept.conversations[0].stuckShells[0].keptUntil, record.wakeAt)
+  assert.equal(kept.needsYou, 1)
+  assert.deepEqual(waitingOf(kept), { blocked: 0, unread: 1 })
+
+  const due = keptViewOf(view, [record], Date.parse(record.wakeAt))
+  assert.equal(due.conversations[0].state, 'blocked')
+  assert.equal(due.needsYou, 2)
+
+  const another = keptViewOf(view, [{ ...record, procStart: 'later' }], shellNow)
+  assert.equal(another.conversations[0].state, 'blocked')
+
+  const twoShells = { ...waitingRow, stuckShells: [shell, { ...shell, pid: 45 }] }
+  const oneNew = keptViewOf({ needsYou: 1, conversations: [twoShells] }, [record], shellNow)
+  assert.equal(oneNew.conversations[0].state, 'blocked')
+  assert.equal(oneNew.needsYou, 1)
+
+  const working = keptViewOf({ needsYou: 0, conversations: [{ ...waitingRow, state: 'working', waiting: undefined }] }, [record], shellNow)
+  assert.equal(working.conversations[0].state, 'working')
+  assert.equal(working.conversations[0].stuckShells[0].keptUntil, record.wakeAt)
+  assert.equal(keptViewOf(view, [], shellNow), view)
+})
+
+test('offers Ask about this shell again only on a row with a kept shell', async () => {
+  const { keptShellsOfRow } = await import('../frontend/model.js')
+  const conversation = row('a', 'active', { live: true, stuckShells: [{ ...shell, keptUntil: '2026-11-09T12:30:00Z' }] })
+  assert.ok(rowMenuOf(conversation).includes('ask-shell-again'))
+  assert.ok(!rowMenuOf({ ...conversation, stuckShells: [shell] }).includes('ask-shell-again'))
+  const record = { tool: 'claude', id: 'a', pid: 42, procStart: 'shell-start', wakeAt: '2026-11-09T12:30:00Z', keeps: 1 }
+  assert.deepEqual(keptShellsOfRow(conversation, [record, { ...record, pid: 7 }]), [record])
+})
+
+test('the stop confirm warns only while the agent still works', async () => {
+  const { stopShellWarningOf } = await import('../frontend/model.js')
+  assert.equal(stopShellWarningOf(row('a', 'working')), 'The agent is still working and may need this shell.')
+  assert.equal(stopShellWarningOf(row('a', 'blocked', { waiting: { for: 'shell' } })), undefined)
+})
+
+test('a full list ends the records of shells gone from a live chat', async () => {
+  const { finishedKeepsOf } = await import('../frontend/model.js')
+  const record = { tool: 'claude', id: 'a', pid: 42, procStart: 'shell-start', wakeAt: '2026-11-09T12:30:00Z', keeps: 1 }
+  const elsewhere = { ...record, id: 'gone' }
+  const live = row('a', 'active', { live: true, stuckShells: [shell] })
+  assert.deepEqual(finishedKeepsOf({ conversations: [live] }, [record, elsewhere]), [])
+  assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, stuckShells: undefined }] }, [record, elsewhere]), [record])
+  assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, live: false, stuckShells: undefined }] }, [record]), [])
+})

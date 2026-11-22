@@ -317,13 +317,45 @@ body {
 }
 
 .shell-warning {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   color: var(--action);
   font-size: 11px;
+}
+
+.shell-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.shell-action {
+  flex: none;
+  padding: 1px 8px;
+  border: 1px solid var(--action);
+  border-radius: 999px;
+  background: var(--action-soft);
+  color: var(--action);
+  font: inherit;
+  line-height: 16px;
+}
+
+.shell-action:hover {
+  background: var(--action);
+  color: var(--ink);
+}
+
+/* A kept shell, a stop on its way and a stop that went through no longer ask for anything. */
+.shell-warning:is(.is-kept, .is-stopping, .is-stopped) {
+  color: var(--paper-dim);
+}
+
+.shell-warning.is-stopped.is-problem {
+  color: var(--alert);
 }
 
 .confirm-actions {

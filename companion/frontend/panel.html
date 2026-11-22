@@ -127,11 +127,12 @@
         <button class="confirm-delete" id="delete-go" type="button">Delete permanently</button>
       </div>
     </section>
-    <section class="notice confirm" id="stop-shell-dialog" role="alertdialog" aria-modal="true" aria-labelledby="stop-shell-title" aria-describedby="stop-shell-command stop-shell-details" hidden>
+    <section class="notice confirm" id="stop-shell-dialog" role="alertdialog" aria-modal="true" aria-labelledby="stop-shell-title" aria-describedby="stop-shell-command stop-shell-details stop-shell-working" hidden>
       <p class="confirm-title" id="stop-shell-title">Stop shell?</p>
       <select class="stop-shell-choice" id="stop-shell-choice" aria-label="Choose a shell" hidden></select>
       <code class="stop-shell-command" id="stop-shell-command" hidden></code>
       <p class="confirm-details" id="stop-shell-details" hidden></p>
+      <p class="confirm-details" id="stop-shell-working" hidden></p>
       <div class="notice-actions confirm-actions">
         <button class="confirm-cancel" id="stop-shell-cancel" type="button">Cancel</button>
         <button class="confirm-delete" id="stop-shell-go" type="button">Stop shell</button>
@@ -190,6 +191,7 @@
       <button class="menu-item" id="open-web" type="button" role="menuitem" title="Also open on claude.ai">Open on claude.ai</button>
       <button class="menu-item is-danger" id="delete" type="button" role="menuitem" title="Removes the chat from this computer. It cannot be undone.">Delete permanently…</button>
       <button class="menu-item is-danger" id="stop-shell" type="button" role="menuitem">Stop shell…</button>
+      <button class="menu-item" id="ask-shell-again" type="button" role="menuitem" title="Brings a shell you kept running back to Needs you while it is the only work left">Ask about this shell again</button>
       <button class="menu-item is-danger" id="stop-session" type="button" role="menuitem" title="Ends the chat's Claude Code process on this computer. The transcript stays.">Stop chat…</button>
     </div>
     <p class="toast" id="toast" role="status" data-tone="info" hidden><svg class="tone-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2.6L14 13H2zM8 6.7v3.1M8 11.3v.1"/></svg><span id="toast-text"></span></p>

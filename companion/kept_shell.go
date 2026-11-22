@@ -1,0 +1,120 @@
+package main
+
+import (
+	"fmt"
+	"net/http"
+	"slices"
+	"time"
+)
+
+// keptShell is a stuck shell the person chose to keep running: the list
+// stops asking about it until WakeAt. The page picks WakeAt and Keeps;
+// the companion only stores them, so they survive a restart.
+type keptShell struct {
+	// Tool and ID name the chat that holds the shell, so a full list can
+	// tell when the shell is gone from it.
+	Tool string `json:"tool"`
+	ID   string `json:"id"`
+	// PID and ProcStart name the shell's process. A reused PID has
+	// another start time, so it never matches an old record.
+	PID       int       `json:"pid"`
+	ProcStart string    `json:"procStart"`
+	WakeAt    time.Time `json:"wakeAt"`
+	Keeps     int       `json:"keeps"`
+}
+
+func (k keptShell) is(pid int, procStart string) bool {
+	return k.PID == pid && k.ProcStart == procStart
+}
+
+// keptUntil reports whether a record holds the shell quiet at now.
+func keptUntil(kept []keptShell, pid int, procStart string, now time.Time) bool {
+	return slices.ContainsFunc(kept, func(k keptShell) bool { return k.is(pid, procStart) && now.Before(k.WakeAt) })
+}
+
+type shellRef struct {
+	PID       int    `json:"pid"`
+	ProcStart string `json:"procStart"`
+}
+
+func (s *shell) keptShells() []keptShell {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return slices.Clone(s.settings.KeptShells)
+}
+
+// changeKeptShells saves a change to the kept shells and tells the pages
+// the list in effect: the new one, or the old one when the save failed.
+func (s *shell) changeKeptShells(change func([]keptShell) []keptShell) ([]keptShell, error) {
+	s.mu.Lock()
+	before := s.settings.KeptShells
+	s.settings.KeptShells = change(slices.Clone(before))
+	err := writeSettings(s.settingsPath, s.settings)
+	if err != nil {
+		s.settings.KeptShells = before
+	}
+	kept := slices.Clone(s.settings.KeptShells)
+	s.mu.Unlock()
+	if s.tellKeptShells != nil {
+		s.tellKeptShells(kept)
+	}
+	if err != nil {
+		return kept, fmt.Errorf("save the kept shells: %w", err)
+	}
+	return kept, nil
+}
+
+func writeKeptShells(w http.ResponseWriter, kept []keptShell) {
+	if kept == nil {
+		kept = []keptShell{}
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Shells []keptShell `json:"shells"`
+	}{kept})
+}
+
+func (s *shell) getKeptShells(w http.ResponseWriter, _ *http.Request) {
+	writeKeptShells(w, s.keptShells())
+}
+
+// keepShell adds a record, or replaces the one for the same shell.
+func (s *shell) keepShell(w http.ResponseWriter, r *http.Request) {
+	const shape = "{tool, id, pid, procStart, wakeAt, keeps}"
+	body, ok := readBody[keptShell](w, r, shape)
+	if !ok {
+		return
+	}
+	if body.Tool == "" || body.ID == "" || body.PID <= 0 || body.ProcStart == "" || body.WakeAt.IsZero() || body.Keeps < 1 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "send " + shape})
+		return
+	}
+	kept, err := s.changeKeptShells(func(kept []keptShell) []keptShell {
+		kept = slices.DeleteFunc(kept, func(k keptShell) bool { return k.is(body.PID, body.ProcStart) })
+		return append(kept, body)
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
+		return
+	}
+	writeKeptShells(w, kept)
+}
+
+// forgetShells removes the records of the shells named.
+func (s *shell) forgetShells(w http.ResponseWriter, r *http.Request) {
+	body, ok := readBody[struct {
+		Shells []shellRef `json:"shells"`
+	}](w, r, "{shells: [{pid, procStart}]}")
+	if !ok {
+		return
+	}
+	kept, err := s.changeKeptShells(func(kept []keptShell) []keptShell {
+		return slices.DeleteFunc(kept, func(k keptShell) bool {
+			return slices.ContainsFunc(body.Shells, func(ref shellRef) bool { return k.is(ref.PID, ref.ProcStart) })
+		})
+	})
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
+		return
+	}
+	writeKeptShells(w, kept)
+}

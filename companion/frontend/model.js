@@ -561,6 +561,7 @@ export function rowMenuOf(conversation) {
   if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')
+  if (stuckShellsOf(conversation).some((shell) => shell.keptUntil)) offered.push('ask-shell-again')
   if (conversation.live && conversation.stoppable) offered.push('stop-session')
   return offered
 }
@@ -715,6 +716,90 @@ export function stoppedShellOf({ stillRunning = [] }) {
   return stillRunning.length > 0
     ? `Shell stop sent. Processes still running (PIDs ${stillRunning.map(({ pid }) => pid).join(', ')}).`
     : 'Shell stopped.'
+}
+
+/** What the stop confirm adds while the agent works: the shell may still be part of its turn. */
+export function stopShellWarningOf(conversation) {
+  return conversation.state === 'working' ? 'The agent is still working and may need this shell.' : undefined
+}
+
+/** The icon in a waiting row's state mark: a terminal for a shell wait, so it reads apart from a permission wait without color. */
+export function stateIconOf(conversation) {
+  if (conversation.state !== 'blocked') return undefined
+  return conversation.waiting?.for === 'shell' ? 'terminal' : 'lock'
+}
+
+/** How long Keep running holds a shell quiet after it was kept that many times before: 30 min, doubling to 4 h. */
+export function keepWaitOf(keepsBefore) {
+  return Math.min(30 * MINUTE * 2 ** keepsBefore, 4 * HOUR)
+}
+
+function keptRecordOf(kept, shell) {
+  return kept.find((record) => record.pid === shell.pid && record.procStart === shell.procStart)
+}
+
+/** The record Keep running saves for a shell of a row: a wait one step longer than the last one. */
+export function keepOf(conversation, shell, kept, now) {
+  const keeps = keptRecordOf(kept, shell)?.keeps ?? 0
+  return {
+    tool: conversation.tool,
+    id: conversation.id,
+    pid: shell.pid,
+    procStart: shell.procStart,
+    wakeAt: new Date(now + keepWaitOf(keeps)).toISOString(),
+    keeps: keeps + 1,
+  }
+}
+
+function waitText(ms) {
+  const minutes = Math.max(1, Math.ceil(ms / MINUTE))
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
+}
+
+/** A kept shell's grey line, until its wake time. */
+export function keptShellLineOf(shell, now) {
+  return `Kept running · asks again in ${waitText(Date.parse(shell.keptUntil) - now)}: ${shellCommandOf(shell)}`
+}
+
+/**
+ * The view as the person sees it with their kept shells: each stuck shell held quiet carries `keptUntil`, and a row
+ * that waits only on such shells sits under Active, out of the Needs you count. A due record, or a shell with another
+ * PID or start time, changes nothing. A working row stays working.
+ */
+export function keptViewOf(view, kept, now) {
+  if (!view || kept.length === 0) return view
+  let released = 0
+  const conversations = view.conversations.map((conversation) => {
+    const shells = stuckShellsOf(conversation)
+    if (shells.length === 0) return conversation
+    const marked = shells.map((shell) => {
+      const record = keptRecordOf(kept, shell)
+      return record && Date.parse(record.wakeAt) > now ? { ...shell, keptUntil: record.wakeAt } : shell
+    })
+    const quiet = { ...conversation, stuckShells: marked }
+    if (conversation.state !== 'blocked' || conversation.waiting?.for !== 'shell' || !marked.every((shell) => shell.keptUntil)) return quiet
+    released += 1
+    const { waiting, ...active } = quiet
+    return { ...active, state: 'active' }
+  })
+  return { ...view, conversations, needsYou: Math.max(0, view.needsYou - released) }
+}
+
+/** The records Ask about this shell again removes: those of the row's shells. */
+export function keptShellsOfRow(conversation, kept) {
+  return stuckShellsOf(conversation).map((shell) => keptRecordOf(kept, shell)).filter(Boolean)
+}
+
+/** The records a full list shows are over: their chat is live in it and the shell is gone from its stuck shells. */
+export function finishedKeepsOf(view, kept) {
+  const live = new Map(view.conversations.filter((conversation) => conversation.live).map((conversation) => [keyOf(conversation), conversation]))
+  return kept.filter((record) => {
+    const conversation = live.get(keyOf(record))
+    return conversation && !keptRecordOf(stuckShellsOf(conversation), record)
+  })
 }
 
 /** What the open request names to show a shared row's claude.ai page; undefined on a row that is not shared. */
