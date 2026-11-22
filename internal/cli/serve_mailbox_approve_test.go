@@ -118,6 +118,19 @@ func TestMailboxHTTP_PersonActionsNeedTheCompanionSecret(t *testing.T) {
 	}
 }
 
+func TestMailboxNeedsCompanion_GatesEveryChangeRouteButSendRefsAndSettings(t *testing.T) {
+	for path, want := range map[string]bool{
+		mailboxSendPath: false, mailboxRefsPath: false, mailboxSettingsPath: false,
+		mailboxThreadPath: true, mailboxStagePath: true, mailboxClaimPath: true, mailboxReleasePath: true,
+		mailboxDismissPath: true, mailboxHandoffPath: true, mailboxApprovePath: true, mailboxQueuePath: true,
+		"/api/mailbox/added-later": true,
+	} {
+		if got := mailboxNeedsCompanion(path); got != want {
+			t.Errorf("mailboxNeedsCompanion(%s) = %t, want %t", path, got, want)
+		}
+	}
+}
+
 func TestMailboxHTTP_SendWithoutTheSecretIsAnAgentSend(t *testing.T) {
 	h, _ := mailboxHTTPFixture(t)
 	secret := string(testCompanionSecret)

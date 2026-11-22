@@ -107,7 +107,7 @@ The command finds the session it runs in from its parent processes and the tool'
 
 - Codex can run several threads in one process. The command trusts the thread ID in its environment when it cannot check which thread the process holds, and a process that holds several threads can name any of them.
 - Any process that runs as your OS user can edit the mailbox files and get past every guard.
-- A process that calls the companion's local routes without the companion's secret cannot act as you, and a message it sends counts as an agent's: it is held while approval is on.
+- A process that calls the companion's local routes without the companion's secret cannot act as you in the mailbox, and a message it sends counts as an agent's: it is held while approval is on.
 - The model name on a message is what the agent wrote. Nothing checks it.
 
 The guards keep cooperating sessions to the supported mailbox actions. Read a held message before you approve it.

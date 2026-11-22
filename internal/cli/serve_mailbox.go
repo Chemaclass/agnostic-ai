@@ -98,17 +98,16 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// mailboxNeedsCompanion reports whether a route records a person's action,
-// so only a request with the companion's secret may call it. A send
-// without it counts as an agent's, and settings check the secret only
-// for the change that loosens them.
+// mailboxNeedsCompanion reports whether a change route records a
+// person's action, so only a request with the companion's secret may
+// call it. A send without it counts as an agent's, refs only reads, and
+// settings check the secret only for the change that loosens them.
 func mailboxNeedsCompanion(path string) bool {
 	switch path {
-	case mailboxThreadPath, mailboxStagePath, mailboxClaimPath, mailboxReleasePath, mailboxDismissPath,
-		mailboxHandoffPath, mailboxApprovePath, mailboxQueuePath:
-		return true
+	case mailboxSendPath, mailboxRefsPath, mailboxSettingsPath:
+		return false
 	}
-	return false
+	return true
 }
 
 func writeMailboxError(w http.ResponseWriter, err error) {

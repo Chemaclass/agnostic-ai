@@ -145,9 +145,9 @@ Any program on the machine can reach the server's local port, including an agent
 - Less strict, only from the companion: `review`, `yolo`, turning on **Approve and Deny** in the list, turning off approval of agent messages, and running a sync from a page. So does any change other than `ask` to an approvals block that does not load: fixing it could turn on the `yolo` it holds. The companion proves it with the secret it hands its server at launch. Any other request gets 403 and no file changes.
 - The companion's server, the web page's server and `agnostic-ai approvals ask` take turns on one lock file, `local/approvals/write.lock`, so a check of the shown value and its write happen together.
 - Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`.
-- The same secret guards each [mailbox](@/docs/mailbox.md#approve-agent-messages) action recorded as yours, such as approving a held agent message. Those are recorded in the thread, not this log.
+- The same secret guards each [mailbox](@/docs/mailbox.md#approve-agent-messages) action recorded as yours, such as approving a held agent message. Those are recorded in the mailbox, not this log.
 
-The secret stops web pages, other accounts on the machine, and agents that only use the local routes. It does not stop code that runs as you and sets out to forge your answers: such code can start its own server with its own secret, or edit the files under `$AGNOSTIC_AI_HOME` directly.
+The secret stops web pages, other accounts on the machine, and agents that only use the local approval and mailbox routes. It does not stop code that runs as you and sets out to forge your answers: such code can start its own server with its own secret, or edit the files under `$AGNOSTIC_AI_HOME` directly.
 
 The home config stays the place to change anything by hand. See the [settings routes](@/docs/cli-reference/serve-api.md#post-api-settings).
 
