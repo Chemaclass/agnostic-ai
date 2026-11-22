@@ -1055,4 +1055,5 @@ test('a full list ends the records of shells gone from a live chat', async () =>
   assert.deepEqual(finishedKeepsOf({ conversations: [live] }, [record, elsewhere]), [])
   assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, stuckShells: undefined }] }, [record, elsewhere]), [record])
   assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, live: false, stuckShells: undefined }] }, [record]), [])
+  assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, state: 'working', stuckShells: undefined }] }, [record]), [])
 })

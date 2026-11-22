@@ -162,6 +162,8 @@ type shell struct {
 	mu sync.Mutex
 	// settings is what is saved; every write saves all of it.
 	settings settings
+	// keptWake reads the list again when the next kept shell is due.
+	keptWake *time.Timer
 	// shortcutProblem says why the shortcut is not active; empty when it is.
 	shortcutProblem string
 	// sendShortcutProblem says the same for the send shortcut.
@@ -888,6 +890,7 @@ func main() {
 		})
 		s.registerShortcuts()
 		in.start()
+		s.armKeptWake()
 		go s.appCommands.watchUpdates(updateContext)
 	})
 

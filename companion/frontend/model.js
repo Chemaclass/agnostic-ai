@@ -793,9 +793,13 @@ export function keptShellsOfRow(conversation, kept) {
   return stuckShellsOf(conversation).map((shell) => keptRecordOf(kept, shell)).filter(Boolean)
 }
 
-/** The records a full list shows are over: their chat is live in it and the shell is gone from its stuck shells. */
+/**
+ * The records a full list shows are over: their chat is live in it and the shell is gone from its stuck shells.
+ * A working chat does not count: the server leaves out a shell it cannot tell from the turn's own work.
+ */
 export function finishedKeepsOf(view, kept) {
-  const live = new Map(view.conversations.filter((conversation) => conversation.live).map((conversation) => [keyOf(conversation), conversation]))
+  const settled = view.conversations.filter((conversation) => conversation.live && conversation.state !== 'working')
+  const live = new Map(settled.map((conversation) => [keyOf(conversation), conversation]))
   return kept.filter((record) => {
     const conversation = live.get(keyOf(record))
     return conversation && !keptRecordOf(stuckShellsOf(conversation), record)

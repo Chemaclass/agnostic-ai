@@ -1868,6 +1868,7 @@ test('Tab reaches the shell buttons, and Enter and Space press them without open
   await keep.focus()
   await page.keyboard.press('Enter')
   await expect(groupTitle(page, 'Active')).toBeVisible()
+  await expect(page.getByLabel('Search every conversation')).toBeFocused()
   await expect(row(page, 'Preview the reporting changes')).not.toHaveClass(/needs-you/)
   expect(await calledPaths(page)).not.toContain('/api/open')
 })
@@ -1915,16 +1916,22 @@ test('Ask about this shell again brings the row back at once', async ({ page }) 
   await expect(page.getByRole('menuitem', { name: 'Ask about this shell again' })).toBeHidden()
 })
 
-test('stopping a kept shell drops its record', async ({ page }) => {
+test('stopping a kept shell drops its record, and a working chat keeps the record of a shell it leaves out', async ({ page }) => {
   await openPanel(page, 'stuck-shells')
   const working = row(page, 'Refactor the search index')
   await working.getByRole('button', { name: 'Keep running: npm run watch' }).click()
   await expect(shellLine(working, 'npm run watch')).toHaveClass(/is-kept/)
-  await expect(working).not.toHaveClass(/needs-you/)
-  expect((await keptShells(page)).map((shell) => shell.pid)).toEqual([910])
   await working.getByRole('button', { name: 'Stop shell: npm run watch' }).click()
   await shellDialog(page).getByRole('button', { name: 'Stop shell' }).click()
-  await expect.poll(() => keptShells(page)).toEqual([])
+  await expect(working.locator('.shell-warning.is-stopped')).toHaveText('Shell stopped.')
+  expect((await keptShells(page)).map((shell) => shell.pid)).toEqual([910])
+
+  const waiting = row(page, 'Preview the reporting changes')
+  await waiting.getByRole('button', { name: 'Keep running: bash scripts/run-preview.bash' }).click()
+  await expect(shellLine(waiting, 'run-preview')).toHaveClass(/is-kept/)
+  await waiting.getByRole('button', { name: 'Stop shell: bash scripts/run-preview.bash' }).click()
+  await shellDialog(page).getByRole('button', { name: 'Stop shell' }).click()
+  await expect.poll(async () => (await keptShells(page)).map((shell) => shell.pid)).toEqual([910])
 })
 
 async function openArchived(page: Page, fixture = 'archived') {

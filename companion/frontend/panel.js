@@ -382,7 +382,13 @@ async function keepRunning(conversation, shell) {
     sayFailure(error)
     return
   }
+  redrawKeepingKeys()
+}
+
+/** A redraw that removed the focused button gives the keys back to the search, as a menu item does. */
+function redrawKeepingKeys() {
   draw({ force: true })
+  if (!document.activeElement || document.activeElement === document.body) queryInput.focus()
 }
 
 async function forgetKept(records) {
@@ -393,7 +399,7 @@ async function forgetKept(records) {
     sayFailure(error)
     return
   }
-  draw({ force: true })
+  redrawKeepingKeys()
 }
 
 /** The reply line's stand-in while a tool call waits for approval: a key and "Approve edit dashboard.tsx", or a lock and "Needs permission". */
@@ -889,8 +895,11 @@ function show(reply, problem) {
   state.problem = problem
   state.view = reply?.view
   state.note = reply?.note
+  // A stop's line stays for the list it made, or the first list after it when the answer named none.
   for (const [shell, stop] of state.shellStops) {
-    if (!stop.stopping && stop.version !== reply?.version) state.shellStops.delete(shell)
+    if (stop.stopping) continue
+    if (stop.version === undefined) stop.version = reply?.version ?? null
+    else if (stop.version !== reply?.version) state.shellStops.delete(shell)
   }
   // Only a full list tells a shell is gone: a search leaves chats out.
   if (state.view && !state.query) forgetKept(finishedKeepsOf(state.view, state.keptShells))

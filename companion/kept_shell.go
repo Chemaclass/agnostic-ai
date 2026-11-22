@@ -32,6 +32,23 @@ func keptUntil(kept []keptShell, pid int, procStart string, now time.Time) bool 
 	return slices.ContainsFunc(kept, func(k keptShell) bool { return k.is(pid, procStart) && now.Before(k.WakeAt) })
 }
 
+// keptRecordAge is how long a record stays after its wake time. A full
+// list drops the record of a shell gone from a live chat; this drops
+// the record of a chat that ended.
+const keptRecordAge = 24 * time.Hour
+
+// nextKeptWake is how long until the first record after now wakes.
+func nextKeptWake(kept []keptShell, now time.Time) (time.Duration, bool) {
+	var next time.Duration
+	found := false
+	for _, k := range kept {
+		if wait := k.WakeAt.Sub(now); wait > 0 && (!found || wait < next) {
+			next, found = wait, true
+		}
+	}
+	return next, found
+}
+
 type shellRef struct {
 	PID       int    `json:"pid"`
 	ProcStart string `json:"procStart"`
@@ -45,16 +62,19 @@ func (s *shell) keptShells() []keptShell {
 
 // changeKeptShells saves a change to the kept shells and tells the pages
 // the list in effect: the new one, or the old one when the save failed.
+// It tells them under the lock, so two changes reach them in order.
 func (s *shell) changeKeptShells(change func([]keptShell) []keptShell) ([]keptShell, error) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	before := s.settings.KeptShells
-	s.settings.KeptShells = change(slices.Clone(before))
+	now := time.Now()
+	s.settings.KeptShells = slices.DeleteFunc(change(slices.Clone(before)), func(k keptShell) bool { return now.Sub(k.WakeAt) > keptRecordAge })
 	err := writeSettings(s.settingsPath, s.settings)
 	if err != nil {
 		s.settings.KeptShells = before
 	}
 	kept := slices.Clone(s.settings.KeptShells)
-	s.mu.Unlock()
+	s.armKeptWakeLocked(now)
 	if s.tellKeptShells != nil {
 		s.tellKeptShells(kept)
 	}
@@ -62,6 +82,25 @@ func (s *shell) changeKeptShells(change func([]keptShell) []keptShell) ([]keptSh
 		return kept, fmt.Errorf("save the kept shells: %w", err)
 	}
 	return kept, nil
+}
+
+// armKeptWake reads the list again at the next wake time, so a due
+// shell can bring a hidden circle back while no new list comes.
+func (s *shell) armKeptWake() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.armKeptWakeLocked(time.Now())
+}
+
+func (s *shell) armKeptWakeLocked(now time.Time) {
+	if s.keptWake != nil {
+		s.keptWake.Stop()
+	}
+	wait, ok := nextKeptWake(s.settings.KeptShells, now)
+	if !ok || s.inbox == nil {
+		return
+	}
+	s.keptWake = time.AfterFunc(wait, func() { s.listRead(s.inbox.held()) })
 }
 
 func writeKeptShells(w http.ResponseWriter, kept []keptShell) {

@@ -151,3 +151,31 @@ func TestKeptShellRoutes_RefuseAKeepWithoutAShell(t *testing.T) {
 		}
 	}
 }
+
+func TestNextKeptWake_IsTheFirstWakeAfterNow(t *testing.T) {
+	now := time.Date(2026, 11, 22, 10, 0, 0, 0, time.UTC)
+	kept := []keptShell{{WakeAt: now.Add(-time.Minute)}, {WakeAt: now.Add(2 * time.Hour)}, {WakeAt: now.Add(30 * time.Minute)}}
+
+	wait, ok := nextKeptWake(kept, now)
+
+	if !ok || wait != 30*time.Minute {
+		t.Errorf("nextKeptWake = %v, %v; want 30m", wait, ok)
+	}
+	if _, ok := nextKeptWake(kept[:1], now); ok {
+		t.Error("a past wake time armed a wake")
+	}
+}
+
+func TestKeptShellRoutes_DropRecordsADayPastTheirWakeTime(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	s.settings.KeptShells = []keptShell{{Tool: "claude", ID: "old", PID: 7, ProcStart: "old", WakeAt: time.Now().Add(-25 * time.Hour), Keeps: 1}}
+	routes := s.routes(&inbox{}, fstest.MapFS{})
+	wake := time.Now().Add(30 * time.Minute).Format(time.RFC3339)
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/kept-shells/keep", strings.NewReader(`{"tool":"claude","id":"a","pid":531,"procStart":"s","wakeAt":"`+wake+`","keeps":1}`)))
+
+	if kept := keptShellsOf(t, rec); len(kept) != 1 || kept[0].PID != 531 {
+		t.Errorf("kept = %+v; want only the new record", kept)
+	}
+}
