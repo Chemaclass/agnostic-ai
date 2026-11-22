@@ -455,7 +455,7 @@ func TestCredentialPreview_DryRunHidesAPIKeyAndHelperSecrets(t *testing.T) {
 	if strings.Contains(printed, "PREVIEW_SECRET_3659_") {
 		t.Error("dry-run preview leaked a credential")
 	}
-	for _, shown := range []string{".claude/settings.json", "Authorization", "apiKeyHelper"} {
+	for _, shown := range []string{filepath.FromSlash(".claude/settings.json"), "Authorization", "apiKeyHelper"} {
 		if !strings.Contains(printed, shown) {
 			t.Errorf("dry-run preview lost %q", shown)
 		}
