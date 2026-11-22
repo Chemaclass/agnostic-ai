@@ -1013,6 +1013,7 @@ export interface ConversationThreadSummary {
 }
 
 export interface ConversationMailboxConflict {
+  id: string
   worktree: string
   path: string
   requester: { tool: ConversationTool; id: string }

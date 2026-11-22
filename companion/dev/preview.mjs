@@ -44,6 +44,7 @@ function fixtureState(name, now) {
     mailbox: fixture.mailbox?.(now) ?? [],
     claims: fixture.mailboxClaims?.(now) ?? [],
     claimConflicts: fixture.claimConflicts?.() ?? [],
+    conflictSeq: 0,
     mailboxSettings: { approveAgentSends: fixture.approveAgentSends ?? true },
     knownClosed: new Set(fixture.knownClosed),
     /** The list as the shell last polled it, for a fixture whose shell reads it again only after rereadMs. */

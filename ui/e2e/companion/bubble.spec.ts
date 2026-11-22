@@ -105,7 +105,7 @@ test('a path conflict counts both its rows on the circle, with a lock', async ({
   await expect(page.locator('#badge .lock')).toBeVisible()
   await expect(page.locator('#count')).toHaveText('2')
 
-  await page.request.post('/api/mailbox/conflict/dismiss', { data: { tool: 'claude', id: '84fc6d21-820c-4c88-9729-ff8ee40de1f3', worktree: '/Users/you/Code/agnostic-ai', path: 'internal/mailbox/handoff.go' } })
+  await page.request.post('/api/mailbox/conflict/dismiss', { data: { tool: 'claude', id: '84fc6d21-820c-4c88-9729-ff8ee40de1f3', conflict: 'c-fixture-1' } })
   await page.goto('/')
   await expect(page.locator('#badge .lock')).toBeHidden()
 })

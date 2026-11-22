@@ -1428,6 +1428,20 @@ test('Dismiss clears a refused claim from the footer and keeps the holder\'s cla
   expect(left.claims).toMatchObject([{ owner: { id: '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50' }, paths: ['internal/mailbox/handoff.go'] }])
 })
 
+test('the footer card declines a refused handoff whose chats left the list', async ({ page }) => {
+  await openPanel(page, 'mailbox-orphan-handoff-conflict')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+  await claimsButton(page).click()
+  await expect(fileClaims(page).getByRole('button', { name: 'Dismiss', exact: true })).toHaveCount(0)
+  const declined = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/handoff'))
+  await fileClaims(page).getByRole('button', { name: 'Decline offer', exact: true }).click()
+  expect((await declined).postDataJSON()).toEqual({ thread: 'th_20261107_00000009', n: 1, action: 'decline' })
+  await expect(page.locator('#toast')).toContainText('Handoff declined.')
+  await expect(claimsButton(page)).toBeHidden()
+  const left = await (await page.request.get('/api/mailbox/claims')).json()
+  expect(left.conflicts).toEqual([])
+})
+
 test('with no claims the footer shows no File claims button', async ({ page }) => {
   await openPanel(page, 'mailbox-handoff')
   await expect(page.locator('#mailbox-open-claims')).toBeHidden()

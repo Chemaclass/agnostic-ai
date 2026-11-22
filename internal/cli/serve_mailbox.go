@@ -329,9 +329,41 @@ func (h *conversationsHandler) confirmMailboxStage(w http.ResponseWriter, ctx co
 	writeEditJSON(w, http.StatusOK, mailboxStageReply{Staged: true, Message: message})
 }
 
-func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store mailbox.Store, view *conversations.View, opts conversations.ScanOptions) {
+// mailboxSnapshot is one read of the mailbox for a conversation list.
+type mailboxSnapshot struct {
+	list   mailbox.ThreadList
+	claims mailbox.ClaimView
+	err    error
+}
+
+func readMailboxSnapshot(ctx context.Context, store mailbox.Store) mailboxSnapshot {
 	list, claims, err := store.Snapshot(ctx)
-	if err != nil {
+	return mailboxSnapshot{list, claims, err}
+}
+
+// conflicted names each session in a file claim conflict once: the
+// requester and the holder.
+func (m mailboxSnapshot) conflicted() []conversations.Ref {
+	seen := map[conversations.Ref]bool{}
+	var refs []conversations.Ref
+	add := func(ref conversations.Ref) {
+		if !seen[ref] {
+			seen[ref] = true
+			refs = append(refs, ref)
+		}
+	}
+	for _, c := range m.claims.Conflicts {
+		add(c.Requester)
+		if c.Holder != nil {
+			add(*c.Holder)
+		}
+	}
+	return refs
+}
+
+func (h *conversationsHandler) addMailboxSummaries(mail mailboxSnapshot, view *conversations.View, opts conversations.ScanOptions) {
+	list, claims := mail.list, mail.claims
+	if mail.err != nil {
 		view.MailboxWarning = "The mailbox could not be read. Try again."
 	} else {
 		view.MailboxWarning = list.Warning

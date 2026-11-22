@@ -621,8 +621,12 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       // with no row can still be cleared; a thread's conflict clears with its thread.
       if (!conflict.thread && (!current.owner || keyOf(conflict.requester) === keyOf(current.owner))) {
         claimsList.append(line, button('Dismiss', 'dismiss-conflict', () => mutateClaim(current, () => dismissConflict({
-          ...refOf(conflict.requester), worktree: conflict.worktree, path: conflict.path,
+          ...refOf(conflict.requester), conflict: conflict.id,
         }), 'Conflict dismissed.')))
+      } else if (conflict.thread && !current.owner) {
+        // The footer's card reaches an offer whose chats left the list, so it can still end it.
+        claimsList.append(line, button('Decline offer', 'decline-offer', () => mutateClaim(current,
+          () => answerHandoff(conflict.thread, conflict.n, 'decline'), 'Handoff declined.')))
       } else {
         claimsList.append(line)
       }

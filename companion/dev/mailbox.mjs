@@ -203,7 +203,7 @@ function releaseIn(state, owner, worktree, paths) {
 function conflictRefusal(state, conflict, thread, now) {
   state.claimConflicts = state.claimConflicts.filter((prior) => prior.worktree !== conflict.worktree ||
     prior.path !== conflict.path || !same(prior.requester, conflict.requester) || prior.thread !== conflict.thread)
-  state.claimConflicts.push(conflict)
+  state.claimConflicts.push({ id: `c${++state.conflictSeq}`, ...conflict })
   const failure = refused('ownership', thread, now)
   const holder = conflict.holder && state.conversations.find((row) => same(row, conflict.holder))?.title
   failure.body.error = holder
@@ -249,16 +249,16 @@ export function mailboxRelease(state, ask, now) {
   releaseIn(state, ask, ask.worktree, ask.paths)
   const ownsReleased = (conflict) => same(conflict.holder, ask) && conflict.worktree === ask.worktree &&
     ask.paths.some((path) => overlap(path, conflict.path))
-  state.claimConflicts = state.claimConflicts.filter((conflict) => !ownsReleased(conflict))
+  state.claimConflicts = state.claimConflicts.filter((conflict) => conflict.thread || !ownsReleased(conflict))
   return changed({})
 }
 
 /** Like the server: the requester drops its conflict with no thread; anything else changes nothing. */
 export function mailboxDismiss(state, ask, now) {
   if (!/^[0-9a-f-]{36}$/.test(ask?.id ?? '')) return refused('unknown-session', undefined, now)
-  if (!ask.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
+  if (typeof ask.conflict !== 'string' || !ask.conflict) return refused('format', undefined, now)
   state.claimConflicts = state.claimConflicts.filter((conflict) =>
-    conflict.thread || !same(conflict.requester, ask) || conflict.worktree !== ask.worktree || conflict.path !== ask.path)
+    conflict.thread || !same(conflict.requester, ask) || conflict.id !== ask.conflict)
   return changed({})
 }
 

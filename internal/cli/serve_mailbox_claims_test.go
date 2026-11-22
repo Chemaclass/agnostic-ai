@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
@@ -281,17 +282,33 @@ func TestMailboxHTTP_ListCountsClaimedPathsAndStaleOwners(t *testing.T) {
 	}
 }
 
-func dismissConflictHTTP(t *testing.T, h http.Handler, secret, id, root, path string) *httptest.ResponseRecorder {
+func dismissConflictHTTP(t *testing.T, h http.Handler, secret, id, conflict string, origin ...string) *httptest.ResponseRecorder {
 	t.Helper()
-	body := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"path":%q}`, id, root, path)
+	body := fmt.Sprintf(`{"tool":"claude","id":%q,"conflict":%q}`, id, conflict)
 	req := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310/api/mailbox/conflict/dismiss", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	if secret != "" {
 		req.Header.Set(companionSecretHeader, secret)
 	}
+	for _, o := range origin {
+		req.Header.Set("Origin", o)
+	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
+}
+
+func conflictIDOf(t *testing.T, h *conversationsHandler, requester string) string {
+	t.Helper()
+	for _, row := range listConversations(t, h).Conversations {
+		for _, c := range row.ClaimConflicts {
+			if c.Requester.ID == requester && c.ID != "" {
+				return c.ID
+			}
+		}
+	}
+	t.Fatalf("no conflict id for requester %s", requester)
+	return ""
 }
 
 func TestMailboxHTTP_TheCompanionDismissesARefusedClaimAndKeepsTheHoldersClaim(t *testing.T) {
@@ -309,15 +326,22 @@ func TestMailboxHTTP_TheCompanionDismissesARefusedClaimAndKeepsTheHoldersClaim(t
 	}
 
 	secret := string(testCompanionSecret)
-	if rec := dismissConflictHTTP(t, h, "", other, h.root, path); rec.Code != http.StatusForbidden {
+	conflict := conflictIDOf(t, h, other)
+	if rec := dismissConflictHTTP(t, h, "", other, conflict); rec.Code != http.StatusForbidden {
 		t.Errorf("dismiss without the companion secret = %d %s", rec.Code, rec.Body)
 	}
-	if rec := dismissConflictHTTP(t, h, strings.Repeat("0", len(secret)), other, h.root, path); rec.Code != http.StatusForbidden {
+	if rec := dismissConflictHTTP(t, h, strings.Repeat("0", len(secret)), other, conflict); rec.Code != http.StatusForbidden {
 		t.Errorf("dismiss with a wrong secret = %d %s", rec.Code, rec.Body)
 	}
-	mailboxExpectRefusal(t, dismissConflictHTTP(t, h, secret, other, "", path), "format")
-	mailboxExpectRefusal(t, dismissConflictHTTP(t, h, secret, "not-a-session", h.root, path), "unknown-session")
-	if rec := dismissConflictHTTP(t, h, secret, other, h.root, path); rec.Code != http.StatusNoContent {
+	if rec := dismissConflictHTTP(t, h, secret, other, conflict, "https://allowed.example"); rec.Code != http.StatusForbidden {
+		t.Errorf("dismiss from a foreign origin with the secret = %d %s", rec.Code, rec.Body)
+	}
+	if totals := listConversations(t, h).MailboxClaims; totals == nil || totals.Conflicts != 1 {
+		t.Fatalf("a refused dismiss changed the conflicts: %#v", totals)
+	}
+	mailboxExpectRefusal(t, dismissConflictHTTP(t, h, secret, other, ""), "format")
+	mailboxExpectRefusal(t, dismissConflictHTTP(t, h, secret, "not-a-session", conflict), "unknown-session")
+	if rec := dismissConflictHTTP(t, h, secret, other, conflict); rec.Code != http.StatusNoContent {
 		t.Fatalf("dismiss = %d %s", rec.Code, rec.Body)
 	}
 	for read := range 2 {
@@ -425,16 +449,68 @@ func TestMailboxHTTP_ConflictShowsOnBothRowsUntilTheRequesterDismissesIt(t *test
 		t.Errorf("rows with conflicts = %d, want the holder and the requester", len(got))
 	}
 	secret := string(testCompanionSecret)
-	if rec := dismissConflictHTTP(t, h, secret, inProject, h.root, path); rec.Code != http.StatusNoContent {
+	if rec := dismissConflictHTTP(t, h, secret, inProject, got[other][0].ID); rec.Code != http.StatusNoContent {
 		t.Fatalf("holder dismiss = %d %s", rec.Code, rec.Body)
 	}
 	if got := conflictsOf(); len(got) != 2 {
 		t.Errorf("the holder dismissed the requester's conflict: %#v", got)
 	}
-	if rec := dismissConflictHTTP(t, h, secret, other, h.root, path); rec.Code != http.StatusNoContent {
+	if rec := dismissConflictHTTP(t, h, secret, other, got[other][0].ID); rec.Code != http.StatusNoContent {
 		t.Fatalf("requester dismiss = %d %s", rec.Code, rec.Body)
 	}
 	if got := conflictsOf(); len(got) != 0 {
 		t.Errorf("conflicts after dismiss = %#v", got)
+	}
+}
+
+func TestMailboxHTTP_AnOldConflictJoinsTheFirstPageAndNeedsYouOnce(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	makeReviewRepo(t, h.root)
+	const other = "44444444-4444-4444-8444-444444444444"
+	const path = "src/parser.go"
+	writeClaudeSession(t, h.scanner.Stores.ClaudeDir, other, h.root, "Check the parser")
+	old := h.scanner.Now().AddDate(0, -2, 0)
+	recent := h.scanner.Now().Add(-time.Hour)
+	err := filepath.WalkDir(h.scanner.Stores.ClaudeDir, func(file string, entry os.DirEntry, err error) error {
+		if err != nil || entry.IsDir() {
+			return err
+		}
+		when := recent
+		if base := filepath.Base(file); base == inProject+".jsonl" || base == other+".jsonl" {
+			when = old
+			body, err := os.ReadFile(file)
+			if err != nil {
+				return err
+			}
+			body = []byte(strings.ReplaceAll(string(body), "2026-11-07T", old.Format("2006-01-02")+"T"))
+			if err := os.WriteFile(file, body, 0o644); err != nil {
+				return err
+			}
+		}
+		return os.Chtimes(file, when, when)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	shown := func(view conversations.View) map[string]bool {
+		ids := map[string]bool{}
+		for _, row := range view.Conversations {
+			ids[row.ID] = true
+		}
+		return ids
+	}
+	before := listConversations(t, h)
+	if ids := shown(before); ids[inProject] || ids[other] || !ids[inWorktree] {
+		t.Fatalf("first page before the conflict = %v, want only the recent chat", ids)
+	}
+	testChangeClaim(t, h, "claim", inProject, h.root, path)
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", mailboxClaimBody(other, h.root, path)), "ownership")
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", mailboxClaimBody(other, h.root, "src")), "ownership")
+	after := listConversations(t, h)
+	if ids := shown(after); !ids[inProject] || !ids[other] || !ids[inWorktree] {
+		t.Errorf("first page with the conflict = %v, want both sides and the recent chat", ids)
+	}
+	if after.NeedsYou != before.NeedsYou+2 {
+		t.Errorf("needsYou = %d, want %d: each side of the conflicts once", after.NeedsYou, before.NeedsYou+2)
 	}
 }

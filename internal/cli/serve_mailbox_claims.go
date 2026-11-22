@@ -120,10 +120,9 @@ func (h *conversationsHandler) dismissMailboxConflict(w http.ResponseWriter, r *
 	}
 	var req struct {
 		conversations.Ref
-		Worktree string `json:"worktree"`
-		Path     string `json:"path"`
+		Conflict string `json:"conflict"`
 	}
-	if refusal := readMailboxFields(w, r, &req, "tool", "id", "worktree", "path"); refusal != nil {
+	if refusal := readMailboxFields(w, r, &req, "tool", "id", "conflict"); refusal != nil {
 		writeMailboxError(w, refusal)
 		return
 	}
@@ -131,11 +130,11 @@ func (h *conversationsHandler) dismissMailboxConflict(w http.ResponseWriter, r *
 		writeMailboxError(w, refusal)
 		return
 	}
-	if req.Worktree == "" || req.Path == "" {
+	if req.Conflict == "" {
 		writeMailboxError(w, mailbox.NewRefusal("format"))
 		return
 	}
-	writeMailboxChange(w, store.DismissConflict(r.Context(), req.Ref, req.Worktree, req.Path))
+	writeMailboxChange(w, store.DismissConflict(r.Context(), req.Ref, req.Conflict))
 }
 
 func (h *conversationsHandler) answerMailboxHandoff(w http.ResponseWriter, r *http.Request, store mailbox.Store) {

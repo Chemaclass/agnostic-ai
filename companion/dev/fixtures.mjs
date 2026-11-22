@@ -375,8 +375,31 @@ export const FIXTURES = {
       { owner: MAILBOX_TARGET, worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/mailbox/handoff.go'], since: new Date(now).toISOString(), by: 'agent' },
     ],
     claimConflicts: () => [
-      { worktree: '/Users/you/Code/agnostic-ai', path: 'internal/mailbox/handoff.go', requester: MAILBOX_SOURCE, holder: MAILBOX_TARGET },
+      { id: 'c-fixture-1', worktree: '/Users/you/Code/agnostic-ai', path: 'internal/mailbox/handoff.go', requester: MAILBOX_SOURCE, holder: MAILBOX_TARGET },
     ],
+  },
+  'mailbox-orphan-handoff-conflict': {
+    label: 'A refused handoff between two sessions that left the list',
+    conversations: mailboxSessions,
+    mailbox: (now) => {
+      const at = new Date(now).toISOString()
+      const from = { tool: 'claude', id: '5b0c2f1e-3d4a-4e5b-8c6d-7e8f9a0b1c2d' }
+      const to = { tool: 'codex', id: '0199a2b4-0000-7000-8000-00000000c0de' }
+      return [{
+        schemaVersion: 'mailbox/v1', id: 'th_20261107_00000009', status: 'open', cap: 8, between: [from, to],
+        messages: [{
+          n: 1, type: 'handoff', from: { ...from, by: 'human' }, to, body: 'Take the parser.',
+          gives: { worktree: '/Users/you/Code/agnostic-ai', paths: ['internal/parser.go'] },
+          handoff: 'offered', state: 'delivered', at, queuedAt: at, deliveredAt: at,
+        }],
+        events: [{ at, by: 'human', action: 'send', n: 1 }],
+      }]
+    },
+    claimConflicts: () => [{
+      id: 'c-fixture-orphan', worktree: '/Users/you/Code/agnostic-ai', path: 'internal/parser.go',
+      requester: { tool: 'codex', id: '0199a2b4-0000-7000-8000-00000000c0de' },
+      sender: { tool: 'claude', id: '5b0c2f1e-3d4a-4e5b-8c6d-7e8f9a0b1c2d' }, thread: 'th_20261107_00000009', n: 1,
+    }],
   },
   'mailbox-many-stale-claims': {
     label: '250 file claims of a missing session, more than one release takes',

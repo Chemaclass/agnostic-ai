@@ -72,7 +72,7 @@ Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?, needs?}`. `count` is every conversation the tool holds, `shown` those on this page, `note` why a store was not read, `needs` the missing command (`sqlite3`).
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, claimCount?, claimedPaths?, claimConflicts?, open}`.
-- With the [mailbox](@/docs/mailbox.md#hand-off-files), a row that holds file claims has `claimCount` and `claimedPaths`, a row in an active path conflict has `claimConflicts`, and the view has `mailboxClaims: {paths, stale, conflicts}` while any claim or conflict exists.
+- With the [mailbox](@/docs/mailbox.md#hand-off-files), a row that holds file claims has `claimCount` and `claimedPaths`, a row in an active path conflict has `claimConflicts`, each with an `id` for the dismiss route, and the view has `mailboxClaims: {paths, stale, conflicts}` while any claim or conflict exists.
 - `approvalsMode` is the loosest active mode for the project or user list, `review` or `yolo`. It is omitted when inactive.
 - [Mailbox routes](@/docs/mailbox.md#mailbox-api).
 
@@ -133,7 +133,7 @@ The `activity` of a loaded local Codex thread is `working` during an unfinished 
 Marks:
 
 - `seenAt` and `completedAt` are your marks, when set.
-- `needsYou` counts the blocked and unread conversations of every age and tool the server lists, whatever the page or the search.
+- `needsYou` counts the blocked and unread conversations of every age and tool the server lists, whatever the page or the search. With the mailbox, it also counts each session in an active path conflict once, and the first page holds those sessions.
 - The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids, times, the names you chose, the folder of each store and where each conversation's own file sits, never conversation text. A Claude Code project folder's name spells the folder the session ran in, and a Codex rollout outside `CODEX_HOME` is kept as a full path.
 - The first read starts the file, and what was written before it counts as seen.
 - An older `serve` that still runs after an upgrade drops the chosen names when it rewrites the file. Restart it, and the companion, after you upgrade.

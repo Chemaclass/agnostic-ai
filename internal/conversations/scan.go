@@ -194,6 +194,10 @@ type ScanOptions struct {
 	Query string
 	// Tool keeps one tool's conversations; empty keeps all three.
 	Tool Tool
+	// NeedsYou names sessions that need the person for a reason the
+	// stores do not hold, such as a file claim conflict. The first page
+	// holds them, and View.NeedsYou counts each listed one once.
+	NeedsYou []Ref
 }
 
 // Scan returns one page of conversations, newest first. The first page
@@ -255,7 +259,11 @@ func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp)
 		// Next is written in whole seconds, so the page boundary must be too.
 		to = s.Now().Truncate(time.Second)
 	}
-	page, from, more := weekPage(all, to, first)
+	pinned := make(map[Ref]bool, len(opts.NeedsYou))
+	for _, ref := range opts.NeedsYou {
+		pinned[ref] = true
+	}
+	page, from, more := weekPage(all, to, first, pinned)
 	s.fillPending(ctx, page)
 	sortNewestFirst(page)
 
@@ -265,6 +273,11 @@ func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp)
 		Tools: []Source{}, Conversations: page,
 	}
 	view.NeedsYou, view.PermissionWaits = read.needsYou, read.waits
+	for ref := range pinned {
+		if read.calm[ref] {
+			view.NeedsYou++
+		}
+	}
 	if read.marksErr != nil {
 		view.MarksNote = "Seen and completed marks are unavailable: " + read.marksErr.Error()
 	}
@@ -295,10 +308,12 @@ func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp)
 type keptSearch struct {
 	// key names the search and the stamp of the files it read; empty
 	// for a read that is not kept.
-	key       string
-	all       []Conversation
-	sources   []Source
-	needsYou  int
+	key      string
+	all      []Conversation
+	sources  []Source
+	needsYou int
+	// calm holds the listed rows that needsYou leaves out.
+	calm      map[Ref]bool
 	waits     []Conversation
 	marksErr  error
 	cloudNote string
@@ -333,9 +348,12 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	s.shown.start()
 	results, cloudNote := s.readAll(ctx, opts)
 	needsYou, marksErr := s.applyMarks(results)
-	read = keptSearch{needsYou: needsYou, marksErr: marksErr, cloudNote: cloudNote}
+	read = keptSearch{needsYou: needsYou, calm: map[Ref]bool{}, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
 		for _, c := range result.conversations {
+			if !needsPerson(c.State) {
+				read.calm[Ref{Tool: c.Tool, ID: c.ID}] = true
+			}
 			if _, waits := c.PermissionWait(); waits && c.Live {
 				read.waits = append(read.waits, c)
 			}
@@ -677,13 +695,13 @@ func joinNotes(first, second string) string {
 // weekPage picks one page from all: below to, from a week earlier, or
 // from a week before the newest conversation when that week is empty.
 // The first page also holds every open conversation, every one that
-// needs the person, whatever its age, so the
+// needs the person or is named in needsYou, whatever its age, so the
 // rows under Needs you are the ones View.NeedsYou counts. It takes rows dated after to, which a skewed
 // clock can write.
-func weekPage(all []Conversation, to time.Time, first bool) (page []Conversation, from time.Time, more bool) {
+func weekPage(all []Conversation, to time.Time, first bool, needsYou map[Ref]bool) (page []Conversation, from time.Time, more bool) {
 	var older []Conversation
 	for _, c := range all {
-		pinned := c.Live || needsPerson(c.State)
+		pinned := c.Live || needsPerson(c.State) || needsYou[Ref{Tool: c.Tool, ID: c.ID}]
 		switch {
 		case pinned && first:
 			page = append(page, c)

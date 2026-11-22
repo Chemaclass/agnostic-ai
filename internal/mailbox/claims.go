@@ -2,6 +2,9 @@ package mailbox
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -27,6 +30,9 @@ type Claim struct {
 }
 
 type ClaimConflict struct {
+	// ID names one conflict record for its whole life; Dismiss takes it,
+	// since two records can show the same path.
+	ID        string             `json:"id"`
 	Worktree  string             `json:"worktree"`
 	Path      string             `json:"path"`
 	Requester conversations.Ref  `json:"requester"`
@@ -67,10 +73,29 @@ func (s Store) readClaims() (claimsFile, error) {
 			return claimsFile{}, fmt.Errorf("parse %s: invalid path claim", file)
 		}
 	}
+	for i := range state.Conflicts {
+		if state.Conflicts[i].ID == "" {
+			state.Conflicts[i].ID = legacyConflictID(state.Conflicts[i])
+		}
+	}
 	if state.Pending != nil && !state.Pending.valid() {
 		return claimsFile{}, fmt.Errorf("parse %s: invalid pending transfer", file)
 	}
 	return state, nil
+}
+
+// legacyConflictID names a record written before conflicts had ids,
+// from its recorded fields, which stay the same until it is rewritten
+// with this id.
+func legacyConflictID(c ClaimConflict) string {
+	sum := sha256.Sum256(fmt.Appendf(nil, "%q", []any{c.Worktree, c.Path, c.Requester, c.Holder, c.Sender, c.Thread, c.N}))
+	return "c" + hex.EncodeToString(sum[:8])
+}
+
+func newConflictID() string {
+	var raw [8]byte
+	_, _ = rand.Read(raw[:])
+	return "c" + hex.EncodeToString(raw[:])
 }
 
 func knownActor(by string) bool {
@@ -181,6 +206,15 @@ func (s Store) release(ctx context.Context, owner conversations.Ref, gives Gives
 	if !changed {
 		return nil
 	}
+	// A conflict with no thread whose blocker this release freed is over:
+	// a later claim by another session must not bring it back.
+	state.Conflicts = slices.DeleteFunc(state.Conflicts, func(c ClaimConflict) bool {
+		if c.Thread != "" {
+			return false
+		}
+		_, active := s.activeConflict(state.Claims, c)
+		return !active
+	})
 	return s.writeClaims(state)
 }
 
@@ -302,11 +336,10 @@ func (s Store) activeConflict(claims []Claim, c ClaimConflict) (ClaimConflict, b
 	return c, true
 }
 
-// DismissConflict removes the requester's conflict with no thread on a
-// path of worktree, matched by the recorded path or the one the view
-// shows. A conflict with a thread clears with its thread; anything else
-// changes nothing.
-func (s Store) DismissConflict(ctx context.Context, requester conversations.Ref, worktree, path string) error {
+// DismissConflict removes the requester's conflict with no thread that
+// has that id. A conflict with a thread clears with its thread; anything
+// else changes nothing.
+func (s Store) DismissConflict(ctx context.Context, requester conversations.Ref, id string) error {
 	if refused := ValidateRef(requester); refused != nil {
 		return refused
 	}
@@ -320,11 +353,7 @@ func (s Store) DismissConflict(ctx context.Context, requester conversations.Ref,
 		return err
 	}
 	kept := slices.DeleteFunc(slices.Clone(state.Conflicts), func(c ClaimConflict) bool {
-		if c.Thread != "" || c.Requester != requester || c.Worktree != worktree {
-			return false
-		}
-		current, _ := s.activeConflict(state.Claims, c)
-		return c.Path == path || current.Path == path
+		return c.ID == id && c.Thread == "" && c.Requester == requester
 	})
 	if len(kept) == len(state.Conflicts) {
 		return nil
@@ -340,6 +369,7 @@ func (s Store) recordClaimConflict(state claimsFile, c ClaimConflict) error {
 		}
 		return record.Thread == "" && record.Requester == c.Requester && record.Worktree == c.Worktree && record.Path == c.Path
 	})
+	c.ID = newConflictID()
 	state.Conflicts = append(state.Conflicts, c)
 	if err := s.writeClaims(state); err != nil {
 		return err

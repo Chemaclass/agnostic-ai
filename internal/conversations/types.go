@@ -355,6 +355,7 @@ type MailboxClaims struct {
 }
 
 type MailboxConflict struct {
+	ID        string `json:"id"`
 	Worktree  string `json:"worktree"`
 	Path      string `json:"path"`
 	Requester Ref    `json:"requester"`
