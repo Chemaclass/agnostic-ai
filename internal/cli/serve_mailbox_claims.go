@@ -86,7 +86,7 @@ func (h *conversationsHandler) changeMailboxClaim(w http.ResponseWriter, r *http
 			writeMailboxError(w, mailbox.NewRefusal("unknown-session"))
 			return
 		}
-		err = store.Claim(ctx, req.Ref, req.Gives, row.Folder)
+		err = store.Claim(ctx, req.Ref, req.Gives, row.Folder, "human")
 	}
 	if err != nil {
 		writeMailboxError(w, err)

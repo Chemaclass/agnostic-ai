@@ -143,12 +143,12 @@ export function takesText(conversation) {
 }
 
 /** The apps whose tabs the server can type into, as a live row's route names them: "Switch to Ghostty". */
-const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm', 'Switch to WezTerm', 'Switch to kitty'])
+const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm', 'Switch to WezTerm', 'Switch to kitty', 'Switch to Konsole'])
 /** The tools the server types into: they say when they wait for an answer. */
 const TYPED_TOOLS = new Set(['claude', 'codex'])
 
 /**
- * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty, iTerm, WezTerm or kitty tab, under
+ * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab, under
  * Needs you, Working or Active. Like the server, it leaves out a chat that waits for an answer, where typed text
  * could answer it, a Cursor chat, which does not say when it waits, and a working chat whose tool may drop typed text:
  * only Claude Code keeps it.
@@ -681,6 +681,12 @@ export function senderKindOf(message) {
   return message.from?.by === 'agent' ? 'Sent by the agent' : undefined
 }
 
+/** The model label the person entered for a session, or empty: a model an agent states never counts as one. */
+export function modelLabelOf(models, ref) {
+  const model = ref ? models?.[keyOf(ref)] : undefined
+  return model?.statedBy === 'human' ? model.name : ''
+}
+
 /** The model an agent says it runs. The mailbox cannot check it. */
 export function statedModelOf(thread, message) {
   if (message.model) return `Says it runs ${message.model}`
@@ -1180,7 +1186,7 @@ export function updateMessageOf(update) {
   const withNote = (text) => (note ? { text: `${text} ${note.text}`, command: note.command } : { text })
   if (update.result === 'release-changed') return { text: update.reason, log: update.log }
   if (update.result === 'unreachable') return withNote('Could not check for updates. Check your connection and try again.')
-  if (update.result === 'latest') return withNote(`No newer version is available for this Mac. You have v${update.current}.`)
+  if (update.result === 'latest') return withNote(`No newer version is available for this computer. You have v${update.current}.`)
   if (update.state === 'checking') return { text: 'Checking for updates…' }
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
   if (update.state === 'failed') {

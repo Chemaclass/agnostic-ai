@@ -103,7 +103,7 @@ Conversation fields:
 - Any of `title`, `opening`, `prompt` and `reply` that may hold a credential is left out and named in `withheld`, by the rule `/api/views/source` uses. The check reads the whole title and prompts, and the first 4 KB of a reply.
 - `title` is the name you chose with `POST /api/conversations/rename`, when you chose one. Otherwise it is the tool's own title, or the first line of the first prompt.
 - `open` is `{kind, label, command?, link?}`:
-  - `focus` switches to the tab (and pane) that runs it in a tab app: Terminal, Ghostty, iTerm, WezTerm or kitty. Inside tmux it selects the pane first. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
+  - `focus` switches to the tab (and pane) that runs it in a tab app: Terminal, Ghostty, iTerm, WezTerm or kitty on macOS, and WezTerm, kitty or Konsole on Linux. Inside tmux it selects the pane first. `label` then names the app, such as `Switch to Ghostty`. For a Codex thread that Codex's background service holds, the server looks for the Codex terminal that shows it.
   - `terminal` runs `command` in a new tab of the app the session last ran in. It never types into the old tab: a shell waiting in `read` looks the same as one at its prompt. With no tab remembered, it opens a new Terminal window. `label` then says it resumes, such as `Resume in Ghostty`. A `cursor-agent` chat whose folder is not known has no `command`, because `cursor-agent` resumes a chat only from the folder it started in; opening it says so.
   - `link` opens the editor extension, Cursor chat or desktop app it came from, or a cloud session in its browser or app. For an editor extension, the server first opens the conversation's folder in that editor, so the link reaches the window that holds it.
 {% </details> %}
@@ -246,7 +246,7 @@ Renames a conversation in its own tool first, then saves the name for every serv
 - Only once the tool has the name does it save `title` as the conversation's name in the marks file. Every server that shares the file shows it and finds it in a search. A name the tool did not take is not saved.
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
-- On macOS, a running session's Terminal, Ghostty, WezTerm or kitty tab takes the name as its title. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes. iTerm names the pane.
+- A running session's tab takes the name as its title: Terminal, Ghostty, WezTerm or kitty on macOS, and WezTerm, kitty or Konsole on Linux. The tab is named after the 204. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes. iTerm names the pane.
 
 | Status | Meaning |
 |--------|---------|
