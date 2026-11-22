@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -114,12 +115,12 @@ func NewPendingID() (string, error) {
 // ValidPendingID reports whether id is one NewPendingID makes, so it
 // names a file inside the pending folder and nothing else.
 func ValidPendingID(id string) bool {
-	if len(id) != 32 {
-		return false
-	}
-	_, err := hex.DecodeString(id)
-	return err == nil && strings.ToLower(id) == id
+	return pendingIDPattern.MatchString(id)
 }
+
+// pendingIDPattern is a MatchString guard, not a hex decode, so static
+// path checks see that an id cannot leave the pending folder.
+var pendingIDPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
 // PendingDigest ties a decision to one request: the tool, the session,
 // the call and the raw input as the hook read it.

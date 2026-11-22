@@ -2,8 +2,8 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3905: the conversations scan reads Claude Code agent teams (team
-# configs, teammate turns, pane teammates found by their process), nests
-# subagents, and says how to reach each one on open.
-# The linux/amd64 release build grows by 53248 bytes.
-53248
+# #3906: the approvals hook holds a Claude Code request for the companion
+# (pending and decision files, digest, signal cleanup), and the server lists
+# held requests, withdraws stale ones and serves the decide route. No new
+# dependency. The linux/amd64 release build grows by 81920 bytes.
+81920
