@@ -25,6 +25,57 @@ hdiutil_retrying() {
   done
 }
 
+image_diagnostics() {
+  local image="$1"
+  echo "--- processes with $image open" >&2
+  lsof -- "$image" >&2 || true
+  echo "--- disk image helpers" >&2
+  pgrep -lf diskimages-helper >&2 || true
+  echo "--- attached disk images" >&2
+  hdiutil info >&2 || true
+}
+
+# On some runners verify fails at once with "Resource temporarily
+# unavailable" for as long as the job runs, and the runner then kills an
+# orphan diskimages-helper that `hdiutil create` left behind. On CI, ask a
+# helper that holds the new, unattached image to stop; verify checks the
+# checksums right after. Elsewhere, only report who holds it.
+release_image() {
+  local image="$1" pid pids attached helper_pids helpers="" waited=0
+  pids="$(lsof -t -- "$image" 2>/dev/null)" || true
+  [ -z "$pids" ] && return 0
+  echo "hdiutil create left $image open" >&2
+  image_diagnostics "$image"
+  if [ "${GITHUB_ACTIONS:-}" != true ]; then
+    return 0
+  fi
+  if ! attached="$(hdiutil info -plist 2>/dev/null)"; then
+    echo "could not check whether $image is attached; leaving its holder alone" >&2
+    return 0
+  fi
+  if grep -qF -e "<string>$image</string>" -e "<string>/private$image</string>" <<< "$attached"; then
+    echo "$image is attached; leaving its helper alone" >&2
+    return 0
+  fi
+  helper_pids="$(pgrep -f '^/System/Library/PrivateFrameworks/DiskImages\.framework/Resources/diskimages-helper([[:space:]]|$)')" || true
+  for pid in $pids; do
+    if grep -qxF -- "$pid" <<< "$helper_pids"; then
+      helpers="$helpers $pid"
+    fi
+  done
+  [ -z "$helpers" ] && return 0
+  echo "stopping the disk image helper:$helpers" >&2
+  # shellcheck disable=SC2086
+  kill $helpers 2>/dev/null || true
+  while [ "$waited" -lt 10 ] && lsof -t -- "$image" > /dev/null 2>&1; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  if lsof -t -- "$image" > /dev/null 2>&1; then
+    echo "$image is still open after ${waited}s" >&2
+  fi
+}
+
 download_modules() {
   local attempt=1 delay=5 output status
   while :; do
@@ -168,8 +219,14 @@ PLIST
   codesign --verify --deep --strict "$app"
   ln -s /Applications "$work/$arch/image/Applications"
   image="$outdir/${name}_darwin_${arch}.dmg"
+  staged="$work/$arch/${name}_darwin_${arch}.dmg"
   hdiutil_retrying create -ov -format UDZO -volname "$app_name" \
-    -srcfolder "$work/$arch/image" "$image"
-  hdiutil_retrying verify "$image"
+    -srcfolder "$work/$arch/image" "$staged"
+  release_image "$staged"
+  if ! hdiutil_retrying verify "$staged"; then
+    image_diagnostics "$staged"
+    exit 1
+  fi
+  mv -f "$staged" "$image"
   echo "$image"
 done

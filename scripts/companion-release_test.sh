@@ -116,6 +116,162 @@ function test_it_fails_at_once_on_any_other_error() {
   assert_not_contains "resource busy" "$output"
 }
 
+# lsof reports $1 as holding the image until it is signalled, then for
+# $HOLDER_LINGERS more checks. Its full command is $2, signals go to $3,
+# and hdiutil info lists $HOLDER_ATTACHED as attached.
+function stub_image_holder() {
+  HOLDER_PID="$1"
+  HOLDER_NAME="$2"
+  KILLED="$3"
+  HOLDER_CHECKS="$KILLED.checks"
+  : > "$KILLED"
+  : > "$HOLDER_CHECKS"
+  # shellcheck disable=SC2329
+  function lsof() {
+    if [ "$1" = -t ]; then
+      [ -s "$KILLED" ] && echo x >> "$HOLDER_CHECKS"
+      if [ -n "$HOLDER_PID" ] && { [ ! -s "$KILLED" ] || [ "$(wc -l < "$HOLDER_CHECKS")" -le "${HOLDER_LINGERS:-0}" ]; }; then
+        echo "$HOLDER_PID"
+        return 0
+      fi
+      return 1
+    fi
+    echo "lsof $*"
+  }
+  # shellcheck disable=SC2329
+  function ps() { echo "diskimages-help"; }
+  # shellcheck disable=SC2329
+  function pgrep() {
+    if [ "$1" = -lf ]; then
+      echo "$HOLDER_PID $HOLDER_NAME"
+    elif [ "$1" = -f ] && [[ "$HOLDER_NAME" =~ $2 ]]; then
+      echo "$HOLDER_PID"
+    else
+      return 1
+    fi
+  }
+  # shellcheck disable=SC2329
+  function hdiutil() {
+    if [ "$*" = "info -plist" ]; then
+      echo "<string>${HOLDER_ATTACHED:-none}</string>"
+    else
+      echo "hdiutil $*"
+    fi
+  }
+  # shellcheck disable=SC2329
+  function kill() { echo "$*" >> "$KILLED"; }
+}
+
+function unstub_image_holder() {
+  unset -f lsof ps pgrep hdiutil kill sleep
+  unset HOLDER_LINGERS HOLDER_ATTACHED GITHUB_ACTIONS IMAGE
+}
+
+function run_release_image() {
+  local tmp="$1"
+  shift
+  stub_image_holder "$@" "$tmp/killed"
+  stub_sleep "$tmp/slept"
+  status=0
+  output="$(release_image "${IMAGE:-image.dmg}" 2>&1)" || status=$?
+  killed="$(tr '\n' '|' < "$tmp/killed")"
+  slept="$(wc -l < "$tmp/slept" | tr -d ' ')"
+  unstub_image_holder
+}
+
+function test_release_image_asks_the_helper_once_to_stop_on_ci() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  run_release_image "$tmp" 4242 "/System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper -uuid fixture -post-exec 4"
+  rm -rf "$tmp"
+
+  assert_contains "hdiutil create left image.dmg open" "$output"
+  assert_contains "lsof -- image.dmg" "$output"
+  assert_contains "hdiutil info" "$output"
+  assert_contains "stopping the disk image helper: 4242" "$output"
+  assert_same "0" "$status"
+  assert_same "4242|" "$killed"
+  assert_same "0" "$slept"
+  assert_not_contains "still open" "$output"
+}
+
+function test_release_image_waits_up_to_ten_seconds_without_a_second_signal() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  HOLDER_LINGERS=20
+  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  rm -rf "$tmp"
+
+  assert_same "0" "$status"
+  assert_same "4242|" "$killed"
+  assert_same "10" "$slept"
+  assert_contains "image.dmg is still open after 10s" "$output"
+}
+
+function test_release_image_leaves_the_helper_of_an_attached_image_alone() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  HOLDER_ATTACHED=image.dmg
+  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  rm -rf "$tmp"
+
+  assert_contains "image.dmg is attached" "$output"
+  assert_empty "$killed"
+}
+
+function test_release_image_matches_an_attached_image_under_private() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  HOLDER_ATTACHED=/private/var/x/image.dmg
+  IMAGE=/var/x/image.dmg
+  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  rm -rf "$tmp"
+
+  assert_same "0" "$status"
+  assert_contains "/var/x/image.dmg is attached" "$output"
+  assert_empty "$killed"
+}
+
+function test_release_image_only_reports_the_holder_off_ci() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=false
+  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  rm -rf "$tmp"
+
+  assert_contains "lsof -- image.dmg" "$output"
+  assert_not_contains "stopping" "$output"
+  assert_empty "$killed"
+}
+
+function test_release_image_leaves_other_holders_alone() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  run_release_image "$tmp" 99 /usr/libexec/mds
+  rm -rf "$tmp"
+
+  assert_contains "hdiutil create left image.dmg open" "$output"
+  assert_not_contains "stopping" "$output"
+  assert_empty "$killed"
+}
+
+function test_release_image_does_nothing_when_the_image_is_closed() {
+  local tmp output killed slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  run_release_image "$tmp" "" ""
+  rm -rf "$tmp"
+
+  assert_same "0" "$status"
+  assert_empty "$output"
+  assert_empty "$killed"
+}
+
 function stub_go_download() {
   GO_OUTCOMES="$1"
   GO_CALLS="$2"

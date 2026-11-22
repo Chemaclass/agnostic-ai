@@ -122,8 +122,13 @@ for image in "${images[@]}"; do
   rmdir "$work/mount"
   sign_companion_app "$work/image/$companion_app_name.app" "$keychain"
   ln -s /Applications "$work/image/Applications"
-  hdiutil_retrying create -ov -format UDZO -volname "$companion_app_name" -srcfolder "$work/image" "$image"
-  hdiutil_retrying verify "$image"
+  hdiutil_retrying create -ov -format UDZO -volname "$companion_app_name" -srcfolder "$work/image" "$work/staged.dmg"
+  release_image "$work/staged.dmg"
+  if ! hdiutil_retrying verify "$work/staged.dmg"; then
+    image_diagnostics "$work/staged.dmg"
+    exit 1
+  fi
+  mv -f "$work/staged.dmg" "$image"
   verify_companion_image "$image" "$work/mount"
   echo "$image"
 done
