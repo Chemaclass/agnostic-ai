@@ -785,12 +785,113 @@ export function statedModelOf(thread, message) {
   return model?.statedBy === 'agent' && model.name ? `Says it runs ${model.name}` : undefined
 }
 
-export function claimStatusOf(claim) {
-  return claim.stale ? 'Stale claim' : 'Active claim'
+export const CLAIM_HELP = 'A file claim notes which session works on which paths. It does not block edits.'
+
+/** The docs section behind each help link, by feature; a test checks every anchor against docs/site/content. */
+export const HELP_TOPICS = {
+  'file-claims': { path: '/docs/mailbox/#hand-off-files', page: 'Mailbox: Hand off files' },
 }
 
-export function claimCountOf(count) {
-  return `${count} ${count === 1 ? 'claim' : 'claims'}`
+/** A help link's hover line and its docs path. */
+export function helpOf(topic) {
+  const { path, page } = HELP_TOPICS[topic]
+  return { path, title: `Open the docs: ${page}` }
+}
+
+const plural = (count, one, many) => `${count} ${count === 1 ? one : many}`
+
+/** The chip in a row's meta line: how many paths the session claims; undefined when none. */
+export function claimChipOf(conversation) {
+  return conversation.claimedPaths > 0 ? `${plural(conversation.claimedPaths, 'path', 'paths')} claimed` : undefined
+}
+
+/** The footer's File claims button: shown only when a claim or a conflict exists, with a warning when one needs a look. */
+export function claimsButtonOf(view) {
+  const { paths = 0, stale = 0, conflicts = 0 } = view?.mailboxClaims ?? {}
+  if (paths === 0 && conflicts === 0) return { shown: false }
+  const warns = stale > 0 || conflicts > 0
+  const parts = [plural(paths, 'path', 'paths')]
+  if (stale > 0) parts.push(`${stale} stale`)
+  if (conflicts > 0) parts.push(plural(conflicts, 'conflict', 'conflicts'))
+  return { shown: true, text: String(paths), label: `File claims: ${parts.join(', ')}`, warns }
+}
+
+/** Who made a claim and when: "Claimed by you, 14:02", with the day when it is not today. */
+export function claimMetaOf(claim, now = Date.now()) {
+  const who = claim.by === 'agent' ? 'the agent' : 'you'
+  const since = new Date(claim.since)
+  if (Number.isNaN(since.getTime())) return `Claimed by ${who}`
+  const today = new Date(now).toDateString() === since.toDateString()
+  const day = today ? '' : `${since.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}, `
+  return `Claimed by ${who}, ${day}${clockOf(since)}`
+}
+
+/** What one release request may carry: the server takes up to 200 paths and a 64 KiB body. */
+export const RELEASE_LIMITS = { paths: 200, bytes: 64 * 1024 }
+
+const bodyBytes = (ask) => new TextEncoder().encode(JSON.stringify(ask)).length
+
+/**
+ * The release requests for `claims`: one per owner and worktree, split so each stays within `limits`.
+ * `extra` goes on every request, such as `{ gone: true }`.
+ */
+export function releaseBatchesOf(claims, extra = {}, limits = RELEASE_LIMITS) {
+  const groups = new Map()
+  for (const claim of claims) {
+    const key = JSON.stringify([claim.owner.tool, claim.owner.id, claim.worktree])
+    if (!groups.has(key)) groups.set(key, { base: { tool: claim.owner.tool, id: claim.owner.id, worktree: claim.worktree, ...extra }, paths: [] })
+    groups.get(key).paths.push(...claim.paths)
+  }
+  const batches = []
+  for (const { base, paths } of groups.values()) {
+    let batch = { ...base, paths: [] }
+    for (const path of paths) {
+      const grown = { ...batch, paths: [...batch.paths, path] }
+      if (batch.paths.length > 0 && (grown.paths.length > limits.paths || bodyBytes(grown) > limits.bytes)) {
+        batches.push(batch)
+        batch = { ...base, paths: [path] }
+      } else {
+        batch = grown
+      }
+    }
+    if (batch.paths.length) batches.push(batch)
+  }
+  return batches
+}
+
+/**
+ * Sends each batch in turn and stops at the first refusal, as `{ released, total, version, error }`: the paths the
+ * saved batches freed, the paths asked, the last list version, and the refusal that stopped it, if any.
+ */
+export async function releaseInBatches(batches, send) {
+  const total = batches.reduce((sum, batch) => sum + batch.paths.length, 0)
+  let released = 0
+  let version
+  for (const batch of batches) {
+    try {
+      ({ version } = await send(batch))
+    } catch (error) {
+      return { released, total, version, error }
+    }
+    released += batch.paths.length
+  }
+  return { released, total, version }
+}
+
+/** What a stopped release says: how far it got before the refusal. */
+export function partialReleaseOf({ released, total }, refusal) {
+  return `Released ${released} of ${plural(total, 'path', 'paths')}. ${refusal}`
+}
+
+/** The claims card: its title and empty text for the footer or for one session, and the claims split into gone and live owners. */
+export function claimsCardOf(reply, ownerName) {
+  const claims = reply?.claims ?? []
+  return {
+    title: ownerName ? `Files claimed by ${ownerName}` : 'File claims',
+    empty: claims.length === 0 && !reply?.conflicts?.length ? (ownerName ? 'This session has no claims yet.' : 'No claims left.') : undefined,
+    stale: claims.filter((claim) => claim.stale),
+    active: claims.filter((claim) => !claim.stale),
+  }
 }
 
 export function conflictLabelOf({ path }, holder) {

@@ -45,17 +45,21 @@ Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path i
 
 ## Hand off files
 
+A file claim notes which session works on which paths of a Git worktree. It does not block edits: any session can still change a claimed file. Claims help two sessions avoid working on the same file, and a handoff moves them from one session to another.
+
 1. Choose **Claim files…** on the source chat and enter paths relative to its Git worktree. A directory claims its contents. Use `.` to claim the whole worktree.
 2. Open **Message another session…** and choose **Handoff**. Enter the paths to give and a short message pointing to your [handoff note](@/docs/handoff.md).
 3. Open the thread from the receiving chat and choose **Accept**. The files move to its claim when the offer is accepted. **Decline** leaves ownership with the sender.
 
-If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends. A claim coordinates who is working on a path. It does not block edits.
+If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends.
+
+A chat that holds claims shows a chip such as "2 paths claimed" in its row. Click it to see the paths, who claimed them and when, and to release them. The **File claims** button in the footer appears only when a claim or a conflict exists. Its number counts the claimed paths across all sessions, and a warning mark shows when a claim's session is gone or two sessions want the same path. When a claim is refused because another session holds the path, the card lists the conflict with **Dismiss**, which removes only that conflict note. The "?" next to the claim explanation opens this section.
 
 {% <details summary="Path matching and stale claims"> %}
 
 Claims use the real worktree and resolve symlinks to the same path. New files can be claimed before they exist. A file overlaps a claimed parent folder. On a worktree whose file system ignores letter case, paths that differ only in case are one claim. Giving one file from a folder leaves the other files with the sender. Releasing a folder also releases your claims on files inside it. Claims in a worktree nested inside another one are not compared with the outer worktree.
 
-Closing or stopping a thread keeps its claims. Open **File claims** to find and release a stale claim whose session left the list.
+Closing or stopping a thread keeps its claims. A claim whose session left the list has no row. Open **File claims** in the footer: those claims come first, under **Session gone**, each with **Release**, and **Release all** when there are two or more. A session counts as gone only when its tool's store was read in full and the session is not in it. A store that could not be read, or that holds no sessions at all, proves nothing; release such a claim with **Release** from the footer card. Before freeing these claims, the server checks again that the session is gone and that each path is still that session's claim.
 
 {% </details> %}
 
@@ -136,7 +140,7 @@ The controls govern normal mailbox use. Any process running as your OS user can 
 
 {% <details summary="Local routes and request fields"> %}
 
-The local user-level server provides these routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. `mailboxWarning` explains a partial read.
+The local user-level server provides these routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. A row that holds claims has `claimCount` and `claimedPaths`, the number of paths it claims. The view has `mailboxClaims: {paths, stale, conflicts}` when any claim or conflict exists, counting every session, listed or not. `mailboxWarning` explains a partial read.
 
 | Method and path | Request and result |
 |---|---|
@@ -146,7 +150,8 @@ The local user-level server provides these routes to the companion. The conversa
 | `POST /api/mailbox/thread` | Send `{thread, action}` for `pause`, `resume`, `stop` or `raise-cap`. |
 | `POST /api/mailbox/stage` | Send `{thread, n, how}` with `type` or `copy`. For copy, the command-line server replies with `text`. After writing it to the clipboard, send the same request with `confirm: true`. The companion performs both steps with the system clipboard. |
 | `GET /api/mailbox/claims?tool=&id=` | Read `{claims, conflicts, worktree?}` for a session. Omit the query to see all claims, including stale owners. |
-| `POST /api/mailbox/claim` and `/api/mailbox/release` | Send `{tool, id, worktree, paths}` for the owner. |
+| `POST /api/mailbox/claim` and `/api/mailbox/release` | Send `{tool, id, worktree, paths}` for the owner, up to 200 paths. A release with `gone: true` frees a gone session's claims: it is refused unless the owner is gone and each path is one of its claims in that worktree. |
+| `POST /api/mailbox/conflict/dismiss` | Send `{tool, id, worktree, path}` for the requester to remove its conflict with no thread. Only the companion that started the server may call it. Anything else changes nothing. |
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
 | `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
 | `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |

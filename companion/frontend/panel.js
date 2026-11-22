@@ -5,6 +5,8 @@ import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteO
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
+import { CLAIM_HELP, claimChipOf, helpOf } from '/model.js'
+import { openDocs } from '/api.js'
 import { approvalsMenu } from '/panel-approvals.js'
 
 const card = document.getElementById('card')
@@ -99,6 +101,15 @@ const state = {
    */
   shellStops: new Map(),
 }
+
+/** A help link: a "?" that names its docs page on hover and opens it in the browser. */
+for (const link of document.querySelectorAll('[data-help]')) {
+  const { path, title } = helpOf(link.dataset.help)
+  link.title = title
+  link.setAttribute('aria-label', title)
+  link.addEventListener('click', () => openDocs(path).catch(sayFailure))
+}
+for (const line of document.querySelectorAll('[data-claim-help]')) line.textContent = CLAIM_HELP
 
 const mailbox = mailboxPanel({
   rows: () => state.view?.conversations ?? [],
@@ -257,6 +268,18 @@ function stateMark(conversation) {
   return mark
 }
 
+/** The meta line's chip for a session that claims files: it opens that session's claims. */
+function claimChip(conversation, text) {
+  const chip = element('button', 'claim-chip', text)
+  chip.type = 'button'
+  chip.setAttribute('aria-label', `${text} by ${titleOf(conversation)}`)
+  chip.addEventListener('click', (event) => {
+    event.stopPropagation()
+    mailbox.openClaims(conversation)
+  })
+  return chip
+}
+
 function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
   const needsYou = conversation.state === 'blocked' || conversation.state === 'unread'
@@ -305,7 +328,13 @@ function rowOf(conversation, order, folderNames, under) {
     meta.dataset.tooltip = renaming.problem
     meta.append(renaming.problem)
   } else {
-    meta.append(detailsOf(conversation, now, folderNames))
+    const claimed = claimChipOf(conversation)
+    if (claimed) {
+      meta.classList.add('has-chip')
+      meta.append(element('span', 'meta-text', detailsOf(conversation, now, folderNames)), claimChip(conversation, claimed))
+    } else {
+      meta.append(detailsOf(conversation, now, folderNames))
+    }
     if (conversation.cloud) meta.dataset.tooltip = SHARED_TITLE
   }
   text.append(meta)

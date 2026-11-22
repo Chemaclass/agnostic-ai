@@ -6,5 +6,5 @@
 # settings tab, and the server gains the web session (unlock file, one-time
 # code exchange, hop page), the hook and MCP commands in the sync plan,
 # and a policy check before each approvals write. No new dependency. The
-# build grows by 61440 bytes.
-61440
+# build grows by 77824 bytes over the base with #3919.
+77824

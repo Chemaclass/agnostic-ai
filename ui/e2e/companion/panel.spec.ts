@@ -1224,7 +1224,9 @@ const handoffPath = 'internal/mailbox/handoff.go'
 const mailboxSource = '84fc6d21-820c-4c88-9729-ff8ee40de1f3'
 const mailboxThird = 'e50eac57-0dcd-4089-bd24-6c95d4171790'
 
-const fileClaims = (page: Page) => page.getByRole('region', { name: 'File claims' })
+const fileClaims = (page: Page) => page.getByRole('region', { name: /^Files? claim/ })
+const claimsButton = (page: Page) => page.getByRole('button', { name: /^File claims/ })
+const CLAIM_HELP = 'A file claim notes which session works on which paths. It does not block edits.'
 const receiverThread = (page: Page) => page.getByRole('region', { name: 'Thread with Review the parser' })
 
 async function offerHandoff(page: Page) {
@@ -1343,10 +1345,12 @@ test('closing a mailbox thread keeps its file claim until Release', async ({ pag
   await mailboxSummary(page).click()
   await mailboxThread(page).getByRole('button', { name: 'Close thread' }).click()
   await expect(mailboxSummary(page)).toContainText('Closing')
-  await page.getByRole('button', { name: 'File claims', exact: true }).click()
+  await claimsButton(page).click()
   await expect(fileClaims(page)).toContainText(handoffPath)
   await fileClaims(page).getByRole('button', { name: 'Release', exact: true }).click()
   await expect(fileClaims(page)).not.toContainText(handoffPath)
+  await expect(fileClaims(page)).toContainText('No claims left.')
+  await expect(claimsButton(page)).toBeHidden()
   const released = await page.request.get('/api/mailbox/claims')
   expect((await released.json()).claims).toEqual([])
 })
@@ -1354,23 +1358,140 @@ test('closing a mailbox thread keeps its file claim until Release', async ({ pag
 test('the global mailbox claims card releases a stale owner with no conversation row', async ({ page }) => {
   await openPanel(page, 'mailbox-stale-claim')
   await expect(row(page, 'Handle the conflict')).toHaveCount(0)
-  await page.getByRole('button', { name: 'File claims', exact: true }).click()
-  await expect(fileClaims(page)).toContainText('Stale claim')
-  await expect(fileClaims(page)).toContainText(handoffPath)
-  await fileClaims(page).getByRole('button', { name: 'Release', exact: true }).press('Enter')
-  await expect(fileClaims(page)).toContainText('No file claims.')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path, 1 stale')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+  await claimsButton(page).click()
+  const gone = fileClaims(page).getByRole('region', { name: 'Session gone' })
+  await expect(gone).toContainText(handoffPath)
+  await expect(gone.getByRole('button', { name: 'Release all' })).toHaveCount(0)
+  await gone.getByRole('button', { name: 'Release', exact: true }).press('Enter')
+  await expect(fileClaims(page)).toContainText('No claims left.')
   await expect(fileClaims(page).getByRole('button', { name: 'Dismiss file claims' })).toBeFocused()
+  await expect(claimsButton(page)).toBeHidden()
 })
 
-test('Claim files records paths from a conversation row', async ({ page }) => {
+test('Release all frees every claim of a gone session in one click', async ({ page }) => {
+  await openPanel(page, 'mailbox-stale-claims')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 2 paths, 2 stale')
+  await claimsButton(page).click()
+  const gone = fileClaims(page).getByRole('region', { name: 'Session gone' })
+  await expect(gone.getByRole('article')).toHaveCount(2)
+  await gone.getByRole('button', { name: 'Release all' }).click()
+  await expect(fileClaims(page)).toContainText('No claims left.')
+  expect((await (await page.request.get('/api/mailbox/claims')).json()).claims).toEqual([])
+})
+
+test('Release all frees more claims than one request takes, in batches', async ({ page }) => {
+  await openPanel(page, 'mailbox-many-stale-claims')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 250 paths, 250 stale')
+  await claimsButton(page).click()
+  const releases: Array<{ paths: string[], gone: boolean }> = []
+  page.on('request', (request) => { if (request.url().endsWith('/api/mailbox/release')) releases.push(request.postDataJSON()) })
+  await fileClaims(page).getByRole('button', { name: 'Release all' }).click()
+  await expect(fileClaims(page)).toContainText('No claims left.')
+  expect(releases.map((ask) => [ask.paths.length, ask.gone])).toEqual([[200, true], [50, true]])
+  await expect(claimsButton(page)).toBeHidden()
+})
+
+test('a Release all that fails after an earlier batch says how far it got', async ({ page }) => {
+  await openPanel(page, 'mailbox-many-stale-claims')
+  let sent = 0
+  await page.route('**/api/mailbox/release', async (route) => {
+    sent++
+    if (sent === 2) {
+      await route.fulfill({ status: 422, json: { error: 'Not sent (guard: ownership). Those claims changed since the list was read.\nReload the file claims and try again.', guard: 'ownership' } })
+      return
+    }
+    await route.continue()
+  })
+  await claimsButton(page).click()
+  await fileClaims(page).getByRole('button', { name: 'Release all' }).click()
+  await expect(page.locator('#toast')).toContainText('Released 200 of 250 paths.')
+  await expect(page.locator('#toast')).toContainText('Those claims changed since the list was read.')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 50 paths, 50 stale')
+})
+
+test('Dismiss clears a refused claim from the footer and keeps the holder\'s claim', async ({ page }) => {
+  await openPanel(page, 'mailbox-claim-conflict')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path, 1 conflict')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+  await claimsButton(page).click()
+  await fileClaims(page).getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await expect(page.locator('#toast')).toContainText('Conflict dismissed.')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path')
+  await expect(claimsButton(page)).not.toHaveClass(/is-warning/)
+  await page.reload()
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path')
+  await expect(claimsButton(page)).not.toHaveClass(/is-warning/)
+  const left = await (await page.request.get('/api/mailbox/claims')).json()
+  expect(left.conflicts).toEqual([])
+  expect(left.claims).toMatchObject([{ owner: { id: '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50' }, paths: ['internal/mailbox/handoff.go'] }])
+})
+
+test('with no claims the footer shows no File claims button', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await expect(page.locator('#mailbox-open-claims')).toBeHidden()
+  await expect(page.locator('#mailbox-open-claims')).toHaveCSS('display', 'none')
+})
+
+test('Claim files explains claims, links the docs, and claims paths from a row', async ({ page }) => {
   await openPanel(page, 'mailbox-handoff')
   await row(page, 'Review the parser').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Claim files…' }).click()
-  await fileClaims(page).getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
-  await fileClaims(page).getByLabel('Paths, one per line').fill(handoffPath)
-  await fileClaims(page).getByRole('button', { name: 'Claim paths', exact: true }).click()
-  await expect(fileClaims(page)).toContainText(handoffPath)
-  await expect(page.getByRole('button', { name: '1 claim for Review the parser' })).toBeVisible()
+  const card = page.getByRole('region', { name: 'Files claimed by Review the parser' })
+  await expect(card).toContainText(CLAIM_HELP)
+  await expect(card).toContainText('This session has no claims yet.')
+  await expect(page.getByText('No file claims.')).toHaveCount(0)
+  const help = card.getByRole('button', { name: 'Open the docs: Mailbox: Hand off files' })
+  await expect(help).toHaveAttribute('title', 'Open the docs: Mailbox: Hand off files')
+  const opened = page.waitForRequest((request) => request.url().endsWith('/api/docs'))
+  await help.click()
+  expect((await opened).postDataJSON()).toEqual({ path: '/docs/mailbox/#hand-off-files' })
+
+  await card.getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
+  await card.getByLabel('Paths, one per line').fill(`${handoffPath}\ninternal/mailbox/claims.go`)
+  await card.getByRole('button', { name: 'Claim paths', exact: true }).click()
+  await expect(card).toContainText(handoffPath)
+  await expect(claimsButton(page)).toHaveText('File claims 2')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 2 paths')
+  const chip = row(page, 'Review the parser').locator('.meta .claim-chip')
+  await expect(chip).toHaveAccessibleName('2 paths claimed by Review the parser')
+  await expect(page.locator('.mailbox-threads').getByRole('button', { name: /claim/ })).toHaveCount(0)
+
+  await card.getByRole('button', { name: 'Dismiss file claims' }).click()
+  await chip.click()
+  await expect(card).toBeVisible()
+  await expect(card.getByRole('article')).toHaveCount(2)
+  await expect(card).toContainText(handoffPath)
+  await expect(card).toContainText('internal/mailbox/claims.go')
+  await expect(card.getByRole('article').first()).toContainText(/Claimed by you, \d\d:\d\d/)
+  await card.getByRole('button', { name: 'Release', exact: true }).first().click()
+  await expect(card.getByRole('article')).toHaveCount(1)
+  await expect(chip).toHaveText('1 path claimed')
+  await expect(claimsButton(page)).toHaveText('File claims 1')
+  await card.getByRole('button', { name: 'Release', exact: true }).click()
+  await expect(card).toContainText('This session has no claims yet.')
+  await expect(chip).toHaveCount(0)
+  await expect(claimsButton(page)).toBeHidden()
+})
+
+test('a claim an agent made says so', async ({ page }) => {
+  await openPanel(page, 'mailbox-claims')
+  await expect(claimsButton(page)).toHaveText('File claims 3')
+  await row(page, 'Draft the tests').getByRole('button', { name: '1 path claimed by Draft the tests' }).click()
+  const card = page.getByRole('region', { name: 'Files claimed by Draft the tests' })
+  await expect(card.getByRole('article')).toContainText('Claimed by the agent')
+  await expect(card.getByRole('article')).toContainText('companion/frontend/panel.js')
+})
+
+test('the handoff form explains file claims under its paths', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await composeMailbox(page)
+  await chooseMailboxTarget(page)
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('handoff')
+  const composer = page.getByRole('form', { name: 'Message another session' })
+  await expect(composer.getByLabel('Paths, one per line')).toHaveAccessibleDescription(new RegExp(CLAIM_HELP.replace(/\./g, '\\.')))
+  await expect(composer.getByRole('button', { name: 'Open the docs: Mailbox: Hand off files' })).toBeVisible()
 })
 
 test('copy resume command writes the exact command and says so', async ({ page, context }) => {

@@ -982,15 +982,60 @@ test('compares two stated model names without treating the tool as a model', asy
   assert.deepEqual(reviewModelsOf(undefined, undefined), { from: 'model unknown', to: 'model unknown', same: false })
 })
 
-test('names the handoff and claim statuses shown in the panel', async () => {
-  const { claimCountOf, claimStatusOf, conflictLabelOf, handoffLabelOf } = await import('../frontend/model.js')
+test('names the handoff and conflict statuses shown in the panel', async () => {
+  const { conflictLabelOf, handoffLabelOf } = await import('../frontend/model.js')
   assert.deepEqual(['offered', 'accepted', 'declined'].map(handoffLabelOf), ['Offered', 'Accepted', 'Declined'])
-  assert.equal(claimStatusOf({ stale: true }), 'Stale claim')
-  assert.equal(claimStatusOf({}), 'Active claim')
-  assert.equal(claimCountOf(1), '1 claim')
-  assert.equal(claimCountOf(2), '2 claims')
   assert.equal(conflictLabelOf({ path: 'src/a.go' }, 'Parser session'), 'Path conflict: src/a.go is held by Parser session.')
   assert.equal(conflictLabelOf({ path: 'src/a.go' }), 'Path conflict: no session holds src/a.go.')
+})
+
+test('a row chip counts the claimed paths, and none without a claim', async () => {
+  const { claimChipOf } = await import('../frontend/model.js')
+  assert.equal(claimChipOf({}), undefined)
+  assert.equal(claimChipOf({ claimedPaths: 0 }), undefined)
+  assert.equal(claimChipOf({ claimedPaths: 1 }), '1 path claimed')
+  assert.equal(claimChipOf({ claimedPaths: 3 }), '3 paths claimed')
+})
+
+test('the footer button shows only with claims or conflicts, and warns about stale claims and conflicts', async () => {
+  const { claimsButtonOf } = await import('../frontend/model.js')
+  assert.deepEqual(claimsButtonOf({}), { shown: false })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 0, stale: 0, conflicts: 0 } }), { shown: false })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 3, stale: 0, conflicts: 0 } }), { shown: true, text: '3', label: 'File claims: 3 paths', warns: false })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 3, stale: 1, conflicts: 1 } }), { shown: true, text: '3', label: 'File claims: 3 paths, 1 stale, 1 conflict', warns: true })
+  assert.deepEqual(claimsButtonOf({ mailboxClaims: { paths: 0, stale: 0, conflicts: 2 } }), { shown: true, text: '0', label: 'File claims: 0 paths, 2 conflicts', warns: true })
+})
+
+test('a claim says who made it and when', async () => {
+  const { claimMetaOf } = await import('../frontend/model.js')
+  const since = new Date(2026, 10, 22, 14, 2).toISOString()
+  const sameDay = new Date(2026, 10, 22, 18, 0).getTime()
+  assert.equal(claimMetaOf({ by: 'human', since }, sameDay), 'Claimed by you, 14:02')
+  assert.equal(claimMetaOf({ by: 'agent', since }, sameDay), 'Claimed by the agent, 14:02')
+  assert.equal(claimMetaOf({ by: 'human', since }, new Date(2026, 10, 24).getTime()), 'Claimed by you, Nov 22, 14:02')
+  assert.equal(claimMetaOf({ by: 'agent' }, sameDay), 'Claimed by the agent')
+})
+
+test('the claims card names its owner, says what an empty card means, and lists gone owners first', async () => {
+  const { claimsCardOf } = await import('../frontend/model.js')
+  assert.deepEqual(claimsCardOf({ claims: [] }, 'Review the parser'), { title: 'Files claimed by Review the parser', empty: 'This session has no claims yet.', stale: [], active: [] })
+  assert.deepEqual(claimsCardOf({ claims: [] }), { title: 'File claims', empty: 'No claims left.', stale: [], active: [] })
+  assert.equal(claimsCardOf({ claims: [], conflicts: [{ path: 'a' }] }).empty, undefined)
+  const live = { paths: ['a'] }
+  const gone = { paths: ['b'], stale: true }
+  const card = claimsCardOf({ claims: [live, gone] })
+  assert.equal(card.empty, undefined)
+  assert.deepEqual([card.stale, card.active], [[gone], [live]])
+})
+
+test('every help link names a page and points at the docs', async () => {
+  const { HELP_TOPICS, helpOf } = await import('../frontend/model.js')
+  for (const topic of Object.keys(HELP_TOPICS)) {
+    const { path, title } = helpOf(topic)
+    assert.match(path, /^\/docs\/[a-z0-9/-]*\/(#[a-z0-9-]+)?$/)
+    assert.match(title, /^Open the docs: \S/)
+  }
+  assert.deepEqual(helpOf('file-claims'), { path: '/docs/mailbox/#hand-off-files', title: 'Open the docs: Mailbox: Hand off files' })
 })
 
 test('says which tools cannot be read without a command, and none for a tool that is just absent', () => {
@@ -1316,4 +1361,39 @@ test('shell labels tell apart shells whose commands share a long start', async (
 test('a kept shell names its wake time before its command', async () => {
   const { keptShellNoteOf } = await import('../frontend/model.js')
   assert.equal(keptShellNoteOf({ ...shell, keptUntil: new Date(shellNow + 30 * 60000).toISOString() }, shellNow), 'Kept running · asks again in 30 min')
+})
+
+test('a release splits into requests within the path and byte limits, one owner and worktree each', async () => {
+  const { RELEASE_LIMITS, releaseBatchesOf } = await import('../frontend/model.js')
+  const owner = { tool: 'codex', id: 'gone-1' }
+  const many = Array.from({ length: 450 }, (_, i) => ({ owner, worktree: '/w', paths: [`p${i}.go`] }))
+  const batches = releaseBatchesOf(many, { gone: true })
+  assert.deepEqual(batches.map((batch) => batch.paths.length), [200, 200, 50])
+  assert.ok(batches.every((batch) => batch.gone === true && batch.worktree === '/w' && batch.id === 'gone-1'))
+  assert.deepEqual(batches.flatMap((batch) => batch.paths), many.map((claim) => claim.paths[0]))
+
+  const long = Array.from({ length: 199 }, (_, i) => ({ owner, worktree: '/w', paths: [`${'d/'.repeat(190)}${i}.go`] }))
+  const byBytes = releaseBatchesOf(long)
+  assert.ok(byBytes.length > 1, 'long paths split before 200')
+  for (const batch of byBytes) assert.ok(new TextEncoder().encode(JSON.stringify(batch)).length <= RELEASE_LIMITS.bytes)
+  assert.equal(byBytes.reduce((sum, batch) => sum + batch.paths.length, 0), 199)
+
+  const two = releaseBatchesOf([{ owner, worktree: '/a', paths: ['x'] }, { owner, worktree: '/b', paths: ['y'] }, { owner, worktree: '/a', paths: ['z'] }])
+  assert.deepEqual(two.map((batch) => [batch.worktree, batch.paths]), [['/a', ['x', 'z']], ['/b', ['y']]])
+})
+
+test('a release that fails after an earlier batch reports how far it got', async () => {
+  const { partialReleaseOf, releaseInBatches } = await import('../frontend/model.js')
+  const batches = [{ paths: ['a', 'b'] }, { paths: ['c'] }, { paths: ['d'] }]
+  const refusal = new Error('Those claims changed since the list was read.')
+  const sent = []
+  const result = await releaseInBatches(batches, async (batch) => {
+    sent.push(batch)
+    if (sent.length === 2) throw refusal
+    return { version: 'v' + sent.length }
+  })
+  assert.deepEqual(result, { released: 2, total: 4, version: 'v1', error: refusal })
+  assert.equal(sent.length, 2)
+  assert.equal(partialReleaseOf(result, refusal.message), 'Released 2 of 4 paths. Those claims changed since the list was read.')
+  assert.deepEqual(await releaseInBatches(batches, async () => ({ version: 'v' })), { released: 4, total: 4, version: 'v' })
 })
