@@ -188,7 +188,7 @@ Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from
 
 Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the server's own origin, with the companion's secret or the key of a tab `view` opened ([who can change this](@/docs/approvals.md#who-can-change-this)).
 
-Types `text` into a conversation's input, never pressing Enter, and returns `{sent, message}`.
+Types `text` into a conversation's input, never pressing Enter, and returns `{sent, message}`. A server with neither, such as a project server, one started with `--api-only`, or one on Windows, refuses every send.
 
 {% <details summary="Send details, which chats get no text, and status codes"> %}
 

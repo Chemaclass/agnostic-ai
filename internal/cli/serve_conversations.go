@@ -370,7 +370,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.proven == nil || !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "Send from the companion, or from a page agnostic-ai view --scope user opened. Nothing was typed."})
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Sending needs the companion's secret or the key of a tab that view opened. Nothing was typed."})
 		return
 	}
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))
