@@ -17,7 +17,7 @@ async function openPanel(page: Page, fixture = 'mixed') {
   await expect(page.locator('#list > .row, #list > .empty').first()).toBeVisible()
 }
 
-const row = (page: Page, title: string) => page.getByRole('option').filter({ hasText: title })
+const row = (page: Page, title: string) => page.locator('#list').getByRole('option').filter({ hasText: title })
 const selected = (page: Page) => page.locator('.row[aria-selected="true"]')
 /** The --alert token, as a computed style spells it. */
 const ALERT_RED = /rgb\(255, 98, 80\)/
@@ -704,32 +704,46 @@ const mailboxTarget = '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50'
 const mailboxThread = (page: Page) => page.getByRole('region', { name: 'Thread with Draft the tests' })
 const mailboxSummary = (page: Page) => page.getByRole('button', { name: /^With Draft the tests/ })
 
+const mailboxSend = (page: Page) => page.getByRole('button', { name: /^Send( to .+)?$/ })
+const mailboxTo = (page: Page) => page.getByRole('combobox', { name: 'To', exact: true })
+const mailboxTargetLabel = 'Draft the tests · Codex · agnostic-ai'
+
+async function chooseMailboxTarget(page: Page) {
+  await mailboxTo(page).selectOption({ label: mailboxTargetLabel })
+}
+
 async function composeMailbox(page: Page) {
   await row(page, 'Review the parser').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Send to session…' }).click()
-  await expect(page.getByRole('form', { name: 'Send to session' })).toBeVisible()
+  await page.getByRole('menuitem', { name: 'Message another session…' }).click()
+  await expect(page.getByRole('form', { name: 'Message another session' })).toBeVisible()
 }
 
 async function askMailbox(page: Page, text = 'Is the parser ready?') {
   await composeMailbox(page)
-  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseMailboxTarget(page)
   await page.getByLabel('Message', { exact: true }).fill(text)
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await mailboxSend(page).click()
   await expect(mailboxSummary(page)).toBeVisible()
 }
 
 async function replyInMailbox(page: Page, text: string) {
   await mailboxThread(page).getByRole('button', { name: 'Reply' }).click()
   await page.getByLabel('Message', { exact: true }).fill(text)
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await mailboxSend(page).click()
 }
 
 test('sends a question to a pasted session ID and shows the thread under both sessions', async ({ page }) => {
   await openPanel(page, 'mailbox')
   await expect(page.locator('.mailbox-summary')).toHaveCount(0)
   const send = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
-  await askMailbox(page)
-  expect((await send).postDataJSON()).toMatchObject({ to: { id: mailboxTarget }, type: 'question', body: 'Is the parser ready?' })
+  await composeMailbox(page)
+  await page.getByRole('button', { name: 'Enter an ID instead' }).click()
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await expect(page.locator('#mailbox-target-status')).toHaveText('Found: Draft the tests · Codex.')
+  await page.getByLabel('Message', { exact: true }).fill('Is the parser ready?')
+  await page.getByRole('button', { name: 'Send to Draft the tests' }).click()
+  expect((await send).postDataJSON()).toMatchObject({ to: { tool: 'codex', id: mailboxTarget }, type: 'question', body: 'Is the parser ready?' })
+  await expect(page.locator('#toast')).toHaveText('Message waiting in the thread with Draft the tests.')
   await expect(mailboxSummary(page)).toContainText('Question · Open · 1 of 8 messages, 1 waiting')
   await expect(page.getByRole('button', { name: /^With Review the parser/ })).toContainText('1 of 8 messages, 1 waiting')
   await mailboxSummary(page).press('Enter')
@@ -744,9 +758,14 @@ test('chooses a mailbox target from a row without opening it and keeps the messa
   await expect(selected(page)).toContainText('Review the parser')
   await page.keyboard.press('Shift+F10')
   for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('menuitem', { name: 'Send to session…' })).toBeFocused()
+  await expect(page.getByRole('menuitem', { name: 'Message another session…' })).toBeFocused()
   await page.keyboard.press('Enter')
+  await expect(row(page, 'Draft the tests')).toHaveClass(/is-mailbox-receivable/)
+  await expect(row(page, 'Review the parser').locator('.mailbox-tag')).toHaveText('From')
   await row(page, 'Draft the tests').click()
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  await expect(row(page, 'Draft the tests').locator('.mailbox-tag')).toHaveText('To')
+  await expect(page.getByRole('button', { name: 'Send to Draft the tests' })).toBeVisible()
   await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('finding')
   const field = page.getByLabel('Message', { exact: true })
   await field.fill('First finding')
@@ -754,7 +773,7 @@ test('chooses a mailbox target from a row without opening it and keeps the messa
   await field.press('Enter')
   await field.press('ArrowUp')
   await expect(field).toHaveValue('First finding\n')
-  await page.getByRole('button', { name: 'Send message' }).press('Enter')
+  await mailboxSend(page).press('Enter')
   await expect(mailboxSummary(page)).toContainText('Finding')
   const calls = await calledPaths(page)
   expect(calls).not.toContain('/api/open')
@@ -764,13 +783,97 @@ test('chooses a mailbox target from a row without opening it and keeps the messa
 test('a mailbox refusal shows its guard, reason and next step and keeps the draft', async ({ page }) => {
   await openPanel(page, 'mailbox')
   await composeMailbox(page)
+  await page.getByRole('button', { name: 'Enter an ID instead' }).click()
   await page.getByLabel('Session ID', { exact: true }).fill('4e8b1c2d-9a3f-4b6e-8c7d-1f2a3b4c5d6e')
+  await expect(page.locator('#mailbox-target-status')).toHaveText('No session in the list has this ID. It may not be loaded yet.')
+  await expect(page.locator('#mailbox-arrival')).toBeHidden()
   await page.getByLabel('Message', { exact: true }).fill('Still here')
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await page.getByRole('button', { name: 'Send', exact: true }).click()
   await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: unknown-session')
   await expect(page.locator('#toast')).toContainText('Choose a local session')
   await expect(page.getByLabel('Message', { exact: true })).toHaveValue('Still here')
   await expect(page.locator('.mailbox-summary')).toHaveCount(0)
+})
+
+test('names both ends of a new message and sends the chosen tool and ID', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await composeMailbox(page)
+  const form = page.getByRole('form', { name: 'Message another session' })
+  await expect(page.locator('#mailbox-from')).toHaveText('Review the parser · Claude Code')
+  await expect(mailboxTo(page)).toHaveValue('')
+  await expect(mailboxSend(page)).toHaveText('Send')
+  await expect(mailboxSend(page)).toBeDisabled()
+  await expect(form).toContainText('Ask the other session something.')
+  await expect(page.locator('#mailbox-arrival')).toBeHidden()
+  await chooseMailboxTarget(page)
+  await expect(form).toContainText('Ask Draft the tests something. Its reply comes back to this thread.')
+  await expect(page.locator('#mailbox-arrival')).toHaveText('This waits in the thread. With the mailbox built-in on, Draft the tests gets it with its next prompt, after its current work.')
+  await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('finding')
+  await expect(form).toContainText('Tell Draft the tests what you found. It can reply or close the thread.')
+  await page.getByLabel('Message', { exact: true }).fill('The parser is ready.')
+  const send = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await page.getByRole('button', { name: 'Send to Draft the tests' }).click()
+  expect((await send).postDataJSON()).toMatchObject({ to: { tool: 'codex', id: mailboxTarget }, type: 'finding' })
+  await expect(page.locator('#toast')).toHaveText('Message waiting in the thread with Draft the tests.')
+  await expect(row(page, 'Draft the tests')).not.toHaveClass(/is-mailbox-receivable/)
+  await expect(page.locator('.mailbox-tag')).toHaveCount(0)
+})
+
+test('groups mailbox receivers, says when an archived one gets the message and checks a typed ID', async ({ page }) => {
+  await openPanel(page, 'mailbox-receivers')
+  await composeMailbox(page)
+  const groups = await mailboxTo(page).locator('optgroup').evaluateAll((boxes) =>
+    boxes.map((box) => [(box as HTMLOptGroupElement).label, [...box.querySelectorAll('option')].map((option) => option.textContent)]))
+  expect(groups).toEqual([
+    ['Working', ['Draft the tests · Codex · agnostic-ai']],
+    ['Active', ['Draft the docs · Claude Code · agnostic-ai']],
+    ['Archived · gets it when resumed', ['Handle the conflict · Codex · agnostic-ai']],
+  ])
+  await mailboxTo(page).selectOption({ label: 'Handle the conflict · Codex · agnostic-ai' })
+  await expect(page.locator('#mailbox-arrival')).toHaveText('This waits in the thread. With the mailbox built-in on, Handle the conflict gets it when it is resumed.')
+
+  await page.getByRole('button', { name: 'Enter an ID instead' }).click()
+  const id = page.getByLabel('Session ID', { exact: true })
+  const status = page.locator('#mailbox-target-status')
+  await id.fill(mailboxTarget)
+  await expect(status).toHaveText('Two sessions use this ID. Choose from the list.')
+  await expect(mailboxSend(page)).toBeDisabled()
+  await id.fill(mailboxSource)
+  await expect(status).toHaveText('That is the sending session.')
+  await expect(mailboxSend(page)).toBeDisabled()
+  await id.fill(mailboxThird)
+  await expect(status).toHaveText('Found: Handle the conflict · Codex.')
+  await expect(page.getByRole('button', { name: 'Send to Handle the conflict' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Choose from the list' }).click()
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxThird}`)
+})
+
+test('with nobody to message the receiver list is empty and an ID can still be typed', async ({ page }) => {
+  await openPanel(page, 'mailbox-alone')
+  await composeMailbox(page)
+  await expect(mailboxTo(page)).toBeDisabled()
+  await expect(mailboxTo(page)).toContainText('No other local Claude Code or Codex sessions')
+  await expect(page.getByRole('form', { name: 'Message another session' })).toContainText('Start another session, or enter an ID.')
+  await expect(mailboxSend(page)).toHaveText('Send')
+  await expect(mailboxSend(page)).toBeDisabled()
+  await page.getByRole('button', { name: 'Enter an ID instead' }).click()
+  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeEnabled()
+})
+
+test('a mailbox reply names the other session and offers no receiver choice', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+  await mailboxThread(page).getByRole('button', { name: 'Reply' }).click()
+  const form = page.getByRole('form', { name: 'Reply to Draft the tests' })
+  await expect(form).toBeVisible()
+  await expect(page.locator('#mailbox-to-name')).toHaveText('Draft the tests · Codex · agnostic-ai')
+  await expect(mailboxTo(page)).toBeHidden()
+  await expect(page.getByRole('button', { name: 'Enter an ID instead' })).toBeHidden()
+  await expect(row(page, 'Draft the tests')).not.toHaveClass(/is-mailbox-receivable/)
+  await expect(page.locator('#mailbox-arrival')).toContainText('Draft the tests gets it with its next prompt, after its current work.')
+  await expect(page.getByRole('button', { name: 'Send to Draft the tests' })).toBeEnabled()
 })
 
 test('pause refuses a mailbox reply in one click and resume allows the draft', async ({ page }) => {
@@ -938,7 +1041,7 @@ async function chooseReviewRequest(page: Page) {
 test('a mailbox review request has no message field and carries only the previewed refs', async ({ page }) => {
   await openPanel(page, 'mailbox-review')
   await composeMailbox(page)
-  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseMailboxTarget(page)
   await page.getByLabel('Message', { exact: true }).fill('My earlier opinion must stay in the draft.')
   await chooseReviewRequest(page)
   await expect(page.getByLabel('Message', { exact: true })).toBeHidden()
@@ -951,7 +1054,7 @@ test('a mailbox review request has no message field and carries only the preview
   await expect(preview).toContainText('2 changed paths')
   await expect(preview).toContainText('2 uncommitted files are outside this review.')
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
-  await page.getByRole('button', { name: 'Send message' }).press('Enter')
+  await mailboxSend(page).press('Enter')
   const request = (await sent).postDataJSON()
   expect(request).not.toHaveProperty('body')
   expect(request.refs).toEqual({ worktree: reviewWorktree, commit: reviewCommit, base: reviewBase })
@@ -964,7 +1067,7 @@ test('a mailbox review request has no message field and carries only the preview
 test('a mailbox review compares models across tools and leaves missing models unknown', async ({ page }) => {
   await openPanel(page, 'mailbox-review')
   await composeMailbox(page)
-  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseMailboxTarget(page)
   await chooseReviewRequest(page)
   await page.getByLabel('Sending model (optional)').fill('Model A')
   const comparison = page.getByRole('status').filter({ hasText: /Sending: Model A/ })
@@ -973,7 +1076,7 @@ test('a mailbox review compares models across tools and leaves missing models un
   await page.getByLabel('Reviewing model (optional)').fill('model a')
   await expect(comparison).toContainText('Both sessions state the same model.')
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await mailboxSend(page).click()
   expect((await sent).postDataJSON().models).toEqual({ from: 'Model A', to: 'model a' })
   await mailboxSummary(page).click()
   await expect(mailboxThread(page)).toContainText('Both sessions state the same model.')
@@ -982,9 +1085,10 @@ test('a mailbox review compares models across tools and leaves missing models un
 test('a mailbox review without a default base asks for an explicit base before sending', async ({ page }) => {
   await openPanel(page, 'mailbox-review-no-base')
   await composeMailbox(page)
+  await chooseMailboxTarget(page)
   await chooseReviewRequest(page)
   const base = page.getByLabel('Base branch or commit')
-  const send = page.getByRole('button', { name: 'Send message' })
+  const send = mailboxSend(page)
   await expect(base).toHaveValue('')
   await expect(page.getByText(/guard: refs.*Name a base/)).toBeVisible()
   await expect(send).toBeDisabled()
@@ -1002,10 +1106,10 @@ test('a mailbox review keeps its fields stable until a delayed send refusal retu
   })
   await openPanel(page, 'mailbox-review')
   await composeMailbox(page)
-  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseMailboxTarget(page)
   await chooseReviewRequest(page)
   const base = page.getByLabel('Base branch or commit')
-  const send = page.getByRole('button', { name: 'Send message' })
+  const send = mailboxSend(page)
   await expect(base).toHaveValue(reviewBase)
   const requested = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
   await send.click()
@@ -1026,7 +1130,7 @@ test('a mailbox review keeps its fields stable until a delayed send refusal retu
 test('a previous mailbox send cannot enable a new draft before its refs resolve', async ({ page }) => {
   await openPanel(page, 'mailbox-review')
   await composeMailbox(page)
-  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseMailboxTarget(page)
   await chooseReviewRequest(page)
   await expect(page.getByLabel('Base branch or commit')).toHaveValue(reviewBase)
 
@@ -1036,9 +1140,10 @@ test('a previous mailbox send cannot enable a new draft before its refs resolve'
     await heldList
     await route.continue()
   })
-  await page.getByRole('button', { name: 'Send message' }).click()
-  await expect(page.getByRole('form', { name: 'Send to session' })).toBeHidden()
+  await mailboxSend(page).click()
+  await expect(page.getByRole('form', { name: 'Message another session' })).toBeHidden()
   await composeMailbox(page)
+  await chooseMailboxTarget(page)
 
   let releaseRefs!: () => void
   const heldRefs = new Promise<void>((resolve) => { releaseRefs = resolve })
@@ -1048,15 +1153,15 @@ test('a previous mailbox send cannot enable a new draft before its refs resolve'
   })
   try {
     await chooseReviewRequest(page)
-    await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    await expect(mailboxSend(page)).toBeDisabled()
     releaseList()
     await expect(mailboxSummary(page)).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled()
+    await expect(mailboxSend(page)).toBeDisabled()
   } finally {
     releaseList()
     releaseRefs()
   }
-  await expect(page.getByRole('button', { name: 'Send message' })).toBeEnabled()
+  await expect(mailboxSend(page)).toBeEnabled()
 })
 
 test('a late mailbox refs response cannot replace a newer preview', async ({ page }) => {
@@ -1088,7 +1193,7 @@ test('a late mailbox refs response cannot replace a newer preview', async ({ pag
   )
   await base.fill('slow')
   await slowRequest
-  await expect(page.getByRole('button', { name: 'Send message' })).toBeDisabled()
+  await expect(mailboxSend(page)).toBeDisabled()
   await base.fill('fresh')
   await canceled
   const preview = page.getByRole('group', { name: 'Resolved review' })
@@ -1107,15 +1212,15 @@ const receiverThread = (page: Page) => page.getByRole('region', { name: 'Thread 
 
 async function offerHandoff(page: Page) {
   await composeMailbox(page)
-  await page.getByLabel('Session ID', { exact: true }).fill(mailboxTarget)
+  await chooseMailboxTarget(page)
   await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('handoff')
-  const composer = page.getByRole('form', { name: 'Send to session' })
+  const composer = page.getByRole('form', { name: 'Message another session' })
   await composer.getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
   await composer.getByLabel('Paths, one per line').fill(handoffPath)
   await page.getByLabel('Message', { exact: true }).fill('Please finish the handoff implementation.')
   await page.getByRole('button', { name: 'Claim these paths' }).click()
   await expect(page.locator('#toast')).toContainText('Paths claimed.')
-  await page.getByRole('button', { name: 'Send message' }).click()
+  await mailboxSend(page).click()
   await expect(mailboxSummary(page)).toContainText('Handoff')
 }
 
@@ -1132,7 +1237,7 @@ test('a mailbox handoff uses the Git root when the sending session is in a subdi
   await openPanel(page, 'mailbox-handoff')
   await composeMailbox(page)
   await page.getByRole('combobox', { name: 'Type', exact: true }).selectOption('handoff')
-  const composer = page.getByRole('form', { name: 'Send to session' })
+  const composer = page.getByRole('form', { name: 'Message another session' })
   await expect(composer.getByLabel('Worktree', { exact: true })).toHaveValue(handoffWorktree)
   await composer.getByLabel('Paths, one per line').fill(handoffPath)
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/claim'))
@@ -1154,9 +1259,9 @@ test('an explicit mailbox handoff worktree wins over a pending lookup', async ({
   const type = page.getByRole('combobox', { name: 'Type', exact: true })
   await type.selectOption('handoff')
   await started
-  const composer = page.getByRole('form', { name: 'Send to session' })
+  const composer = page.getByRole('form', { name: 'Message another session' })
   await expect(composer.getByRole('button', { name: 'Claim these paths' })).toBeDisabled()
-  await expect(composer.getByRole('button', { name: 'Send message' })).toBeDisabled()
+  await expect(mailboxSend(page)).toBeDisabled()
   const worktree = composer.getByLabel('Worktree', { exact: true })
   const canceled = page.waitForEvent('requestfailed', (request) => request.url().includes('/api/mailbox/claims?'))
   await worktree.fill('/chosen-worktree')
@@ -2627,7 +2732,7 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  for (const name of ['Copy session ID', 'Send to session…', 'Claim files…', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+  for (const name of ['Copy session ID', 'Message another session…', 'Claim files…', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
     await page.keyboard.press('ArrowDown')
     await expect(page.getByRole('menuitem', { name })).toBeFocused()
   }
@@ -2644,7 +2749,7 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   const stop = page.getByRole('menuitem', { name: 'Stop chat…' })
   await expect(read).toBeFocused()
   const copy = page.getByRole('menuitem', { name: 'Copy session ID' })
-  const mailbox = page.getByRole('menuitem', { name: 'Send to session…' })
+  const mailbox = page.getByRole('menuitem', { name: 'Message another session…' })
   const claim = page.getByRole('menuitem', { name: 'Claim files…' })
   for (const item of [rename, copy, mailbox, claim, complete, stop, read]) {
     await page.keyboard.press('ArrowDown')

@@ -106,7 +106,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - Right-click a chat and choose **Copy session ID** to copy its exact ID.
   A cloud chat gives you its cloud ID. Use the tool that owns the chat to
   decide how to open it. Copying keeps the chat state and marks.
-- Choose **Send to session…** on a local Claude Code or Codex chat to start
+- Choose **Message another session…** on a local Claude Code or Codex chat to start
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). The thread appears under both chats.
   Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
   A message an agent sends shows as **Held for you** until you choose **Approve** or **Reject**.

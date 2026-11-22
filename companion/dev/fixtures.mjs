@@ -275,6 +275,19 @@ export const FIXTURES = {
       conversation(now, MAILBOX_THIRD.tool, MAILBOX_THIRD.id, 'Handle the conflict', 'active'),
     ],
   },
+  'mailbox-receivers': {
+    label: 'Mailbox receivers in each group, and two tools sharing an ID',
+    conversations: (now) => [
+      ...mailboxSessions(now),
+      conversation(now, MAILBOX_THIRD.tool, MAILBOX_THIRD.id, 'Handle the conflict', 'dormant', { minutesAgo: 3 * 24 * 60 }),
+      conversation(now, 'claude', MAILBOX_TARGET.id, 'Draft the docs', 'active', { minutesAgo: 30 }),
+      conversation(now, 'claude', 'f1e2d3c4-0000-4000-8000-000000000001', 'Ask in the cloud', 'active', { app: 'cloud' }),
+    ],
+  },
+  'mailbox-alone': {
+    label: 'One local session and nobody to message',
+    conversations: (now) => [mailboxSessions(now)[0]],
+  },
   'mailbox-stale-claim': {
     label: 'File claim with a missing session',
     conversations: mailboxSessions,
