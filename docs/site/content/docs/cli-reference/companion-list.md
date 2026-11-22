@@ -17,7 +17,7 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 
 | Group | What it holds |
 |-------|---------------|
-| Needs you | Chats waiting for a permission, then an answer, then unread replies. Newest first. |
+| Needs you | Chats waiting for a permission, then an answer or a [path conflict](@/docs/mailbox.md#hand-off-files), then unread replies. Newest first. |
 | Working | The agent is busy. |
 | Active | Open chats, and app or cloud chats until you archive them. |
 | Archived | Closed chats, and chats you archived in their app. |
@@ -181,7 +181,7 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 | Part | What it shows |
 |------|---------------|
 | Reason line | Under the title in Needs you: why the chat needs you. See the reasons below. |
-| Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age. |
+| Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age, and a chip such as "2 paths claimed" when the chat holds file claims. |
 | Reply line | The agent's question, or the start of its last message. |
 | Approval pill | Orange, replaces the reply line while a call waits for approval. |
 | Approval reason | Under the pill, why [approvals](@/docs/cli-reference/companion.md#approvals) left the request to you. |
@@ -191,6 +191,7 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 |--------|------|
 | The approval pill | A tool call waits for your approval. |
 | Waiting on 2 shells still running | A [forgotten shell](#stop-a-forgotten-shell) is the only work left. |
+| internal/a.go is claimed by Fix the parser | This chat asked for a path another chat claims. The holder's row says "Draft the tests wants internal/a.go, which this session claims". Click the line to release or dismiss. Comes after a permission. |
 | Asks you a question | The agent asked you something. |
 | No activity for 7m | The server read the wait from silence. |
 | Waiting for you | The tool says it waits, but not for what. |

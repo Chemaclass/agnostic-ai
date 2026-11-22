@@ -35,7 +35,7 @@ var conversationPaths = []string{
 	conversationsViewPath, conversationOpenPath, conversationMarkPath, conversationRenamePath,
 	conversationDeletePath, conversationSendPath, conversationStopShellPath, conversationStopSessionPath,
 	mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath, mailboxRefsPath,
-	mailboxClaimsPath, mailboxClaimPath, mailboxReleasePath, mailboxHandoffPath,
+	mailboxClaimsPath, mailboxClaimPath, mailboxReleasePath, mailboxDismissPath, mailboxHandoffPath,
 	mailboxApprovePath, mailboxQueuePath, mailboxSettingsPath,
 }
 
@@ -184,7 +184,7 @@ func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 	case conversationStopSessionPath:
 		h.stopSession(w, r)
 	case mailboxSendPath, mailboxThreadsPath, mailboxThreadPath, mailboxStagePath, mailboxRefsPath,
-		mailboxClaimsPath, mailboxClaimPath, mailboxReleasePath, mailboxHandoffPath,
+		mailboxClaimsPath, mailboxClaimPath, mailboxReleasePath, mailboxDismissPath, mailboxHandoffPath,
 		mailboxApprovePath, mailboxQueuePath, mailboxSettingsPath:
 		h.serveMailbox(w, r)
 	default:

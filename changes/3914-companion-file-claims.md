@@ -4,4 +4,5 @@
 - A chat that holds file claims shows a chip such as "2 paths claimed" in its row, which opens its claims. The claim button under the row's threads is gone (#3914).
 - The claims card and the handoff form say what a file claim is and that it does not block edits, with a "?" that opens the mailbox docs at "Hand off files". Each claim says who made it and when (#3914).
 - Claims whose session is gone come first under **Session gone**, with **Release all** for two or more (#3914).
-- The conversation list sends `claimedPaths` per row and `mailboxClaims` totals on the view (#3914).
+- When one session asks for a path another claims, both rows move under Needs you with a line that names the path and the other session, and count on the circle. The holder can release the path; the requester can **Dismiss** the conflict (#3914).
+- The conversation list sends `claimedPaths` and `claimConflicts` per row and `mailboxClaims` totals on the view. `POST /api/mailbox/conflict/dismiss` removes a requester's conflict with no thread (#3914).

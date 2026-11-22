@@ -53,6 +53,8 @@ A file claim notes which session works on which paths of a Git worktree. It does
 
 If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends.
 
+When a session asks for a path another one claims, both rows move under Needs you with a red line, on the holder: "Draft the tests wants internal/a.go, which this session claims", and on the requester: "internal/a.go is claimed by Fix the parser". Click the line to open that session's claims. The holder can **Release** the path or hand it off; the requester can **Dismiss** the conflict. A conflict from a handoff clears when its thread is declined or closed.
+
 A chat that holds claims shows a chip such as "2 paths claimed" in its row. Click it to see the paths, who claimed them and when, and to release them. The **File claims** button in the footer appears only when a claim or a conflict exists. Its number counts the claimed paths across all sessions, and a warning mark shows when a claim's session is gone or two sessions want the same path. The "?" next to the claim explanation opens this section.
 
 {% <details summary="Path matching and stale claims"> %}
@@ -140,7 +142,7 @@ The controls govern normal mailbox use. Any process running as your OS user can 
 
 {% <details summary="Local routes and request fields"> %}
 
-The local user-level server provides these routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. A row that holds claims has `claimCount` and `claimedPaths`, the number of paths it claims. The view has `mailboxClaims: {paths, stale, conflicts}` when any claim or conflict exists, counting every session, listed or not. `mailboxWarning` explains a partial read.
+The local user-level server provides these routes to the companion. The conversation list includes `threads` when a local row has mailbox activity. Each summary gives the other session, state, counts and last message type. A row that holds claims has `claimCount` and `claimedPaths`, the number of paths it claims. A row that holds or requests a path in an active conflict has `claimConflicts`, with or without a thread. The view has `mailboxClaims: {paths, stale, conflicts}` when any claim or conflict exists, counting every session, listed or not. `mailboxWarning` explains a partial read.
 
 | Method and path | Request and result |
 |---|---|
@@ -151,6 +153,7 @@ The local user-level server provides these routes to the companion. The conversa
 | `POST /api/mailbox/stage` | Send `{thread, n, how}` with `type` or `copy`. For copy, the command-line server replies with `text`. After writing it to the clipboard, send the same request with `confirm: true`. The companion performs both steps with the system clipboard. |
 | `GET /api/mailbox/claims?tool=&id=` | Read `{claims, conflicts, worktree?}` for a session. Omit the query to see all claims, including stale owners. |
 | `POST /api/mailbox/claim` and `/api/mailbox/release` | Send `{tool, id, worktree, paths}` for the owner. |
+| `POST /api/mailbox/conflict/dismiss` | Send `{tool, id, worktree, path}` for the requester to remove its conflict with no thread. Anything else changes nothing. |
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
 | `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
 | `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |

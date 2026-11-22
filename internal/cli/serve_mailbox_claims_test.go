@@ -280,3 +280,51 @@ func TestMailboxHTTP_ListCountsClaimedPathsAndStaleOwners(t *testing.T) {
 		t.Errorf("totals with a gone owner = %#v, want %#v", view.MailboxClaims, want)
 	}
 }
+
+func TestMailboxHTTP_ConflictShowsOnBothRowsUntilTheRequesterDismissesIt(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	makeReviewRepo(t, h.root)
+	const other = "44444444-4444-4444-8444-444444444444"
+	const path = "src/parser.go"
+	writeClaudeSession(t, h.scanner.Stores.ClaudeDir, other, h.root, "Check the parser")
+	testChangeClaim(t, h, "claim", inProject, h.root, path)
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/claim", mailboxClaimBody(other, h.root, path)), "ownership")
+	conflictsOf := func() map[string][]conversations.MailboxConflict {
+		got := map[string][]conversations.MailboxConflict{}
+		for _, row := range listConversations(t, h).Conversations {
+			if len(row.ClaimConflicts) > 0 {
+				got[row.ID] = row.ClaimConflicts
+			}
+		}
+		return got
+	}
+	got := conflictsOf()
+	for _, id := range []string{inProject, other} {
+		if len(got[id]) != 1 || got[id][0].Path != path || got[id][0].Requester.ID != other || got[id][0].Holder == nil || got[id][0].Holder.ID != inProject {
+			t.Errorf("row %s claimConflicts = %#v", id, got[id])
+		}
+	}
+	if len(got) != 2 {
+		t.Errorf("rows with conflicts = %d, want the holder and the requester", len(got))
+	}
+
+	dismiss := func(id, root, p string) *httptest.ResponseRecorder {
+		body := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"path":%q}`, id, root, p)
+		return mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/conflict/dismiss", body)
+	}
+	mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/conflict/dismiss", fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":[%q]}`, other, h.root, path)), "format")
+	mailboxExpectRefusal(t, dismiss(other, "", path), "format")
+	mailboxExpectRefusal(t, dismiss("not-a-session", h.root, path), "unknown-session")
+	if rec := dismiss(inProject, h.root, path); rec.Code != http.StatusNoContent {
+		t.Fatalf("holder dismiss = %d %s", rec.Code, rec.Body)
+	}
+	if got := conflictsOf(); len(got) != 2 {
+		t.Errorf("the holder dismissed the requester's conflict: %#v", got)
+	}
+	if rec := dismiss(other, h.root, path); rec.Code != http.StatusNoContent {
+		t.Fatalf("requester dismiss = %d %s", rec.Code, rec.Body)
+	}
+	if got := conflictsOf(); len(got) != 0 {
+		t.Errorf("conflicts after dismiss = %#v", got)
+	}
+}

@@ -97,3 +97,15 @@ test('a click on the circle asks for the first waiting row only while one waits'
   await page.locator('#bubble').click()
   expect((await quiet).postDataJSON()).toEqual({ jump: false })
 })
+
+test('a path conflict counts both its rows on the circle, with a lock', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'mailbox-claim-conflict' } })
+  await page.goto('/')
+  await expect(page.locator('#badge.is-blocked')).toBeVisible()
+  await expect(page.locator('#badge .lock')).toBeVisible()
+  await expect(page.locator('#count')).toHaveText('2')
+
+  await page.request.post('/api/mailbox/conflict/dismiss', { data: { tool: 'claude', id: '84fc6d21-820c-4c88-9729-ff8ee40de1f3', worktree: '/Users/you/Code/agnostic-ai', path: 'internal/mailbox/handoff.go' } })
+  await page.goto('/')
+  await expect(page.locator('#badge .lock')).toBeHidden()
+})

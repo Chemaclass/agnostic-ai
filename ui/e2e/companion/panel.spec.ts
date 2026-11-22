@@ -1437,6 +1437,42 @@ test('a claim an agent made says so', async ({ page }) => {
   await expect(card.getByRole('article')).toContainText('companion/frontend/panel.js')
 })
 
+const conflictPath = 'internal/mailbox/handoff.go'
+const titled = (page: Page, title: string) => page.locator('#list .row').filter({ has: page.locator('.title').getByText(title, { exact: true }) })
+
+test('a path conflict shows on both rows, under Needs you, until the requester dismisses it', async ({ page }) => {
+  await openPanel(page, 'mailbox-claim-conflict')
+  const holder = titled(page, 'Draft the tests')
+  const requester = titled(page, 'Review the parser')
+  await expect(holder.getByRole('button', { name: `Review the parser wants ${conflictPath}, which this session claims` })).toBeVisible()
+  await expect(requester.getByRole('button', { name: `${conflictPath} is claimed by Draft the tests` })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Needs you/ })).toContainText('2')
+  await expect(claimsButton(page)).toHaveAccessibleName('File claims: 1 path, 1 conflict')
+  await expect(claimsButton(page)).toHaveClass(/is-warning/)
+
+  await requester.getByRole('button', { name: `${conflictPath} is claimed by Draft the tests` }).click()
+  const card = page.getByRole('region', { name: 'Files claimed by Review the parser' })
+  await expect(card).toContainText(conflictPath)
+  await card.getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await expect(page.locator('#toast')).toContainText('Conflict dismissed.')
+  await expect(holder.locator('.needs-reason.is-conflict')).toHaveCount(0)
+  await expect(requester.locator('.needs-reason.is-conflict')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Needs you/ })).toContainText('1')
+  await expect(claimsButton(page)).not.toHaveClass(/is-warning/)
+})
+
+test('the holder releasing the path clears the conflict on both rows', async ({ page }) => {
+  await openPanel(page, 'mailbox-claim-conflict')
+  const holder = titled(page, 'Draft the tests')
+  await holder.locator('.needs-reason.is-conflict').click()
+  const card = page.getByRole('region', { name: 'Files claimed by Draft the tests' })
+  await expect(card.getByRole('button', { name: 'Dismiss', exact: true })).toHaveCount(0)
+  await card.getByRole('button', { name: 'Release', exact: true }).click()
+  await expect(page.locator('.needs-reason.is-conflict')).toHaveCount(0)
+  await expect(claimsButton(page)).toBeHidden()
+  await expect(page.getByRole('button', { name: /^Working/ })).toContainText('1')
+})
+
 test('the handoff form explains file claims under its paths', async ({ page }) => {
   await openPanel(page, 'mailbox-handoff')
   await composeMailbox(page)

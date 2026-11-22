@@ -95,6 +95,27 @@ func (h *conversationsHandler) changeMailboxClaim(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func dismissMailboxConflict(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+	var req struct {
+		conversations.Ref
+		Worktree string `json:"worktree"`
+		Path     string `json:"path"`
+	}
+	if refusal := readMailboxFields(w, r, &req, "tool", "id", "worktree", "path"); refusal != nil {
+		writeMailboxError(w, refusal)
+		return
+	}
+	if refusal := mailbox.ValidateRef(req.Ref); refusal != nil {
+		writeMailboxError(w, refusal)
+		return
+	}
+	if req.Worktree == "" || req.Path == "" {
+		writeMailboxError(w, mailbox.NewRefusal("format"))
+		return
+	}
+	writeMailboxChange(w, store.DismissConflict(r.Context(), req.Ref, req.Worktree, req.Path))
+}
+
 func (h *conversationsHandler) answerMailboxHandoff(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
 	var req struct {
 		Thread string `json:"thread"`

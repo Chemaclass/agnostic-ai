@@ -22,6 +22,7 @@ const (
 	mailboxClaimsPath   = "/api/mailbox/claims"
 	mailboxClaimPath    = "/api/mailbox/claim"
 	mailboxReleasePath  = "/api/mailbox/release"
+	mailboxDismissPath  = "/api/mailbox/conflict/dismiss"
 	mailboxHandoffPath  = "/api/mailbox/handoff"
 	mailboxApprovePath  = "/api/mailbox/approve"
 	mailboxQueuePath    = "/api/mailbox/queue"
@@ -80,6 +81,8 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		h.readMailboxRefs(w, r)
 	case mailboxClaimPath, mailboxReleasePath:
 		h.changeMailboxClaim(w, r, store)
+	case mailboxDismissPath:
+		dismissMailboxConflict(w, r, store)
 	case mailboxHandoffPath:
 		h.answerMailboxHandoff(w, r, store)
 	case mailboxApprovePath:
@@ -344,6 +347,14 @@ func (h *conversationsHandler) addMailboxSummaries(ctx context.Context, store ma
 	}
 	conflicts := make(map[string][]conversations.MailboxConflict)
 	for _, conflict := range claims.Conflicts {
+		if at, visible := page[conflict.Requester]; visible {
+			view.Conversations[at].ClaimConflicts = append(view.Conversations[at].ClaimConflicts, conversations.MailboxConflict(conflict))
+		}
+		if conflict.Holder != nil && *conflict.Holder != conflict.Requester {
+			if at, visible := page[*conflict.Holder]; visible {
+				view.Conversations[at].ClaimConflicts = append(view.Conversations[at].ClaimConflicts, conversations.MailboxConflict(conflict))
+			}
+		}
 		if conflict.Thread != "" {
 			conflicts[conflict.Thread] = append(conflicts[conflict.Thread], conversations.MailboxConflict(conflict))
 		}

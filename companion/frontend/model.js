@@ -30,6 +30,11 @@ const IN_PLACE = {
 
 const NEEDS_PERSON = { blocked: true, unread: true }
 
+/** Whether a row sits under Needs you: it waits, it has an unread reply, or two sessions want one of its paths. */
+export function needsPersonOf(conversation) {
+  return Boolean(NEEDS_PERSON[conversation.state]) || conversation.claimConflicts?.length > 0
+}
+
 /**
  * The view narrowed to one place: its rows, how many of them need the
  * person and, in a search, how many match. `all` is the view as it came,
@@ -38,7 +43,7 @@ const NEEDS_PERSON = { blocked: true, unread: true }
 export function viewIn(view, place) {
   if (place === 'all') return view
   const conversations = view.conversations.filter(IN_PLACE[place])
-  const narrowed = { ...view, conversations, needsYou: conversations.filter((conversation) => NEEDS_PERSON[conversation.state]).length }
+  const narrowed = { ...view, conversations, needsYou: conversations.filter(needsPersonOf).length }
   if (view.matches !== undefined) narrowed.matches = conversations.length
   return narrowed
 }
@@ -181,7 +186,7 @@ export function sendingTitleOf(conversation) {
 /** The view pick mode shows: only the rows that can take the text, so no Archived, counted again for the foot. */
 export function pickViewOf(view) {
   const conversations = view.conversations.filter(takesText)
-  const offered = { ...view, conversations, needsYou: conversations.filter((conversation) => NEEDS_PERSON[conversation.state]).length }
+  const offered = { ...view, conversations, needsYou: conversations.filter(needsPersonOf).length }
   if (view.matches !== undefined) offered.matches = conversations.length
   return offered
 }
@@ -261,16 +266,16 @@ export function unsentNoticeOf(message) {
  */
 export function grouped(conversations) {
   return GROUPS.map((group) => {
-    const rows = conversations.filter((conversation) => GROUP_OF_STATE[conversation.state] === group.id)
+    const rows = conversations.filter((conversation) => (needsPersonOf(conversation) ? 'needs-you' : GROUP_OF_STATE[conversation.state]) === group.id)
     const drawn = nested(rows)
     return { ...group, ...(group.id === 'needs-you' ? mostUrgentFirst(drawn) : drawn) }
   }).filter((group) => group.rows.length > 0)
 }
 
-/** Under Needs you: a permission to give first, then another wait such as a question, then an unread reply. */
+/** Under Needs you: a permission to give first, then another wait such as a question or a path conflict, then an unread reply. */
 function urgencyOf(conversation) {
-  if (conversation.state !== 'blocked') return 2
-  return conversation.waiting?.for === 'permission' ? 0 : 1
+  if (conversation.state === 'blocked' && conversation.waiting?.for === 'permission') return 0
+  return conversation.state === 'blocked' || conversation.claimConflicts?.length > 0 ? 1 : 2
 }
 
 /** Each family, a row with the rows drawn under it, ranked by its most urgent row, in list order within a rank. */
@@ -291,9 +296,10 @@ function mostUrgentFirst({ rows, under }) {
  * unread replies, and the icon of the waits: a lock when one waits on a permission or a question, else a terminal.
  */
 export function waitingOf(view) {
-  const waits = view.conversations.filter((conversation) => conversation.state === 'blocked')
-  const unread = view.conversations.filter((conversation) => conversation.state === 'unread').length
-  const icon = waits.some((conversation) => conversation.waiting?.for !== 'shell') ? 'lock' : 'terminal'
+  const conflicted = (conversation) => conversation.claimConflicts?.length > 0
+  const waits = view.conversations.filter((conversation) => conversation.state === 'blocked' || conflicted(conversation))
+  const unread = view.conversations.filter((conversation) => conversation.state === 'unread' && !conflicted(conversation)).length
+  const icon = waits.some((conversation) => conflicted(conversation) || conversation.waiting?.for !== 'shell') ? 'lock' : 'terminal'
   return { blocked: waits.length, unread, icon }
 }
 
@@ -577,17 +583,20 @@ export function approvalsHeaderOf(view) {
 }
 
 /**
- * Why a row sits under Needs you, as `{ kind, text }`: a permission (the row draws its approval pill), shells still
- * running, a question, no activity, a wait of unknown kind, or a new reply. Undefined outside Needs you.
+ * Why a row sits under Needs you, as `{ kind, text }`: a permission (the row draws its approval pill), a path conflict,
+ * shells still running, a question, no activity, a wait of unknown kind, or a new reply. Undefined outside Needs you.
+ * `nameOf` names the other session of a conflict.
  */
-export function needsReasonOf(conversation, now) {
-  if (!NEEDS_PERSON[conversation.state]) return undefined
+export function needsReasonOf(conversation, now, nameOf) {
+  if (!needsPersonOf(conversation)) return undefined
+  const permission = conversation.state === 'blocked' && approvalOf(conversation)
+  if (permission) return { kind: 'permission', text: permission.text }
+  const conflict = claimConflictOf(conversation, nameOf)
+  if (conflict) return { kind: 'conflict', text: conflict }
   if (conversation.state === 'unread') {
     const hidden = conversation.withheld?.includes('reply')
     return { kind: 'reply', text: hidden ? 'New reply, hidden because it may hold a password or key' : 'New reply' }
   }
-  const approval = approvalOf(conversation)
-  if (approval) return { kind: 'permission', text: approval.text }
   const waitingFor = conversation.waiting?.for
   if (waitingFor === 'shell') {
     const count = stuckShellsOf(conversation).length
@@ -816,6 +825,25 @@ export function claimsButtonOf(view) {
   return { shown: true, text: String(paths), label: `File claims: ${parts.join(', ')}`, warns }
 }
 
+const sessionNameOf = (ref) => `${TOOL_LABELS[ref.tool] ?? ref.tool} session ${ref.id.slice(0, 8)}`
+
+/**
+ * A conflict row's reason: for the holder, who wants which of its paths; for the requester, who holds the path it wants.
+ * Undefined without a conflict. `nameOf(ref)` names a session, or gives undefined for one the list does not hold.
+ */
+export function claimConflictOf(conversation, nameOf = () => undefined) {
+  const conflicts = conversation.claimConflicts ?? []
+  if (conflicts.length === 0) return undefined
+  const [first] = conflicts
+  const name = (ref) => nameOf(ref) || sessionNameOf(ref)
+  const holds = first.holder && keyOf(first.holder) === keyOf(conversation)
+  let text
+  if (holds) text = `${name(first.requester)} wants ${first.path}, which this session claims`
+  else if (first.holder) text = `${first.path} is claimed by ${name(first.holder)}`
+  else text = `No session holds ${first.path} any more`
+  return conflicts.length > 1 ? `${text}, and ${plural(conflicts.length - 1, 'more conflict', 'more conflicts')}` : text
+}
+
 /** Who made a claim and when: "Claimed by you, 14:02", with the day when it is not today. */
 export function claimMetaOf(claim, now = Date.now()) {
   const who = claim.by === 'agent' ? 'the agent' : 'you'
@@ -999,7 +1027,7 @@ export function stopShellWarningOf(conversation) {
 
 /** The icon in a waiting row's state mark: a terminal for a shell wait, so it reads apart from a permission wait without color. */
 export function stateIconOf(conversation) {
-  if (conversation.state !== 'blocked') return undefined
+  if (conversation.state !== 'blocked') return conversation.claimConflicts?.length > 0 ? 'lock' : undefined
   return conversation.waiting?.for === 'shell' ? 'terminal' : 'lock'
 }
 

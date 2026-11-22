@@ -55,7 +55,7 @@ function blockOf(thread, message) {
 }
 
 export function mailboxRows(state, conversations) {
-  if (!state.mailbox.length && !state.claims.length) return conversations
+  if (!state.mailbox.length && !state.claims.length && !state.claimConflicts.length) return conversations
   return conversations.map((row) => {
     const threads = state.mailbox.filter((thread) => thread.between.some((member) => same(row, member))).map((thread) => {
       const other = thread.between.find((member) => !same(row, member))
@@ -69,7 +69,9 @@ export function mailboxRows(state, conversations) {
     const owned = state.claims.filter((claim) => same(claim.owner, row))
     const claimCount = owned.length
     const claimedPaths = owned.reduce((sum, claim) => sum + claim.paths.length, 0)
-    return threads.length || claimCount ? { ...row, threads, claimCount, claimedPaths } : row
+    const claimConflicts = state.claimConflicts.filter(({ requester, holder }) => same(requester, row) || same(holder, row))
+    if (!threads.length && !claimCount && !claimConflicts.length) return row
+    return { ...row, threads, claimCount, claimedPaths, ...(claimConflicts.length ? { claimConflicts } : {}) }
   })
 }
 
@@ -242,6 +244,14 @@ export function mailboxRelease(state, ask, now) {
   const ownsReleased = (conflict) => same(conflict.holder, ask) && conflict.worktree === ask.worktree &&
     ask.paths.some((path) => overlap(path, conflict.path))
   state.claimConflicts = state.claimConflicts.filter((conflict) => !ownsReleased(conflict))
+  return changed({})
+}
+
+/** Like the server: the requester drops its conflict with no thread; anything else changes nothing. */
+export function mailboxDismiss(state, ask, now) {
+  if (!ask?.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
+  state.claimConflicts = state.claimConflicts.filter((conflict) =>
+    conflict.thread || !same(conflict.requester, ask) || conflict.worktree !== ask.worktree || conflict.path !== ask.path)
   return changed({})
 }
 

@@ -262,6 +262,9 @@ type Conversation struct {
 	ClaimCount int             `json:"claimCount,omitempty"`
 	// ClaimedPaths counts the paths across the session's file claims.
 	ClaimedPaths int `json:"claimedPaths,omitempty"`
+	// ClaimConflicts are the active conflicts this session holds or
+	// requests, with or without a thread.
+	ClaimConflicts []MailboxConflict `json:"claimConflicts,omitempty"`
 
 	// process is the live process that holds it, for a focus route.
 	process *liveProcess

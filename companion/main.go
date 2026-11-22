@@ -715,6 +715,7 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("GET "+serverMailboxClaimsPath, in.readMailbox(serverMailboxClaimsPath))
 	mux.HandleFunc("POST "+serverMailboxClaimPath, in.pass(serverMailboxClaimPath))
 	mux.HandleFunc("POST "+serverMailboxReleasePath, in.pass(serverMailboxReleasePath))
+	mux.HandleFunc("POST "+serverMailboxDismissPath, in.pass(serverMailboxDismissPath))
 	mux.HandleFunc("POST "+serverMailboxHandoffPath, in.pass(serverMailboxHandoffPath))
 	mux.HandleFunc("POST "+serverMailboxApprovePath, in.pass(serverMailboxApprovePath))
 	mux.HandleFunc("POST "+serverMailboxQueuePath, in.pass(serverMailboxQueuePath))

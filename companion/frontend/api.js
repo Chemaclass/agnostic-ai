@@ -157,6 +157,7 @@ export function readClaims(owner, signal) {
 }
 export const claimPaths = (claim) => change('/api/mailbox/claim', claim)
 export const releasePaths = (claim) => change('/api/mailbox/release', claim)
+export const dismissConflict = (conflict) => change('/api/mailbox/conflict/dismiss', conflict)
 export const answerHandoff = (thread, n, action) => change('/api/mailbox/handoff', { thread, n, action })
 /** action is `approve` or `reject`. */
 export const approveMessage = (thread, n, action) => change('/api/mailbox/approve', { thread, n, action })

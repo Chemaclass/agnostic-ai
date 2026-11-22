@@ -276,6 +276,35 @@ func (s Store) activeConflict(claims []Claim, c ClaimConflict) (ClaimConflict, b
 	return c, true
 }
 
+// DismissConflict removes the requester's conflict with no thread on a
+// path of worktree; a conflict with a thread clears with its thread.
+func (s Store) DismissConflict(ctx context.Context, requester conversations.Ref, worktree, path string) error {
+	if refused := ValidateRef(requester); refused != nil {
+		return refused
+	}
+	release, err := s.lock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	state, err := s.readClaims()
+	if err != nil {
+		return err
+	}
+	kept := slices.DeleteFunc(slices.Clone(state.Conflicts), func(c ClaimConflict) bool {
+		if c.Thread != "" || c.Requester != requester || c.Worktree != worktree {
+			return false
+		}
+		current, _ := s.activeConflict(state.Claims, c)
+		return c.Path == path || current.Path == path
+	})
+	if len(kept) == len(state.Conflicts) {
+		return nil
+	}
+	state.Conflicts = kept
+	return s.writeClaims(state)
+}
+
 func (s Store) recordClaimConflict(state claimsFile, c ClaimConflict) error {
 	state.Conflicts = slices.DeleteFunc(state.Conflicts, func(record ClaimConflict) bool {
 		if c.Thread != "" {

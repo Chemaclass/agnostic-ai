@@ -1,4 +1,4 @@
-import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
+import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
 import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
@@ -621,7 +621,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     }
     for (const claim of card.active) claimsList.append(claimEntry(claim, release, current.owner))
     for (const conflict of conflicts ?? []) {
-      claimsList.append(element('p', 'mailbox-refusal', conflictText(conflict)))
+      const line = element('p', 'mailbox-refusal', conflictText(conflict))
+      // Only the requester of a conflict with no thread can drop it; a thread's conflict clears with the thread.
+      if (current.owner && !conflict.thread && keyOf(conflict.requester) === keyOf(current.owner)) {
+        claimsList.append(line, button('Dismiss', 'dismiss-conflict', () => mutateClaim(current, () => dismissConflict({
+          ...current.owner, worktree: conflict.worktree, path: conflict.path,
+        }), 'Conflict dismissed.')))
+      } else {
+        claimsList.append(line)
+      }
     }
     if (current.pending) for (const control of claimsList.querySelectorAll('button')) control.disabled = true
   }
