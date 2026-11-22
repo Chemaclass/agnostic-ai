@@ -21,7 +21,7 @@ curl -s -X POST http://127.0.0.1:4310/api/conversations/mark \
   -H 'Content-Type: application/json' -d '{"tool":"claude","id":"<id>","as":"seen"}'
 ```
 
-The first call lists chats and their `state`. The second reopens one. The third marks one read. POST routes must come from the server's own origin. See [Shell API](@/docs/cli-reference/conversations-shell-api.md) to stop a forgotten shell.
+The first call lists chats and their `state`. The second brings a live one to the front; resuming an ended one [needs proof](#post-api-conversations-open). The third marks one read. POST routes must come from the server's own origin. See [Shell API](@/docs/cli-reference/conversations-shell-api.md) to stop a forgotten shell.
 
 ## `GET /api/views/conversations`
 
@@ -162,7 +162,7 @@ Cloud sessions and refresh:
 Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from the server's own origin.
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?, helper?, reached?}`.
-- Running a command in a terminal, such as resuming an ended terminal session or attaching to a `claude --bg` session no terminal shows, needs the companion's secret or the key of a tab `view` opened. Without one no command runs, and `command` holds it to run by hand. Bringing a live terminal tab to the front needs no proof, nor does opening a chat in the Claude app, an editor or a browser.
+- Running a command in a terminal, such as resuming an ended terminal session or attaching to a `claude --bg` session no terminal shows, needs the companion's secret or the key of a tab `view` opened. Without one no command runs, and `command` holds it to run by hand. A server with neither, such as a project server or one on Windows, never runs one. Bringing a live terminal tab to the front needs no proof, nor does opening a chat in the Claude app, an editor or a browser.
 - `helper` names a subagent or teammate the conversation lists in `helpers`. See [open a helper](@/docs/cli-reference/conversations-helpers-api.md#open-a-helper) for what comes to the front, the note in `message`, and `reached`.
 
 {% <details summary="Open details, results and status codes"> %}

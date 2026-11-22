@@ -303,3 +303,25 @@ func TestReopen_WaitsForTheRunningScanBeforeItFollowsTheLinkOfARunningDesktopSes
 }
 
 func (countingLauncher) ShowTmuxPane(context.Context, int, string) (int, error) { return 0, nil }
+
+func TestReopen_AnOpenThatMayNotRunNeverJoinsOneThatMay(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	scanner.Scan(context.Background(), ScanOptions{})
+	launcher := newHeldLauncher()
+
+	proven := reopenIn(scanner, id, launcher)
+	<-launcher.started
+	refused := answerOf(t, reopenIn(scanner, id, NoRun(launcher, "Needs proof.")))
+	if refused.reply.Opened || !strings.HasPrefix(refused.reply.Message, "Needs proof.") || refused.reply.Command == "" {
+		t.Errorf("the open that may not run answered %+v; want its own refusal while the other runs", refused)
+	}
+	close(launcher.release)
+	if one := answerOf(t, proven); !one.reply.Opened {
+		t.Errorf("the open that may run answered %+v; want it resumed", one)
+	}
+	if got := launcher.launched(); len(got) != 1 {
+		t.Errorf("started %d terminals: %q", len(got), got)
+	}
+}
