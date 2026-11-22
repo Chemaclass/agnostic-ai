@@ -59,3 +59,41 @@ func TestImport_NativeEditLandsInSingleFileSkill(t *testing.T) {
 		})
 	}
 }
+
+func TestImportCursor_ScopedLinkToASingleFileSkillImports(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [cursor]\n")
+	writeFile(t, ".agnostic-ai/skills/platforma.md", "---\nname: platforma\ndescription: Triage.\n---\n\nTriage it.\n")
+	if out, err := runAbsoluteImportCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	link := filepath.Join("apps", "platforma", ".cursor", "skills", "platforma")
+	if err := os.MkdirAll(filepath.Dir(link), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join("..", "..", "..", "..", ".cursor", "skills", "platforma"), link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if out, err := runAbsoluteImportCLI(t, "import", "cursor"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(".agnostic-ai", "skills", "platforma")); !os.IsNotExist(err) {
+		t.Errorf("import added a skill folder beside the single-file spec, stat err = %v", err)
+	}
+}
+
+func TestImportClaude_IgnoresFinderMetadataBesideASingleFileSkill(t *testing.T) {
+	testutil.Chdir(t, t.TempDir())
+	writeFile(t, "agnostic-ai.yaml", "version: 1\ntargets: [claude]\n")
+	writeFile(t, ".agnostic-ai/skills/yaml-check.md", "---\nname: yaml-check\ndescription: Validates YAML files.\n---\n\nCheck it.\n")
+	if out, err := runAbsoluteImportCLI(t, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	writeFile(t, ".claude/skills/yaml-check/.DS_Store", "finder")
+	if out, err := runAbsoluteImportCLI(t, "import", "claude"); err != nil {
+		t.Fatalf("import: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(".agnostic-ai", "skills", "yaml-check")); !os.IsNotExist(err) {
+		t.Errorf("import added a skill folder beside the single-file spec, stat err = %v", err)
+	}
+}
