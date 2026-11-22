@@ -22,6 +22,9 @@ describe('user settings', () => {
     expect(loosens('approvals.companion', false)).toBe(false)
     expect(loosens('mailbox.approveAgentSends', false)).toBe(true)
     expect(loosens('mailbox.approveAgentSends', true)).toBe(false)
+    expect(loosens('companion.smallCompanion', false)).toBe(false)
+    expect(loosens('companion.checkForUpdates', false)).toBe(true)
+    expect(loosens('companion.checkForUpdates', true)).toBe(false)
   })
 
   it('locks only the loosening changes on a tab without the key', () => {

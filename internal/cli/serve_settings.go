@@ -55,6 +55,9 @@ type settingsView struct {
 	Approvals     settingsApprovals `json:"approvals"`
 	Mailbox       *settingsMailbox  `json:"mailbox,omitempty"`
 	Sync          settingsSync      `json:"sync"`
+	// CompanionApp is the companion app's own settings; nil when the
+	// configuration folder cannot be found.
+	CompanionApp *settingsCompanionApp `json:"companionApp,omitempty"`
 	// CanLoosen says whether this request carried proof that the person
 	// asked, so the page can lock the controls that loosen.
 	CanLoosen bool `json:"canLoosen"`
@@ -128,10 +131,12 @@ type settingsHandler struct {
 	// syncReplyWait is how long a sync may take to answer.
 	syncReplyWait time.Duration
 	now           func() time.Time
+	// companionDir holds the companion's settings and state; tests replace it.
+	companionDir func() (string, error)
 }
 
 func newSettingsHandler(userLevel bool, reader *approvalsReader, marks func() string, secret companionSecret, version string) *settingsHandler {
-	h := &settingsHandler{userLevel: userLevel, reader: reader, marks: marks, secret: secret, version: version, syncReplyWait: settingsSyncReplyTimeout, now: time.Now}
+	h := &settingsHandler{userLevel: userLevel, reader: reader, marks: marks, secret: secret, version: version, syncReplyWait: settingsSyncReplyTimeout, now: time.Now, companionDir: companionDir}
 	h.runSync = h.runInProcess
 	return h
 }
@@ -217,6 +222,9 @@ func (h *settingsHandler) document(r *http.Request) settingsView {
 	}
 	if store, ok := h.mailbox(); ok {
 		doc.Mailbox = &settingsMailbox{ApproveAgentSends: store.Settings().ApproveAgentSends}
+	}
+	if dir, err := h.companionDir(); err == nil {
+		doc.CompanionApp = companionApp(dir)
 	}
 	source, err := h.reader.source()
 	if err != nil {
@@ -544,13 +552,26 @@ func decodeSettingValue(key string, raw json.RawMessage) (settingValue, error) {
 		}
 		return settingValue{value: mode, loosens: mode != config.ApprovalsAsk}, nil
 	case settingApprovalsCompanion, settingMailboxApprove:
-		var on bool
-		if err := json.Unmarshal(raw, &on); err != nil {
-			return settingValue{}, fmt.Errorf("%s takes true or false", key)
-		}
-		return settingValue{value: on, loosens: on == (key == settingApprovalsCompanion)}, nil
+		on, err := decodeSwitch(key, raw)
+		return settingValue{value: on, loosens: on == (key == settingApprovalsCompanion)}, err
+	case settingCompanionAnimate, settingCompanionDimWhenIdle, settingCompanionSmall:
+		on, err := decodeSwitch(key, raw)
+		return settingValue{value: on}, err
+	case settingCompanionCheckForUpdates:
+		// Off leaves a known fix uninstalled, so it needs proof like a loosening write.
+		on, err := decodeSwitch(key, raw)
+		return settingValue{value: on, loosens: !on}, err
 	}
-	return settingValue{}, fmt.Errorf("key must be %s, %s or %s", settingApprovalsMode, settingApprovalsCompanion, settingMailboxApprove)
+	return settingValue{}, fmt.Errorf("key must be %s, %s, %s or a companion.* switch", settingApprovalsMode, settingApprovalsCompanion, settingMailboxApprove)
+}
+
+// decodeSwitch reads true or false; null, which decodes as false, is refused.
+func decodeSwitch(key string, raw json.RawMessage) (bool, error) {
+	var on *bool
+	if err := json.Unmarshal(raw, &on); err != nil || on == nil {
+		return false, fmt.Errorf("%s takes true or false", key)
+	}
+	return *on, nil
 }
 
 // currentSetting is key's value in doc, as the page shows it.
@@ -565,6 +586,11 @@ func currentSetting(doc settingsView, key string) (any, bool) {
 			return nil, false
 		}
 		return doc.Mailbox.ApproveAgentSends, true
+	case settingCompanionAnimate, settingCompanionDimWhenIdle, settingCompanionSmall, settingCompanionCheckForUpdates:
+		if doc.CompanionApp == nil {
+			return nil, false
+		}
+		return *doc.CompanionApp.switchFor(key), true
 	}
 	return nil, false
 }
@@ -586,7 +612,11 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if value.loosens && !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "This change makes approvals less strict. To change this here, run agnostic-ai view --scope user again, or use the companion. You can also edit the home config."})
+		message := "This change makes approvals less strict. To change this here, run agnostic-ai view --scope user again, or use the companion. You can also edit the home config."
+		if change.Key == settingCompanionCheckForUpdates {
+			message = "Turning off update checks needs a page opened with agnostic-ai view --scope user, or the companion's menu."
+		}
+		writeEditJSON(w, http.StatusForbidden, editError{Error: message})
 		return
 	}
 	if strings.HasPrefix(change.Key, "approvals.") {
@@ -603,10 +633,23 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		}
 		defer release()
 	}
+	if _, ok := companionSwitchFields[change.Key]; ok {
+		dir, err := h.companionDir()
+		if err != nil {
+			writeEditJSON(w, http.StatusNotFound, editError{Error: err.Error()})
+			return
+		}
+		release, err := lockCompanionSettings(filepath.Join(dir, companionSettingsFile))
+		if err != nil {
+			writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: err.Error(), Settings: new(h.document(r))})
+			return
+		}
+		defer release()
+	}
 	doc := h.document(r)
 	current, ok := currentSetting(doc, change.Key)
 	if !ok {
-		writeEditJSON(w, http.StatusNotFound, editError{Error: "The mailbox is not available on this server."})
+		writeEditJSON(w, http.StatusNotFound, editError{Error: "This setting is not available on this server."})
 		return
 	}
 	if len(change.Expected) > 0 && !sameJSONValue(change.Expected, current) {
@@ -649,6 +692,14 @@ func (h *settingsHandler) apply(ctx context.Context, key string, value any, prov
 	if key == settingMailboxApprove {
 		store, _ := h.mailbox()
 		return []string{store.SettingsPath()}, store.SaveSettings(ctx, mailbox.Settings{ApproveAgentSends: value == true})
+	}
+	if _, ok := companionSwitchFields[key]; ok {
+		dir, err := h.companionDir()
+		if err != nil {
+			return nil, err
+		}
+		path := filepath.Join(dir, companionSettingsFile)
+		return []string{path}, writeCompanionSwitch(path, key, value == true)
 	}
 	source, err := h.reader.source()
 	if err != nil {

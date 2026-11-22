@@ -10,6 +10,7 @@ interface Doc {
   approvals: { mode: string; modeFile: string; companion: boolean; overrides: { tools: number; projects: number; alwaysAsk: number }; shadowed: string[]; tools: { tool: string; mode: string; effective: string; from: string; yolo: string; review: string; reason?: string }[] }
   mailbox: { approveAgentSends: boolean }
   sync: { needed: boolean; reasons: string[] }
+  companionApp: { file: string; animate: boolean; dimWhenIdle: boolean; smallCompanion: boolean; checkForUpdates: boolean; running: boolean; live?: { shortcut: string; sendShortcut: string; startAtLogin: boolean } }
   canLoosen: boolean
 }
 
@@ -24,6 +25,7 @@ async function serve(page: Page) {
       approvals: { mode: 'ask', modeFile: '', companion: false, overrides: { tools: 0, projects: 0, alwaysAsk: 0 }, shadowed: [], tools: [{ tool: 'claude', mode: 'ask', effective: 'ask', from: 'default', yolo: 'hook', review: 'reviewer' }] },
       mailbox: { approveAgentSends: true },
       sync: { needed: false, reasons: [] },
+      companionApp: { file: '/Users/you/Library/Application Support/agnostic-ai/companion.json', animate: true, dimWhenIdle: false, smallCompanion: false, checkForUpdates: true, running: false },
       canLoosen: false,
     } as Doc,
     version: 1,
@@ -47,13 +49,14 @@ async function serve(page: Page) {
     const request = route.request()
     const body = request.postDataJSON() as { key: string; value: string | boolean; expected?: string | boolean }
     state.writes.push({ body, key: request.headers()['x-agnostic-ai-session'] })
-    const loosens = body.key === 'approvals.mode' ? body.value !== 'ask' : body.key === 'approvals.companion' ? body.value === true : body.value === false
+    const loosens = body.key === 'companion.checkForUpdates' ? body.value === false : body.key.startsWith('companion.') ? false : body.key === 'approvals.mode' ? body.value !== 'ask' : body.key === 'approvals.companion' ? body.value === true : body.value === false
     if (loosens && !withKey(request)) return route.fulfill({ status: 403, json: { error: 'This change makes approvals less strict.' } })
     if (body.key === 'approvals.mode') {
       state.doc.approvals.mode = String(body.value)
       state.doc.approvals.tools[0].mode = String(body.value)
       state.doc.sync = body.value === 'ask' ? { needed: false, reasons: [] } : { needed: true, reasons: [`claude: ${REASON}`] }
     } else if (body.key === 'approvals.companion') state.doc.approvals.companion = Boolean(body.value)
+    else if (body.key.startsWith('companion.')) (state.doc.companionApp as unknown as Record<string, boolean>)[body.key.slice('companion.'.length)] = Boolean(body.value)
     else state.doc.mailbox.approveAgentSends = Boolean(body.value)
     state.version += 1
     return route.fulfill({ json: { settings: view(request), changed: ['local/agnostic-ai.yaml'] } })
@@ -132,6 +135,23 @@ test.describe('user settings', () => {
     state.doc.mailbox.approveAgentSends = false
     state.version += 1
     await expect(mailbox).toHaveAttribute('aria-checked', 'false', { timeout: 4_000 })
+  })
+
+  test('a locked tab turns on Small companion and shows the shortcuts only while the companion runs', async ({ page }) => {
+    const state = await serve(page)
+    await page.goto(tab)
+    await expect(page.getByText('The shortcuts and start at login show here while the companion runs.')).toBeVisible()
+    const small = page.getByRole('switch', { name: 'Small companion' })
+    await small.click()
+    await expect(small).toHaveAttribute('aria-checked', 'true')
+    expect(state.writes.at(-1)).toEqual({ body: { key: 'companion.smallCompanion', value: true, expected: false }, key: undefined })
+    await expect(page.getByRole('switch', { name: 'Check for updates' })).toBeDisabled()
+
+    state.doc.companionApp.running = true
+    state.doc.companionApp.live = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
+    state.version += 1
+    await expect(page.getByText('Ctrl+Alt+Space')).toBeVisible({ timeout: 4_000 })
+    await expect(page.getByText('The shortcuts and start at login show here while the companion runs.')).toBeHidden()
   })
 
   test('a project view points to the user-level view', async ({ page }) => {

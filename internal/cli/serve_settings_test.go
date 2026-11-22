@@ -25,7 +25,10 @@ func settingsFixture(t *testing.T, shared string) (*settingsHandler, string) {
 		writeFile(t, filepath.Join(source, config.ConfigFileName), shared)
 	}
 	marks := filepath.Join(home, ".config", "agnostic-ai", "conversation-marks.json")
-	return newSettingsHandler(true, newApprovalsReader(), func() string { return marks }, settingsTestSecret, "test"), source
+	h := newSettingsHandler(true, newApprovalsReader(), func() string { return marks }, settingsTestSecret, "test")
+	companion := filepath.Dir(marks)
+	h.companionDir = func() (string, error) { return companion, nil }
+	return h, source
 }
 
 func withSecret(secret companionSecret) func(*http.Request) {

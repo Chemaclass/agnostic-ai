@@ -294,6 +294,7 @@ Takes no input. A user-level server only; a project server answers 404. Returns 
 - `approvals.overrides` counts the per-tool modes, per-folder modes and extra always-ask patterns. `approvals.shadowed` names the keys of the shared file that a block in `local/agnostic-ai.yaml` hides.
 - `approvals.tools` uses the same fields as [`GET /api/views/approvals`](#get-api-views-approvals).
 - `mailbox.approveAgentSends` is the mailbox switch.
+- `companionApp` holds the companion's switches from its `companion.json` (`animate`, `dimWhenIdle`, `smallCompanion`, `checkForUpdates`) and that file's path. `running` is `true` while a companion runs; `live` then holds its shortcuts, start at login, and why a shortcut is not active. A companion writes them to `companion-state.json` beside its settings, touches it every 5 seconds, and removes it as it quits. A file whose process is gone, or untouched for 30 seconds, does not count. `problem` says why `companion.json` does not load.
 - `sync.needed` is `true` when `sync --scope user` would put the asked mode, or the companion buttons, in effect: the hook is not installed, `approvals` is missing from `builtins`, or a native reviewer key is missing or left over. `sync.reasons` says which.
 - `canLoosen` says whether this request carried the companion's secret or the [session key](#post-api-session-unlock).
 - The answer has an `ETag`. A request with `If-None-Match` set to it answers 304 while nothing changed.
@@ -314,8 +315,9 @@ Body: `{"key", "value", "expected"}` with `Content-Type: application/json`. A us
 | `approvals.mode` | `ask`, `review` or `yolo` | `ask` writes what [`POST /api/approvals/ask`](#post-api-approvals-ask) writes. Another mode goes to the home file whose `approvals` block is in effect, so per-tool and per-folder modes beside it stay; with no block, to `local/agnostic-ai.yaml`. |
 | `approvals.companion` | `true` or `false` | The same file as a mode other than `ask`. |
 | `mailbox.approveAgentSends` | `true` or `false` | The mailbox `settings.json`. |
+| `companion.animate`, `companion.dimWhenIdle`, `companion.smallCompanion`, `companion.checkForUpdates` | `true` or `false` | The companion's `companion.json`. Other fields in it stay. A running companion applies the change within 5 seconds. A file that is not JSON answers 409 and stays as it is. |
 
-- A change that makes the machine less safe needs the companion's secret or the session key in `X-Agnostic-Ai-Session`: `review`, `yolo`, `approvals.companion: true` and `approveAgentSends: false`. Without it the answer is 403 and no file changes. `ask`, `approvals.companion: false` and `approveAgentSends: true` need only a request from the server's own origin.
+- A change that makes the machine less safe needs the companion's secret or the session key in `X-Agnostic-Ai-Session`: `review`, `yolo`, `approvals.companion: true` and `approveAgentSends: false`. Without it the answer is 403 and no file changes. `ask`, `approvals.companion: false`, `approveAgentSends: true` and the companion switches need only a request from the server's own origin. Turning off `companion.checkForUpdates` needs the proof too. A value of `null` is a 400 for every switch.
 - `review`, `yolo` and `approvals.companion: true` need the approvals hook. When `approvals` is not in the home `builtins`, the same request adds it to `local/agnostic-ai.yaml`.
 - Replies `{"settings": <the new document>, "changed": [<each file it wrote>]}`. The hook reads the new mode on its next request; installing the hook still needs [a sync](#post-api-settings-sync).
 - An `expected` that no longer matches answers 409 with `{"error", "settings"}` and changes nothing. So does a file it cannot edit safely, such as one with two YAML documents or a merge key.
