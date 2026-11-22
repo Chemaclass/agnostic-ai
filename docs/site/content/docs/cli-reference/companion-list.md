@@ -38,7 +38,7 @@ Click a row to reach its chat.
 
 | Chat | What a click does |
 |------|-------------------|
-| Running in Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole | Selects its tab. |
+| Running in Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole | Selects its tab. kitty needs [remote control](@/docs/cli-reference/conversations.md#kitty-remote-control). |
 | Running in tmux | Selects its pane, then the tab that shows its tmux session. |
 | Ended terminal chat | Resumes it in a new tab. |
 | Claude Code `--bg` session | Selects the tab that runs `claude attach`, or opens one. |
@@ -50,8 +50,8 @@ If a chat does not open, the reason stays above the list.
 - The first time, macOS asks to let the companion control each terminal app.
 - The reason a chat did not open stays above the list until you dismiss it or open another chat.
 - An ended terminal chat resumes in a new tab of the app it last ran in.
-- On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window, the terminal Debian and Ubuntu let you choose. It runs in your shell, so its startup files set `PATH`. Without that command, or with no display, the list offers **Copy resume command**. A chat that last ran in WezTerm, kitty or Konsole resumes in a new tab there instead.
-- On Linux a running chat in WezTerm, kitty, Konsole, or `tmux` shown in one of them gets its tab selected. agnostic-ai does not bring the window forward on Linux, since Wayland lets no program do that, so the list says "Selected the kitty tab that runs it" and that its window may be behind. In GNOME Terminal, Ptyxis, Alacritty, foot, xterm, Tilix or Xfce Terminal the list names the terminal and its device, such as "It runs in GNOME Terminal on pts/3".
+- On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window. It runs in your shell, so its startup files set `PATH`. Without that command, or with no display, the list offers **Copy resume command**. A chat that last ran in WezTerm, kitty or Konsole resumes in a new tab there instead.
+- On Linux a running chat in WezTerm, kitty, Konsole, or `tmux` shown in one of them gets its tab selected. agnostic-ai does not bring the window forward on Linux, since Wayland lets no program do that, so the list says "Selected the kitty tab that runs it" and that its window may be behind. In other terminals the list names the terminal and its device, such as "It runs in GNOME Terminal on pts/3".
 - When only the app can come forward, the list stays open and says where the chat runs.
 - `claude --bg` runs in Claude's own background service, not in a terminal app.
 - The tab is found by its short id, such as `e3469759`, or its exact full name. A tab attached with the start of an id or part of a name is not recognized, since it may be another session.
@@ -80,7 +80,7 @@ Send text you copied to any chat without switching apps.
 
 | Chat | What happens |
 |------|--------------|
-| Live Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab | It comes forward with the text in its input. Press Enter. |
+| Live Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab | It comes forward with the text in its input. Press Enter. Konsole needs [one setting](@/docs/cli-reference/conversations.md#konsole-on-linux). |
 | Any other chat | It comes forward. Paste with Cmd+V. |
 
 Only one chat can take text? It goes straight there. Change the shortcut under **Send copied text** in the list's ⋯ menu or the circle's right-click menu.
@@ -271,7 +271,7 @@ On macOS the notice shows at once: the list comes up beside the circle without t
 
 ## Stop a forgotten shell {#stop-a-forgotten-shell}
 
-On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
+On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. A password passed in a [known way](@/docs/cli-reference/conversations-shell-api.md) shows as `<redacted>`. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
 
 Each warning line has two buttons, for Claude Code on macOS and Linux:
 
