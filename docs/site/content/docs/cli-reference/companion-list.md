@@ -110,7 +110,7 @@ Right-click a local Claude Code or Codex chat and choose **Message another sessi
 
 Give a chat your own name. The web interface shows the same name.
 
-1. Right-click a row and choose **Rename…** (or press F2, or use the pencil).
+1. Click the chat's name (or right-click the row and choose **Rename…**, or press F2).
 2. Type the name. Enter saves, Escape keeps the old name.
 
 The chat's own tool takes the name first. Only then is it saved, so every `serve` on the machine shows it and finds it in a search. If the tool refuses, the field stays open with the reason, such as "Codex is not installed". Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
@@ -129,7 +129,7 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 - Marks file: the name is saved in `conversation-marks.json`, only once the tool has it.
 - A new message keeps the name.
 - Right-clicking does not open the chat or mark it as read.
-- A click on the name still opens the chat.
+- A click elsewhere on the row opens the chat.
 - A running chat's Terminal, Ghostty, WezTerm, kitty or Konsole tab takes the name as its title, and keeps it after the session ends. In iTerm the name goes on the chat's pane.
 - Claude Code: a session that is still running may write its old name back.
 - Cursor editor chat: the name changes in the chat list and in the chat's own data, and nowhere else. Cursor may write the old name back if it has the chat loaded.

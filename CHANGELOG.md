@@ -18,10 +18,11 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Breaking:** layer names changed: `project-user` is `local`, `global` is `user`, `global-local` is `user-local`. Update scripts that match them (#3856).
 - **Deprecated:** `--global` is now `--scope user`, `new rule --scope <dir>` is `--dir`, and `doctor --scope` is `--checks`. The old spellings warn (#3856).
-- The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you (#3832-#3837, #3872, #3891, #3898).
+- The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you. Only the companion can approve them or act as you (#3832-#3837, #3872, #3891, #3898, #3915).
 - Companion updates check the signer, show each step, keep the earlier app until the new one starts, and keep Accessibility access (#3601, #3850, #3874, #3888). On macOS, grant Accessibility once more after this first update.
 - The companion opens chats on Windows and Linux and switches to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
 - Each companion row under Needs you says why, stuck shells read apart with passwords masked, and the approvals mode is a small chip (#3912, #3917, #3921).
+- Click a chat's name in the companion to rename it. The Rename button is gone, so row text uses the full width, and the other buttons show over the title only on hover (#3924).
 - The companion's ⋯ menu and a new **Settings > Approvals and companion** tab in `view --scope user` set the approvals mode and the Approve button. **Apply to my tools** lists the files and every hook or MCP command before it syncs. Only the companion or a tab `view` opened can loosen approvals (#3913, #3916, #3922).
 - File claims show only while one exists, as a chip on the chat that holds them, with a "?" to the docs. Gone sessions' claims release in one step, and a path two sessions want puts both under Needs you until it is released or dismissed (#3914, #3919, #3920).
 

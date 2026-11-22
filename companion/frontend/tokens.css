@@ -7,6 +7,8 @@
   --paper-dim: rgba(242, 237, 229, 0.62);
   --paper-faint: rgba(242, 237, 229, 0.38);
   --hairline: rgba(242, 237, 229, 0.1);
+  /* A hovered or selected row's color on the card, opaque, so the row's buttons hide the text they cover. */
+  --row-lit: color-mix(in srgb, var(--paper) 7%, var(--ink));
   --hairline-strong: rgba(242, 237, 229, 0.18);
   --rust: #f0a35e;
   --rust-soft: rgba(240, 163, 94, 0.16);
