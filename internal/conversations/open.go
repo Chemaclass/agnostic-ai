@@ -550,10 +550,18 @@ func checkedLink(link string) error {
 }
 
 func run(ctx context.Context, name string, args ...string) (string, error) {
+	return runInput(ctx, "", name, args...)
+}
+
+// runInput runs a command like run, with input on its standard input.
+func runInput(ctx context.Context, input, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, launchTimeout)
 	defer cancel()
 	var stdout, stderr bytes.Buffer
 	cmd := exec.CommandContext(ctx, name, args...)
+	if input != "" {
+		cmd.Stdin = strings.NewReader(input)
+	}
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
