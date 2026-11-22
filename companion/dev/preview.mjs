@@ -536,8 +536,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       noContent(response)
     },
     // Like the shell: only a known release can start, and the panel follows the first step.
-    'POST /api/update/start': (request, response) => {
+    'POST /api/update/start': (request, response, url) => {
       logCall('/api/update/start')
+      const expected = url.searchParams.get('version')
+      if (expected && expected !== state.update.version) return sendJSON(response, 409, { error: 'the offered release changed; check for updates again' })
       if (state.update.state !== 'available' && state.update.state !== 'failed') return sendJSON(response, 409, { error: 'no update is known; check for updates first' })
       if (state.update.state === 'available' && state.update.command) return sendJSON(response, 409, { error: `the companion cannot update this install itself; run ${state.update.command} in a terminal` })
       state.update = { state: 'updating', version: state.update.version, current: state.update.current, step: 'downloading' }

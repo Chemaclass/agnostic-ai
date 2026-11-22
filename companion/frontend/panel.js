@@ -1954,8 +1954,11 @@ const updateCopy = document.getElementById('update-copy')
 const updateRelease = document.getElementById('update-release')
 const updateStatusRelease = document.getElementById('update-status-release')
 
+let confirmedUpdate
+
 function openUpdateConfirm() {
-  const question = updateConfirmOf(settings.update)
+  confirmedUpdate = settings.update
+  const question = updateConfirmOf(confirmedUpdate)
   document.getElementById('update-title').textContent = question.title
   document.getElementById('update-body').textContent = question.body
   updateCommand.hidden = !question.command
@@ -1978,6 +1981,7 @@ async function copyUpdateCommand(command) {
 }
 
 function closeUpdateConfirm() {
+  confirmedUpdate = undefined
   updateConfirm.hidden = true
   queryInput.focus()
 }
@@ -1997,13 +2001,15 @@ function drawUpdateStatus() {
 
 updateCancel.addEventListener('click', closeUpdateConfirm)
 updateGo.addEventListener('click', () => {
-  const { command } = updateConfirmOf(settings.update)
+  const offered = confirmedUpdate
+  if (!offered) return
+  const { command } = updateConfirmOf(offered)
   closeUpdateConfirm()
   if (command) copyUpdateCommand(command)
-  else startUpdate().catch(sayFailure)
+  else startUpdate(offered.version).catch(sayFailure)
 })
 updateCopy.addEventListener('click', () => copyUpdateCommand(updateMessageOf(settings.update).command))
-updateRetry.addEventListener('click', () => startUpdate().catch(sayFailure))
+updateRetry.addEventListener('click', () => startUpdate(settings.update.version).catch(sayFailure))
 updateRelease.addEventListener('click', () => {
   closeUpdateConfirm()
   openReleasePage().catch(sayFailure)

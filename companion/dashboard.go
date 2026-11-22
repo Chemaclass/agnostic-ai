@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"net/http"
 	"net/url"
 	"os"
@@ -60,8 +61,7 @@ func findBinary() (string, error) {
 	return separateBinary()
 }
 
-// separateBinary finds an agnostic-ai command installed apart from the
-// disk image app, such as with Homebrew or npm.
+// separateBinary keeps the normal recorded, PATH and fallback order.
 func separateBinary() (string, error) {
 	if recorded, ok := recordedBinary(); ok {
 		return recorded, nil
@@ -69,18 +69,42 @@ func separateBinary() (string, error) {
 	if found, err := exec.LookPath(binaryName); err == nil {
 		return found, nil
 	}
-	folders := usualSystemFolders
-	if home, err := os.UserHomeDir(); err == nil {
-		for _, folder := range usualFolders {
-			folders = append(folders, filepath.Join(home, folder))
-		}
-	}
-	for _, folder := range folders {
+	for _, folder := range usualBinaryFolders() {
 		if found, err := exec.LookPath(filepath.Join(folder, binaryName)); err == nil {
 			return found, nil
 		}
 	}
 	return "", errNoBinary
+}
+
+func usualBinaryFolders() []string {
+	folders := append([]string(nil), usualSystemFolders...)
+	if home, err := os.UserHomeDir(); err == nil {
+		for _, folder := range usualFolders {
+			folders = append(folders, filepath.Join(home, folder))
+		}
+	}
+	return folders
+}
+
+// standaloneCandidates visits each location so a link to a bundled CLI
+// cannot hide the next command. The dashboard still uses separateBinary.
+func standaloneCandidates() iter.Seq[string] {
+	return func(yield func(string) bool) {
+		if recorded, ok := recordedBinary(); ok && !yield(recorded) {
+			return
+		}
+		folders := append(filepath.SplitList(os.Getenv("PATH")), usualBinaryFolders()...)
+		for _, folder := range folders {
+			// As in exec.LookPath, refuse to run a command found via a relative PATH entry.
+			if !filepath.IsAbs(folder) {
+				continue
+			}
+			if found, err := exec.LookPath(filepath.Join(folder, binaryName)); err == nil && !yield(found) {
+				return
+			}
+		}
+	}
 }
 
 // The dashboard outlives the companion. Only its startup is bounded by ctx.

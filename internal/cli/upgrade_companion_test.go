@@ -302,3 +302,34 @@ func TestUpgradeCompanion_BlamesTheNewCLIWhenItCannotRun(t *testing.T) {
 		t.Errorf("err = %v", err)
 	}
 }
+
+func TestUpgradeCompanion_ConfirmsReleaseBeforeChangingInstall(t *testing.T) {
+	for _, tc := range []struct {
+		name, installed, latest, outcome string
+	}{
+		{"matched", "1.0.0", "2.0.0", "Terminal update completed."},
+		{"changed", "1.0.0", "3.0.0", "Terminal update failed: release changed since confirmation:"},
+		{"unreachable", "1.0.0", "", "Terminal update failed: could not confirm release 2.0.0:"},
+		{"would downgrade", "3.0.0", "2.0.0", "Terminal update failed: release changed since confirmation:"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ran := false
+			deps := upgradeDeps{
+				detect: func(string) (upgradeInfo, error) {
+					return upgradeInfo{Method: installNPM, Version: tc.installed, Latest: tc.latest, Command: "npm install"}, nil
+				},
+				run: func(io.Writer, string) error { ran = true; return nil },
+			}
+			cmd := newUpgradeCmdWithDeps(deps)
+			cmd.SetArgs([]string{"--companion-confirmed-release", "2.0.0"})
+			var log bytes.Buffer
+			cmd.SetOut(&log)
+			cmd.SetErr(&log)
+			err := cmd.Execute()
+			wantRun := tc.name == "matched"
+			if ran != wantRun || (err == nil) != wantRun || !strings.Contains(log.String(), tc.outcome) {
+				t.Errorf("ran %t, error %v, log %q; want ran %t and %q", ran, err, &log, wantRun, tc.outcome)
+			}
+		})
+	}
+}

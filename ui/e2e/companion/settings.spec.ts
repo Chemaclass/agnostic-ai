@@ -487,7 +487,7 @@ test('a failed update names the reason and the log, and Retry starts it again', 
   expect(reset.ok()).toBe(true)
   await page.goto('/panel.html')
   const status = page.getByRole('region', { name: 'Update' })
-  await expect(status.getByRole('status')).toHaveText('The update did not finish: the download did not match its checksum. Your current version is still running.')
+  await expect(status.getByRole('status')).toHaveText('The update did not finish: the download did not match its checksum.')
   await expect(status).toContainText('Details: /Users/you/Library/Application Support/agnostic-ai/companion-update.log')
   const starts = sent(page, '/api/update/start')
 
@@ -543,7 +543,7 @@ test('a failed terminal update offers Retry and the command to copy', async ({ p
   expect(reset.ok()).toBe(true)
   await page.goto('/panel.html')
   const status = page.getByRole('region', { name: 'Update' })
-  await expect(status.getByRole('status')).toHaveText('The update did not finish: the package manager could not run from the companion. Your current version is still running.')
+  await expect(status.getByRole('status')).toHaveText('The update did not finish: the package manager could not run from the companion.')
   await expect(status.getByRole('button', { name: 'Retry' })).toBeVisible()
 
   await status.getByRole('button', { name: 'Copy command' }).click()

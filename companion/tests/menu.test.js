@@ -111,7 +111,7 @@ test('the panel says each update step in plain words', () => {
   assert.deepEqual(updateMessageOf({ state: 'updating', version: '0.97.0', step: 'verifying', current }), { text: 'Checking the download…' })
   assert.deepEqual(updateMessageOf({ state: 'updating', version: '0.97.0', step: 'restarting', current }), { text: 'Restarting…' })
   assert.deepEqual(updateMessageOf({ state: 'failed', version: '0.97.0', reason: 'the download did not match its checksum', log: '/tmp/companion-update.log', current }), {
-    text: 'The update did not finish: the download did not match its checksum. Your current version is still running.',
+    text: 'The update did not finish: the download did not match its checksum.',
     retry: true,
     log: '/tmp/companion-update.log',
   })
@@ -136,7 +136,7 @@ test('Escape answers the update question before the menus', () => {
 
 test('a terminal install that cannot update itself names the command to copy', () => {
   assert.deepEqual(updateMessageOf({ state: 'failed', version: '0.97.0', reason: 'the package manager could not run from the companion', log: '/tmp/u.log', command: 'agnostic-ai upgrade', current: '0.96.0' }), {
-    text: 'The update did not finish: the package manager could not run from the companion. Your current version is still running.',
+    text: 'The update did not finish: the package manager could not run from the companion.',
     retry: true,
     log: '/tmp/u.log',
     command: 'agnostic-ai upgrade',

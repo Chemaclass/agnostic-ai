@@ -112,10 +112,11 @@ func newUpgradeCmd() *cobra.Command {
 }
 
 type upgradeDeps struct {
-	companion *upgradeCompanionDeps
-	detect    func(string) (upgradeInfo, error)
-	run       func(io.Writer, string) error
-	install   func(io.Writer, string, string, string, *http.Client) error
+	expectedLatest string
+	companion      *upgradeCompanionDeps
+	detect         func(string) (upgradeInfo, error)
+	run            func(io.Writer, string) error
+	install        func(io.Writer, string, string, string, *http.Client) error
 }
 
 func defaultUpgradeDeps() upgradeDeps {
@@ -124,10 +125,11 @@ func defaultUpgradeDeps() upgradeDeps {
 
 func newUpgradeCmdWithDeps(deps upgradeDeps) *cobra.Command {
 	var (
-		checkOnly     bool
-		targetVersion string
-		reconcile     bool
-		guided        bool
+		checkOnly        bool
+		targetVersion    string
+		confirmedRelease string
+		reconcile        bool
+		guided           bool
 	)
 	cmd := &cobra.Command{
 		Use:     "upgrade",
@@ -196,9 +198,25 @@ is still accepted for compatibility.`,
 				}
 				want = v
 			}
-			return runUpgradeWithDeps(cmd.OutOrStdout(), checkOnly, want, cmd.Root().Version, deps)
+			out := cmd.OutOrStdout()
+			if confirmedRelease != "" && (checkOnly || want != "") {
+				return errs.Coded(errs.CodeFlagConflict, "--companion-confirmed-release needs a latest-release upgrade")
+			}
+			run := deps
+			run.expectedLatest = confirmedRelease
+			err := runUpgradeWithDeps(out, checkOnly, want, cmd.Root().Version, run)
+			if run.expectedLatest != "" {
+				if err != nil {
+					_, _ = fmt.Fprintf(out, "Terminal update failed: %v\n", err)
+				} else {
+					_, _ = fmt.Fprintln(out, "Terminal update completed.")
+				}
+			}
+			return err
 		},
 	}
+	cmd.Flags().StringVar(&confirmedRelease, "companion-confirmed-release", "", "Internal: refuse to upgrade to a different release")
+	_ = cmd.Flags().MarkHidden("companion-confirmed-release")
 	cmd.Flags().Bool("run", false, "Run upgrade (now the default)")
 	cmd.Flags().BoolVar(&checkOnly, "check", false, "Print detection details and exit without running")
 	cmd.Flags().StringVar(&targetVersion, "version", "", "Install this release instead of the latest (e.g. v0.56.1)")
@@ -234,6 +252,19 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 	info, err := deps.detect(currentVersion)
 	if err != nil {
 		return err
+	}
+	if deps.expectedLatest != "" {
+		latest, ok := stableReleaseVersion(info.Latest)
+		if !ok {
+			err := info.LatestError
+			if err == nil {
+				err = errNoPublishedRelease
+			}
+			return fmt.Errorf("could not confirm release %s: %w", deps.expectedLatest, err)
+		}
+		if !stableRelease(info.Version) || latest != deps.expectedLatest || newerStableRelease(info.Version, latest) {
+			return fmt.Errorf("release changed since confirmation: approved %s, latest %s, installed %s", deps.expectedLatest, latest, info.Version)
+		}
 	}
 	want := requestedVersion
 	if want == "" {
