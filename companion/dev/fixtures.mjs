@@ -250,7 +250,15 @@ function stuckShells(now) {
     },
     {
       ...conversation(now, 'claude', 'shells-working', 'Refactor the search index', 'working'),
-      stuckShells: [makeShell(840, 90, 'npm run dev', 3), makeShell(910, 45, 'npm run watch', 2)],
+      stuckShells: [makeShell(840, 90, 'npm run dev', 3), { ...makeShell(910, 45, 'npm run watch', 2), helperId: 'sweeper', helperName: 'Sweeper' }],
+    },
+    {
+      ...conversation(now, 'claude', 'shells-owned', 'Rebuild the monthly reports', 'working'),
+      stuckShells: [1, 2].map((report) => ({
+        ...makeShell(600 + report, 20 + report, `node bin/build-reports.mjs --month 2026-10 --out reports/report${report}`, 1),
+        helperId: 'checker',
+        helperName: 'Check the reporting changes',
+      })),
     },
   ]
 }

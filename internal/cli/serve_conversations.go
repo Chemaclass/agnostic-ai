@@ -130,6 +130,13 @@ type conversationsHandler struct {
 	// companion is the secret of the companion that started this
 	// server; a list read without it shows no held request.
 	companion companionSecret
+	// proven says whether a request carries the companion secret or the
+	// web session key. A send types into another session's terminal as
+	// the person, so it needs one; nil proves nothing.
+	proven func(*http.Request) bool
+	// canProve says whether this server has a secret or session key at
+	// all; nil means it has neither.
+	canProve func() bool
 }
 
 // conversationOpenReplyTimeout outlasts the companion's openTimeout and
@@ -335,7 +342,16 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	// which conversation. A caller that stops waiting does not stop the
 	// open: a terminal script cut short may leave a tab half opened, and
 	// the caller cannot tell whether it opened.
-	reply, found := h.scanner.ReopenHelper(context.WithoutCancel(r.Context()), req.Tool, req.ID, req.Helper, h.scanOptions(req.Editor), h.launcher)
+	launcher := h.launcher
+	if h.proven == nil || !h.proven(r) {
+		// Focusing a live chat needs no proof; starting a command does.
+		reason := "Starting it from here needs the companion or a page that agnostic-ai view --scope user opened."
+		if !h.canProveAny() {
+			reason = "This server cannot start sessions."
+		}
+		launcher = conversations.NoRun(launcher, reason)
+	}
+	reply, found := h.scanner.ReopenHelper(context.WithoutCancel(r.Context()), req.Tool, req.ID, req.Helper, h.scanOptions(req.Editor), launcher)
 	if r.Context().Err() != nil || !time.Now().Before(deadline) {
 		h.logLateOpen(req.Tool, reply, found)
 	}
@@ -359,10 +375,24 @@ func (h *conversationsHandler) logLateOpen(tool conversations.Tool, reply conver
 	_, _ = fmt.Fprintf(h.logOut, "an open of a %s conversation answered after its caller left: %s\n", tool, outcome)
 }
 
+// canProveAny reports whether this server holds a secret or session key
+// a request could prove itself with.
+func (h *conversationsHandler) canProveAny() bool {
+	return h.canProve != nil && h.canProve()
+}
+
 // send types text into a conversation's input without submitting it.
 func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	if h.proven == nil || !h.proven(r) {
+		message := "Sending needs the companion's secret or the key of a tab that view opened. Nothing was typed."
+		if !h.canProveAny() {
+			message = "This server cannot type into sessions. Use the companion, or a page that agnostic-ai view --scope user opened."
+		}
+		writeEditJSON(w, http.StatusForbidden, editError{Error: message})
 		return
 	}
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))

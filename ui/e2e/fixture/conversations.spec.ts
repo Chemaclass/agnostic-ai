@@ -12,7 +12,7 @@ test.use({ timezoneId: 'Europe/Berlin' })
 
 interface Mocks {
   views: string[]
-  opens: { body: unknown; contentType: string | undefined }[]
+  opens: { body: unknown; contentType: string | undefined; session?: string }[]
 }
 
 type Answer = { status?: number; json: unknown } | Promise<{ status?: number; json: unknown }>
@@ -60,7 +60,7 @@ async function mockServer(page: Page, reply: Reply = opened, week: Week = () => 
   await page.route('**/api/conversations/open', async (route) => {
     const request = route.request()
     const body = request.postDataJSON()
-    mocks.opens.push({ body, contentType: request.headers()['content-type'] })
+    mocks.opens.push({ body, contentType: request.headers()['content-type'], session: request.headers()['x-agnostic-ai-session'] })
     const answer = await reply(body)
     return route.fulfill({ status: answer.status ?? 200, json: answer.json })
   })
@@ -386,6 +386,14 @@ test.describe('conversations', () => {
     await expect(open).toBeEnabled()
     await expect(open).toBeFocused()
     expect(mocks.opens).toEqual([{ body: { tool: 'claude', id: '6f1c2a4e-8b3d-4c1e-9a7f-2d5e8b1c4a90', editor: 'cursor' }, contentType: 'application/json' }])
+  })
+
+  test('an unlocked tab sends its key with an open, so the server may resume the chat', async ({ page }) => {
+    const mocks = await mockServer(page)
+    await page.addInitScript(() => window.sessionStorage.setItem('agnostic-ai.session', 'tab-key'))
+    await page.goto('/?view=conversations')
+    await row(page, 'Add a Conversations page to the local UI').getByRole('button', { name: /^Open in Terminal/ }).click()
+    await expect.poll(() => mocks.opens.map((open) => open.session)).toEqual(['tab-key'])
   })
 
   test('hides the resume command of a chat it opened, since it may run now', async ({ page }) => {

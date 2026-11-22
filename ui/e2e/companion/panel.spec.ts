@@ -2188,10 +2188,17 @@ const deleteDialog = (page: Page) => page.getByRole('alertdialog')
 
 test('warns about forgotten shells and only stops the shell confirmed in the row menu', async ({ page }) => {
   await openPanel(page, 'stuck-shells')
-  await expect(row(page, 'Preview the reporting changes').locator('.shell-text')).toHaveText('Faramir 15h bash script…review.bash')
-  await expect(row(page, 'Preview the reporting changes')).toHaveClass(/needs-you/)
+  const waiting = row(page, 'Preview the reporting changes')
+  await expect(waiting.locator('.shell-text')).toHaveText('Faramir · 15h bash script…review.bash')
+  await expect(waiting).toHaveClass(/needs-you/)
+  // The row already says it waits on a shell, so it gains no line of its own above the shell.
+  await expect(waiting.locator('.text > :not(.actions)')).toHaveClass(['title', 'needs-reason is-shell', 'meta', 'shell-warning'])
   const working = row(page, 'Refactor the search index')
-  await expect(working.locator('.shell-text')).toHaveText(['1h npm run dev', '45m npm run watch'])
+  await expect(working.locator('.text > :not(.actions)')).toHaveClass(['title', 'meta', 'shells-lead', /shell-warning/, /shell-warning/])
+  await expect(working.locator('.shells-lead')).toHaveText('2 shells are still running')
+  await expect(working.locator('.shells-lead')).toHaveCSS('font-size', '11px')
+  await expect(working.locator('.shell-text')).toHaveText(['1h npm run dev', 'Sweeper · 45m npm run watch'])
+  await expect(working.locator('.shell-owner')).not.toHaveCSS('color', 'rgb(240, 163, 94)')
 
   const dialog = page.getByRole('alertdialog', { name: 'Stop shell?' })
   const stop = dialog.getByRole('button', { name: 'Stop shell' })
@@ -2215,9 +2222,28 @@ test('warns about forgotten shells and only stops the shell confirmed in the row
   await stop.click()
   expect((await request).postDataJSON()).toEqual({ tool: 'claude', id: 'shells-working', pid: 840, procStart: '2026-11-07T14:00:00.000Z' })
   await expect(dialog).toBeHidden()
-  await expect(working.locator('.shell-text')).toHaveText(['45m npm run watch', 'Shell stop sent. Processes still running (PIDs 841).'])
+  await expect(working.locator('.shell-text')).toHaveText(['Sweeper · 45m npm run watch', 'Shell stop sent. Processes still running (PIDs 841).'])
   await expectInfoNotice(page, 'Processes still running')
   await expect(noticeCard(page)).toContainText('Processes still running (PIDs 841).')
+})
+
+test('on a narrow row a long subagent name gives way, so each shell keeps the end that tells it apart', async ({ page }) => {
+  await page.setViewportSize({ width: 300, height: 624 })
+  await openPanel(page, 'stuck-shells')
+  const owned = row(page, 'Rebuild the monthly reports')
+  const commands = owned.locator('.shell-command')
+  await expect(commands).toHaveText(['node bin…report1', 'node bin…report2'])
+  // Compared in fractions of a pixel: the ellipsis cuts a command that misses its width by any amount.
+  const cut = (node: Element) => {
+    const range = document.createRange()
+    range.selectNodeContents(node)
+    return range.getBoundingClientRect().width - node.getBoundingClientRect().width
+  }
+  for (const command of await commands.all()) expect(await command.evaluate(cut)).toBeLessThanOrEqual(0.02)
+  const names = owned.locator('.shell-owner-name')
+  expect(await names.first().evaluate((node) => node.scrollWidth > node.clientWidth)).toBe(true)
+  await expect(owned.locator('.shell-owner').first()).toContainText('·')
+  for (const stop of await owned.getByRole('button', { name: /^Stop shell: / }).all()) await expect(stop).toBeInViewport()
 })
 
 const shellDialog = (page: Page) => page.getByRole('alertdialog', { name: 'Stop shell?' })
@@ -2355,6 +2381,8 @@ test('stopping a kept shell drops its record', async ({ page }) => {
   const working = row(page, 'Refactor the search index')
   await working.getByRole('button', { name: 'Keep running: npm run watch' }).click()
   await expect(shellLine(working, 'npm run watch')).toHaveClass(/is-kept/)
+  // A kept shell says so on its own grey line; only the shell still asking is counted.
+  await expect(working.locator('.shells-lead')).toHaveText('A shell is still running')
   await working.getByRole('button', { name: 'Stop shell: npm run watch' }).click()
   await shellDialog(page).getByRole('button', { name: 'Stop shell' }).click()
   await expect(working.locator('.shell-warning.is-stopped')).toHaveText('Shell stopped.')
@@ -2363,6 +2391,7 @@ test('stopping a kept shell drops its record', async ({ page }) => {
   const waiting = row(page, 'Preview the reporting changes')
   await waiting.getByRole('button', { name: 'Keep running: bash scripts/run-preview.bash' }).click()
   await expect(shellLine(waiting, 'review.bash')).toHaveClass(/is-kept/)
+  await expect(waiting.locator('.shells-lead')).toHaveCount(0)
   await waiting.getByRole('button', { name: 'Stop shell: bash scripts/run-preview.bash' }).click()
   await shellDialog(page).getByRole('button', { name: 'Stop shell' }).click()
   await expect.poll(async () => (await keptShells(page)).map((shell) => shell.pid)).toEqual([])
@@ -3591,6 +3620,16 @@ test('two shells whose commands share a long start read apart, and the hover sho
   await expect(tooltip(page)).toContainText(/Running for 32 min, since \d\d:\d\d/)
   await expect(tooltip(page)).toContainText('PID 38983 · 2 processes')
   await expect(tooltip(page)).toHaveCSS('pointer-events', 'none')
+})
+
+test('a shell wait counts only the shells still asking, after one is kept', async ({ page }) => {
+  await openPanel(page, 'needs-reasons')
+  const twins = row(page, 'Preview the reports page')
+  await expect(twins.locator('.needs-reason')).toHaveText('Waiting on 2 shells still running')
+  await twins.getByRole('button', { name: /^Keep running: / }).first().click()
+  await expect(twins.locator('.shell-warning.is-kept')).toHaveCount(1)
+  await expect(twins.locator('.needs-reason')).toHaveText('Waiting on a shell still running')
+  await expect(twins.locator('.shells-lead')).toHaveCount(0)
 })
 
 test('every row under Needs you says why, even one whose reply is withheld', async ({ page }) => {

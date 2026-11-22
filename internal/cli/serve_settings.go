@@ -164,6 +164,12 @@ func (h *settingsHandler) proven(r *http.Request) bool {
 	return h.secret.allows(r) || h.session.allows(r)
 }
 
+// canProve reports whether this server holds a secret or a session key
+// that a request could prove itself with.
+func (h *settingsHandler) canProve() bool {
+	return h.secret != "" || h.session != nil
+}
+
 // askedBy names who asked for a proven change, for the decision log.
 func (h *settingsHandler) askedBy(r *http.Request) string {
 	if h.secret.allows(r) {
