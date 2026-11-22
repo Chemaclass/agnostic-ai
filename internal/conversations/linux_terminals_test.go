@@ -127,14 +127,18 @@ func TestLinuxDrivers_TypeAndOpenTabsWithoutRaising(t *testing.T) {
 			t.Errorf("%s newTab: %v", name, err)
 		}
 	}
-	for _, calls := range [][]string{weztermCommands.calls, kittyCommands.calls} {
-		for _, call := range calls {
+	for _, commands := range []*fakeCommands{weztermCommands, kittyCommands} {
+		sent := false
+		for i, call := range commands.calls {
 			if strings.HasPrefix(call, "open ") {
 				t.Errorf("raised the window on Linux: %q", call)
 			}
+			if strings.Contains(call, "send-text") && (strings.Contains(call, "hello") || commands.inputs[i] == "hello") {
+				sent = true
+			}
 		}
-		if !slices.ContainsFunc(calls, func(call string) bool { return strings.Contains(call, "send-text") && strings.Contains(call, "hello") }) {
-			t.Errorf("text not sent: %q", calls)
+		if !sent {
+			t.Errorf("text not sent: %q", commands.calls)
 		}
 	}
 }

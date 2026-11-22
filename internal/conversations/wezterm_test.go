@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"unicode/utf8"
 )
 
 // weztermList is `wezterm cli list --format json` with two windows, the
@@ -19,8 +18,18 @@ const weztermList = `[
 
 type fakeCommands struct {
 	calls []string
-	out   map[string]string
-	errs  map[string]error
+	// inputs holds what each call read on standard input, by call index.
+	inputs map[int]string
+	out    map[string]string
+	errs   map[string]error
+}
+
+func (f *fakeCommands) runInput(ctx context.Context, input, name string, args ...string) (string, error) {
+	if f.inputs == nil {
+		f.inputs = map[int]string{}
+	}
+	f.inputs[len(f.calls)] = input
+	return f.run(ctx, name, args...)
 }
 
 func (f *fakeCommands) run(_ context.Context, name string, args ...string) (string, error) {
@@ -40,7 +49,7 @@ func (f *fakeCommands) run(_ context.Context, name string, args ...string) (stri
 }
 
 func testWezTerm(commands *fakeCommands) weztermTab {
-	return weztermTab{run: commands.run, path: func() (string, error) { return "wezterm", nil }}
+	return weztermTab{run: commands.run, runInput: commands.runInput, path: func() (string, error) { return "wezterm", nil }}
 }
 
 func TestWezTerm_PicksThePaneByItsTTY(t *testing.T) {
@@ -128,7 +137,7 @@ func TestWezTerm_TitlesTypesAndOpensWithEveryValueAsItsOwnArgument(t *testing.T)
 		"wezterm cli --no-auto-start list --format json",
 		"wezterm cli --no-auto-start activate-pane --pane-id 6",
 		"open -a WezTerm",
-		"wezterm cli --no-auto-start send-text --pane-id 6 -- " + hostile,
+		"wezterm cli --no-auto-start send-text --pane-id 6",
 		"wezterm cli --no-auto-start spawn",
 		"wezterm cli --no-auto-start send-text --pane-id 8 --no-paste -- " + hostile + "\r",
 		"open -a WezTerm",
@@ -136,14 +145,16 @@ func TestWezTerm_TitlesTypesAndOpensWithEveryValueAsItsOwnArgument(t *testing.T)
 	if strings.Join(commands.calls, "\n---\n") != strings.Join(want, "\n---\n") {
 		t.Errorf("calls:\n%q\nwant:\n%q", commands.calls, want)
 	}
+	if got := commands.inputs[5]; got != hostile {
+		t.Errorf("pasted on standard input %q, want %q", got, hostile)
+	}
 }
 
 func TestWezTermArgs_KeepTheValueLastAfterTheEndOfOptions(t *testing.T) {
 	hostile := "--no-paste"
 	for name, args := range map[string][]string{
 		"title": weztermTitleArgs(6, hostile),
-		"paste": weztermSendArgs(6, hostile, true),
-		"type":  weztermSendArgs(6, hostile, false),
+		"type":  weztermTypeArgs(6, hostile),
 	} {
 		if len(args) < 2 || args[len(args)-1] != hostile || args[len(args)-2] != "--" {
 			t.Errorf("%s: %q", name, args)
@@ -166,24 +177,30 @@ func sentParts(calls []string) []string {
 	return parts
 }
 
-func TestWezTerm_TypesALargeTextInPartsThatFitOneArgument(t *testing.T) {
+func TestWezTerm_PastesALargeTextInOneSendOnStandardInput(t *testing.T) {
 	text := strings.Repeat("aé\\", MaxSendBytes/4)
+	if len(text) <= linuxArgMax {
+		t.Fatalf("text of %d bytes fits one argument", len(text))
+	}
 	commands := &fakeCommands{out: map[string]string{"wezterm cli --no-auto-start list": weztermList}}
 
 	if ok, err := testWezTerm(commands).typeIn(context.Background(), "/dev/ttys041", text); !ok || err != nil {
 		t.Fatalf("ok %v err %v", ok, err)
 	}
 
-	parts := sentParts(commands.calls)
-	if len(parts) < 2 {
-		t.Fatalf("parts = %d, want the text cut", len(parts))
-	}
-	for _, part := range parts {
-		if len(part) >= linuxArgMax || !utf8.ValidString(part) {
-			t.Errorf("part of %d bytes, valid UTF-8 %v", len(part), utf8.ValidString(part))
+	var sends []int
+	for i, call := range commands.calls {
+		if strings.Contains(call, " send-text ") {
+			sends = append(sends, i)
 		}
 	}
-	if got := strings.Join(parts, ""); got != text {
-		t.Errorf("joined parts differ from the pasted text")
+	if len(sends) != 1 {
+		t.Fatalf("send-text calls = %d, want 1: %v", len(sends), sends)
+	}
+	if call := commands.calls[sends[0]]; call != "wezterm cli --no-auto-start send-text --pane-id 6" {
+		t.Errorf("call %.200q carries the text as an argument", call)
+	}
+	if commands.inputs[sends[0]] != text {
+		t.Errorf("standard input differs from the pasted text")
 	}
 }

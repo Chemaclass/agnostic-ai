@@ -12,8 +12,10 @@ import (
 // weztermTab drives WezTerm with `wezterm cli`. --no-auto-start keeps
 // it from starting a hidden mux server when the app is not running.
 type weztermTab struct {
-	run  func(ctx context.Context, name string, args ...string) (string, error)
-	path func() (string, error)
+	run func(ctx context.Context, name string, args ...string) (string, error)
+	// runInput runs a command that reads input on standard input.
+	runInput func(ctx context.Context, input, name string, args ...string) (string, error)
+	path     func() (string, error)
 	// noRaising is set on Linux, where agnostic-ai does not bring WezTerm's
 	// window forward: Wayland lets no program raise another's window.
 	noRaising bool
@@ -36,14 +38,16 @@ func weztermTitleArgs(pane uint64, title string) []string {
 	return weztermCLI("set-tab-title", "--pane-id", strconv.FormatUint(pane, 10), "--", title)
 }
 
-// weztermSendArgs send text as a paste, which WezTerm brackets when the
-// program asks for it, or as typed keys.
-func weztermSendArgs(pane uint64, text string, paste bool) []string {
-	args := []string{"send-text", "--pane-id", strconv.FormatUint(pane, 10)}
-	if !paste {
-		args = append(args, "--no-paste")
-	}
-	return weztermCLI(append(args, "--", text)...)
+// weztermPasteArgs send standard input as one paste, which WezTerm
+// brackets when the program asks for it. One send keeps another send to
+// the pane from landing inside it, and no argument limit applies.
+func weztermPasteArgs(pane uint64) []string {
+	return weztermCLI("send-text", "--pane-id", strconv.FormatUint(pane, 10))
+}
+
+// weztermTypeArgs send text as typed keys.
+func weztermTypeArgs(pane uint64, text string) []string {
+	return weztermCLI("send-text", "--pane-id", strconv.FormatUint(pane, 10), "--no-paste", "--", text)
 }
 
 func (w weztermTab) cli(ctx context.Context, args ...string) (string, error) {
@@ -52,6 +56,14 @@ func (w weztermTab) cli(ctx context.Context, args ...string) (string, error) {
 		return "", err
 	}
 	return w.run(ctx, path, args...)
+}
+
+func (w weztermTab) cliInput(ctx context.Context, input string, args ...string) (string, error) {
+	path, err := w.path()
+	if err != nil {
+		return "", err
+	}
+	return w.runInput(ctx, input, path, args...)
 }
 
 // reach runs the first command of a call, whose failure means the app
@@ -117,11 +129,8 @@ func (w weztermTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err := w.activate(ctx, pane); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
-	// Each part goes in its own send-text call in paste mode.
-	for _, part := range textParts(text, sendPart) {
-		if _, err := w.cli(ctx, weztermSendArgs(pane, part, true)...); err != nil {
-			return false, err
-		}
+	if _, err := w.cliInput(ctx, text, weztermPasteArgs(pane)...); err != nil {
+		return false, err
 	}
 	return true, nil
 }
@@ -138,7 +147,7 @@ func (w weztermTab) newTab(ctx context.Context, command string) error {
 	if err != nil {
 		return err
 	}
-	if _, err := w.cli(ctx, weztermSendArgs(pane, command+"\r", false)...); err != nil {
+	if _, err := w.cli(ctx, weztermTypeArgs(pane, command+"\r")...); err != nil {
 		return err
 	}
 	if err := w.raise(ctx); !errors.Is(err, errNotInFront) {

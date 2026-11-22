@@ -30,14 +30,14 @@ type commandTab interface {
 }
 
 var commandTabs = map[string]commandTab{
-	"WezTerm": weztermTab{run: run, path: func() (string, error) { return bundledCommand("WezTerm.app", "wezterm") }},
+	"WezTerm": weztermTab{run: run, runInput: runInput, path: func() (string, error) { return bundledCommand("WezTerm.app", "wezterm") }},
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return bundledCommand("kitty.app", "kitty") }, table: SystemProcesses{}.Table, socket: ownSocket},
 }
 
 // linuxCommandTabs drive the same apps on Linux, from PATH, without
 // bringing their windows forward.
 var linuxCommandTabs = map[string]commandTab{
-	"WezTerm": weztermTab{run: run, path: func() (string, error) { return commandOnPath("wezterm") }, noRaising: true},
+	"WezTerm": weztermTab{run: run, runInput: runInput, path: func() (string, error) { return commandOnPath("wezterm") }, noRaising: true},
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return commandOnPath("kitty") }, table: SystemProcesses{}.Table, socket: ownSocket, noRaising: true},
 	"Konsole": konsoleTab{run: run, table: SystemProcesses{}.Table, environ: readEnvironments},
 }
