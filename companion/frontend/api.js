@@ -24,6 +24,7 @@ async function answered(path, options) {
   }
   if (!response.ok) {
     const error = new CallError(body.error)
+    error.status = response.status
     if (body.guard) error.guard = body.guard
     throw error
   }
@@ -116,6 +117,14 @@ export function forgetShells(shells) {
 /** Turns automatic approvals off for every tool and project, from the next request on. Answers {body, version}. */
 export function askApprovals() {
   return change('/api/approvals/ask', { mode: 'ask' })
+}
+
+/**
+ * Answers one request the approvals hook holds: decision is approve, deny or release. `digest` is the one the panel
+ * showed, so an answer never reaches a request that changed. Answers {body, version}.
+ */
+export function decideApproval(pending, decision) {
+  return change('/api/approvals/decide', { id: pending.id, digest: pending.digest, decision })
 }
 
 /** What was copied, without all of it: {preview, words, chars, hash}; words is 0 when no text was copied. */

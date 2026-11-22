@@ -93,6 +93,35 @@ func TestLoadHomeApprovals_LocalReplacesShared(t *testing.T) {
 	}
 }
 
+func TestLoadHomeApprovals_CompanionSurvivesALocalBlockThatDoesNotNameIt(t *testing.T) {
+	cases := map[string]struct {
+		shared, local string
+		want          bool
+	}{
+		"shared on, local ask":  {"approvals:\n  mode: yolo\n  companion: true\n", "approvals:\n  mode: ask\n", true},
+		"shared on, local off":  {"approvals:\n  companion: true\n", "approvals:\n  mode: ask\n  companion: false\n", false},
+		"local on":              {"approvals:\n  mode: ask\n", "approvals:\n  companion: true\n", true},
+		"off by default":        {"approvals:\n  mode: ask\n", "", false},
+		"shared on, local null": {"approvals:\n  companion: true\n", "approvals:\n", true},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			source := t.TempDir()
+			writeApprovalsFile(t, filepath.Join(source, ConfigFileName), "version: 1\n"+c.shared)
+			if c.local != "" {
+				writeApprovalsFile(t, filepath.Join(source, "local", ConfigFileName), c.local)
+			}
+			got, err := LoadHomeApprovals(source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Companion != c.want {
+				t.Errorf("companion = %v, want %v", got.Companion, c.want)
+			}
+		})
+	}
+}
+
 func TestLoadHomeApprovals_MissingFilesAreEmpty(t *testing.T) {
 	got, err := LoadHomeApprovals(t.TempDir())
 	if err != nil {
@@ -158,12 +187,13 @@ func TestProjectApprovalsIssues(t *testing.T) {
 		shared, local string
 		want          []string
 	}{
-		"no approvals":         {"version: 1\n", "", nil},
-		"ask is allowed":       {"version: 1\napprovals:\n  mode: ask\n", "approvals:\n  mode: ask\n", nil},
-		"yolo in shared":       {"version: 1\napprovals:\n  mode: yolo\n", "", []string{ConfigFileName + ": approvals.mode: yolo"}},
-		"review in local":      {"version: 1\n", "approvals:\n  mode: review\n", []string{LocalOverrideFileName + ": approvals.mode: review"}},
-		"tools in a project":   {"version: 1\napprovals:\n  tools:\n    codex: ask\n", "", []string{ConfigFileName + ": approvals.tools"}},
-		"builtin in a project": {"version: 1\nbuiltins: [memory, approvals]\n", "", []string{ConfigFileName + ": builtins: approvals is read only from the home config"}},
+		"no approvals":           {"version: 1\n", "", nil},
+		"ask is allowed":         {"version: 1\napprovals:\n  mode: ask\n", "approvals:\n  mode: ask\n", nil},
+		"yolo in shared":         {"version: 1\napprovals:\n  mode: yolo\n", "", []string{ConfigFileName + ": approvals.mode: yolo"}},
+		"review in local":        {"version: 1\n", "approvals:\n  mode: review\n", []string{LocalOverrideFileName + ": approvals.mode: review"}},
+		"tools in a project":     {"version: 1\napprovals:\n  tools:\n    codex: ask\n", "", []string{ConfigFileName + ": approvals.tools"}},
+		"builtin in a project":   {"version: 1\nbuiltins: [memory, approvals]\n", "", []string{ConfigFileName + ": builtins: approvals is read only from the home config"}},
+		"companion in a project": {"version: 1\napprovals:\n  companion: true\n", "", []string{ConfigFileName + ": approvals.companion is read only from the home config"}},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {

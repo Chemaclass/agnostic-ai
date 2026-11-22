@@ -92,6 +92,30 @@ Denied calls never reach the hook. Project sync also enforces a settings spec's 
 
 After the first approval, the [chat row shows its approval count](@/docs/cli-reference/companion.md#approvals). Codex skips the prompt for an approved call. Claude Code can show it briefly, then closes it when the hook approves. Calls that still need you show **Needs permission**.
 
+## Answer from the companion {#answer-from-the-companion}
+
+Turn this on to answer a Claude Code prompt from the companion row, without switching to the terminal. It is off by default.
+
+```yaml
+# $AGNOSTIC_AI_HOME/agnostic-ai.yaml or its local/ file
+builtins: [approvals]
+approvals:
+  mode: ask
+  companion: true
+```
+
+Run `agnostic-ai sync --scope user` once, then open the companion. When Claude Code asks to run `touch a.txt`, the row shows the whole command with **Approve** and **Deny**. **Approve** runs that one call. **Deny** blocks it, and Claude Code reads "Denied in the agnostic-ai companion". The terminal prompt stays open the whole time, so you can still answer there.
+
+- The hook waits for a click only when the request is left to you: mode `ask`, a match in the always-ask rules in `yolo`, or a prompt in `review`. A request the hook approves never waits.
+- It waits only while the companion is open, and only for calls it can show in full: `Bash`, `Read`, `Write`, `Edit` and `MultiEdit`, under 8 KB, with nothing that looks like a credential. A call with an option the row does not show, such as a command run outside the sandbox or an edit that replaces every match, keeps the terminal prompt alone, and so do MCP tools, web tools and questions.
+- The row shows the request from the hook's own copy, never from the chat. A click answers at once; no key does. When the request changed before the click, the row says "This request changed. Check it again." and shows the new one.
+- The hook waits up to 300 seconds, then leaves the request to the terminal prompt. An answer in the terminal removes the buttons by the next list read.
+- Only Claude Code on macOS and Linux supports it for now. Codex, Kiro, Qwen Code and Qoder keep their prompts as they are.
+- Only the home config can turn it on. A project file that sets `approvals.companion` is ignored and reported.
+- The companion never approves on its own. A click sends the request's id and a digest of what the row showed; the hook acts only when both match the request it holds.
+- A held request is saved for the wait in `$AGNOSTIC_AI_HOME/local/approvals/pending/`, which only you can read. A program that runs as you can already write there, or change your tool settings; this feature does not change that limit.
+- Each held request leaves one log line with `by: companion`: `approved`, `denied`, or `asked` with rule `companion` when no click came. These lines do not count in **N approved for you**.
+
 ## Turn it off fast
 
 Any of these stops hook approvals from the next request, without syncing or restarting.
@@ -108,7 +132,7 @@ In `yolo`, the hook logs each request to `$AGNOSTIC_AI_HOME/local/approvals/deci
 `agnostic-ai approvals log` prints oldest first. Use `--since 1h` for the last hour or `--json` for an array.
 
 {% <details summary="Log fields and rotation"> %}
-Each line has `time`, `tool`, `session`, `cwd`, `call` (tool name), `detail`, `mode`, `decision` (`approved` or `asked`), and `rule` (what made it ask). The detail leaves out text that might hold a credential. For Codex `apply_patch`, it lists the affected files.
+Each line has `time`, `tool`, `session`, `cwd`, `call` (tool name), `detail`, `mode`, `decision` (`approved`, `asked`, or `denied`), `rule` (what made it ask), and `by` (`companion` for a request held for the companion). The detail leaves out text that might hold a credential. For Codex `apply_patch`, it lists the affected files.
 
 At 5 MB the log rotates to `decisions.jsonl.1`. It keeps one older file and asks if it cannot write.
 {% </details> %}
@@ -117,7 +141,7 @@ At 5 MB the log rotates to `decisions.jsonl.1`. It keeps one older file and asks
 
 - A repository can supply its own hooks once you trust it in Claude Code. Only home config can enable agnostic-ai approvals. If project environment settings stop the hook, see your tool below.
 - Edits to the policy or log and commands that name them ask. A script can still write to them indirectly.
-- On failure the hook exits 0 and stays silent, so the tool prompts. A hung hook can delay the Codex prompt by up to 10 seconds. The hook can approve a call or leave it to the tool.
+- On failure the hook exits 0 and stays silent, so the tool prompts. A hung hook can delay the Codex prompt by up to 10 seconds. The hook can approve a call or leave it to the tool. It denies a call only after a click on **Deny** in the companion.
 - The hook reads only the tool name and arguments. Conversation text, including files and web pages, has no say in its decision.
 
 ## Per tool {#per-tool}

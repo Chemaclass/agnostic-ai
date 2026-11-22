@@ -52,6 +52,9 @@ const (
 	// serverApprovalsAskPath turns automatic approvals off; the server
 	// takes no other mode.
 	serverApprovalsAskPath = "/api/approvals/ask"
+	// serverApprovalsDecidePath answers one request the approvals hook
+	// holds for the companion.
+	serverApprovalsDecidePath = "/api/approvals/decide"
 )
 
 // inbox keeps the latest list of conversations for the pages. It holds
@@ -318,6 +321,14 @@ func (in *inbox) pass(path string) http.HandlerFunc {
 				writeJSON(w, http.StatusUnsupportedMediaType, apiError{Error: "Send Content-Type: application/json."})
 				return
 			}
+		case serverApprovalsDecidePath:
+			if !pageAllowed(w, r, "Requests are answered from the companion page only.") {
+				return
+			}
+			if mediaType, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mediaType != "application/json" {
+				writeJSON(w, http.StatusUnsupportedMediaType, apiError{Error: "Send Content-Type: application/json."})
+				return
+			}
 		}
 		limit := int64(maxRequestBytes)
 		switch path {
@@ -449,10 +460,16 @@ func (in *inbox) readMailbox(path string) http.HandlerFunc {
 }
 
 func mailboxPageAllowed(w http.ResponseWriter, r *http.Request) bool {
+	return pageAllowed(w, r, "The mailbox is available from the companion page only.")
+}
+
+// pageAllowed answers 403 with refusal, and is false, for a request
+// that did not come from the companion's own page.
+func pageAllowed(w http.ResponseWriter, r *http.Request, refusal string) bool {
 	origin := r.Header.Get("Origin")
 	samePage := origin == "" || origin == "null" || origin == "wails://"+r.Host || origin == "http://"+r.Host
 	if !samePage || strings.EqualFold(r.Header.Get("Sec-Fetch-Site"), "cross-site") {
-		writeJSON(w, http.StatusForbidden, apiError{Error: "The mailbox is available from the companion page only."})
+		writeJSON(w, http.StatusForbidden, apiError{Error: refusal})
 		return false
 	}
 	return true

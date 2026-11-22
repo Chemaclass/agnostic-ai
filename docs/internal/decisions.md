@@ -394,3 +394,38 @@ Codex with `approvals_reviewer = "auto_review"` (set with `-c`):
 **Accepted limits:** iTerm2's tmux integration (`tmux -CC`), nested tmux, and tmux over SSH were not checked. A socket outside the tmux folder, as with `tmux -S <path>`, is not found, nor is one under a `TMUX_TMPDIR` that the server's own environment lacks, as for the companion started from Finder while a shell profile sets it. Selecting the window changes it for every client attached to that session.
 
 **Revisit when:** someone asks for text sending or naming in tmux (`send-keys -l` and `paste-buffer -p` could do both), or a hand check of `tmux -CC` shows it needs its own path.
+
+## 028: A Claude Code permission hook may hold a request for 300 seconds, and the server withdraws it when the terminal answers
+
+**Date:** 2026-11-22
+
+**Context:** [#3906](https://github.com/Chemaclass/agnostic-ai/issues/3906) answers a permission prompt from the companion row. The approvals hook writes the request to a file, waits for a decision file, and prints the native allow or deny. Decision 022 measured a hook that answered after 3 seconds. Three questions were open for Claude Code: what happens to a hook that still waits when the person answers in the terminal, whether a reply after minutes still closes the prompt, and what `prompt_id` names. Measured on Claude Code 2.1.330 with Haiku on macOS, driven by script in tmux 200 columns wide, as in decision 022: a scratch project with one hand-written `PermissionRequest` hook in `.claude/settings.json` (`timeout: 400`), started with `--setting-sources project,local` and `--permission-mode default`. The hook logged its input and signals, and printed a reply read from a file the probe wrote. Triggers were `touch` in the scratch project.
+
+**Decision:** Slice 1 holds a Claude Code request for 300 seconds, with the hook entry timeout at 310. The hook enforces the time itself and removes its record on every exit path. Because Claude Code does not stop a hook when the terminal answers, the server withdraws a held request whose session no longer waits for permission: it writes `release`, so the hook exits without a reply. It does so only for a record older than 5 seconds, since the hook writes its record before Claude Code records the wait, and only in a list of every folder. A request is tied to one call by a random id and a digest of the tool, session, call and raw `tool_input`, not by `prompt_id`. A row shows a held request only when its tool and short detail match the call its transcript shows waiting.
+
+**Findings:**
+
+| Question | Result |
+|---|---|
+| The person presses 1 in the terminal while the hook waits | The call ran. The hook got no signal and kept running: still alive 41 s later, with its parent alive. |
+| That hook then replies `deny`, 46 s after the terminal answer | Ignored: nothing changed on screen or in the transcript. |
+| The session status file after the terminal answer (polled every 10 ms) | `waiting` / `permission prompt` turned to `busy` within 31 ms. |
+| `allow` after 88 s | The prompt was on screen for the whole wait, then closed, and the call ran with `Allowed by PermissionRequest hook`. |
+| `allow` after 296 s | Same: the prompt closed and the call ran. |
+| `prompt_id` | The `promptId` of the user message that started the turn, in the transcript. Two calls in one turn had the same `prompt_id`, so it does not name a request. |
+
+End to end with `agnostic-ai hook approve` built from this branch, a server started as the companion starts it (`serve --scope user --api-only --stop-with-stdin`, port 4398) and a temporary `AGNOSTIC_AI_HOME`:
+
+- The pending record appeared 1.6 s after the message was sent, model time included, and the list showed it on the row with the whole command.
+- `POST /api/approvals/decide` with `approve` closed the terminal prompt, the call ran with `Allowed by PermissionRequest hook`, and `approvals log` read `approved by companion`.
+- With `deny`, the call was blocked with `Denied by PermissionRequest hook` and the agent quoted "Denied in the agnostic-ai companion".
+- No click: the hook removed its record 299.9 s after writing it and printed nothing. The terminal prompt was still open, the row showed the plain pill, the log read `asked (companion)`, and pressing 1 then ran the call.
+- Pressing 1 in the terminal: the next list read showed no request, the pending folder was empty, and a later `POST` for that id answered 404. The log read `asked (companion)`.
+- With `approvals.companion` turned off while the server ran, `companion.live` was gone within 6 s, and the next request wrote no record and showed the terminal prompt at once.
+- The route answered 405 to GET, 415 without the JSON content type, 403 to another origin, 421 to another Host, and 409 to another digest, which left the record in place.
+
+**Why:** The prompt stays on screen while the hook runs (decision 022), so a long hold never delays the terminal answer; 296 s worked, so the planned 300 s stands. A hook left running after a terminal answer would keep showing buttons that answer nothing, so the server must withdraw it from the session state, which changes within tens of milliseconds. `prompt_id` cannot tell two calls of one turn apart, so the digest of the full input carries that job.
+
+**Accepted limits:** One run per case on one account, macOS only, in the fullscreen renderer. Not measured: a hold past 300 s, the classic renderer, several prompts of one session at once (whether a late allow from an old hook could answer a newer prompt), how long Claude Code takes to record its wait after the hook starts (the 5 s grace rests on the 1.1 s of decision 022), Linux, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). Codex is slice 2.
+
+**Revisit when:** Claude Code adds a per-request id to the hook input, stops a hook when the prompt is answered elsewhere, or draws its prompt only after the hook ends.

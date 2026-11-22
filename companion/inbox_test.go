@@ -582,3 +582,42 @@ func TestInbox_ShowsTheConfigurationFolderReadByTheServer(t *testing.T) {
 		t.Errorf("inbox = %d %s, want configuration folder %q", status, body, root)
 	}
 }
+
+func TestInbox_PassesADecisionFromThePageOnly(t *testing.T) {
+	fake := &fakeAgnosticAI{answers: map[string]fakeAnswer{serverApprovalsDecidePath: {http.StatusOK, `{"decision":"approve"}`}}}
+	fake.list = listOfPosts(fake)
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+	routes := (&shell{}).routes(in, fstest.MapFS{})
+	body := `{"id":"0123456789abcdef0123456789abcdef","digest":"d","decision":"approve"}`
+
+	for name, mutate := range map[string]func(*http.Request){
+		"another origin": func(r *http.Request) { r.Header.Set("Origin", "https://example.com") },
+		"cross site":     func(r *http.Request) { r.Header.Set("Sec-Fetch-Site", "cross-site") },
+		"plain text":     func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") },
+	} {
+		req := httptest.NewRequest(http.MethodPost, serverApprovalsDecidePath, strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		mutate(req)
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+		if rec.Code < 400 {
+			t.Errorf("%s: %d %s", name, rec.Code, rec.Body)
+		}
+	}
+	if sent := fake.posts[serverApprovalsDecidePath]; len(sent) != 0 {
+		t.Fatalf("a refused request reached the server: %q", sent)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, serverApprovalsDecidePath, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("decide = %d %s", rec.Code, rec.Body)
+	}
+	if sent := fake.posts[serverApprovalsDecidePath]; len(sent) != 1 || sent[0] != "application/json "+body {
+		t.Errorf("the server received %q", sent)
+	}
+}

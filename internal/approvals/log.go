@@ -28,6 +28,8 @@ type Entry struct {
 	Mode     string    `json:"mode"`
 	Decision Outcome   `json:"decision"`
 	Rule     string    `json:"rule,omitempty"`
+	// By is ByCompanion for a request held for the companion.
+	By string `json:"by,omitempty"`
 }
 
 // NewEntry is the log line for a decision on r, with a detail that

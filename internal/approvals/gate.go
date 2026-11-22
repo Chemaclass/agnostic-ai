@@ -30,7 +30,13 @@ const (
 	Approved Outcome = "approved"
 	// Asked leaves the call to the person: the tool shows its prompt.
 	Asked Outcome = "asked"
+	// Denied blocks the call: the person denied it in the companion.
+	Denied Outcome = "denied"
 )
+
+// ByCompanion marks a log line for a request the hook held for the
+// companion: approved or denied by a click, or asked when none came.
+const ByCompanion = "companion"
 
 // Rules name the always-ask row that sent a request to the person.
 const (
@@ -51,6 +57,8 @@ const (
 	RulePolicy         = "approvals-policy"
 	RuleAlwaysAsk      = "always-ask"
 	RuleUnknownCommand = "unknown-command"
+	// RuleCompanion: the hook held the request and no click came.
+	RuleCompanion = "companion"
 )
 
 // ModeYolo is the only mode in which the gate approves.

@@ -218,3 +218,44 @@ func TestApprovalsStatus_NotesTheKeySyncWroteAfterAsk(t *testing.T) {
 		}
 	}
 }
+
+func TestSyncUser_ApprovalsHookOutlastsTheClaudeCompanionHold(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	writeHomeApprovals(t, source, "builtins: [approvals]\n")
+
+	if _, warnings, err := runUserAgentTest("--only", "claude,codex"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, warnings)
+	}
+
+	timeoutOf := func(path string) float64 {
+		t.Helper()
+		var file struct {
+			Hooks struct {
+				PermissionRequest []struct {
+					Hooks []struct {
+						Command string  `json:"command"`
+						Timeout float64 `json:"timeout"`
+					} `json:"hooks"`
+				} `json:"PermissionRequest"`
+			} `json:"hooks"`
+		}
+		if err := json.Unmarshal([]byte(readFile(t, path)), &file); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		for _, group := range file.Hooks.PermissionRequest {
+			for _, h := range group.Hooks {
+				if strings.Contains(h.Command, approvalHookCommand) {
+					return h.Timeout
+				}
+			}
+		}
+		t.Fatalf("%s has no approvals hook:\n%s", path, readFile(t, path))
+		return 0
+	}
+	if got := timeoutOf(filepath.Join(home, ".claude", "settings.json")); got != 310 {
+		t.Errorf("Claude Code hook timeout = %v, want 310", got)
+	}
+	if got := timeoutOf(filepath.Join(home, ".codex", "hooks.json")); got != 10 {
+		t.Errorf("Codex hook timeout = %v, want 10: a changed Codex hook asks for review again", got)
+	}
+}
