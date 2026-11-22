@@ -203,6 +203,14 @@ export function startsRename(event) {
   return event.key === 'F2' && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
 }
 
+/** Kinds the server says it cannot rename yet: their title stays a plain click that opens the chat. */
+const NOT_RENAMABLE = { claude: ['chat', 'cowork'], codex: ['cloud'] }
+
+/** Whether a click on the row's name starts a rename. */
+export function renamesByTitle(conversation) {
+  return !NOT_RENAMABLE[conversation.tool]?.includes(conversation.app)
+}
+
 /** What a failed open leaves on screen: the reason, and the command to resume by hand only when the server sent one. */
 export function openFailureOf(reply) {
   if (reply.opened) return undefined

@@ -80,8 +80,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - A chat started with `agnostic-ai conversations start` sits indented under
   the chat it came from while both are in the same group. A child that waits
   for you stays under Needs you, even when its parent is active or archived.
-- **↑ ↓** move through the list and **Enter** opens the chat. So does a click,
-  on the name too. **F2** renames the selected chat.
+- **↑ ↓** move through the list and **Enter** opens the chat. So does a click
+  anywhere on the row but its name. **F2** renames the selected chat.
   A running chat comes up in the Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab that runs it, ready
   for typing. Inside tmux, its pane is selected first. When only the app can come forward, the list comes back and
   says where the chat runs. macOS asks once to let the companion control each app.
@@ -90,15 +90,15 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still
   running in a terminal never offers it, because that command would start a
   second copy.
-- Hover a row for its buttons. The pencil, **Rename**, opens the name field
-  without opening the chat. **Mark complete** archives a chat, and **hide**
+- Hover a row for its buttons. **Mark complete** archives a chat, and **hide**
   takes one that is already archived out of the list. A working chat has no
   mark complete button, since the work would bring it back at once. The tick turns green for a
   moment when you mark a chat complete. **Mark all complete** beside Active
   archives every active chat at once, with no tick. A chat that got a reply
   or started working since the list was drawn keeps its place.
-- **Right-click** a row and choose **Rename…**, click the pencil, or press
-  **F2** to give the chat your own name. **Enter** saves it and **Esc** keeps
+- Click a chat's name, **right-click** the row and choose **Rename…**, or press
+  **F2** to give the chat your own name. The name field opens without opening
+  the chat. A chat that cannot be renamed keeps a plain name that opens it. **Enter** saves it and **Esc** keeps
   the old one. An empty name is
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal, Ghostty, WezTerm, kitty or Konsole tab takes the name too, in place of

@@ -950,6 +950,19 @@ body {
   color: var(--paper-dim);
 }
 
+/* Only the name's own width renames, so a click beside it still opens the chat. */
+.row .title[data-tooltip] {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.card:not(.is-picking, .is-mailbox-composing) .row .title[data-tooltip]:hover {
+  cursor: text;
+  text-decoration: underline;
+  text-decoration-color: var(--paper-dim);
+  text-underline-offset: 2px;
+}
+
 .meta {
   margin-top: 1px;
   font-size: 11.5px;

@@ -18,6 +18,8 @@ async function openPanel(page: Page, fixture = 'mixed') {
 }
 
 const row = (page: Page, title: string) => page.locator('#list').getByRole('option').filter({ hasText: title })
+// A click on the name renames, so a click that opens a row lands on its meta line.
+const clickRow = (target: ReturnType<typeof row>) => target.locator('.meta').click({ position: { x: 4, y: 4 } })
 const selected = (page: Page) => page.locator('.row[aria-selected="true"]')
 /** The --alert token, as a computed style spells it. */
 const ALERT_RED = /rgb\(255, 98, 80\)/
@@ -109,18 +111,22 @@ test('rename then Escape keeps the old name and gives the keys back to the list'
 
 const calledPaths = async (page: Page) => ((await (await page.request.get('/dev/calls')).json()) as { path: string }[]).map((call) => call.path)
 
-test('the pencil starts the rename and opens nothing; Escape cancels it', async ({ page }) => {
+test('a click on the name starts the rename and opens nothing; Escape cancels it', async ({ page }) => {
   await openPanel(page)
   const target = row(page, 'Plan the sync dry run')
   await target.hover()
-  const pencil = target.getByRole('button', { name: 'Rename', exact: true })
-  await expect(pencil).toBeVisible()
-  await expect(pencil).toHaveAttribute('title', 'Rename')
-  await pencil.click()
+  await expect(target.getByRole('button', { name: 'Rename', exact: true })).toHaveCount(0)
+  const title = target.locator('.title')
+  await title.hover()
+  await expect(title).toHaveCSS('cursor', 'text')
+  await expect(tooltip(page)).toHaveText(`${await target.getAttribute('data-tooltip')}\nClick to rename`)
+  await title.click()
 
   const field = page.getByLabel('New name')
   await expect(field).toBeFocused()
   await expect(field).toHaveValue('Plan the sync dry run')
+  await field.click()
+  await expect(field).toBeFocused()
   await field.fill('Something else')
   await field.press('Escape')
 
@@ -133,16 +139,15 @@ test('the pencil starts the rename and opens nothing; Escape cancels it', async 
   expect(calls).not.toContain('/api/rename')
 })
 
-test('Enter on the focused pencil starts the rename and opens nothing', async ({ page }) => {
+test('a click on the name renames and Enter saves it', async ({ page }) => {
   await openPanel(page)
-  const target = row(page, 'Plan the sync dry run')
-  await target.hover()
-  await target.getByRole('button', { name: 'Rename', exact: true }).press('Enter')
-
-  await expect(page.getByLabel('New name')).toBeFocused()
-  const calls = await calledPaths(page)
-  expect(calls).not.toContain('/api/open')
-  expect(calls).not.toContain('/api/panel/hide')
+  await row(page, 'Plan the sync dry run').locator('.title').click()
+  const field = page.getByLabel('New name')
+  await field.fill('Ship the dry run')
+  const renamed = page.waitForRequest((request) => request.url().endsWith('/api/rename'))
+  await field.press('Enter')
+  expect((await renamed).postDataJSON()).toMatchObject({ id: 'active-2', title: 'Ship the dry run' })
+  expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
 test('Enter on a focused header or footer button runs only that button, with a row selected', async ({ page }) => {
@@ -237,11 +242,30 @@ test('a rename during a search asks the server for the search once', async ({ pa
   expect(searches).toHaveLength(1)
 })
 
-test('a click on the name still opens the chat', async ({ page }) => {
-  await openPanel(page)
+test('a click on the meta line or beside the name opens the chat', async ({ page }) => {
+  for (const click of [
+    clickRow,
+    async (target: ReturnType<typeof row>) => {
+      const text = (await target.locator('.text').boundingBox())!
+      const title = (await target.locator('.title').boundingBox())!
+      await page.mouse.click(text.x + text.width - 2, title.y + title.height / 2)
+    },
+  ]) {
+    await openPanel(page)
+    const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+    await click(row(page, 'Plan the sync dry run'))
+    expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', title: 'Plan the sync dry run' })
+    await expect(page.getByLabel('New name')).toHaveCount(0)
+  }
+})
+
+test('a chat the server cannot rename keeps a plain name that opens it', async ({ page }) => {
+  await openPanel(page, 'approvals')
+  const title = row(page, 'Release notes draft').locator('.title')
+  await expect(title).not.toHaveAttribute('data-tooltip')
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
-  await row(page, 'Plan the sync dry run').locator('.title').click()
-  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'active-2', title: 'Plan the sync dry run' })
+  await title.click()
+  expect((await opened).postDataJSON()).toMatchObject({ tool: 'codex', id: 'approve-cloud' })
   await expect(page.getByLabel('New name')).toHaveCount(0)
 })
 
@@ -394,7 +418,7 @@ async function expectInfoNotice(page: Page, label: string) {
 
 async function openFailing(page: Page, fixture: string) {
   await openPanel(page, fixture)
-  await row(page, 'Plan the sync dry run').click()
+  await clickRow(row(page, 'Plan the sync dry run'))
   await expect(notice(page)).toBeVisible()
 }
 
@@ -426,7 +450,7 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
 test('an open the server is slow to answer hides the list and shows no failure', async ({ page }) => {
   await openPanel(page, 'slow-open')
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
-  await row(page, 'Plan the sync dry run').click()
+  await clickRow(row(page, 'Plan the sync dry run'))
   expect((await answer).status()).toBe(202)
   // Nothing on screen marks an answer the panel ignored, so give it time to wrongly come back.
   await page.waitForTimeout(300)
@@ -445,7 +469,7 @@ async function openSlowly(page: Page) {
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
   // The panel asks once for a late failure after it handled the answer, so later reads are its own.
   const handled = page.waitForResponse((response) => response.url().endsWith('/api/open/late'))
-  await row(page, 'Tidy the old branches').click()
+  await clickRow(row(page, 'Tidy the old branches'))
   expect((await answer).status()).toBe(202)
   await handled
 }
@@ -525,7 +549,7 @@ test('a send made while an open was still opening does not drop its late failure
 test('a notice shown and dismissed while an open was still opening does not drop its late failure', async ({ page }) => {
   await openArchived(page, 'held-late-open-failure')
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
-  await row(page, 'Tidy the old branches').click()
+  await clickRow(row(page, 'Tidy the old branches'))
   await expect.poll(async () => (await calledPaths(page)).includes('/api/open')).toBe(true)
   await row(page, 'Bump the Go version').click({ button: 'right' })
   await deleteItem(page).click()
@@ -567,7 +591,7 @@ test('a late open failure that lands before the panel read its open\'s answer st
   await page.addInitScript(holdOpenAnswers)
   await openArchived(page, 'late-open-failure')
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
-  await row(page, 'Tidy the old branches').click()
+  await clickRow(row(page, 'Tidy the old branches'))
   expect((await answer).status()).toBe(202)
   const handled = await page.evaluate(() => (window as unknown as HeldOpens).inboxesHandled)
 
@@ -597,7 +621,7 @@ test('a newer open drops a late open failure', async ({ page }) => {
   await expectLateFailure(page)
 
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))
-  await row(page, 'Sketch the pricing page').click()
+  await clickRow(row(page, 'Sketch the pricing page'))
   expect((await answer).status()).toBe(202)
   await expect(noticeCard(page)).toBeHidden()
   expect((await page.request.get('/api/open/late')).status()).toBe(204)
@@ -628,25 +652,25 @@ test('the next open replaces the notice', async ({ page }) => {
   await expect(notice(page)).toContainText(RESUME)
 
   expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
-  await row(page, 'Fix the login redirect').click()
+  await clickRow(row(page, 'Fix the login redirect'))
   await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
   await expect(notice(page).getByRole('button', { name: 'Copy resume command' })).toHaveCount(0)
 
   expect((await page.request.post('/dev/fixture', { data: { name: 'mixed' } })).ok()).toBe(true)
-  await row(page, 'Fix the login redirect').click()
+  await clickRow(row(page, 'Fix the login redirect'))
   await expect(notice(page)).toBeHidden()
 })
 
 test('a held failed open that answers after a newer open leaves the newer notice alone', async ({ page }) => {
   await openPanel(page, 'held-open-failure')
   const heldAnswer = page.waitForResponse((response) => response.url().endsWith('/api/open') && response.request().postDataJSON().id === 'active-2')
-  await row(page, 'Plan the sync dry run').click()
+  await clickRow(row(page, 'Plan the sync dry run'))
   // The preview holds this open under its fixture before the switch below.
   await expect.poll(async () => (await (await page.request.get('/dev/calls')).json()).some((call: { path: string }) => call.path === '/api/open')).toBe(true)
 
   expect((await page.request.post('/api/panel/show')).ok()).toBe(true)
   expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
-  await row(page, 'Fix the login redirect').click()
+  await clickRow(row(page, 'Fix the login redirect'))
   await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
 
   expect(await (await page.request.post('/dev/release-opens')).json()).toEqual({ released: 1 })
@@ -762,7 +786,7 @@ test('chooses a mailbox target from a row without opening it and keeps the messa
   await page.keyboard.press('Enter')
   await expect(row(page, 'Draft the tests')).toHaveClass(/is-mailbox-receivable/)
   await expect(row(page, 'Review the parser').locator('.mailbox-tag')).toHaveText('From')
-  await row(page, 'Draft the tests').click()
+  await clickRow(row(page, 'Draft the tests'))
   await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
   await expect(row(page, 'Draft the tests').locator('.mailbox-tag')).toHaveText('To')
   await expect(page.getByRole('button', { name: 'Send to Draft the tests' })).toBeVisible()
@@ -1530,7 +1554,7 @@ for (const settle of ['resolve', 'reject'] as const) {
     await expect.poll(() => page.evaluate(() => (window as unknown as { pendingCopies: unknown[] }).pendingCopies.length)).toBe(1)
 
     expect((await page.request.post('/dev/fixture', { data: { name: 'open-failure' } })).ok()).toBe(true)
-    await row(page, 'Fix the login redirect').click()
+    await clickRow(row(page, 'Fix the login redirect'))
     await expect(notice(page)).toContainText('Codex runs in an app that cannot be brought forward.')
 
     await page.evaluate((how) => {
@@ -2657,7 +2681,7 @@ test('a send that only switched to the conversation comes back to say to paste',
   await pressSendShortcut(page)
   await expect(pickBanner(page)).toBeVisible()
 
-  await row(page, 'Fix the login redirect').click()
+  await clickRow(row(page, 'Fix the login redirect'))
 
   await expect(page.locator('#notice')).toContainText('Switched to it. Paste with Cmd+V.')
   await expectInfoNotice(page, 'What to do with the copied text')
@@ -2674,7 +2698,7 @@ for (const [fixture, message] of [
     await pressSendShortcut(page)
     await expect(pickBanner(page)).toBeVisible()
 
-    await row(page, 'Fix the login redirect').click()
+    await clickRow(row(page, 'Fix the login redirect'))
 
     await expect(noticeCard(page)).toContainText(message)
     await expectErrorNotice(page, 'Why nothing was typed')
@@ -2810,7 +2834,7 @@ test('the send shortcut with several rows to type into opens pick mode on the fi
   await page.waitForTimeout(600)
   expect(await calledPaths(page)).not.toContain('/api/send')
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
-  await row(page, 'Plan the sync dry run').click()
+  await clickRow(row(page, 'Plan the sync dry run'))
   expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
 })
 
@@ -3430,16 +3454,16 @@ test('every row under Needs you says why, even one whose reply is withheld', asy
 test('the row tooltip names the hovered row, never covers it, and follows a redraw under a still pointer', async ({ page }) => {
   await openPanel(page, 'needs-reasons')
   const hovered = row(page, 'Pick a chart library')
-  await hovered.locator('.title').hover()
+  await hovered.locator('.meta').hover()
   await expect(tooltip(page)).toBeVisible()
   await expect(tooltip(page)).toHaveText('Open in Terminal\n/Users/you/Code/agnostic-ai')
   expect(await tooltip(page).textContent()).toBe(await hovered.getAttribute('data-tooltip'))
   expect(boxesOverlap((await tooltip(page).boundingBox())!, (await hovered.boundingBox())!)).toBe(false)
 
   const under = row(page, 'Rotate the API keys')
-  await under.locator('.title').scrollIntoViewIfNeeded()
-  const title = (await under.locator('.title').boundingBox())!
-  const pointer = { x: title.x + 10, y: title.y + title.height / 2 }
+  await under.locator('.meta').scrollIntoViewIfNeeded()
+  const meta = (await under.locator('.meta').boundingBox())!
+  const pointer = { x: meta.x + 10, y: meta.y + meta.height / 2 }
   await page.mouse.move(pointer.x, pointer.y)
   await expect(tooltip(page)).toHaveText((await under.getAttribute('data-tooltip'))!)
   expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
