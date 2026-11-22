@@ -232,15 +232,24 @@ func LoadHomeApprovals(source string) (ApprovalsConfig, error) {
 // read as data, so a writer can check the policy an edit gives before it
 // writes.
 func LoadHomeApprovalsWith(source, path string, data []byte) (ApprovalsConfig, error) {
+	if path == "" {
+		return LoadHomeApprovalsFiles(source, nil)
+	}
+	return LoadHomeApprovalsFiles(source, map[string][]byte{filepath.Clean(path): data})
+}
+
+// LoadHomeApprovalsFiles is LoadHomeApprovals with each home file named
+// in files, by its clean path, read as its data instead of from disk;
+// empty data reads as a missing file.
+func LoadHomeApprovalsFiles(source string, files map[string][]byte) (ApprovalsConfig, error) {
 	if !filepath.IsAbs(source) {
 		return ApprovalsConfig{}, fmt.Errorf("approvals: the home folder %q is not an absolute path", source)
 	}
 	var out ApprovalsConfig
 	var alwaysAsk []string
-	replaced := path
 	for _, path := range []string{filepath.Join(source, ConfigFileName), filepath.Join(source, "local", ConfigFileName)} {
 		node, err := approvalsNode(path)
-		if replaced != "" && filepath.Clean(path) == filepath.Clean(replaced) {
+		if data, ok := files[filepath.Clean(path)]; ok {
 			node, err = topLevelNodeOf(path, data, "approvals")
 		}
 		if err != nil {

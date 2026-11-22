@@ -1,3 +1,3 @@
 ### General
 
-- An approvals change from the companion or the Settings tab no longer overwrites a home config edit made while it was checked; it stops and asks you to check the current value. **Apply to my tools** now shows each hook command with its arguments, and names the tools when a tool's own override runs it differently. For Copilot it also shows a hook's working folder, environment variables (secret values masked) and web hook URL (#3938).
+- Approvals changes and the targets and builtins switches of `view --scope user` now take turns on the home config, so one no longer overwrites another; an approvals change also stops when the file was edited by hand after it was read. **Apply to my tools** now lists each hook and MCP server command as sync writes it for each tool, with its arguments, working folder, environment variables (secret values masked) and web hook URL, naming the tools when only some run a line (#3938).

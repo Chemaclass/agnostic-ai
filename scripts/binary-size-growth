@@ -2,7 +2,8 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3913 slice 3: the settings tab gains the companion app group, and the
-# server reads and writes companion.json under the companion's lock and
-# reads its state file. No new dependency. The build grows by 20480 bytes.
-24576
+# #3938: the Apply confirm reads the native hook and MCP records sync
+# writes (env masking, quoting, url redaction), and approvals, targets and
+# builtins edits of the home config share one lock and one snapshot read.
+# No new dependency. The build grows by 28672 bytes.
+32768

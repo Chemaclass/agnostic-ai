@@ -22,6 +22,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/errs"
 	"github.com/chemaclass/agnostic-ai/internal/mailbox"
 )
 
@@ -310,15 +311,22 @@ func approvalsSyncNeed(home config.ApprovalsConfig, status approvalsStatusOutput
 // effect, relative to source, and the keys of the shared block that a
 // local block hides.
 func approvalsBlockLayout(source string) (string, []string, error) {
-	paths := userConfigPaths(source)
-	shared, err := readUserConfig(paths[0])
+	snap, err := readHomeSnapshot(source)
 	if err != nil {
 		return "", nil, err
 	}
-	local, err := readUserConfig(paths[1])
-	if err != nil {
-		return "", nil, err
+	return snap.approvalsLayout()
+}
+
+// approvalsLayout is approvalsBlockLayout on the snapshot.
+func (s homeSnapshot) approvalsLayout() (string, []string, error) {
+	var docs [2]map[string]yaml.Node
+	for i, path := range s.paths {
+		if err := yaml.Unmarshal(s.data[i], &docs[i]); err != nil {
+			return "", nil, errs.Coded(errs.CodeConfigDecode, "parse %s: %w", path, err)
+		}
 	}
+	shared, local := docs[0], docs[1]
 	sharedBlock, inShared := shared["approvals"]
 	localBlock, inLocal := local["approvals"]
 	shadowed := []string{}
@@ -353,16 +361,15 @@ func mappingKey(node *yaml.Node, key string) bool {
 // approvalsWriteFile is the home file an approvals write other than Ask
 // me lands in: the one whose block is in effect, so per-tool and
 // per-folder modes beside the changed key stay, else the local file.
-func approvalsWriteFile(source string) (string, error) {
-	file, _, err := approvalsBlockLayout(source)
+func (s homeSnapshot) approvalsWriteFile() (string, error) {
+	file, _, err := s.approvalsLayout()
 	if err != nil {
 		return "", err
 	}
-	paths := userConfigPaths(source)
 	if file == config.ConfigFileName {
-		return paths[0], nil
+		return s.paths[0], nil
 	}
-	return paths[1], nil
+	return s.paths[1], nil
 }
 
 // errBrokenBlockNeedsProof refuses a write to an approvals block that
@@ -375,41 +382,38 @@ var errSettingNeedsProof = errors.New("this change would turn on automatic appro
 
 // writeApprovalsSetting sets one approvals key in the home config in
 // source and returns the files it changed; the caller holds the approvals
-// lock. Ask me writes what the Ask me chip writes. A value that needs the
-// hook adds approvals to builtins when it is missing; when that fails,
-// the approvals change is undone. Without proven, a block that does not
-// load is left alone, and a change that would leave the policy looser
-// than before is refused before it is written.
-func writeApprovalsSetting(source, key string, value any, proven bool) ([]string, error) {
+// lock, and snap is the home config as read under it. Ask me writes what
+// the Ask me chip writes. A value that needs the hook adds approvals to
+// builtins when it is missing; when that fails, the approvals change is
+// undone. Without proven, a block that does not load is left alone, and
+// a change that would leave the policy looser than before is refused
+// before it is written.
+func writeApprovalsSetting(source string, snap homeSnapshot, key string, value any, proven bool) ([]string, error) {
 	if key == "mode" && value == config.ApprovalsAsk {
-		path, err := writeApprovalsAsk(source, proven)
+		path, err := writeApprovalsAsk(source, snap, proven)
 		if err != nil {
 			return nil, err
 		}
 		return []string{path}, nil
 	}
-	path, err := approvalsWriteFile(source)
+	path, err := snap.approvalsWriteFile()
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(path)
-	missing := errors.Is(err, fs.ErrNotExist)
-	if err != nil && !missing {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
-	before, loadErr := config.LoadHomeApprovals(source)
+	data := snap.of(path)
+	before, loadErr := config.LoadHomeApprovalsFiles(source, snap.files())
 	if loadErr != nil && !proven {
 		// A block that does not load leaves every prompt to the person, and
 		// a repair could turn on what it holds before any check runs.
 		return nil, errBrokenBlockNeedsProof
 	}
-	undo := restoreTo(path, data, missing)
+	undo := restoreTo(path, data, data == nil)
 	ours, err := approvalsSetYAML(data, key, value)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
 	}
 	// The policy the edit gives is checked before anything is written.
-	home, err := config.LoadHomeApprovalsWith(source, path, ours)
+	home, err := config.LoadHomeApprovalsFiles(source, snap.with(path, ours))
 	switch {
 	case err != nil && loadErr == nil:
 		return nil, fmt.Errorf("the change would break the approvals block, so it was not made: %w", err)
@@ -418,7 +422,7 @@ func writeApprovalsSetting(source, key string, value any, proven bool) ([]string
 	case err == nil && !proven && approvalsLoosened(before, home):
 		return nil, errSettingNeedsProof
 	}
-	if err := editApprovalsFile(path, data, ours); err != nil {
+	if err := editApprovalsFile(snap, path, ours); err != nil {
 		return nil, err
 	}
 	restore := func() error { return undo(ours) }
@@ -514,9 +518,9 @@ func needsApprovalsHook(key string, value any) bool {
 
 // addApprovalsBuiltin turns the approvals built-in on in the personal
 // home config, through the same edit the web page's built-in switch
-// makes.
+// makes. The caller holds the approvals lock.
 func addApprovalsBuiltin(source string) (string, error) {
-	edits := &editHandler{root: source, userLevel: true}
+	edits := &editHandler{root: source, userLevel: true, homeLocked: true}
 	file, edit, err := edits.builtinsEdit(audiencePersonal, builtinRequest{name: config.ApprovalsBuiltin, enabled: true})
 	if err != nil {
 		return "", err
@@ -568,6 +572,23 @@ func decodeSwitch(key string, raw json.RawMessage) (bool, error) {
 }
 
 // currentSetting is key's value in doc, as the page shows it.
+// approvalsSetting is the value of an approvals key as the snapshot
+// gives it, the same value the settings page shows: Ask me and the
+// buttons off when the block does not load.
+func (s homeSnapshot) approvalsSetting(source, key string) (any, bool) {
+	home, err := config.LoadHomeApprovalsFiles(source, s.files())
+	if err != nil {
+		home = config.ApprovalsConfig{}
+	}
+	switch key {
+	case settingApprovalsMode:
+		return cmpMode(home.Mode), true
+	case settingApprovalsCompanion:
+		return home.Companion, true
+	}
+	return nil, false
+}
+
 func currentSetting(doc settingsView, key string) (any, bool) {
 	switch key {
 	case settingApprovalsMode:
@@ -612,8 +633,10 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusForbidden, editError{Error: message})
 		return
 	}
+	var snap *homeSnapshot
 	if strings.HasPrefix(change.Key, "approvals.") {
-		// The check against expected and the write happen under one lock that every approvals writer takes.
+		// The check against expected and the write read one snapshot,
+		// under the lock every in-app home config writer takes.
 		source, err := h.reader.source()
 		if err != nil {
 			writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
@@ -625,6 +648,12 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer release()
+		read, err := readHomeSnapshot(source)
+		if err != nil {
+			writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: err.Error(), Settings: new(h.document(r))})
+			return
+		}
+		snap = &read
 	}
 	if _, ok := companionSwitchFields[change.Key]; ok {
 		dir, err := h.companionDir()
@@ -641,6 +670,9 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 	}
 	doc := h.document(r)
 	current, ok := currentSetting(doc, change.Key)
+	if snap != nil {
+		current, ok = snap.approvalsSetting(doc.ConfigRoot, change.Key)
+	}
 	if !ok {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: "This setting is not available on this server."})
 		return
@@ -649,7 +681,7 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: "This setting changed since the page read it. Check the current value.", Settings: &doc})
 		return
 	}
-	changed, err := h.apply(r.Context(), change.Key, value.value, h.proven(r))
+	changed, err := h.apply(r.Context(), snap, change.Key, value.value, h.proven(r))
 	if errors.Is(err, errBrokenBlockNeedsProof) {
 		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "The approvals block in the home config does not load. Choose Ask me, fix the home config, or make the change from the companion or a page opened with agnostic-ai view --scope user.", Settings: new(h.document(r))})
 		return
@@ -681,7 +713,7 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 }
 
 // apply writes one decoded change and returns the files it changed.
-func (h *settingsHandler) apply(ctx context.Context, key string, value any, proven bool) ([]string, error) {
+func (h *settingsHandler) apply(ctx context.Context, snap *homeSnapshot, key string, value any, proven bool) ([]string, error) {
 	if key == settingMailboxApprove {
 		store, _ := h.mailbox()
 		return []string{store.SettingsPath()}, store.SaveSettings(ctx, mailbox.Settings{ApproveAgentSends: value == true})
@@ -698,7 +730,10 @@ func (h *settingsHandler) apply(ctx context.Context, key string, value any, prov
 	if err != nil {
 		return nil, err
 	}
-	return writeApprovalsSetting(source, strings.TrimPrefix(key, "approvals."), value, proven)
+	if snap == nil {
+		return nil, fmt.Errorf("%s needs the home config read under the approvals lock", key)
+	}
+	return writeApprovalsSetting(source, *snap, strings.TrimPrefix(key, "approvals."), value, proven)
 }
 
 // logChange adds a loosening write or a sync to the approvals decision

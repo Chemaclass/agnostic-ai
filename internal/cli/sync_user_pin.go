@@ -69,122 +69,152 @@ func (r userRun) fingerprint() string {
 	return hex.EncodeToString(sum[:])
 }
 
-// userSyncCommands lists, as "<kind> <name>: <command>", every command a
-// user hook or MCP server spec asks a tool to run. A hook's line is the
-// command with its args, as each of targets reads it after its override;
-// a line only some targets run names them. agnostic-ai's own built-in
-// hooks are left out.
-func userSyncCommands(bundle spec.Bundle, targets []string) []string {
+// syncCommands lists, as "<kind> <name>: <command>", every command a
+// user hook or MCP server spec makes a tool run, read from the records
+// this plan writes for each target. A line only some targets run names
+// them, unless every target does. agnostic-ai's own built-in hooks and
+// servers are left out.
+func (p *userPlan) syncCommands() []string {
 	commands := []string{}
-	add := func(label string, raw any) {
-		for _, line := range commandLines(raw) {
-			if line = strings.TrimSpace(line); line != "" && !slices.Contains(commands, label+line) {
-				commands = append(commands, label+line)
+	add := func(label string, lines map[string][]string, order []string, all int) {
+		for _, line := range order {
+			on := lines[line]
+			entry := label + ": " + line
+			if len(on) != all {
+				entry = label + " (" + strings.Join(on, ", ") + "): " + line
+			}
+			if !slices.Contains(commands, entry) {
+				commands = append(commands, entry)
 			}
 		}
 	}
-	for _, hook := range bundle.Hooks {
+	for _, hook := range p.bundle.Hooks {
 		if hook.Layer == "builtin" {
 			continue
 		}
-		label := "hook " + hook.Name
-		lines, reached := userHookLines(hook, targets)
-		for _, line := range lines.order {
-			on := lines.targets[line]
-			if len(on) == len(reached) {
-				add(label+": ", line)
-			} else {
-				add(label+" ("+strings.Join(on, ", ")+"): ", line)
+		lines, order := targetLines(p.targets, func(target string) []string {
+			if records, shown := p.shown[target]; shown {
+				return nativeLines(records[hook.Name])
 			}
-		}
+			if !hook.EmitsTo(target) {
+				return nil
+			}
+			return userHookTargetLines(target, hook)
+		})
+		add("hook "+hook.Name, lines, order, len(p.targets))
 	}
-	for _, server := range bundle.MCPs {
+	for _, server := range p.bundle.MCPs {
 		if server.Layer == "builtin" {
 			continue
 		}
-		label := "MCP server " + server.Name + ": "
-		add(label, mcpCommandLine(server.Meta))
-		// Sorted, so the plan id stays the same for the same specs.
-		for _, field := range slices.Sorted(maps.Keys(server.Meta)) {
-			override, ok := server.Meta[field].(map[string]any)
-			if !ok || !strings.HasPrefix(field, "x-") {
-				continue
+		lines, order := targetLines(p.targets, func(target string) []string {
+			owned := p.next.MCP[target]
+			// A JSON file keys a server under the target's MCP key.
+			record, ok := owned[server.Name]
+			if !ok {
+				record, ok = owned[userTargets[target].mcp.key+"."+server.Name]
 			}
-			// A tool's block replaces the top-level keys it names, one by one.
-			merged := maps.Clone(server.Meta)
-			maps.Copy(merged, override)
-			add(label, mcpCommandLine(merged))
-		}
+			if !ok {
+				return nil
+			}
+			return nativeLines([]any{record})
+		})
+		add("MCP server "+server.Name, lines, order, len(p.targets))
 	}
 	return commands
 }
 
-// hookLines are a hook's command lines in first-seen order, each with
-// the targets that run it.
-type hookLines struct {
-	order   []string
-	targets map[string][]string
-}
-
-// userHookLines renders hook's command lines for each target it reaches,
-// and returns those targets.
-func userHookLines(hook spec.Entry, targets []string) (hookLines, []string) {
-	lines := hookLines{targets: map[string][]string{}}
-	var reached []string
+// targetLines gathers the lines each target runs, in first-seen order,
+// each with the targets that run it.
+func targetLines(targets []string, linesFor func(target string) []string) (map[string][]string, []string) {
+	lines := map[string][]string{}
+	var order []string
 	for _, target := range targets {
-		if !hook.EmitsTo(target) {
-			continue
-		}
-		reached = append(reached, target)
-		for _, line := range userHookTargetLines(target, hook) {
-			if line == "" || slices.Contains(lines.targets[line], target) {
+		for _, line := range linesFor(target) {
+			if line == "" || slices.Contains(lines[line], target) {
 				continue
 			}
-			if _, seen := lines.targets[line]; !seen {
-				lines.order = append(lines.order, line)
+			if _, seen := lines[line]; !seen {
+				order = append(order, line)
 			}
-			lines.targets[line] = append(lines.targets[line], target)
+			lines[line] = append(lines[line], target)
 		}
 	}
-	return lines, reached
+	return lines, order
 }
 
-// userHookTargetLines are the lines hook runs on target: each command
-// with its args. Copilot also writes a command's cwd and env, an http
-// hook's url and a prompt hook's text, so its lines carry them.
+// userHookTargetLines are a hook's command lines on a target whose
+// written records the plan does not keep: each command with its args,
+// after the target's override.
 func userHookTargetLines(target string, hook spec.Entry) []string {
 	resolved := adapters.TargetHook(target, hook).Meta
-	if target == "copilot" {
-		resolved = adapters.ResolveMeta(hook.Meta, target)
-		switch kind, _ := resolved["type"].(string); kind {
-		case "http":
-			url, _ := resolved["url"].(string)
-			return []string{preview.RedactURL(strings.TrimSpace(url)) + httpHookSends(resolved)}
-		case "prompt":
-			prompt, _ := resolved["prompt"].(string)
-			return []string{oneLine(preview.RedactText(prompt))}
-		}
-	}
 	args := stringSliceFromAny(resolved["args"])
-	override, _ := hook.Meta["x-"+target].(map[string]any)
 	var lines []string
-	// A Windows command under the override is listed too, so nothing it may run is hidden.
-	for _, raw := range []any{resolved["command"], resolved["commandWindows"], override["commandWindows"]} {
-		for _, command := range userHookCommands(raw) {
-			line := strings.TrimSpace(adapters.ExecFormCommand(command, args))
-			if line != "" && target == "copilot" {
-				// Copilot writes only text env values.
-				meta := maps.Clone(resolved)
-				meta["env"] = textValues(resolved["env"])
-				line = withEnvAndCwd(line, meta)
-			}
-			lines = append(lines, line)
-		}
+	for _, command := range userHookCommands(resolved["command"]) {
+		lines = append(lines, strings.TrimSpace(adapters.ExecFormCommand(command, args)))
+	}
+	for _, command := range userHookCommands(resolved["commandWindows"]) {
+		lines = append(lines, strings.TrimSpace(command))
 	}
 	return lines
 }
 
-// httpHookSends names the env variables and headers an http hook sends
+// runKeys are the record fields that hold something a tool runs or
+// sends to.
+var runKeys = []string{"command", "commandWindows", "bash", "powershell", "exec", "url", "prompt"}
+
+// nativeLines are the lines a tool runs from records as sync writes
+// them: each command with its args, env and cwd, each url with what it
+// sends, and each prompt, wherever they sit in the record.
+func nativeLines(records []any) []string {
+	var lines []string
+	var walk func(node any)
+	walk = func(node any) {
+		switch value := node.(type) {
+		case []any:
+			for _, item := range value {
+				walk(item)
+			}
+		case map[string]any:
+			if !slices.ContainsFunc(runKeys, func(key string) bool { _, ok := value[key]; return ok }) {
+				for _, key := range slices.Sorted(maps.Keys(value)) {
+					walk(value[key])
+				}
+				return
+			}
+			lines = append(lines, recordLines(value)...)
+		}
+	}
+	for _, record := range records {
+		walk(jsonRoundTrip(record))
+	}
+	return lines
+}
+
+// recordLines renders one record that holds runKeys.
+func recordLines(record map[string]any) []string {
+	var lines []string
+	args := stringSliceFromAny(record["args"])
+	for _, key := range []string{"command", "exec"} {
+		for _, command := range userHookCommands(record[key]) {
+			lines = append(lines, withEnvAndCwd(adapters.ExecFormCommand(command, args), record))
+		}
+	}
+	for _, key := range []string{"commandWindows", "bash", "powershell"} {
+		if command, _ := record[key].(string); strings.TrimSpace(command) != "" {
+			lines = append(lines, withEnvAndCwd(command, record))
+		}
+	}
+	if url, _ := record["url"].(string); url != "" {
+		lines = append(lines, preview.RedactURL(strings.TrimSpace(url))+httpHookSends(record))
+	}
+	if prompt, _ := record["prompt"].(string); strings.TrimSpace(prompt) != "" {
+		lines = append(lines, oneLine(preview.RedactText(prompt)))
+	}
+	return lines
+}
+
+// httpHookSends names the env variables and headers a request sends
 // along, without the header values.
 func httpHookSends(meta map[string]any) string {
 	var parts []string
@@ -198,17 +228,6 @@ func httpHookSends(meta map[string]any) string {
 		return ""
 	}
 	return " (sends " + strings.Join(parts, "; ") + ")"
-}
-
-func textValues(raw any) map[string]any {
-	env, _ := raw.(map[string]any)
-	out := map[string]any{}
-	for name, value := range env {
-		if text, ok := value.(string); ok {
-			out[name] = text
-		}
-	}
-	return out
 }
 
 func oneLine(text string) string { return strings.Join(strings.Fields(text), " ") }
@@ -227,6 +246,7 @@ func shownWord(value string) string {
 // an env value that looks like a secret. A value that is not a plain
 // word is quoted, so it cannot read as another command.
 func withEnvAndCwd(line string, meta map[string]any) string {
+	line = strings.TrimSpace(line)
 	if env, ok := meta["env"].(map[string]any); ok && len(env) > 0 {
 		pairs := make([]string, 0, len(env))
 		for name, value := range env {
@@ -249,34 +269,4 @@ func shownEnvValue(key, value string) string {
 		return preview.Redacted
 	}
 	return preview.RedactText(value)
-}
-
-// mcpCommandLine is a server's command with its args, cwd and env, or
-// its url; empty when meta names neither.
-func mcpCommandLine(meta map[string]any) string {
-	line, _ := meta["command"].(string)
-	if line == "" {
-		url, _ := meta["url"].(string)
-		return preview.RedactURL(url)
-	}
-	line = strings.Join(append([]string{line}, commandLines(meta["args"])...), " ")
-	return withEnvAndCwd(line, meta)
-}
-
-func commandLines(raw any) []string {
-	switch value := raw.(type) {
-	case string:
-		return []string{value}
-	case []string:
-		return value
-	case []any:
-		lines := make([]string, 0, len(value))
-		for _, item := range value {
-			if text, ok := item.(string); ok {
-				lines = append(lines, text)
-			}
-		}
-		return lines
-	}
-	return nil
 }

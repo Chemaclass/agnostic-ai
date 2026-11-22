@@ -165,6 +165,15 @@ func (h *editHandler) applyValidated(file string, edit func([]byte) ([]byte, err
 }
 
 func (h *editHandler) applyValidatedWithPrepare(file string, edit func([]byte) ([]byte, error), prepare func() (func(bool) error, error), guards ...func() error) ([]string, error) {
+	// A home config edit reads and writes under the lock an approvals
+	// change takes, so neither replaces the other's edit.
+	if h.userLevel && !h.homeLocked && slices.ContainsFunc(userConfigPaths(h.root), func(path string) bool { return filepath.Clean(path) == filepath.Clean(file) }) {
+		release, err := lockApprovalsWrites(h.root)
+		if err != nil {
+			return nil, err
+		}
+		defer release()
+	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	before, beforeErr := h.validationProblems()

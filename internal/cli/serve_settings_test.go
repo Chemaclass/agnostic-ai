@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/config"
@@ -514,5 +515,64 @@ func TestSettings_KeepsAnEditMadeWhileTheChangeWasChecked(t *testing.T) {
 				t.Errorf("the other edit was lost:\n%s", got)
 			}
 		})
+	}
+}
+
+// TestSettings_ATargetsEditWaitsForAnApprovalsChange: a targets edit that
+// starts while an approvals change holds the lock waits for it, so both
+// edits stay in the home config.
+func TestSettings_ATargetsEditWaitsForAnApprovalsChange(t *testing.T) {
+	silence(t)
+	h, source := settingsFixture(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: review\n")
+	edits := newEditHandler(source, true)
+	release, err := lockApprovalsWrites(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := os.OpenFile(filepath.Join(filepath.Dir(approvals.LogPath(source)), "write.lock"), os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	release()
+	if err := tryLockProjectFile(held); err != nil {
+		_ = held.Close()
+		t.Skipf("no file locks here: %v", err)
+	}
+	_ = held.Close()
+	done := make(chan *httptest.ResponseRecorder, 1)
+	approvalsWritePause = func() {
+		go func() {
+			done <- postEdit(t, edits, editTargetsPath, `{"audience":"shared","name":"codex","enabled":true,"expected":false}`, nil)
+		}()
+		time.Sleep(200 * time.Millisecond)
+	}
+	t.Cleanup(func() { approvalsWritePause = func() {} })
+	if rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, withSecret(settingsTestSecret)); rec.Code != http.StatusOK {
+		t.Fatalf("approvals change = %d %s", rec.Code, rec.Body)
+	}
+	if rec := <-done; rec.Code != http.StatusOK {
+		t.Fatalf("targets edit = %d %s", rec.Code, rec.Body)
+	}
+	got := readFile(t, filepath.Join(source, config.ConfigFileName))
+	if !strings.Contains(got, "companion: false") || !strings.Contains(got, "codex") {
+		t.Errorf("an edit was lost:\n%s", got)
+	}
+}
+
+// TestSettings_ChecksExpectedAgainstTheReadItWrites: the value the page
+// expected is checked against the same read the change is built from, so
+// a hand edit landing after that read stops the change.
+func TestSettings_ChecksExpectedAgainstTheReadItWrites(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\napprovals:\n  mode: review\n")
+	path := filepath.Join(source, config.ConfigFileName)
+	const hand = "version: 1\napprovals:\n  mode: ask\n"
+	approvalsWritePause = func() { writeFile(t, path, hand) }
+	t.Cleanup(func() { approvalsWritePause = func() {} })
+	rec, _ := postSetting(t, h, `{"key":"approvals.mode","value":"yolo","expected":"review"}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("POST = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, path); got != hand {
+		t.Errorf("the hand edit was lost:\n%s", got)
 	}
 }

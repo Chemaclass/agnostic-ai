@@ -202,6 +202,7 @@ func (f *userHooksFile) plannedHooks(entries []spec.Entry) ([]plannedUserHook, e
 		}
 		for _, command := range commands {
 			item, plain := f.nativeHook(entry, event, command, args, wraps)
+			f.target.show(fromSpec, entry, item)
 			planned = append(planned, plannedUserHook{event: event, item: item, plain: plain, spec: fromSpec})
 		}
 	}
@@ -219,6 +220,7 @@ func (f *userHooksFile) plannedCopilotHooks(entry spec.Entry, event string, from
 	for _, item := range native[event] {
 		plain := jsonRoundTrip(item)
 		dropHookTargetEnv(plain.(map[string]any), "copilot")
+		f.target.show(fromSpec, entry, item)
 		adopted, err := adoptUserCopilotHook(f.path, event, item, plain, entry.Meta)
 		if err != nil {
 			return nil, err
@@ -828,6 +830,15 @@ type userHookTarget struct {
 	// specHooks counts the leading entries that come from hook specs;
 	// the rest, such as Cursor's context bridge, are sync's own.
 	specHooks int
+	// record, when set, receives each spec hook's record as the file
+	// gets it, for the Apply confirm.
+	record func(entry spec.Entry, item any)
+}
+
+func (t userHookTarget) show(fromSpec bool, entry spec.Entry, item any) {
+	if fromSpec && t.record != nil {
+		t.record(entry, item)
+	}
 }
 
 // tell adds the target to one Claude-shaped command handler.

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -26,24 +27,38 @@ func buildUserWrites(home, source string, targets []string, intro []byte, b spec
 	return buildUserWritesForPlatform(home, source, targets, intro, b, old, agentErr, warn, onUnsupported, runtime.GOOS)
 }
 func buildUserWritesForPlatform(home, source string, targets []string, intro []byte, b spec.Bundle, old userState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) ([]userWrite, userState, error) {
+	p, err := runUserPlan(home, source, targets, intro, b, old, agentErr, warn, onUnsupported, platform)
+	switch {
+	case p == nil:
+		return nil, userState{}, err
+	case err != nil:
+		return nil, p.next, err
+	}
+	return p.writes, p.next, nil
+}
+
+// runUserPlan runs the user planner and returns it, with its writes,
+// next state and the records the Apply confirm shows; nil when it could
+// not start.
+func runUserPlan(home, source string, targets []string, intro []byte, b spec.Bundle, old userState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) (*userPlan, error) {
 	for _, target := range targets {
 		if err := userTargets[target].instructionsRootError(platform); err != nil {
-			return nil, userState{}, fmt.Errorf("%s: %w", target, err)
+			return nil, fmt.Errorf("%s: %w", target, err)
 		}
 		if validate := userTargets[target].mcp.validate; validate != nil {
 			if err := validate(b.For(target).MCPs); err != nil {
-				return nil, userState{}, err
+				return nil, err
 			}
 		}
 	}
 	p := newUserPlan(home, source, platform, targets, intro, b, old, agentErr, warn, onUnsupported)
 	if err := p.loadPlanApprovals(); err != nil {
-		return nil, userState{}, err
+		return nil, err
 	}
 	p.carryOverState()
 	p.sweepOwnedSurfaces()
 	if err := p.eachTarget(p.planAgents, p.planInstructions, p.planRules, p.planSkills, p.planHookFiles, p.planJSONHooks); err != nil {
-		return nil, p.next, err
+		return p, err
 	}
 	// User settings and MCP servers merge last: a file may also hold
 	// hooks or agent efforts this run changed, so each edit starts from
@@ -51,14 +66,14 @@ func buildUserWritesForPlatform(home, source string, targets []string, intro []b
 	if slices.Contains(targets, "grok") {
 		g := userTargets["grok"]
 		if err := p.snapshotTOML("grok", []string{g.path(home, g.settings.path), g.mcpPath(home), old.SettingsPaths["grok"], old.MCPPaths["grok"]}); err != nil {
-			return nil, p.next, err
+			return p, err
 		}
 	}
 	if err := p.eachTarget(p.snapshotTargetTOML, p.planSettings, p.planKiroReview, p.planTOMLArrays, p.planMCP); err != nil {
-		return nil, p.next, err
+		return p, err
 	}
 	p.finalize()
-	return p.writes, p.next, nil
+	return p, nil
 }
 
 // userPlan is one run of the user planner: the writes it plans and
@@ -84,6 +99,24 @@ type userPlan struct {
 	approvals config.ApprovalsConfig
 	// body is the instructions text; managed wraps it in the user block.
 	body, managed string
+	// shown holds, per target and hook name, the records sync writes for
+	// each spec hook; a target in it lists no hook it did not render.
+	shown map[string]map[string][]any
+}
+
+// showHook keeps record, which target gets for the spec hook name.
+func (p *userPlan) showHook(target, name string, record any) {
+	if p.shown[target] == nil {
+		p.shown[target] = map[string][]any{}
+	}
+	p.shown[target][name] = append(p.shown[target][name], record)
+}
+
+// showsHooks marks target as one whose hook records the confirm reads.
+func (p *userPlan) showsHooks(target string) {
+	if p.shown[target] == nil {
+		p.shown[target] = map[string][]any{}
+	}
 }
 
 func newUserPlan(home, source, platform string, targets []string, intro []byte, b spec.Bundle, old userState, agentErr func(string, error) error, warn io.Writer, onUnsupported string) *userPlan {
@@ -97,7 +130,7 @@ func newUserPlan(home, source, platform string, targets []string, intro []byte, 
 	body := strings.TrimSpace(string(intro))
 	return &userPlan{
 		home: home, source: source, platform: platform, targets: targets, bundle: b, old: old, next: next,
-		seen: map[string]int{}, emptied: map[string]bool{}, initialTOML: map[string]*diskSnapshot{},
+		seen: map[string]int{}, emptied: map[string]bool{}, initialTOML: map[string]*diskSnapshot{}, shown: map[string]map[string][]any{},
 		warn: warn, onUnsupported: onUnsupported, agentErr: agentErr,
 		body: body, managed: userStart + "\n" + body + "\n" + userEnd,
 	}
@@ -395,11 +428,22 @@ func (p *userPlan) planHookFiles(target string, g userTarget) error {
 	}
 	hooks := adapters.TargetHooks(target, p.bundle.HooksFor(target))
 	adapters.NotePortableHookGaps(target, p.bundle.Hooks)
+	dir := g.path(p.home, g.hooksDir)
+	if target == "kiro" {
+		p.showsHooks(target)
+	}
 	addHookFile := func(path string, data []byte, mode fs.FileMode) error {
 		if err := p.add(path, data, mode); err != nil {
 			return err
 		}
 		p.next.HookFiles[target] = append(p.next.HookFiles[target], path)
+		// Kiro writes one file per hook, named after it.
+		if name, ok := strings.CutSuffix(filepath.Base(path), ".json"); ok && target == "kiro" && filepath.Dir(path) == dir {
+			var record any
+			if json.Unmarshal(data, &record) == nil {
+				p.showHook(target, name, record)
+			}
+		}
 		return nil
 	}
 	return addUserHookFiles(p.home, p.source, target, g, hooks, p.onUnsupported, addHookFile)
@@ -430,6 +474,10 @@ func (p *userPlan) planJSONHooks(target string, g userTarget) error {
 		return err
 	}
 	hookTarget := userHookTarget{name: target, mode: g.hookTarget, args: g.hookArgs, foldArgs: g.hookFoldArgs, timeout: g.hookTimeout, specHooks: len(hooks), scriptsDir: scriptsDir, goos: p.platform}
+	if !strings.HasSuffix(g.hooksFormat, "-toml") {
+		p.showsHooks(target)
+		hookTarget.record = func(entry spec.Entry, item any) { p.showHook(target, entry.Name, item) }
+	}
 	if g.bridge && p.body != "" {
 		bridge, command, script, mode := userContextBridge(filepath.Dir(path), p.body, g.bridgeKey)
 		if err := p.add(bridge, []byte(script), mode); err != nil {
@@ -788,6 +836,14 @@ func (p *userPlan) planHookArray(target string, g userTarget) error {
 	records, err := adapters.UserHookArrayRecordsForPlatform(target, p.bundle.HooksFor(target), filepath.Join(filepath.Dir(path), "hooks"), p.platform)
 	if err != nil {
 		return err
+	}
+	if target == "vibe" {
+		// Vibe names each record after its hook; Kimi's records carry no name.
+		p.showsHooks(target)
+		for _, record := range records {
+			name, _ := record["name"].(string)
+			p.showHook(target, name, record)
+		}
 	}
 	want, err := namedTOMLRecords(path, records)
 	if target == "kimi" {
