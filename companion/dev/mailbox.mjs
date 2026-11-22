@@ -185,6 +185,12 @@ function anotherHolder(state, owner, worktree, path) {
     claim.paths.some((root) => overlap(path, root)) && !(claim.except ?? []).some((except) => under(path, except)))?.owner
 }
 
+/** Like the server: once claims change hands, a conflict with no thread that no session blocks any more is over. */
+function retireUnblocked(state) {
+  state.claimConflicts = state.claimConflicts.filter((conflict) => conflict.thread ||
+    anotherHolder(state, conflict.requester, conflict.worktree, conflict.path))
+}
+
 function claimIn(state, owner, worktree, paths, now) {
   // Like the server: one claim record per path.
   for (const path of paths) state.claims.push({ owner: refOf(owner), worktree, paths: [path], since: now.toISOString(), by: 'human' })
@@ -247,9 +253,7 @@ export function mailboxRelease(state, ask, now) {
     if (listed || !exact) return refused('ownership', undefined, now)
   }
   releaseIn(state, ask, ask.worktree, ask.paths)
-  const ownsReleased = (conflict) => same(conflict.holder, ask) && conflict.worktree === ask.worktree &&
-    ask.paths.some((path) => overlap(path, conflict.path))
-  state.claimConflicts = state.claimConflicts.filter((conflict) => conflict.thread || !ownsReleased(conflict))
+  retireUnblocked(state)
   return changed({})
 }
 
@@ -286,6 +290,7 @@ export function mailboxAnswer(state, ask, now) {
     message.handoff = 'declined'
   }
   state.claimConflicts = state.claimConflicts.filter((conflict) => conflict.thread !== thread.id || conflict.n !== message.n)
+  if (ask.action === 'accept') retireUnblocked(state)
   return changed({})
 }
 

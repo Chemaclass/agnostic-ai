@@ -1147,7 +1147,8 @@ export function keptViewOf(view, kept, now) {
     })
     const quiet = { ...conversation, stuckShells: marked }
     if (conversation.state !== 'blocked' || conversation.waiting?.for !== 'shell' || !marked.every((shell) => shell.keptUntil)) return quiet
-    released += 1
+    // A path conflict keeps the row under Needs you, so the server's count stands.
+    if (!conversation.claimConflicts?.length) released += 1
     const { waiting, ...active } = quiet
     return { ...active, state: 'active' }
   })

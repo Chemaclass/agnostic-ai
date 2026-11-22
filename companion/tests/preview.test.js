@@ -461,9 +461,13 @@ test('the conflict fixture puts the conflict on the holder and the requester row
   const conflicted = async () => (await inbox(preview.url)).body.view.conversations.filter((row) => row.claimConflicts?.length).map((row) => row.title)
   assert.deepEqual(await conflicted(), ['Review the parser', 'Draft the tests'])
   assert.deepEqual((await inbox(preview.url)).body.view.mailboxClaims, { paths: 1, stale: 0, conflicts: 1 })
+  const needsYou = (await inbox(preview.url)).body.view.needsYou
+  assert.equal(needsYou, 2)
   const ask = { tool: 'claude', id: '84fc6d21-820c-4c88-9729-ff8ee40de1f3', conflict: 'c-other' }
   assert.equal((await postJSON(preview.url + '/api/mailbox/conflict/dismiss', ask)).status, 200)
   assert.equal((await conflicted()).length, 2)
   assert.equal((await postJSON(preview.url + '/api/mailbox/conflict/dismiss', { ...ask, conflict: 'c-fixture-1' })).status, 200)
   assert.deepEqual(await conflicted(), [])
+  // Like the server, each side counts once: the unread requester still counts, the working holder no longer does.
+  assert.equal((await inbox(preview.url)).body.view.needsYou, needsYou - 1)
 })

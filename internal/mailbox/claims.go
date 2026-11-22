@@ -206,15 +206,7 @@ func (s Store) release(ctx context.Context, owner conversations.Ref, gives Gives
 	if !changed {
 		return nil
 	}
-	// A conflict with no thread whose blocker this release freed is over:
-	// a later claim by another session must not bring it back.
-	state.Conflicts = slices.DeleteFunc(state.Conflicts, func(c ClaimConflict) bool {
-		if c.Thread != "" {
-			return false
-		}
-		_, active := s.activeConflict(state.Claims, c)
-		return !active
-	})
+	retireUnblocked(&state)
 	return s.writeClaims(state)
 }
 
@@ -362,14 +354,34 @@ func (s Store) DismissConflict(ctx context.Context, requester conversations.Ref,
 	return s.writeClaims(state)
 }
 
-func (s Store) recordClaimConflict(state claimsFile, c ClaimConflict) error {
-	state.Conflicts = slices.DeleteFunc(state.Conflicts, func(record ClaimConflict) bool {
+// retireUnblocked drops each conflict with no thread that no session
+// blocks any more, once claims change hands: a later claim by another
+// session must not bring it back.
+func retireUnblocked(state *claimsFile) {
+	state.Conflicts = slices.DeleteFunc(state.Conflicts, func(c ClaimConflict) bool {
 		if c.Thread != "" {
-			return record.Thread == c.Thread && record.N == c.N
+			return false
 		}
-		return record.Thread == "" && record.Requester == c.Requester && record.Worktree == c.Worktree && record.Path == c.Path
+		_, holder := claimedByOther(state.Claims, c.Requester, c.Worktree, c.Path)
+		return holder == nil
 	})
+}
+
+func (s Store) recordClaimConflict(state claimsFile, c ClaimConflict) error {
 	c.ID = newConflictID()
+	state.Conflicts = slices.DeleteFunc(state.Conflicts, func(record ClaimConflict) bool {
+		var same bool
+		if c.Thread != "" {
+			same = record.Thread == c.Thread && record.N == c.N
+		} else {
+			same = record.Thread == "" && record.Requester == c.Requester && record.Worktree == c.Worktree && record.Path == c.Path
+		}
+		// A repeated refusal keeps the id the list already shows.
+		if same {
+			c.ID = record.ID
+		}
+		return same
+	})
 	state.Conflicts = append(state.Conflicts, c)
 	if err := s.writeClaims(state); err != nil {
 		return err

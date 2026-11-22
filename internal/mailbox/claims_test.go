@@ -597,3 +597,33 @@ func TestClaims_AConflictSavedWithoutAnIDGetsOneDismissCanUse(t *testing.T) {
 		t.Errorf("conflicts after dismiss = %+v", view.Conflicts)
 	}
 }
+
+func TestClaims_AHandoffToTheRequesterEndsItsConflict(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	offer := claimAndOffer(t, s, root, "scope/a.go")
+	requireGuard(t, s.Claim(t.Context(), codex, Gives{root, []string{"scope/a.go"}}, root, "human"), "ownership")
+	if err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.readClaims()
+	if err != nil || len(state.Conflicts) != 0 {
+		t.Errorf("stored conflicts after the handoff = %+v, %v; want none", state.Conflicts, err)
+	}
+}
+
+func TestClaims_ARepeatedRefusalKeepsTheConflictID(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	file := Gives{root, []string{"scope/a.go"}}
+	if err := s.Claim(t.Context(), mailThird, file, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	requireGuard(t, s.Claim(t.Context(), claude, file, root, "human"), "ownership")
+	first, _ := s.Claims(t.Context())
+	requireGuard(t, s.Claim(t.Context(), claude, file, root, "human"), "ownership")
+	second, _ := s.Claims(t.Context())
+	if len(first.Conflicts) != 1 || len(second.Conflicts) != 1 || first.Conflicts[0].ID != second.Conflicts[0].ID {
+		t.Fatalf("conflicts = %+v then %+v; want one with the same id", first.Conflicts, second.Conflicts)
+	}
+}

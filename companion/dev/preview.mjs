@@ -138,7 +138,9 @@ function waitingIn(conversations) {
 
 /** A page of the list; like the server, needsYou counts every chat, not only the search's matches. */
 function viewOf(state, conversations, query, all = conversations) {
-  const view = { conversations: mailboxRows(state, conversations), needsYou: all.filter((row) => NEEDS_PERSON[row.state]).length }
+  const conflicted = (row) => state.claimConflicts.some(({ requester, holder }) =>
+    [requester, holder].some((ref) => ref?.tool === row.tool && ref?.id === row.id))
+  const view = { conversations: mailboxRows(state, conversations), needsYou: all.filter((row) => NEEDS_PERSON[row.state] || conflicted(row)).length }
   if (query !== undefined) view.matches = conversations.length
   if (state.fixture.cloudNote) view.cloudNote = state.fixture.cloudNote
   if (state.fixture.marksNote) view.marksNote = state.fixture.marksNote

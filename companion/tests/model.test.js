@@ -1110,6 +1110,9 @@ test('a row waiting only on kept shells sits under Active until the wake time', 
   assert.equal(due.conversations[0].state, 'blocked')
   assert.equal(due.needsYou, 2)
 
+  const conflicted = { ...view, conversations: [{ ...waitingRow, claimConflicts: [{ id: 'c1', worktree: '/w', path: 'a.go' }] }, view.conversations[1]] }
+  assert.equal(keptViewOf(conflicted, [record], shellNow).needsYou, 2, 'a path conflict keeps the row under Needs you')
+
   const another = keptViewOf(view, [{ ...record, procStart: 'later' }], shellNow)
   assert.equal(another.conversations[0].state, 'blocked')
 
