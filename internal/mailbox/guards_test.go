@@ -32,9 +32,26 @@ func TestValidateSend_RefusesCredentialsInEveryField(t *testing.T) {
 	}
 }
 
+func TestValidateSend_OnlyQuestionAndFindingRequireABody(t *testing.T) {
+	for _, kind := range []string{Question, Finding, Handoff} {
+		t.Run(kind, func(t *testing.T) {
+			refused := ValidateSend(claude, SendRequest{To: codex, Type: kind})
+			if kind == Handoff {
+				if refused != nil {
+					t.Errorf("bare handoff refused: %v", refused)
+				}
+				return
+			}
+			if refused == nil || refused.Guard != "format" {
+				t.Errorf("validation = %v, want format guard", refused)
+			}
+		})
+	}
+}
+
 func TestStore_RefusesUnshippedMessageTypesAndOversizeText(t *testing.T) {
 	for _, test := range []struct{ name, kind, body, guard string }{
-		{"handoffs without paths", Handoff, "Do this next.", "ownership"},
+		{"handoffs without a resolved pointer", Handoff, "", "format"},
 		{"a body on done", Done, "Goodbye.", "format"},
 		{"a body over 4000 characters", Finding, strings.Repeat("a", 4001), "size"},
 		{"an encoded line over 5000 bytes", Finding, strings.Repeat("<", 1000), "size"},

@@ -43,12 +43,22 @@ type SendRequest struct {
 	Models *ModelInput       `json:"models,omitempty"`
 	Gives  *Gives            `json:"gives,omitempty"`
 	// Model is the name an agent states for itself; only the command line sets it.
-	Model string `json:"-"`
+	Model  string  `json:"-"`
+	Resume *Resume `json:"-"`
 }
 
 type Gives struct {
 	Worktree string   `json:"worktree"`
 	Paths    []string `json:"paths"`
+}
+
+type Resume struct {
+	Worktree string `json:"worktree"`
+	Project  string `json:"project,omitempty"`
+	Branch   string `json:"branch"`
+	Head     string `json:"head"`
+	Note     string `json:"note"`
+	NoteKind string `json:"noteKind"`
 }
 
 type ReviewInput struct {
@@ -78,9 +88,10 @@ type Model struct {
 }
 
 type Receipt struct {
-	Thread string `json:"thread"`
-	N      int    `json:"n"`
-	State  string `json:"state"`
+	Thread string  `json:"thread"`
+	N      int     `json:"n"`
+	State  string  `json:"state"`
+	Resume *Resume `json:"resume,omitempty"`
 }
 
 type Actor struct {
@@ -97,6 +108,7 @@ type Message struct {
 	Model       string             `json:"model,omitempty"`
 	Refs        *ReviewRefs        `json:"refs,omitempty"`
 	Gives       *Gives             `json:"gives,omitempty"`
+	Resume      *Resume            `json:"resume,omitempty"`
 	Handoff     string             `json:"handoff,omitempty"`
 	AcceptedAt  *time.Time         `json:"acceptedAt,omitempty"`
 	AcceptedBy  *conversations.Ref `json:"acceptedBy,omitempty"`

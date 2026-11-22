@@ -18,6 +18,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
+	"github.com/chemaclass/agnostic-ai/internal/mailbox"
 )
 
 func mailboxHTTPFixture(t *testing.T) (*conversationsHandler, *recordingLauncher) {
@@ -157,7 +158,8 @@ func TestMailboxHTTP_RefusesUnlistedSessionsAndForgedFields(t *testing.T) {
 		{"cap", `{"cap":80,` + strings.TrimPrefix(valid, "{"), "format"},
 		{"events", `{"events":[],` + strings.TrimPrefix(valid, "{"), "format"},
 		{"review request body", mailboxSendBody(inWorktree, "review_request", "", ""), "echo"},
-		{"handoff without paths", mailboxSendBody(inWorktree, "handoff", "", ""), "ownership"},
+		{"handoff outside Git", mailboxSendBody(inWorktree, "handoff", "", ""), "refs"},
+		{"forged resume", fmt.Sprintf(`{"from":{"tool":"claude","id":%q},"to":{"id":%q},"type":"handoff","resume":{"worktree":"/tmp/unrelated"}}`, inProject, inWorktree), "format"},
 		{"credential", mailboxSendBody(inWorktree, "question", "API_KEY=fixture-sensitive-value-123456789", ""), "secret"},
 		{"too large", mailboxSendBody(inWorktree, "question", strings.Repeat("x", 4001), ""), "size"},
 	} {
@@ -165,6 +167,24 @@ func TestMailboxHTTP_RefusesUnlistedSessionsAndForgedFields(t *testing.T) {
 			mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/send", test.body), test.guard)
 		})
 	}
+}
+
+func TestMailboxHTTP_HandsOverASessionWithoutPaths(t *testing.T) {
+	h, _ := mailboxHTTPFixture(t)
+	_, head := makeReviewRepo(t, h.root)
+	body := fmt.Sprintf(`{"from":{"tool":"claude","id":%q},"to":{"id":%q},"type":"handoff"}`, inProject, inWorktree)
+	rec := mailboxHTTP(t, h, http.MethodPost, mailboxSendPath, body)
+	var receipt mailbox.Receipt
+	if err := json.Unmarshal(rec.Body.Bytes(), &receipt); rec.Code != http.StatusOK || err != nil {
+		t.Fatalf("mailbox send = %d %s (%v)", rec.Code, rec.Body, err)
+	}
+	branch := git(t, h.root, "branch", "--show-current")
+	if receipt.State != mailbox.Waiting || receipt.Resume == nil || receipt.Resume.Worktree != canonicalDir(h.root) ||
+		receipt.Resume.Branch != branch || receipt.Resume.Head != head || receipt.Resume.Note != "" {
+		t.Errorf("mailbox receipt = %+v, resume = %+v", receipt, receipt.Resume)
+	}
+	rec = mailboxHTTP(t, h, http.MethodPost, mailboxHandoffPath, mailboxHandoffBody(receipt.Thread, "accept"))
+	mailboxExpectRefusal(t, rec, "format")
 }
 
 func TestMailboxHTTP_RequiresLocalOriginAndJSON(t *testing.T) {

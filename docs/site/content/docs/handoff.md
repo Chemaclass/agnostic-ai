@@ -32,6 +32,8 @@ Say “write a handoff”, or “write a handoff for feat/x” for another branc
 
 In the same project, say “resume the handoff”. The tool finds the newest note for the branch, reports the next steps, and checks branch, commit, and working changes against Git. It asks you to confirm unexpected differences.
 
+Use the [session mailbox](@/docs/mailbox.md#hand-a-session-over) to pass the worktree and branch to another local Claude Code or Codex session. The reader resumes with your agreement.
+
 ## Limits and overrides
 
 - Handoffs stay on one machine; teammates never see them. Git ignores the notes, and linked worktrees can share them.

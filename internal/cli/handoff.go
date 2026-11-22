@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -13,6 +15,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/chemaclass/agnostic-ai/internal/mailbox"
 )
 
 type handoffWorktree struct {
@@ -110,7 +114,60 @@ func handoffWorktrees(root string) []handoffWorktree {
 	return out
 }
 
-func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff, error) {
+func handoffResume(ctx context.Context, folder string) (*mailbox.Resume, *mailbox.Refusal) {
+	outsideWorktree := &mailbox.Refusal{
+		Guard: "refs", Reason: "The sender's folder is outside a Git worktree.",
+		Next: "Open a Git worktree or choose a local session in one.",
+	}
+	worktree, err := mailbox.ResolveClaimWorktree(ctx, folder)
+	if err != nil {
+		if refusal, ok := errors.AsType[*mailbox.Refusal](err); ok && refusal.Guard == "secret" {
+			return nil, refusal
+		}
+		return nil, outsideWorktree
+	}
+	folder = canonicalDir(folder)
+	if relative, err := filepath.Rel(worktree, folder); err != nil || !filepath.IsLocal(relative) {
+		return nil, outsideWorktree
+	}
+	worktrees := handoffWorktrees(worktree)
+	i := slices.IndexFunc(worktrees, func(candidate handoffWorktree) bool {
+		return candidate.path == worktree && !candidate.bare && !candidate.prunable
+	})
+	if i < 0 || strings.Trim(worktrees[i].head, "0") == "" {
+		return nil, &mailbox.Refusal{
+			Guard: "refs", Reason: "The sender's Git commit could not be resolved.",
+			Next: "Choose a worktree with a checked-out commit.",
+		}
+	}
+	sender := worktrees[i]
+	resume := &mailbox.Resume{Worktree: worktree, Branch: sender.branch, Head: sender.head}
+	isUser := userRootMatcher()
+	project := configuredMemoryProject(folder, worktree, isUser)
+	if project == "" {
+		if isUser(worktree) {
+			return resume, nil
+		}
+		project = worktree
+	}
+	if project != worktree {
+		resume.Project = project
+	}
+	notes, _ := readHandoffNotes(project, worktrees, false)
+	branch := resume.Branch
+	if branch == "" {
+		branch = "detached-" + resume.Head
+	}
+	if note, ok := notes[branch]; ok {
+		resume.Note, resume.NoteKind = note.path, "manual"
+		if note.automatic {
+			resume.NoteKind = "auto"
+		}
+	}
+	return resume, nil
+}
+
+func readHandoffNotes(root string, worktrees []handoffWorktree, strict bool) (map[string]listedHandoff, error) {
 	projects := []string{root}
 	if len(worktrees) > 0 && !worktrees[0].bare && !worktrees[0].prunable {
 		top, err := handoffGit(root, "rev-parse", "--show-toplevel")
@@ -137,7 +194,7 @@ func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff
 		if handoffIgnoredStore(project) {
 			store := filepath.Join(project, ".agnostic-ai", "local", "handoffs")
 			entries, err := os.ReadDir(store)
-			if err != nil && !os.IsNotExist(err) {
+			if strict && err != nil && !os.IsNotExist(err) {
 				return nil, fmt.Errorf("%s: %w", store, err)
 			}
 			for _, entry := range entries {
@@ -152,10 +209,10 @@ func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff
 				continue
 			}
 			note, ok, err := readHandoffHeader(path)
-			if err != nil {
+			if strict && err != nil {
 				return nil, err
 			}
-			if !ok {
+			if err != nil || !ok {
 				continue
 			}
 			note.branch = handoffTaskBranch(note, worktrees)
@@ -164,6 +221,14 @@ func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff
 				notes[note.branch] = note
 			}
 		}
+	}
+	return notes, nil
+}
+
+func listHandoffFiles(root string, worktrees []handoffWorktree) ([]listedHandoff, error) {
+	notes, err := readHandoffNotes(root, worktrees, true)
+	if err != nil {
+		return nil, err
 	}
 	out := make([]listedHandoff, 0, len(notes))
 	dirty := map[string]string{}

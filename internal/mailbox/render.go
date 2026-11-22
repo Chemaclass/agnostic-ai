@@ -28,12 +28,13 @@ type renderedMessage struct {
 	Body   string        `json:"body,omitempty"`
 	Refs   *ReviewRefs   `json:"refs,omitempty"`
 	Gives  *Gives        `json:"gives,omitempty"`
+	Resume *Resume       `json:"resume,omitempty"`
 	Notice string        `json:"notice,omitempty"`
 }
 
 func renderLine(thread string, m Message) ([]byte, error) {
 	line := renderedMessage{
-		Thread: thread, N: m.N, Type: m.Type, Body: m.Body, Refs: m.Refs, Gives: m.Gives,
+		Thread: thread, N: m.N, Type: m.Type, Body: m.Body, Refs: m.Refs, Gives: m.Gives, Resume: m.Resume,
 		From: renderedActor{Tool: string(m.From.Tool), Session: m.From.ID, By: m.From.By},
 	}
 	if m.Type == ReviewRequest && m.Refs != nil {
@@ -46,7 +47,15 @@ func renderLine(thread string, m Message) ([]byte, error) {
 		}
 	}
 	if m.Type == Handoff {
-		line.Notice = "Paths move only after the receiving session accepts this handoff."
+		if m.Gives != nil {
+			line.Notice = "Paths move only after the receiving session accepts this handoff."
+		}
+		if m.Resume != nil {
+			if line.Notice != "" {
+				line.Notice += " "
+			}
+			line.Notice += "The sender hands this task to you. Tell the user it arrived. After the user agrees, resume it with the handoff skill."
+		}
 	}
 	if m.Model != "" {
 		line.From.Model = m.Model + " (stated by sender)"

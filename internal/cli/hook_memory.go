@@ -258,17 +258,8 @@ func memoryProjectRoot(target string) string {
 		}
 	}
 	isUser := userRootMatcher()
-	for dir := canonicalDir(wd); ; {
-		if !isUser(dir) {
-			if _, _, err := config.ResolveConfigPath(dir); err == nil {
-				return dir
-			}
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
+	if root := configuredMemoryProject(canonicalDir(wd), "", isUser); root != "" {
+		return root
 	}
 	top, err := gitOutput(wd, nil, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -279,6 +270,21 @@ func memoryProjectRoot(target string) string {
 		return ""
 	}
 	return top
+}
+
+func configuredMemoryProject(dir, boundary string, isUser func(string) bool) string {
+	for {
+		if !isUser(dir) {
+			if _, _, err := config.ResolveConfigPath(dir); err == nil {
+				return dir
+			}
+		}
+		parent := filepath.Dir(dir)
+		if dir == boundary || parent == dir {
+			return ""
+		}
+		dir = parent
+	}
 }
 
 // userRootMatcher returns a test for the user source root. It compares

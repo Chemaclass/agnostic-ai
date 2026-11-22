@@ -1,6 +1,7 @@
 package mailbox
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
@@ -368,5 +369,30 @@ func TestDeliver_StopDuringAPrintLetsTheHookSettleTheMessage(t *testing.T) {
 				t.Errorf("message after %s = %+v, want %s", name, m, want)
 			}
 		})
+	}
+}
+
+func TestDeliver_IncludesTheTaskPointerAndTheUserConsentNotice(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	pointer := testResume(t.TempDir())
+	receipt, err := s.Send(t.Context(), claude, SendRequest{To: codex, Type: Handoff, Resume: pointer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	delivery := reserve(t, s)
+	if !strings.HasPrefix(delivery.Block, blockOpening) || !strings.HasSuffix(delivery.Block, blockClosing) {
+		t.Fatalf("handoff delivery block = %q", delivery.Block)
+	}
+	line := strings.TrimSuffix(strings.TrimPrefix(delivery.Block, blockOpening), blockClosing)
+	var payload renderedMessage
+	if err := json.Unmarshal([]byte(line), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Thread != receipt.Thread || payload.Resume == nil || *payload.Resume != *pointer ||
+		payload.Gives != nil || payload.Body != "" {
+		t.Errorf("delivered handoff = %+v", payload)
+	}
+	if want := "The sender hands this task to you. Tell the user it arrived. After the user agrees, resume it with the handoff skill."; payload.Notice != want {
+		t.Errorf("notice = %q, want %q", payload.Notice, want)
 	}
 }

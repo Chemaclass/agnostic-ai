@@ -14,6 +14,7 @@ import (
 
 	"github.com/chemaclass/agnostic-ai/internal/authority"
 	"github.com/chemaclass/agnostic-ai/internal/conversations"
+	"github.com/chemaclass/agnostic-ai/internal/mailbox"
 )
 
 func mailboxClaimBody(id, root, path string) string {
@@ -65,16 +66,24 @@ func readTestClaims(t *testing.T, h http.Handler, id string) mailboxClaimReplyTe
 
 func TestMailboxHTTP_OfferThenAcceptTransfersOnlyTheOfferedPath(t *testing.T) {
 	h, _ := mailboxHTTPFixture(t)
-	makeReviewRepo(t, h.root)
+	_, head := makeReviewRepo(t, h.root)
 	const offered = "src/parser.go"
 	const retained = "src/other.go"
 	testChangeClaim(t, h, "claim", inProject, h.root, offered)
 	testChangeClaim(t, h, "claim", inProject, h.root, retained)
-	thread := mailboxSendThread(t, h, mailboxOfferBody(inWorktree, h.root, offered))
+	rec := mailboxHTTP(t, h, http.MethodPost, mailboxSendPath, mailboxOfferBody(inWorktree, h.root, offered))
+	var receipt mailbox.Receipt
+	if err := json.Unmarshal(rec.Body.Bytes(), &receipt); rec.Code != http.StatusOK || err != nil {
+		t.Fatalf("mailbox send = %d %s (%v)", rec.Code, rec.Body, err)
+	}
+	if receipt.Resume == nil || receipt.Resume.Head != head || receipt.Resume.Worktree != canonicalDir(h.root) {
+		t.Errorf("old offer payload received resume = %+v", receipt.Resume)
+	}
+	thread := receipt.Thread
 	if before := readTestClaims(t, h, inWorktree); len(before.Claims) != 0 {
 		t.Errorf("an offer transferred ownership: %#v", before.Claims)
 	}
-	rec := mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/threads?tool=claude&id="+inWorktree, "")
+	rec = mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/threads?tool=claude&id="+inWorktree, "")
 	if !strings.Contains(rec.Body.String(), `"handoff":"offered"`) {
 		t.Errorf("receiver's offered handoff = %d %s", rec.Code, rec.Body)
 	}

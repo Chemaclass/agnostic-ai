@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -485,5 +486,88 @@ func TestHandoffList_CanonicalizesLiveWorktreeAliases(t *testing.T) {
 	}
 	if strings.Contains(out, alias) || strings.Contains(out, "removed") {
 		t.Errorf("alias was not joined to the live worktree: %s", out)
+	}
+}
+
+func TestHandoffResume_UsesTheSendingFolderAndPrefersTheManualNote(t *testing.T) {
+	main, sender, _ := handoffListProject(t)
+	folder := filepath.Join(sender, "app", "src")
+	for _, root := range []string{main, sender} {
+		writeFile(t, filepath.Join(root, "app", "agnostic-ai.yaml"), "version: 1\ntargets: [codex]\n")
+	}
+	writeFile(t, filepath.Join(folder, "work.txt"), "work in progress\n")
+	head := git(t, sender, "rev-parse", "HEAD")
+	store := filepath.Join(main, "app", ".agnostic-ai", "local", "handoffs")
+	manual := filepath.Join(store, "feat-a.md")
+	auto := filepath.Join(store, "feat-a.auto.md")
+	writeListHandoff(t, manual, "feat/a", sender, head, "active", "none")
+	writeFile(t, filepath.Join(store, "bad-note.md"), "# Handoff\n"+strings.Repeat("x", 20*1024)+"\n")
+	writeFile(t, auto, fmt.Sprintf("# Automatic handoff\ntool: codex | date: 2026-10-13T10:00Z | branch: feat/a | head: %s\nworktree: %s\n", head, sender))
+
+	for _, want := range []struct{ path, kind string }{{manual, "manual"}, {auto, "auto"}, {}} {
+		resume, refused := handoffResume(context.Background(), folder)
+		if refused != nil || resume == nil {
+			t.Fatalf("handoff resume = %+v, %v", resume, refused)
+		}
+		path := want.path
+		if path != "" {
+			path = canonicalDir(path)
+		}
+		if resume.Worktree != canonicalDir(sender) || resume.Branch != "feat/a" || resume.Head != head ||
+			resume.Project != canonicalDir(filepath.Join(sender, "app")) || resume.Note != path || resume.NoteKind != want.kind {
+			t.Errorf("handoff resume = %+v, want %s %s %s", resume, head, path, want.kind)
+		}
+		if want.path != "" {
+			if err := os.Remove(want.path); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+func TestHandoffResume_SkipsTrackedNotes(t *testing.T) {
+	root, sender, _ := handoffListProject(t)
+	path := filepath.Join(root, ".agnostic-ai", "local", "handoffs", "feat-a.md")
+	writeListHandoff(t, path, "feat/a", sender, git(t, sender, "rev-parse", "HEAD"), "active", "none")
+	git(t, root, "add", "-f", path)
+	resume, refused := handoffResume(context.Background(), sender)
+	if refused != nil || resume == nil || resume.Note != "" || resume.NoteKind != "" {
+		t.Errorf("handoff with a tracked note = %+v, %v", resume, refused)
+	}
+}
+
+func TestHandoffResume_SkipsLinkedNotes(t *testing.T) {
+	root, sender, _ := handoffListProject(t)
+	outside := filepath.Join(t.TempDir(), "unrelated.md")
+	writeListHandoff(t, outside, "feat/a", sender, git(t, sender, "rev-parse", "HEAD"), "active", "none")
+	store := filepath.Join(root, ".agnostic-ai", "local", "handoffs")
+	if err := os.MkdirAll(store, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(store, "feat-a.md")); err != nil {
+		t.Skipf("symlink: %v", err)
+	}
+	resume, refused := handoffResume(context.Background(), sender)
+	if refused != nil || resume == nil || resume.Note != "" || resume.NoteKind != "" {
+		t.Errorf("handoff with a linked note = %+v, %v", resume, refused)
+	}
+}
+
+func TestHandoffResume_UsesTheCommitForADetachedWorktree(t *testing.T) {
+	main, sender, _ := handoffListProject(t)
+	git(t, sender, "checkout", "--detach", "-q", "HEAD")
+	head := git(t, sender, "rev-parse", "HEAD")
+	path := filepath.Join(main, ".agnostic-ai", "local", "handoffs", "detached-"+head+".md")
+	writeListHandoff(t, path, "detached-"+head, sender, head, "active", "none")
+	resume, refused := handoffResume(context.Background(), sender)
+	if refused != nil || resume == nil || resume.Branch != "" || resume.Head != head || resume.Note != canonicalDir(path) {
+		t.Errorf("detached handoff = %+v, %v", resume, refused)
+	}
+}
+
+func TestHandoffResume_RequiresAGitWorktree(t *testing.T) {
+	resume, refused := handoffResume(context.Background(), t.TempDir())
+	if resume != nil || refused == nil || refused.Guard != "refs" {
+		t.Errorf("handoff outside Git = %+v, %v", resume, refused)
 	}
 }

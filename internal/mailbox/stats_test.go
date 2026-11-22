@@ -416,3 +416,20 @@ func TestStats_ReadsWithoutTakingTheLockOrFinishingATransfer(t *testing.T) {
 		t.Errorf("stats created the lock file: %v", err)
 	}
 }
+
+func TestStats_CountsTaskHandoffWithoutAnOffer(t *testing.T) {
+	ctx := t.Context()
+	s := Store{Dir: t.TempDir()}
+	_, err := s.Send(ctx, claude, SendRequest{To: codex, Type: Handoff, Resume: testResume(t.TempDir())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stats, err := s.Stats(ctx, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Messages.ByType.Handoff != 1 || stats.Handoffs.Offered != 0 ||
+		stats.Handoffs.Accepted != 0 || stats.Handoffs.Declined != 0 {
+		t.Errorf("message types = %+v, handoffs = %+v", stats.Messages.ByType, stats.Handoffs)
+	}
+}

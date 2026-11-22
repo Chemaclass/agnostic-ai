@@ -354,3 +354,33 @@ func TestSendFromAgent_CountsTheStatedModelInTheLineSize(t *testing.T) {
 	_, err = (Store{Dir: t.TempDir()}).SendFromAgent(t.Context(), claude, req, "")
 	requireGuard(t, err, "size")
 }
+
+func TestThreadFor_HidesHandoffPointerUntilDelivery(t *testing.T) {
+	ctx := t.Context()
+	s := Store{Dir: t.TempDir()}
+	pointer := testResume(t.TempDir())
+	receipt := sendFromAgent(t, s, SendRequest{To: codex, Type: Handoff, Resume: pointer})
+	if receipt.State != Held {
+		t.Fatalf("receipt = %+v, want held", receipt)
+	}
+
+	for _, state := range []string{Held, Waiting, Delivered} {
+		if state == Waiting {
+			if err := s.Approve(ctx, receipt.Thread, receipt.N, "approve"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if state == Delivered {
+			deliverTo(t, s, codex)
+		}
+		view, err := s.ThreadFor(ctx, receipt.Thread, codex)
+		if err != nil || len(view.Messages) != 1 {
+			t.Fatalf("recipient view at %s = %+v, %v", state, view, err)
+		}
+		message := view.Messages[0]
+		if message.State != state || state != Delivered && message.Resume != nil ||
+			state == Delivered && (message.Resume == nil || *message.Resume != *pointer) {
+			t.Errorf("recipient message at %s = %+v", state, message)
+		}
+	}
+}

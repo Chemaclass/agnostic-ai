@@ -38,12 +38,17 @@ func newMailboxSendCmd() *cobra.Command {
 		Short: "Send a mailbox message from this session",
 		Long: `Send one message from the session this runs in. Pass one JSON object on standard input with "to" (tool:id) or "thread", and "type": question, finding, review_request, handoff or done. Add "body", "refs" (from mailbox refs), "gives" and "model" as the type needs. The mailbox sets everything else.
 
+For a handoff, a receiver is enough. The mailbox resolves the sender's Git worktree, branch, commit and handoff note. Add "gives" only when offering claimed paths.
+
 The sender is the session this command detects, which is context, not proof of identity.`,
 		Example: `  agnostic-ai mailbox send <<'MSG'
   {"to": "claude:4e8b1c2d-9a3f-4b6e-8c7d-1f2a3b4c5d6e", "type": "question", "body": "Does the store lock cover the claims file too?"}
   MSG
   agnostic-ai mailbox send <<'MSG'
   {"thread": "th_20261121_7f3a9c10", "type": "finding", "body": "Yes. One lock covers the whole folder."}
+  MSG
+  agnostic-ai mailbox send <<'MSG'
+  {"to": "codex:4e8b1c2d-9a3f-4b6e-8c7d-1f2a3b4c5d6e", "type": "handoff"}
   MSG`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -189,6 +194,13 @@ func (a mailboxAgent) send(ctx context.Context, out io.Writer, req mailbox.SendR
 		return a.refuse(ctx, req, refused)
 	}
 	req.To = to
+	if req.Type == mailbox.Handoff {
+		resume, refused := handoffResume(ctx, a.folder)
+		if refused != nil {
+			return a.refuse(ctx, req, refused)
+		}
+		req.Resume = resume
+	}
 	receipt, err := a.store.SendFromAgent(ctx, a.me, req, a.folder)
 	if err != nil {
 		return err
@@ -199,6 +211,17 @@ func (a mailboxAgent) send(ctx context.Context, out io.Writer, req mailbox.SendR
 
 func mailboxReceiptText(kind string, receipt mailbox.Receipt) string {
 	where := fmt.Sprintf("Thread %s, message %d.", receipt.Thread, receipt.N)
+	if kind == mailbox.Handoff && receipt.Resume != nil {
+		if receipt.Resume.Note != "" {
+			where += "\nHandoff note: " + receipt.Resume.Note + "."
+		} else {
+			branch := receipt.Resume.Branch
+			if branch == "" {
+				branch = "this detached checkout"
+			}
+			where += "\nNo handoff note for " + branch + " yet. Write one with the handoff skill. The reader finds the newest note when it resumes."
+		}
+	}
 	switch {
 	case receipt.State == mailbox.Held && kind == mailbox.Done:
 		return "Held for approval in the companion. " + where + " The thread closes after it is approved."
