@@ -86,7 +86,7 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 	case mailboxHandoffPath:
 		h.answerMailboxHandoff(w, r, store)
 	case mailboxApprovePath:
-		approveMailboxMessage(w, r, store)
+		approveMailboxMessage(w, r, store, h.companion)
 	case mailboxQueuePath:
 		queueMailboxMessage(w, r, store)
 	case mailboxSettingsPath:
@@ -169,7 +169,12 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		refuse(req, mailbox.NewRefusal("refs"))
 		return
 	}
-	receipt, err := store.SendFromWorktree(ctx, req.From, req.SendRequest, source.Folder)
+	// Only the companion's secret proves a person sent it; any other local client counts as an agent.
+	send := store.SendFromAgent
+	if h.companion.allows(r) {
+		send = store.SendFromWorktree
+	}
+	receipt, err := send(ctx, req.From, req.SendRequest, source.Folder)
 	if err != nil {
 		writeMailboxError(w, err)
 		return
@@ -459,7 +464,9 @@ func mailboxSummary(thread mailbox.Thread, with conversations.Ref) conversations
 	return summary
 }
 
-func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+// approveMailboxMessage rejects a held message, or approves one only with
+// the companion's secret.
+func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.Store, secret companionSecret) {
 	var req struct {
 		Thread string `json:"thread"`
 		N      int    `json:"n"`
@@ -467,6 +474,10 @@ func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox
 	}
 	if refusal := readMailboxFields(w, r, &req, "thread", "n", "action"); refusal != nil {
 		writeMailboxError(w, refusal)
+		return
+	}
+	if req.Action == "approve" && !secret.allows(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Approve a held message from the companion that started this server."})
 		return
 	}
 	writeMailboxChange(w, store.Approve(r.Context(), req.Thread, req.N, req.Action))

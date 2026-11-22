@@ -89,6 +89,8 @@ Codex runs a new hook only after you review and trust it. Open `/hooks` in Codex
 
 A message an agent sends waits as **Held for you** until you approve it. **Approve** checks the thread again: a paused thread refuses it, and a handoff whose paths changed owner is refused. A stopped thread has already cancelled it. **Reject** records the refusal in the thread, and the message no longer counts toward the limit. Messages you write in the companion are never held.
 
+Only the companion can approve: it proves itself with the secret it hands its server at launch. Any other program that asks to approve gets 403 and the message stays held, and a server started without a secret refuses every approve. Any program on the server's own origin can reject.
+
 Approval is on by default. Turn off **Ask me before an agent sends a message** in the companion settings to let agent messages queue at once. A missing or unreadable setting keeps approval on. Only the companion can turn it off: the server refuses that change from any other program, [as it does for approvals](@/docs/approvals.md#who-can-change-this).
 
 ## Let agents send
@@ -104,7 +106,8 @@ The guards are the same as for the companion: the cap, size, credential, pause, 
 The command finds the session it runs in from its parent processes and the tool's own session files. That is context, not proof of identity:
 
 - Codex can run several threads in one process. The command trusts the thread ID in its environment when it cannot check which thread the process holds, and a process that holds several threads can name any of them.
-- Any process that runs as your OS user can edit the mailbox files or call the companion's local routes, and get past every guard.
+- Any process that runs as your OS user can edit the mailbox files and get past every guard.
+- A process that calls the companion's local routes without the companion's secret cannot approve a held message, and a message it sends counts as an agent's: it is held while approval is on.
 - The model name on a message is what the agent wrote. Nothing checks it.
 
 The guards keep cooperating sessions to the supported mailbox actions. Read a held message before you approve it.
@@ -146,7 +149,7 @@ The local user-level server provides these routes to the companion. The conversa
 
 | Method and path | Request and result |
 |---|---|
-| `POST /api/mailbox/send` | Send `{from, to, type, thread?}` with the fields for the message type. Session references hold `tool` and `id`. A target identified by ID alone must match one local session. The reply gives `{thread, n, state}`. |
+| `POST /api/mailbox/send` | Send `{from, to, type, thread?}` with the fields for the message type. Session references hold `tool` and `id`. A target identified by ID alone must match one local session. The reply gives `{thread, n, state}`. Only a send with the companion's secret counts as yours. Without it the send counts as an agent's: it is held while approval is on, and `models` is refused. |
 | `POST /api/mailbox/refs` | Send `{tool, id, base?}` for the source chat. The read-only reply gives `{worktree, commit, base, branch?, paths, uncommitted}`. |
 | `GET /api/mailbox/threads?tool=&id=` | Read `{threads, warning?}` for one session. |
 | `POST /api/mailbox/thread` | Send `{thread, action}` for `pause`, `resume`, `stop` or `raise-cap`. |
@@ -155,7 +158,7 @@ The local user-level server provides these routes to the companion. The conversa
 | `POST /api/mailbox/claim` and `/api/mailbox/release` | Send `{tool, id, worktree, paths}` for the owner, up to 200 paths. A release with `gone: true` frees a gone session's claims: it is refused unless the owner is gone and each path is one of its claims in that worktree. |
 | `POST /api/mailbox/conflict/dismiss` | Send `{tool, id, conflict}`, with the requester and the conflict's `id`, to remove that conflict with no thread. Only the companion that started the server may call it. Anything else changes nothing. |
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
-| `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
+| `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. `approve` needs the companion's secret; without it the answer is 403. |
 | `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |
 | `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. Writing `false` needs the companion's secret; without it the answer is 403. |
 
