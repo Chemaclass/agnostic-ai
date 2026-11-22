@@ -114,6 +114,12 @@ func (s *shell) touchState() {
 	if s.settingsPath == "" {
 		return
 	}
+	s.mu.Lock()
+	quitting := s.quitting
+	s.mu.Unlock()
+	if quitting {
+		return
+	}
 	now := time.Now()
 	s.writingState.Lock()
 	err := os.Chtimes(statePath(s.settingsPath), now, now)

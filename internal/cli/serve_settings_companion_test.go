@@ -48,6 +48,14 @@ func TestSettings_CompanionSwitchKeepsTheOtherFields(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("null value = %d %s", rec.Code, rec.Body)
 	}
+	for _, body := range []string{`{"key":"approvals.companion","value":null}`, `{"key":"mailbox.approveAgentSends","value":null}`} {
+		if rec, _ := postSetting(t, h, body, nil); rec.Code != http.StatusBadRequest {
+			t.Errorf("%s = %d %s", body, rec.Code, rec.Body)
+		}
+	}
+	if rec, _ := postSetting(t, h, `{"key":"companion.checkForUpdates","value":true}`, nil); rec.Code != http.StatusOK {
+		t.Errorf("update checks on without proof = %d %s", rec.Code, rec.Body)
+	}
 	rec, _ = postSetting(t, h, `{"key":"companion.checkForUpdates","value":false}`, nil)
 	if rec.Code != http.StatusForbidden {
 		t.Errorf("update checks off without proof = %d %s", rec.Code, rec.Body)

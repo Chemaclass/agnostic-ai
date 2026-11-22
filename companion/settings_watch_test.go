@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+	"time"
 )
 
 // TestTakeOutsideSettings_AppliesSwitchesAndKeepsTheShortcuts: a switch
@@ -138,5 +139,45 @@ func TestSaveSettingsChange_KeepsFieldsItDoesNotKnow(t *testing.T) {
 	}
 	if saved, err := readSettings(s.settingsPath); err != nil || !saved.DimWhenIdle {
 		t.Errorf("after a null file: %+v, %v", saved, err)
+	}
+}
+
+func TestTouchState_RefreshesOrWritesTheFileUntilQuit(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	path := statePath(s.settingsPath)
+	s.touchState()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("a missing state file was not written: %v", err)
+	}
+	old := time.Now().Add(-time.Minute)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+	s.touchState()
+	if info, _ := os.Stat(path); time.Since(info.ModTime()) > 10*time.Second {
+		t.Errorf("state file not touched: %v", info.ModTime())
+	}
+	s.removeState()
+	s.quitting = true
+	s.touchState()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("state file came back after quit: %v", err)
+	}
+}
+
+func TestSaveSettingsChange_ClearsAFieldAndKeepsTheRest(t *testing.T) {
+	s, _ := toldShell(t)
+	if err := os.WriteFile(s.settingsPath, []byte(`{"dimWhenIdle":true,"futureField":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.settings.DimWhenIdle = true
+	if err := s.setDimWhenIdle(false); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(s.settingsPath)
+	var fields map[string]json.RawMessage
+	_ = json.Unmarshal(raw, &fields)
+	if _, dim := fields["dimWhenIdle"]; dim || string(fields["futureField"]) != "1" {
+		t.Errorf("saved %s; want dimWhenIdle removed and futureField kept", raw)
 	}
 }
