@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -134,39 +135,62 @@ func userHookLines(hook spec.Entry, targets []string) (hookLines, []string) {
 			continue
 		}
 		reached = append(reached, target)
-		resolved := adapters.TargetHook(target, hook)
-		args := stringSliceFromAny(resolved.Meta["args"])
-		override, _ := hook.Meta["x-"+target].(map[string]any)
-		// A Windows command under the override is listed too, so nothing it may run is hidden.
-		for _, raw := range []any{resolved.Meta["command"], resolved.Meta["commandWindows"], override["commandWindows"]} {
-			for _, command := range userHookCommands(raw) {
-				line := strings.TrimSpace(adapters.ExecFormCommand(command, args))
-				if line == "" || slices.Contains(lines.targets[line], target) {
-					continue
-				}
-				if _, seen := lines.targets[line]; !seen {
-					lines.order = append(lines.order, line)
-				}
-				lines.targets[line] = append(lines.targets[line], target)
+		for _, line := range userHookTargetLines(target, hook) {
+			if line == "" || slices.Contains(lines.targets[line], target) {
+				continue
 			}
+			if _, seen := lines.targets[line]; !seen {
+				lines.order = append(lines.order, line)
+			}
+			lines.targets[line] = append(lines.targets[line], target)
 		}
 	}
 	return lines, reached
 }
 
-// mcpCommandLine is a server's command with its args, cwd and env, or
-// its url; empty when meta names neither.
-func mcpCommandLine(meta map[string]any) string {
-	line, _ := meta["command"].(string)
-	if line == "" {
-		url, _ := meta["url"].(string)
-		return url
+// userHookTargetLines are the lines hook runs on target: each command
+// with its args. Copilot also writes a command's cwd and env, an http
+// hook's url and a prompt hook's text, so its lines carry them.
+func userHookTargetLines(target string, hook spec.Entry) []string {
+	resolved := adapters.TargetHook(target, hook).Meta
+	if target == "copilot" {
+		resolved = adapters.ResolveMeta(hook.Meta, target)
+		switch kind, _ := resolved["type"].(string); kind {
+		case "http":
+			url, _ := resolved["url"].(string)
+			return []string{preview.RedactURL(strings.TrimSpace(url))}
+		case "prompt":
+			prompt, _ := resolved["prompt"].(string)
+			return []string{strings.TrimSpace(prompt)}
+		}
 	}
-	line = strings.Join(append([]string{line}, commandLines(meta["args"])...), " ")
+	args := stringSliceFromAny(resolved["args"])
+	override, _ := hook.Meta["x-"+target].(map[string]any)
+	var lines []string
+	// A Windows command under the override is listed too, so nothing it may run is hidden.
+	for _, raw := range []any{resolved["command"], resolved["commandWindows"], override["commandWindows"]} {
+		for _, command := range userHookCommands(raw) {
+			line := strings.TrimSpace(adapters.ExecFormCommand(command, args))
+			if line != "" && target == "copilot" {
+				line = withEnvAndCwd(line, resolved)
+			}
+			lines = append(lines, line)
+		}
+	}
+	return lines
+}
+
+// withEnvAndCwd puts meta's env before line and its cwd after, masking
+// an env value that looks like a secret.
+func withEnvAndCwd(line string, meta map[string]any) string {
 	if env, ok := meta["env"].(map[string]any); ok && len(env) > 0 {
 		pairs := make([]string, 0, len(env))
 		for name, value := range env {
-			pairs = append(pairs, fmt.Sprintf("%s=%v", name, value))
+			text := fmt.Sprint(value)
+			if secretEnvValue(name, text) {
+				text = preview.Redacted
+			}
+			pairs = append(pairs, name+"="+text)
 		}
 		slices.Sort(pairs)
 		line = strings.Join(pairs, " ") + " " + line
@@ -175,6 +199,25 @@ func mcpCommandLine(meta map[string]any) string {
 		line += " (in " + cwd + ")"
 	}
 	return line
+}
+
+// secretEnvValue reports whether an env value named key reads as a
+// secret, by the test import uses for MCP env values.
+func secretEnvValue(key, value string) bool {
+	named := preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)
+	return named || preview.CredentialDetected(value)
+}
+
+// mcpCommandLine is a server's command with its args, cwd and env, or
+// its url; empty when meta names neither.
+func mcpCommandLine(meta map[string]any) string {
+	line, _ := meta["command"].(string)
+	if line == "" {
+		url, _ := meta["url"].(string)
+		return preview.RedactURL(url)
+	}
+	line = strings.Join(append([]string{line}, commandLines(meta["args"])...), " ")
+	return withEnvAndCwd(line, meta)
 }
 
 func commandLines(raw any) []string {
