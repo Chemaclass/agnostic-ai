@@ -119,6 +119,44 @@ export function askApprovals() {
   return change('/api/approvals/ask', { mode: 'ask' })
 }
 
+/** A settings call that failed: carries the server's current document, plan or command when it sent one. */
+async function settingsCall(path, options) {
+  let response
+  let body
+  try {
+    response = await fetch(path, options)
+    if (response.status !== 304) body = await response.json()
+  } catch (cause) {
+    throw new CallError('The companion could not reach its own shell.', { cause })
+  }
+  if (!response.ok && response.status !== 304) {
+    const error = new CallError(body?.error)
+    error.status = response.status
+    error.settings = body?.settings
+    error.command = body?.command
+    error.plan = body?.plan
+    throw error
+  }
+  return { body, tag: response.headers.get('ETag') || undefined, version: response.headers.get('List-Version') || undefined }
+}
+
+/** The user settings document as {settings, tag}, or undefined while `tag` still names the one the caller holds. */
+export async function readSettings(tag) {
+  const { body, tag: next } = await settingsCall('/api/settings', tag ? { headers: { 'If-None-Match': tag } } : undefined)
+  return body === undefined ? undefined : { settings: body, tag: next }
+}
+
+/** Changes one user setting; `expected` is the value the menu showed. Answers {body: {settings, changed}, version}. */
+export function saveSetting(key, value, expected) {
+  return settingsCall('/api/settings', postOptions({ key, value, ...(expected === undefined ? {} : { expected }) }))
+}
+
+/** What a sync --scope user would change: {id, files, notes}. */
+export const planSync = async () => (await settingsCall('/api/settings/sync', postOptions({ action: 'plan' }))).body
+
+/** Runs the sync the plan `id` named: {written, notes, settings}. */
+export const applySync = async (id) => (await settingsCall('/api/settings/sync', postOptions({ action: 'apply', id }))).body
+
 /**
  * Answers one request the approvals hook holds: decision is approve, deny or release. `digest` is the one the panel
  * showed, so an answer never reaches a request that changed. Answers {body, version}.

@@ -279,7 +279,7 @@ change made in one shows in the other.
   `install`, `upgrade`, `uninstall` and logging out also end it without
   asking.
 - `agnostic-ai companion uninstall` ends the companion, turns off **Start at
-  login**, and deletes the built program, `companion.json` and
+  login**, and deletes the built program, `companion.json`, its lock file and
   `companion-command`. Your read and archive marks stay, because
   `agnostic-ai serve` uses them too. It also removes a login entry that a
   deleted program left behind. On Linux, from a shell without a D-Bus session
@@ -376,6 +376,9 @@ Both are in the `agnostic-ai` folder of your user configuration folder
   animates, whether it dims when idle, and whether it is small. A file that is
   not JSON moves to `companion.json.bad`, and the companion starts with the
   defaults.
+- `companion.json.lock`: held for each save of `companion.json`. A save reads
+  the file again under this lock and changes only its own value, so a value
+  another program wrote in the meantime stays.
 
 ## When it reads
 
@@ -407,6 +410,7 @@ What you see is never older than this:
 - `dashboard.go`: opens the full web interface.
 - `place.go`: where the list opens beside the circle, and whether a saved place is still on a screen.
 - `settings.go`: what the companion remembers between runs.
+- `frontend/panel-approvals.js`: the approvals rows' status line, the question before a looser mode, and Apply to my tools.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `menu.json` lists the settings both menus show, in order, so they cannot drift
   apart. `model.js` holds the logic and has no DOM in it. `look.js` turns your

@@ -247,6 +247,10 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux.Handle(approvalsViewPath, approvalsRoutes)
 	mux.Handle(approvalsAskPath, approvalsRoutes)
 	mux.Handle(approvalsDecidePath, approvalsRoutes)
+	settings := newSettingsHandler(opts.UserLevel, conversationsHandler.approvals, func() string { return conversationsHandler.scanner.MarksPath }, muxOpts.companion, opts.Version)
+	mux.Handle(settingsViewPath, settings)
+	mux.Handle(settingsWritePath, settings)
+	mux.Handle(settingsSyncPath, settings)
 	mux.Handle(sourceViewPath, newSourceHandler(opts.UserLevel))
 	var peer *switchPeer
 	if switches != nil {
@@ -275,8 +279,10 @@ func serializeAPI(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Conversations read only the coding tools' own stores and lock
 		// their own scanner, so a slow scan does not hold up the overview.
+		// An answer to a held request renders nothing either, and must not
+		// wait behind a sync started from the settings.
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath &&
-			!slices.Contains(conversationPaths, r.URL.Path) {
+			r.URL.Path != approvalsDecidePath && !slices.Contains(conversationPaths, r.URL.Path) {
 			mu.Lock()
 			defer mu.Unlock()
 		}

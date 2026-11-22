@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -94,11 +95,26 @@ func TestMailboxHTTP_SettingsReadAndWriteTheApprovalSwitch(t *testing.T) {
 	if got := read(); got != `{"approveAgentSends":true}` {
 		t.Errorf("default settings = %s", got)
 	}
-	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":false}`); rec.Code != http.StatusNoContent {
-		t.Fatalf("save settings = %d %s", rec.Code, rec.Body)
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":false}`); rec.Code != http.StatusForbidden {
+		t.Fatalf("turning approval off without the companion secret = %d %s, want 403", rec.Code, rec.Body)
+	}
+	if got := read(); got != `{"approveAgentSends":true}` {
+		t.Errorf("a refused write changed the settings: %s", got)
+	}
+	h.companion = companionSecret(strings.Repeat("s", minCompanionSecret))
+	off := httptest.NewRequest(http.MethodPost, "http://127.0.0.1:4310/api/mailbox/settings", strings.NewReader(`{"approveAgentSends":false}`))
+	off.Header.Set("Content-Type", "application/json")
+	off.Header.Set(companionSecretHeader, string(h.companion))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, off)
+	if rec.Code != http.StatusNoContent {
+		t.Fatalf("save settings with the secret = %d %s", rec.Code, rec.Body)
 	}
 	if got := read(); got != `{"approveAgentSends":false}` {
 		t.Errorf("saved settings = %s", got)
+	}
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", `{"approveAgentSends":true}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("turning approval on without the secret = %d %s", rec.Code, rec.Body)
 	}
 	for _, body := range []string{`{}`, `{"approveAgentSends":"no"}`, `{"approveAgentSends":true,"cap":16}`} {
 		mailboxExpectRefusal(t, mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/settings", body), "format")

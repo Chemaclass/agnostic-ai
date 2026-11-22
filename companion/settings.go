@@ -151,10 +151,17 @@ func (e *unreadableSettings) Error() string {
 
 func (e *unreadableSettings) Unwrap() error { return e.cause }
 
-// loadSettings is readSettings for a companion that starts: a file that
-// is not JSON moves aside, to companion.json.bad or, when that is taken,
-// a name with the time, and the companion starts with empty settings.
+// loadSettings is readSettings for the one companion that runs: a file
+// that is not JSON moves aside, to companion.json.bad or, when that is
+// taken, a name with the time, and the companion starts with empty
+// settings. It holds the settings lock, so a file another writer just
+// saved is read again, not moved.
 func loadSettings(path string) (settings, error) {
+	if release, err := lockSettings(path); err == nil {
+		defer release()
+	} else {
+		log.Printf("%v; reading the settings without it", err)
+	}
 	s, err := readSettings(path)
 	if _, ok := errors.AsType[*unreadableSettings](err); !ok {
 		return s, err
@@ -169,6 +176,59 @@ func loadSettings(path string) (settings, error) {
 		log.Printf("%v; moved it to %s and started with the defaults", err, aside)
 	}
 	return settings{}, nil
+}
+
+// settingsLockWait bounds how long a save waits for another writer of
+// the settings file, which holds the lock for one read and one write.
+const settingsLockWait = 2 * time.Second
+
+// lockSettings holds the lock file beside the settings file. Every
+// writer of the file, the companion and agnostic-ai serve, takes it.
+func lockSettings(path string) (release func(), err error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, fmt.Errorf("lock the companion settings: %w", err)
+	}
+	file, err := os.OpenFile(path+".lock", os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("lock the companion settings: %w", err)
+	}
+	deadline := time.Now().Add(settingsLockWait)
+	for {
+		err := tryLockFile(file)
+		if err == nil {
+			return func() { _ = file.Close() }, nil
+		}
+		if !lockHeldElsewhere(err) || time.Now().After(deadline) {
+			_ = file.Close()
+			return nil, fmt.Errorf("lock the companion settings: %w", err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// saveSettingsChange applies change to the settings file under its lock.
+// It reads the file again first, so a value another process wrote since
+// stays. A file that is missing or not JSON starts from base, the
+// companion's own copy before the change.
+func saveSettingsChange(path string, base settings, change func(*settings)) error {
+	release, err := lockSettings(path)
+	if err != nil {
+		return err
+	}
+	defer release()
+	saved := base
+	if _, statErr := os.Stat(path); statErr == nil {
+		read, err := readSettings(path)
+		_, unreadable := errors.AsType[*unreadableSettings](err)
+		switch {
+		case err == nil:
+			saved = read
+		case !unreadable:
+			return err
+		}
+	}
+	change(&saved)
+	return writeSettings(path, saved)
 }
 
 // writeSettings replaces the file in one step.

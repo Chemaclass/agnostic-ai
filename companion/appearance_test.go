@@ -23,6 +23,9 @@ func toldShell(t *testing.T) (*shell, *[]appearance) {
 func TestSetAnimate_SavesAndTellsThePages(t *testing.T) {
 	s, told := toldShell(t)
 	s.settings.Shortcut = "Cmd+Shift+K"
+	if err := writeSettings(s.settingsPath, s.settings); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := s.setAnimate(false); err != nil {
 		t.Fatal(err)
@@ -71,6 +74,9 @@ func TestSetAnimate_KeepsTheOldChoiceWhenTheSaveFails(t *testing.T) {
 func TestSetDimWhenIdle_SavesAndTellsThePages(t *testing.T) {
 	s, told := toldShell(t)
 	s.settings.Shortcut = "Cmd+Shift+K"
+	if err := writeSettings(s.settingsPath, s.settings); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := s.setDimWhenIdle(true); err != nil {
 		t.Fatal(err)
@@ -184,6 +190,9 @@ func TestSettingsHeader_LeadsTheMenuAndCannotBeClicked(t *testing.T) {
 func TestSetSmallCompanion_SavesAndTellsThePages(t *testing.T) {
 	s, told := toldShell(t)
 	s.settings.DimWhenIdle = true
+	if err := writeSettings(s.settingsPath, s.settings); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := s.setSmallCompanion(true); err != nil {
 		t.Fatal(err)

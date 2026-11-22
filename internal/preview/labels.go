@@ -3,6 +3,7 @@ package preview
 import (
 	"encoding/json"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -44,17 +45,39 @@ var (
 	plainAssignedValue = regexp.MustCompile(`(?i)^\s*["']?(?:null|~|true|false|-?[0-9]+(?:\.[0-9]+)?|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?)["']?\s*(?:[,}\])]|$)`)
 )
 
-// mysqlInText is a MySQL client named in prose with the rest of its line.
-var mysqlInText = regexp.MustCompile(`(?:^|[\s` + "`" + `(])((?:mysql|mysqldump|mysqladmin|mysqlimport|mysqlcheck|mysqlshow|mysqlslap|mariadb(?:-[a-z]+)?)[^\n` + "`" + `]*)`)
+// passwordCommandInText is a MySQL client or sshpass named in prose,
+// also inside a quoted `sh -c` command or glued to a shell separator.
+var passwordCommandInText = regexp.MustCompile(`(?:^|[\s` + "`" + `("';&|])((?:mysql|mariadb|sshpass)[^\s` + "`" + `"';&|]*)`)
 
-// passesMySQLPassword reports whether text runs a MySQL client with a
-// literal password glued to -p, outside a fenced shell block too.
-func passesMySQLPassword(text string) bool {
-	for _, m := range mysqlInText.FindAllStringSubmatch(text, -1) {
-		for _, arg := range strings.Fields(m[1])[1:] {
-			if mysqlPasswordArg(strings.Trim(arg, `"'.,;:)`)) {
+// sshpassCommands are the commands sshpass runs, after which a word
+// following -p in prose reads as a password and not as a sentence.
+var sshpassCommands = map[string]bool{"ssh": true, "scp": true, "sftp": true, "rsync": true, "ssh-copy-id": true}
+
+// passesPasswordInText reports whether text runs a MySQL client with a
+// literal password glued to -p, or sshpass with one after -p, outside a
+// fenced shell block too. Each name is read with the rest of its line.
+// In prose a word after a spaced sshpass -p counts only before the
+// command sshpass runs, so "avoid sshpass -p in scripts" does not.
+func passesPasswordInText(text string) bool {
+	for _, m := range passwordCommandInText.FindAllStringSubmatchIndex(text, -1) {
+		line := text[m[3]:]
+		if end := strings.IndexAny(line, "\n`"); end >= 0 {
+			line = line[:end]
+		}
+		args := strings.Fields(line)
+		for i, arg := range args {
+			args[i] = strings.Trim(arg, `"'.,;:)`)
+		}
+		name := strings.TrimSuffix(text[m[2]:m[3]], ".exe")
+		if name != "sshpass" {
+			if slices.ContainsFunc(args, mysqlPasswordArg) {
 				return true
 			}
+			continue
+		}
+		args = append([]string{name}, args...)
+		if at := sshpassPasswordAt(args); at > 0 && (args[at-1] != "-p" || at+1 < len(args) && sshpassCommands[programName(args[at+1])]) {
+			return true
 		}
 	}
 	return false
@@ -116,29 +139,39 @@ func passesCurlCredential(text string) bool {
 // curlUserValue returns the value of a curl user option, glued to it or
 // as the next argument.
 func curlUserValue(arg string, next []string) (string, bool) {
+	at, glued, ok := curlUserAt(arg)
+	switch {
+	case !ok:
+		return "", false
+	case glued:
+		return arg[at:], true
+	}
+	return firstArg(next)
+}
+
+// curlUserAt reports whether arg is a curl user option, and where its
+// value starts: at that offset in arg when glued, else the next argument.
+func curlUserAt(arg string) (at int, glued, ok bool) {
 	for _, flag := range []string{"--user", "--proxy-user"} {
 		if arg == flag {
-			return firstArg(next)
+			return 0, false, true
 		}
-		if value, ok := strings.CutPrefix(arg, flag+"="); ok {
-			return value, true
+		if strings.HasPrefix(arg, flag+"=") {
+			return len(flag) + 1, true, true
 		}
 	}
 	if strings.HasPrefix(arg, "--") || !strings.HasPrefix(arg, "-") {
-		return "", false
+		return 0, false, false
 	}
 	for i, c := range arg[1:] {
 		if c == 'u' || c == 'U' {
-			if value := arg[i+2:]; value != "" {
-				return value, true
-			}
-			return firstArg(next)
+			return i + 2, i+2 < len(arg), true
 		}
 		if !strings.ContainsRune(curlSwitches, c) {
-			return "", false
+			return 0, false, false
 		}
 	}
-	return "", false
+	return 0, false, false
 }
 
 func firstArg(args []string) (string, bool) {
@@ -164,12 +197,12 @@ func assignsCredential(text string) bool {
 // credential: a credential-named key with a value, a strong credential
 // word stated with a value, a weaker one labeling a table cell or a tag,
 // a private key block, a recognizable token or credential, or one passed
-// to mysql or curl on its command line. A secret written as free prose
+// to mysql, sshpass or curl on its command line. A secret written as free prose
 // with no label or shape is not detectable.
 func labelsCredential(text string) bool {
 	return assignsCredential(text) || credentialStatement.MatchString(text) ||
 		credentialLabel.MatchString(text) || privateKeyBlock.MatchString(text) ||
-		TokenIn(text) || CredentialDetected(text) || passesMySQLPassword(text) ||
+		TokenIn(text) || CredentialDetected(text) || passesPasswordInText(text) ||
 		passesCurlCredential(text)
 }
 
