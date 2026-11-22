@@ -48,7 +48,7 @@ The bundled CLI checks quietly on start and every 24 hours. A successful release
 
 Choose **Update to vX.Y.Z**, then **Update and restart**. The list shows download, verification, and restart progress as the app and bundled CLI update together. The download uses the CLI installer's checksum and provenance checks. The update works without `gh` because the replacement must match the installed app's project certificate before it runs or replaces the app. After a certificate change, install the next disk image by hand once. Move the app to Applications before updating from the disk image or a read-only folder.
 
-If macOS refuses to open the replacement, the updater tries to restore and open the earlier app. If restoration fails, it saves the earlier bundle and logs its path. The list shows the failure and offers **Retry**, including after restart. The log is at `~/Library/Application Support/agnostic-ai/companion-update.log`.
+If macOS refuses to open the replacement, the updater tries to restore and open the earlier app. If restoration fails, it saves the earlier bundle and logs its path. The list shows the failure and offers **Retry**, including after restart. When the earlier app runs again, the failure says whether the new app could not take its place or could not start. The log is at `~/Library/Application Support/agnostic-ai/companion-update.log`.
 
 `agnostic-ai upgrade` from a bundled CLI link directs you to the app menu. The app looks past bundle links for a separate CLI, such as Homebrew or npm. If that CLI is older, the list shows both versions and a command to copy and run in your terminal.
 {% </details> %}
