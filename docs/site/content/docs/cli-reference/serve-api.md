@@ -326,7 +326,7 @@ Body: `{"key", "value", "expected"}` with `Content-Type: application/json`. A us
 Body: `{"action": "plan"}` or `{"action": "apply", "id"}`. A user-level server only, and it needs the companion's secret: a sync installs hooks. Without it the answer is 403.
 
 - `plan` runs `sync --scope user --plan --json` and replies `{id, files: [{path, change, target, keys}], notes}`. The list holds every pending user-level change, not only approvals.
-- `apply` plans again. A plan that differs from `id` answers 409 with the new plan. Otherwise it runs `sync --scope user` and replies `{written, notes, settings}`. When the sync wrote the Codex hooks file, `notes` says to trust it in Codex's `/hooks`.
+- `apply` plans again. The `id` covers the content of every change, not only the file list, so a source edit after the plan, even one that leaves the same files, answers 409 with the new plan. The sync then writes only the changes that plan holds. Otherwise it runs `sync --scope user` and replies `{written, notes, settings}`. When the sync wrote the Codex hooks file, `notes` says to trust it in Codex's `/hooks`.
 - A sync that fails answers 422 with `{error, command}`, where `command` is the one to run by hand.
 
 ## When `path` is omitted
