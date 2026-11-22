@@ -77,7 +77,7 @@ function test_it_retries_a_busy_resource_until_it_clears() {
   assert_same "0" "$status"
   assert_same "3" "$calls"
   assert_same "5 10 " "$slept"
-  assert_contains "hdiutil verify: resource busy, attempt 2 of 4" "$output"
+  assert_contains "hdiutil verify: resource busy, attempt 2 of 6" "$output"
 }
 
 function test_it_retries_when_creating_an_image_reports_resource_busy() {
@@ -89,18 +89,18 @@ function test_it_retries_when_creating_an_image_reports_resource_busy() {
   assert_same "0" "$status"
   assert_same "2" "$calls"
   assert_same "5 " "$slept"
-  assert_contains "hdiutil create: resource busy, attempt 1 of 4" "$output"
+  assert_contains "hdiutil create: resource busy, attempt 1 of 6" "$output"
 }
 
 function test_it_fails_with_the_hdiutil_status_when_the_resource_stays_busy() {
   local tmp status output calls slept
   tmp="$(mktemp -d)"
-  run_with_outcomes "$tmp" verify busy busy busy busy ok
+  run_with_outcomes "$tmp" verify busy busy busy busy busy busy ok
   rm -rf "$tmp"
 
   assert_same "35" "$status"
-  assert_same "4" "$calls"
-  assert_same "5 10 20 " "$slept"
+  assert_same "6" "$calls"
+  assert_same "5 10 20 40 80 " "$slept"
   assert_contains "Resource temporarily unavailable" "$output"
 }
 
