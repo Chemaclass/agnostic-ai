@@ -426,6 +426,35 @@ End to end with `agnostic-ai hook approve` built from this branch, a server star
 
 **Why:** The prompt stays on screen while the hook runs (decision 022), so a long hold never delays the terminal answer; 296 s worked, so the planned 300 s stands. A hook left running after a terminal answer would keep showing buttons that answer nothing, so the server must withdraw it from the session state, which changes within tens of milliseconds. `prompt_id` cannot tell two calls of one turn apart, so the digest of the full input carries that job.
 
-**Accepted limits:** One run per case on one account, macOS only, in the fullscreen renderer. Not measured: a hold past 300 s, the classic renderer, several prompts of one session at once (whether a late allow from an old hook could answer a newer prompt), how long Claude Code takes to record its wait after the hook starts (the 5 s grace rests on the 1.1 s of decision 022), Linux, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). Codex is slice 2.
+**Accepted limits:** One run per case on one account, macOS only, in the fullscreen renderer. Not measured: a hold past 300 s, the classic renderer, several prompts of one session at once (whether a late allow from an old hook could answer a newer prompt), how long Claude Code takes to record its wait after the hook starts (the 5 s grace rests on the 1.1 s of decision 022), Linux, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). Codex: decision 029.
 
 **Revisit when:** Claude Code adds a per-request id to the hook input, stops a hook when the prompt is answered elsewhere, or draws its prompt only after the hook ends.
+
+## 029: A Codex permission hook may hold a request for 60 seconds, and the held request is the row's wait
+
+**Date:** 2026-11-22
+
+**Context:** Slice 2 of [#3906](https://github.com/Chemaclass/agnostic-ai/issues/3906) lets the companion answer a Codex permission prompt. Codex shows its prompt only after the `PermissionRequest` hook ends (decision 022), so a hold delays the terminal. Measured on Codex 0.171.0 with its default model, on macOS, in tmux 200 columns wide, with a temporary `CODEX_HOME` holding the hook in `hooks.json` (`timeout: 70`, a `statusMessage`), `approval_policy = "on-request"` and `sandbox_mode = "read-only"`, in a scratch project. A script hook came first, then `agnostic-ai hook approve` built from this branch with a server started as the companion starts it (port 4398) and a temporary `AGNOSTIC_AI_HOME`.
+
+| Question | Result |
+|---|---|
+| What the terminal shows while the hook waits | The working line reads `Working (5s • esc to interrupt) · Waiting for your answer in the agnostic-ai companion, then asks here`. |
+| Esc while the hook waits | The turn stopped (`Conversation interrupted`). The hook process was gone within 1 s and its TERM trap never ran, so it gets no chance to clean up. |
+| `deny` after 5 s | `Blocked by hook` with the message; the agent said the call did not run. |
+| `allow` after 50 s | The call ran with no prompt. |
+| The hook exits with no output | The Codex prompt showed within the script's 1 s poll; with `agnostic-ai hook approve` and **Answer in terminal**, 0.1 s after the click. |
+| `apply_patch` input | `tool_name` `apply_patch`, `tool_input` `{"command": "<the whole patch>"}`, with paths relative to the project. |
+
+End to end:
+
+- The record appeared 3.9 s after the message was sent, model time included. The row turned `blocked`, waiting on the call with the whole command, and counted in **Needs you** 1.9 s later.
+- Approve ran the call, Deny blocked it with "Denied in the agnostic-ai companion", and the log read `approved by companion` and `denied by companion`.
+- No click: the Codex prompt showed 60.2 s after the record, the folder was empty, and the log read `asked (companion)`.
+- Esc: the hook was killed and left its record; the next list read removed it, since its process was gone, and the row was no longer blocked.
+- An `apply_patch` edit showed as the whole patch, with the row naming `README.md`, and Approve applied it.
+
+**Why:** A Codex terminal user waits for the whole hold, so it is short, the hook entry says why in the status line, and **Answer in terminal** ends it at once. Codex writes nothing to its rollout while the hook holds, so without the record the row would read as working for 5 minutes; the record is the wait signal. Codex kills the hook on Esc without a signal it can catch, so the server's process check is what removes the record.
+
+**Accepted limits:** One run per case on one account, macOS only. Not measured: Linux, Codex in `review` (the hook does not hold there, by design), network and MCP prompts (not shown, so not held), a Codex hook in a project `.codex/hooks.json`, several prompts of one session at once, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). A held Codex request on a row outside the current page or search does not add to **Needs you**.
+
+**Revisit when:** Codex shows its prompt while a hook runs, writes a wait to its rollout, or adds a per-request id to the hook input.

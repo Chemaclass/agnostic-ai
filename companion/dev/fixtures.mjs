@@ -204,6 +204,13 @@ function companionApprove(now) {
         ],
       },
     },
+    {
+      ...conversation(now, 'codex', 'held-patch', 'Rename the config keys', 'blocked', { folder: '/Users/you/Code/kombo', minutesAgo: 2 }),
+      activity: 'waiting',
+      live: true,
+      waiting: { for: 'permission', tool: 'apply_patch', detail: 'config.go' },
+      approvals: { pending: [held('a7b8', 'apply_patch', { patch: '*** Begin Patch\n*** Update File: config.go\n@@\n-Retries int\n+MaxRetries int\n*** End Patch' })] },
+    },
   ]
 }
 

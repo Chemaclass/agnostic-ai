@@ -343,3 +343,52 @@ func TestApprovals_DecidedRequestOfAGoneHookIsRemoved(t *testing.T) {
 		t.Errorf("pending folder keeps %d files of a hook that is gone", len(entries))
 	}
 }
+
+// Codex writes nothing while its hook holds a prompt, so the held
+// request is the row's wait: it counts as needing the person at once.
+func TestApplyApprovals_HeldCodexRequestIsTheRowsWait(t *testing.T) {
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	var view conversations.View
+	if err := json.Unmarshal([]byte(`{"needsYou":1,"conversations":[
+		{"tool":"codex","id":"t1","live":true,"state":"active","activity":"working"},
+		{"tool":"codex","id":"t2","live":true,"state":"unread"},
+		{"tool":"codex","id":"t3","live":false,"state":"dormant"},
+		{"tool":"codex","id":"t4","live":true,"state":"active","activity":"working"}
+	]}`), &view); err != nil {
+		t.Fatal(err)
+	}
+	patch := "*** Begin Patch\n*** Update File: src/app.go\n@@\n-a\n+b\n*** End Patch"
+	request := func(id, call string, input approvals.PendingInput) heldRequest {
+		return heldRequest{PendingRequest: conversations.PendingRequest{ID: id, Digest: "d" + id, Call: call, Input: input}, created: now.Add(-2 * time.Second)}
+	}
+	snap := approvalsSnapshot{
+		policy: config.ApprovalsPolicy{Home: config.ApprovalsConfig{Mode: config.ApprovalsAsk}}, policyOK: true,
+		projectAsk: map[string]string{}, routed: func(string, string) bool { return true },
+		pending: map[string][]heldRequest{
+			approvalSessionKey("codex", "t1"): {request("a", "Bash", approvals.PendingInput{Command: "touch a.txt"}), request("b", "apply_patch", approvals.PendingInput{Patch: patch})},
+			approvalSessionKey("codex", "t2"): {request("c", "apply_patch", approvals.PendingInput{Patch: patch})},
+			approvalSessionKey("codex", "t3"): {request("d", "Bash", approvals.PendingInput{Command: "ls"})},
+		},
+	}
+
+	applyApprovals(&view, snap, "", now, map[string]time.Time{})
+
+	if view.NeedsYou != 2 {
+		t.Errorf("needsYou = %d, want 2: t1 newly waits, t2 already counted", view.NeedsYou)
+	}
+	rows := map[string]conversations.Conversation{}
+	for _, c := range view.Conversations {
+		rows[c.ID] = c
+	}
+	if c := rows["t1"]; c.State != conversations.StateBlocked || c.Activity != conversations.ActivityWaiting || len(pendingOf(c)) != 2 || c.Waiting.Detail != "touch a.txt" {
+		t.Errorf("t1 = %+v, want blocked on both held requests", c)
+	}
+	if c := rows["t2"]; c.State != conversations.StateBlocked || len(pendingOf(c)) != 1 || c.Waiting.Detail != "app.go" {
+		t.Errorf("t2 = %+v, want blocked on the patch to app.go", c)
+	}
+	for _, id := range []string{"t3", "t4"} {
+		if c := rows[id]; c.State == conversations.StateBlocked || c.Waiting != nil {
+			t.Errorf("%s = %+v, want no wait", id, c)
+		}
+	}
+}

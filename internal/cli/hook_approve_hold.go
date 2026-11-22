@@ -14,10 +14,12 @@ import (
 
 // companionHoldTimes is how long the hook waits for a click, per tool.
 // Claude Code shows its prompt while the hook runs, so the terminal
-// answer is never delayed (decision 028). The hook entry's timeout must
-// outlast it.
+// answer is never delayed (decision 028). Codex shows its prompt only
+// after the hook ends, so its wait is short (decision 029). The hook
+// entry's timeout must outlast it.
 var companionHoldTimes = map[string]time.Duration{
 	"claude": 300 * time.Second,
+	"codex":  60 * time.Second,
 }
 
 // companionPoll is how often a held hook reads its decision file.

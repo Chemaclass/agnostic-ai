@@ -8,6 +8,10 @@ x-claude:
   # The hook may wait 300 seconds for a click in the companion.
   timeout: 310
 x-codex:
+  # The hook may wait 60 seconds for a click in the companion; Codex shows
+  # its prompt only after the hook ends, and this line while it waits.
+  timeout: 70
+  statusMessage: "Waiting for your answer in the agnostic-ai companion, then asks here"
   command: "command -v agnostic-ai >/dev/null 2>&1 || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 agnostic-ai hook approve --target codex 2>/dev/null; exit 0"
 x-qoder:
   command: "command -v agnostic-ai >/dev/null 2>&1 || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 agnostic-ai hook approve --target qoder 2>/dev/null; exit 0"

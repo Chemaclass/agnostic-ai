@@ -142,6 +142,8 @@ var showableKeys = map[string][]string{
 	"Write":     {"file_path", "content"},
 	"Edit":      {"file_path", "old_string", "new_string"},
 	"MultiEdit": {"file_path", "edits"},
+	// Codex sends the patch body in one of these; see gate.patch.
+	"apply_patch": {"patch", "input", "command"},
 }
 
 // offWhenFalse are input switches that change nothing while false;
@@ -202,11 +204,21 @@ func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 			return PendingInput{}, false
 		}
 		in.Old, in.New = strings.Join(olds, "\n…\n"), strings.Join(news, "\n…\n")
+	case "apply_patch":
+		if len(input) != 1 {
+			return PendingInput{}, false
+		}
+		for key := range input {
+			in.Patch = text(key)
+		}
+		if !strings.Contains(in.Patch, "*** Begin Patch") {
+			return PendingInput{}, false
+		}
 	}
-	if in.Command == "" && in.FilePath == "" {
+	if in.Command == "" && in.FilePath == "" && in.Patch == "" {
 		return PendingInput{}, false
 	}
-	fields := []string{in.Command, in.FilePath, in.Old, in.New}
+	fields := []string{in.Command, in.FilePath, in.Old, in.New, in.Patch}
 	size := 0
 	for _, f := range fields {
 		size += len(f)

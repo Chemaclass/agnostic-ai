@@ -445,7 +445,9 @@ function heldRequest(held, key) {
   }
   const line = element('div', 'held-actions')
   const off = answering.has(held.id) || (settling.get(key) ?? 0) > Date.now()
-  for (const [label, decision] of [['Approve', 'approve'], ['Deny', 'deny']]) {
+  const actions = [['Approve', 'approve'], ['Deny', 'deny']]
+  if (held.inTerminal) actions.push(['Answer in terminal', 'release'])
+  for (const [label, decision] of actions) {
     const button = element('button', 'held-action is-' + decision, label)
     button.type = 'button'
     button.disabled = off

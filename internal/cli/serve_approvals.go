@@ -159,7 +159,7 @@ type approvalsSnapshot struct {
 	activated  func(tool, mode string) bool
 	active     map[approvalDisplayRoute]bool
 	// pending are the requests held for the companion, per session key.
-	pending map[string][]conversations.PendingRequest
+	pending map[string][]heldRequest
 }
 
 type approvalDisplayRoute struct{ tool, mode string }
@@ -364,6 +364,11 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 		var note conversations.ApprovalsNote
 		if session := snap.sessions[key]; session != nil {
 			note.Approved, note.Recent = session.Approved, session.recent
+		}
+		if held := snap.pending[key]; c.Tool == conversations.ToolCodex && c.Live && len(held) > 0 {
+			if _, waits := c.PermissionWait(); !waits && c.HoldForPermission(held[0].Call, pendingDetail(held[0]), held[0].created) {
+				view.NeedsYou++
+			}
 		}
 		reason, hold, waits := waitVerdictOf(*c, snap, now, firstSeen)
 		if waits {
@@ -738,7 +743,7 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 // which the person answered in the terminal. A withdrawn request whose
 // hook still runs gets release, so the hook exits without a reply. Only
 // a list of every folder can tell that a session does not wait.
-func (a *approvalsReader) pendingRequests(view *conversations.View, folder string, now time.Time) map[string][]conversations.PendingRequest {
+func (a *approvalsReader) pendingRequests(view *conversations.View, folder string, now time.Time) map[string][]heldRequest {
 	source, err := a.source()
 	if err != nil {
 		return nil
@@ -756,7 +761,7 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 			}
 		}
 	}
-	out := map[string][]conversations.PendingRequest{}
+	out := map[string][]heldRequest{}
 	for _, p := range held {
 		key := approvalSessionKey(p.Tool, p.Session)
 		switch {
@@ -769,37 +774,63 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 			_ = approvals.WriteDecision(dir, p.ID, approvals.PendingDecision{Decision: approvals.DecideRelease, Digest: p.Digest})
 			continue
 		}
-		out[key] = append(out[key], conversations.PendingRequest{
+		out[key] = append(out[key], heldRequest{PendingRequest: conversations.PendingRequest{
 			ID: p.ID, Digest: p.Digest, Call: p.Call, Input: p.Input, Expires: p.Expires.UTC().Format(time.RFC3339),
-		})
+		}, created: p.Created})
 	}
 	return out
 }
 
-// pendingShown are the held requests row c can answer: for a row whose
-// transcript names the call that waits, only requests for that call.
-func pendingShown(c conversations.Conversation, held []conversations.PendingRequest) []conversations.PendingRequest {
+// heldRequest is a request held for the companion, with when the hook
+// began to hold it.
+type heldRequest struct {
+	conversations.PendingRequest
+	created time.Time
+}
+
+// pendingShown are the held requests row c can answer: for a Claude
+// Code row whose transcript names the call that waits, only requests
+// for that call. A Codex row waits on its held requests, so it shows
+// them all.
+func pendingShown(c conversations.Conversation, held []heldRequest) []conversations.PendingRequest {
 	if len(held) == 0 || c.Waiting == nil {
 		return nil
 	}
 	var out []conversations.PendingRequest
 	for _, p := range held {
-		if c.Waiting.Tool != "" && c.Waiting.Tool != p.Call {
-			continue
+		if c.Tool != conversations.ToolCodex {
+			if c.Waiting.Tool != "" && c.Waiting.Tool != p.Call {
+				continue
+			}
+			if c.Waiting.Detail != "" && c.Waiting.Detail != pendingDetail(p) {
+				continue
+			}
 		}
-		if c.Waiting.Detail != "" && c.Waiting.Detail != pendingDetail(p) {
-			continue
-		}
-		out = append(out, p)
+		out = append(out, p.PendingRequest)
 	}
 	return out
 }
 
 // pendingDetail is the short detail a row shows for request p.
-func pendingDetail(p conversations.PendingRequest) string {
+func pendingDetail(p heldRequest) string {
 	key, value := "file_path", p.Input.FilePath
-	if p.Call == "Bash" {
+	switch p.Call {
+	case "Bash":
 		key, value = "command", p.Input.Command
+	case "apply_patch":
+		// The row names the first file the patch touches, as for an edit.
+		for line := range strings.SplitSeq(p.Input.Patch, "\n") {
+			for _, header := range []string{"*** Add File: ", "*** Update File: ", "*** Delete File: "} {
+				if file, ok := strings.CutPrefix(line, header); ok && value == "" {
+					value = file
+				}
+			}
+		}
+		input, err := json.Marshal(map[string]string{"file_path": value})
+		if err != nil {
+			return ""
+		}
+		return conversations.CallDetail("Edit", input)
 	}
 	input, err := json.Marshal(map[string]string{key: value})
 	if err != nil {

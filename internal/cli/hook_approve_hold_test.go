@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ func holdSetup(t *testing.T, home string, holdFor time.Duration) (source, projec
 	t.Helper()
 	source, project = approveSetup(t, home)
 	oldTimes, oldPoll := companionHoldTimes, companionPoll
-	companionHoldTimes = map[string]time.Duration{"claude": holdFor}
+	companionHoldTimes = map[string]time.Duration{"claude": holdFor, "codex": holdFor}
 	companionPoll = 5 * time.Millisecond
 	t.Cleanup(func() { companionHoldTimes, companionPoll = oldTimes, oldPoll })
 	if err := approvals.TouchLive(approvals.LivePath(source), time.Now()); err != nil {
@@ -76,42 +77,49 @@ func assertNoPending(t *testing.T, source string) {
 }
 
 func TestHookApproveHold_AnswersWithTheCompanionDecision(t *testing.T) {
-	allow, _ := hookrun.PermissionAllowReply("claude")
-	deny, _ := hookrun.PermissionDenyReply("claude")
-	cases := []struct {
-		decision string
-		want     string
-		outcome  approvals.Outcome
-		rule     string
-	}{
-		{approvals.DecideApprove, string(allow), approvals.Approved, ""},
-		{approvals.DecideDeny, string(deny), approvals.Denied, ""},
-		{approvals.DecideRelease, "", approvals.Asked, approvals.RuleCompanion},
+	for _, target := range []string{"claude", "codex"} {
+		allow, _ := hookrun.PermissionAllowReply(target)
+		deny, _ := hookrun.PermissionDenyReply(target)
+		cases := []struct {
+			decision string
+			want     string
+			outcome  approvals.Outcome
+			rule     string
+		}{
+			{approvals.DecideApprove, string(allow), approvals.Approved, ""},
+			{approvals.DecideDeny, string(deny), approvals.Denied, ""},
+			{approvals.DecideRelease, "", approvals.Asked, approvals.RuleCompanion},
+		}
+		for _, tc := range cases {
+			t.Run(target+"/"+tc.decision, func(t *testing.T) {
+				answersWithTheCompanionDecision(t, target, tc.decision, tc.want, tc.outcome, tc.rule)
+			})
+		}
 	}
-	for _, tc := range cases {
-		t.Run(tc.decision, func(t *testing.T) {
-			source, project := holdSetup(t, companionAskHome, 5*time.Second)
-			out := runHeld(t, "claude", recordedPayload(t, "claude", project, "touch a.txt"))
-			held := heldRecord(t, source)
-			if held.Call != "Bash" || held.Input.Command != "touch a.txt" || held.Session == "" || held.PID != os.Getpid() {
-				t.Errorf("record = %+v", held)
-			}
-			dir := approvals.PendingDir(source)
-			assertMode(t, dir, 0o700)
-			assertMode(t, filepath.Join(dir, held.ID+".json"), 0o600)
-			if err := approvals.WriteDecision(dir, held.ID, approvals.PendingDecision{Decision: tc.decision, Digest: held.Digest}); err != nil {
-				t.Fatal(err)
-			}
-			if got := reply(t, out); got != tc.want {
-				t.Fatalf("reply = %q, want %q", got, tc.want)
-			}
-			entries := approveLog(t, source)
-			if len(entries) != 1 || entries[0].Decision != tc.outcome || entries[0].Rule != tc.rule || entries[0].By != approvals.ByCompanion || entries[0].Detail != "touch a.txt" {
-				t.Errorf("log = %+v, want one %s line by companion", entries, tc.outcome)
-			}
-			assertNoPending(t, source)
-		})
+}
+
+func answersWithTheCompanionDecision(t *testing.T, target, decision, want string, outcome approvals.Outcome, rule string) {
+	t.Helper()
+	source, project := holdSetup(t, companionAskHome, 5*time.Second)
+	out := runHeld(t, target, recordedPayload(t, target, project, "touch a.txt"))
+	held := heldRecord(t, source)
+	if held.Tool != target || held.Call != "Bash" || held.Input.Command != "touch a.txt" || held.Session == "" || held.PID != os.Getpid() {
+		t.Errorf("record = %+v", held)
 	}
+	dir := approvals.PendingDir(source)
+	assertMode(t, dir, 0o700)
+	assertMode(t, filepath.Join(dir, held.ID+".json"), 0o600)
+	if err := approvals.WriteDecision(dir, held.ID, approvals.PendingDecision{Decision: decision, Digest: held.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	if got := reply(t, out); got != want {
+		t.Fatalf("reply = %q, want %q", got, want)
+	}
+	entries := approveLog(t, source)
+	if len(entries) != 1 || entries[0].Decision != outcome || entries[0].Rule != rule || entries[0].By != approvals.ByCompanion || entries[0].Detail != "touch a.txt" {
+		t.Errorf("log = %+v, want one %s line by companion", entries, outcome)
+	}
+	assertNoPending(t, source)
 }
 
 func assertMode(t *testing.T, path string, want os.FileMode) {
@@ -224,7 +232,7 @@ func TestHookApproveHold_DoesNotHold(t *testing.T) {
 				t.Fatal(err)
 			}
 		}},
-		{name: "codex", home: companionAskHome, target: "codex", command: "touch a.txt"},
+		{name: "codex in review", home: "version: 1\ntargets: [codex]\napprovals:\n  mode: ask\n  companion: true\n  tools:\n    codex: review\n", target: "codex", command: "touch a.txt"},
 		{name: "kiro", home: companionAskHome, target: "kiro", command: "touch a.txt"},
 		{name: "qwen", home: companionAskHome, target: "qwen", command: "touch a.txt"},
 		{name: "qoder", home: companionAskHome, target: "qoder", command: "touch a.txt"},
@@ -276,4 +284,30 @@ func TestHookApproveHold_GateApprovalWritesNoRecord(t *testing.T) {
 	if _, err := os.Stat(approvals.PendingDir(source)); !os.IsNotExist(err) {
 		t.Errorf("pending folder exists: %v", err)
 	}
+}
+
+func TestHookApproveHold_CodexPatchShowsInFull(t *testing.T) {
+	source, project := holdSetup(t, companionAskHome, 5*time.Second)
+	patch := "*** Begin Patch\n*** Update File: README.md\n@@\n-hi\n+hello\n*** End Patch"
+	payload, err := json.Marshal(map[string]any{
+		"session_id": "019a7c1e-2d3f-7b40-8c11-5e9f0a6b2c3d", "turn_id": "1", "cwd": project,
+		"hook_event_name": "PermissionRequest", "permission_mode": "default",
+		"tool_name": "apply_patch", "tool_input": map[string]any{"command": patch},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := runHeld(t, "codex", string(payload))
+	held := heldRecord(t, source)
+	if held.Call != "apply_patch" || held.Input.Patch != patch {
+		t.Fatalf("record = %+v", held)
+	}
+	if err := approvals.WriteDecision(approvals.PendingDir(source), held.ID, approvals.PendingDecision{Decision: approvals.DecideApprove, Digest: held.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	allow, _ := hookrun.PermissionAllowReply("codex")
+	if got := reply(t, out); got != string(allow) {
+		t.Errorf("reply = %q, want %q", got, allow)
+	}
+	assertNoPending(t, source)
 }
