@@ -1214,11 +1214,19 @@ test('a held request shows what it runs or writes, from the hook input', async (
     waiting: { for: 'permission', tool: call },
     approvals: { pending: [{ id: 'i1', digest: 'd1', call, input, expires: '2026-11-22T08:05:00Z' }, ...extra] },
   })
-  assert.deepEqual(pendingOf(held('Bash', { command: 'touch a.txt' })), { id: 'i1', digest: 'd1', blocks: [{ label: 'Run', text: 'touch a.txt' }], more: 0 })
+  assert.deepEqual(pendingOf(held('Bash', { command: 'touch a.txt' })), { id: 'i1', digest: 'd1', blocks: [{ label: 'Run', text: 'touch a.txt' }], more: 0, inTerminal: false })
   assert.deepEqual(pendingOf(held('Edit', { file_path: '/p/a.go', old: 'a', new: 'b' })).blocks, [{ label: 'Edit', text: '/p/a.go' }, { label: 'Replace', text: 'a' }, { label: 'With', text: 'b' }])
   assert.deepEqual(pendingOf(held('Write', { file_path: '/p/a.go', new: 'package a' })).blocks, [{ label: 'Write', text: '/p/a.go' }, { label: 'Content', text: 'package a' }])
   assert.deepEqual(pendingOf(held('Read', { file_path: '/p/a.go' })).blocks, [{ label: 'Read', text: '/p/a.go' }])
   assert.equal(pendingOf(held('Bash', { command: 'ls' }, [{ id: 'i2', digest: 'd2', call: 'Bash', input: { command: 'pwd' } }])).more, 1)
+})
+
+test('a held Codex patch shows the whole patch and offers the terminal', async () => {
+  const { pendingOf } = await import('../frontend/model.js')
+  const patch = '*** Begin Patch\n*** Update File: a.go\n@@\n-a\n+b\n*** End Patch'
+  const codex = { ...row('a', 'blocked', { waiting: { for: 'permission', tool: 'apply_patch' } }), tool: 'codex' }
+  codex.approvals = { pending: [{ id: 'i1', digest: 'd1', call: 'apply_patch', input: { patch }, cwd: '/p/app' }] }
+  assert.deepEqual(pendingOf(codex), { id: 'i1', digest: 'd1', blocks: [{ label: 'In', text: '/p/app' }, { label: 'Patch', text: patch }], more: 0, inTerminal: true })
 })
 
 test('a row without a held request, or that no longer waits, gets no buttons', async () => {

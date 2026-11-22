@@ -30,8 +30,8 @@ func newHookApproveCmd() *cobra.Command {
 		Long: "Reads a PermissionRequest hook payload on stdin. When the approvals mode for the tool and the session's " +
 			"folder is yolo and no always-ask rule matches, it prints the tool's reply that allows this one call and logs " +
 			"the decision. In every other case it prints nothing, so the tool shows its own prompt. With approvals.companion " +
-			"on and a companion open, a claude request left to the person waits up to 300 seconds for Approve or Deny in " +
-			"the companion, then prints the allow or deny reply; it denies only on that click. It always exits 0 and " +
+			"on and a companion open, a request left to the person waits for Approve or Deny in the companion, up to 300 " +
+			"seconds for claude and 60 for codex, then prints the allow or deny reply; it denies only on that click. It always exits 0 and " +
 			"writes nothing to stderr. For claude it also asks on a match with an ask rule in the " +
 			"Claude Code user, project, local or managed settings files. For kiro it asks whenever a Kiro permissions " +
 			"file or agent profile holds an ask or evaluate rule or the approve-for-me preset, and for qwen whenever a " +
@@ -133,6 +133,9 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	hold := companionHold{
 		target: target, source: source, mode: mode, payload: p, rawInput: rawInput.Input, request: request, log: log,
 		on: home.Companion && settingsOK,
+	}
+	if homeMode, _ := homeToolMode(home, target); homeMode == config.ApprovalsReview {
+		hold.reviewer = true
 	}
 	if mode != config.ApprovalsYolo {
 		if resolved.From == config.EnvApprovals && home.Loosens() {

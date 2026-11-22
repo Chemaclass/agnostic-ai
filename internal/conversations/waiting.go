@@ -45,6 +45,19 @@ func (c Conversation) PermissionWait() (since time.Time, waits bool) {
 	return c.Waiting.since, true
 }
 
+// HoldForPermission marks live row c as waiting for the person to
+// approve call, which acts on detail, since since: a hook holds the
+// request for the companion. Codex writes nothing while a hook holds
+// its prompt, so the held request is its only wait signal. It reports
+// whether the row newly counts in View.NeedsYou.
+func (c *Conversation) HoldForPermission(call, detail string, since time.Time) bool {
+	counted := needsPerson(c.State)
+	c.Activity = ActivityWaiting
+	c.State = StateBlocked
+	c.Waiting = &waitingOn{For: waitPermission, Tool: call, Detail: detail, since: since}
+	return !counted
+}
+
 // claudeWaitKinds maps the waitingFor a live Claude Code session writes
 // to sessions/<pid>.json. Claude Code writes "permission prompt" for a
 // tool call it asks about, "sandbox request" for a sandboxed command

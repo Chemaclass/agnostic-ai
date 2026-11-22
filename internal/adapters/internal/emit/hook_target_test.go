@@ -125,3 +125,17 @@ func TestTargetHook_ReadsCommandAndArgsAfterTheOverride(t *testing.T) {
 		t.Errorf("a null override kept args: %v", got.Meta)
 	}
 }
+
+func TestTargetHook_ReadsTimeoutAndStatusMessageAfterTheOverride(t *testing.T) {
+	t.Parallel()
+	h := spec.Entry{Kind: spec.KindHook, Meta: map[string]any{
+		"command": "echo", "timeout": 10, "statusMessage": "shared",
+		"x-codex": map[string]any{"timeout": 70, "statusMessage": "codex only"},
+	}}
+	if got := TargetHook("codex", h); got.Meta["timeout"] != 70 || got.Meta["statusMessage"] != "codex only" {
+		t.Errorf("codex meta = %v", got.Meta)
+	}
+	if got := TargetHook("claude", h); got.Meta["timeout"] != 10 || got.Meta["statusMessage"] != "shared" {
+		t.Errorf("claude read the codex override: %v", got.Meta)
+	}
+}

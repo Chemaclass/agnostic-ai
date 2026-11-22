@@ -498,7 +498,7 @@ func printApprovalsStatus(cmd *cobra.Command, status approvalsStatusOutput) {
 		}
 	}
 	if status.Companion {
-		cmd.Println("Companion buttons: on, for Claude Code requests left to you")
+		cmd.Println("Companion buttons: on, for Claude Code and Codex requests left to you")
 	} else {
 		cmd.Println("Companion buttons: off (approvals.companion)")
 	}

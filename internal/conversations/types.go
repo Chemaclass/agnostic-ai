@@ -106,15 +106,18 @@ type PendingRequest struct {
 	Call    string       `json:"call"`
 	Input   PendingInput `json:"input"`
 	Expires string       `json:"expires"`
+	// Cwd is the folder a Codex patch's relative paths start from.
+	Cwd string `json:"cwd,omitempty"`
 }
 
 // PendingInput is what a pending request runs or writes: the command,
-// or the file with the text an edit replaces and writes.
+// the file with the text an edit replaces and writes, or a Codex patch.
 type PendingInput struct {
 	Command  string `json:"command,omitempty"`
 	FilePath string `json:"file_path,omitempty"`
 	Old      string `json:"old,omitempty"`
 	New      string `json:"new,omitempty"`
+	Patch    string `json:"patch,omitempty"`
 }
 
 // ApprovedCall is one request the approvals hook approved.

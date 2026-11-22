@@ -66,3 +66,16 @@ test('no key answers a held request', async ({ page }) => {
   await page.keyboard.press('y')
   expect((await calls(page)).map((call) => call.path)).not.toContain('/api/approvals/decide')
 })
+
+test('a held Codex patch offers Answer in terminal, which lets the hook go', async ({ page }) => {
+  await openPanel(page)
+  const codex = row(page, 'Rename the config keys')
+  await expect(codex.locator('.held-label')).toHaveText(['In', 'Patch'])
+  await expect(codex.locator('.held-text').first()).toHaveText('/Users/you/Code/kombo')
+  await expect(codex.locator('.held-text').nth(1)).toContainText('+MaxRetries int')
+  await expect(row(page, 'Clean the build folder').getByRole('button', { name: 'Answer in terminal' })).toHaveCount(0)
+  await codex.getByRole('button', { name: 'Answer in terminal' }).click()
+  await expect(codex.locator('.held-request')).toHaveCount(0)
+  const sent = (await calls(page)).filter((call) => call.path === '/api/approvals/decide')
+  expect(sent.map((call) => call.body)).toEqual([{ id: 'a7b8', digest: 'digest-a7b8', decision: 'release' }])
+})

@@ -8,16 +8,17 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
-	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 )
 
 // companionHoldTimes is how long the hook waits for a click, per tool.
 // Claude Code shows its prompt while the hook runs, so the terminal
-// answer is never delayed (decision 028). The hook entry's timeout must
-// outlast it.
+// answer is never delayed (decision 028). Codex shows its prompt only
+// after the hook ends, so its wait is short (decision 029). The hook
+// entry's timeout must outlast it.
 var companionHoldTimes = map[string]time.Duration{
 	"claude": 300 * time.Second,
+	"codex":  60 * time.Second,
 }
 
 // companionPoll is how often a held hook reads its decision file.
@@ -33,6 +34,9 @@ type companionHold struct {
 	log                  approvals.Log
 	// on is approvals.companion, with the tool's settings read cleanly.
 	on bool
+	// reviewer is set when sync turned on the tool's own reviewer, which
+	// it does from the home config alone.
+	reviewer bool
 }
 
 // wait holds the request until the companion answers or the hold time
@@ -43,7 +47,7 @@ func (h companionHold) wait(now time.Time) []byte {
 	if !held || !h.on || len(h.rawInput) == 0 {
 		return nil
 	}
-	if h.target == "codex" && h.mode == config.ApprovalsReview {
+	if h.target == "codex" && h.reviewer {
 		// Codex runs the hook before its reviewer: a hold delays it.
 		return nil
 	}

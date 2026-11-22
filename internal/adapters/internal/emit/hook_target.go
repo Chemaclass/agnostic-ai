@@ -145,7 +145,7 @@ func ExecFormCommand(command string, args []string) string {
 }
 
 // TargetHooks returns hooks with the keys that decide when, what and how
-// long it runs (targetHookKeys) read after each spec's `x-<target>`
+// long it runs, and what the tool shows meanwhile (targetHookKeys), read after each spec's `x-<target>`
 // override, as the spec format documents for every key. Emitters read
 // them from the top level, so a hook fires and runs as its override says
 // on every target.
@@ -195,7 +195,7 @@ func TargetHook(target string, h spec.Entry) spec.Entry {
 	return h
 }
 
-var targetHookKeys = []string{"event", "matcher", "command", "args", "timeout"}
+var targetHookKeys = []string{"event", "matcher", "command", "args", "timeout", "statusMessage"}
 
 // HookArgs returns a hook spec's exec-form args on target, after its
 // `x-<target>` override, the same view RewriteHookPath reads.
