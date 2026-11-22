@@ -274,6 +274,7 @@ func TestShowCommand_WithholdsOrMasksCredentialsAndKeepsLongCommands(t *testing.
 		{"plain long command", plain, plain},
 		{"cut at the limit", strings.Repeat("ls ", 1000), strings.TrimSpace(strings.Repeat("ls ", 1000)[:shellCommandRunes-1]) + "…"},
 		{"several lines", "make\n  test", "make test"},
+		{"known miss: a password after -p", "mysql -u root -p hunter2pass", "mysql -u root -p hunter2pass"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

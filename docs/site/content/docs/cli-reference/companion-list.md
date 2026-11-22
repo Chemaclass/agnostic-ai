@@ -169,7 +169,7 @@ The chat leaves Needs you in the companion and the web interface, and moves wher
 - A chat written in since the list was drawn is skipped and stays.
 - The first failed save stops the run and says why.
 - The list holds every blocked and unread chat of any age.
-- The circle counts them all, whatever the search or place. With **All** chosen and no search, it shows zero after the run until something new is written.
+- The circle's count ignores the search and the place. With **All** chosen and no search, it shows zero after the run until something new is written.
 - The circle's number is the rows of the kind its icon names that the list shows under Needs you with **All** chosen and no search: waiting chats when one waits, else unread replies.
 - While a chat needs you, a click on the circle opens the list on the first row under Needs you, selected and in view. It clears the search, switches to **All** when no chat in the chosen place needs you, and unfolds Needs you.
 {% </details> %}
