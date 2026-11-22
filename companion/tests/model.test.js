@@ -1336,7 +1336,7 @@ test('every row under Needs you says why it waits, in one short line', async () 
   assert.deepEqual(reason(keptOne), { kind: 'shell', text: 'Waiting on a shell still running' })
   const stoppedOne = (stopping) => stopping.pid === 43
   assert.deepEqual(needsReasonOf(shellWait, now, undefined, stoppedOne), { kind: 'shell', text: 'Waiting on a shell still running' })
-  assert.deepEqual(needsReasonOf(shellWait, now, undefined, () => true), { kind: 'waiting', text: 'Waiting for you' })
+  assert.equal(needsReasonOf(shellWait, now, undefined, () => true), undefined)
 })
 
 test('a row says its orange lines are shells still running, unless its reason already does or every shell is kept', async () => {

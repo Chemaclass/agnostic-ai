@@ -3622,6 +3622,16 @@ test('two shells whose commands share a long start read apart, and the hover sho
   await expect(tooltip(page)).toHaveCSS('pointer-events', 'none')
 })
 
+test('a shell wait counts only the shells still asking, after one is kept', async ({ page }) => {
+  await openPanel(page, 'needs-reasons')
+  const twins = row(page, 'Preview the reports page')
+  await expect(twins.locator('.needs-reason')).toHaveText('Waiting on 2 shells still running')
+  await twins.getByRole('button', { name: /^Keep running: / }).first().click()
+  await expect(twins.locator('.shell-warning.is-kept')).toHaveCount(1)
+  await expect(twins.locator('.needs-reason')).toHaveText('Waiting on a shell still running')
+  await expect(twins.locator('.shells-lead')).toHaveCount(0)
+})
+
 test('every row under Needs you says why, even one whose reply is withheld', async ({ page }) => {
   await openPanel(page, 'needs-reasons')
   const reasons = page.locator('.row.needs-you').locator('.needs-reason, .approval')

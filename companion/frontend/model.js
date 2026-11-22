@@ -606,8 +606,12 @@ export function needsReasonOf(conversation, now, nameOf, stopped = () => false) 
     return { kind: 'reply', text: hidden ? 'New reply, hidden because it may hold a password or key' : 'New reply' }
   }
   const waitingFor = conversation.waiting?.for
-  const count = waitingFor === 'shell' ? askingShellsOf(conversation, stopped).length : 0
-  if (count > 0) return { kind: 'shell', text: count > 1 ? `Waiting on ${count} shells still running` : 'Waiting on a shell still running' }
+  if (waitingFor === 'shell') {
+    const count = askingShellsOf(conversation, stopped).length
+    // Every shell just stopped: its line says so until the next list moves the row.
+    if (count === 0) return undefined
+    return { kind: 'shell', text: count > 1 ? `Waiting on ${count} shells still running` : 'Waiting on a shell still running' }
+  }
   if (waitingFor === 'answer') return { kind: 'question', text: 'Asks you a question' }
   const quiet = quietNoteOf(conversation, now)
   if (quiet) return { kind: 'quiet', text: quiet }
