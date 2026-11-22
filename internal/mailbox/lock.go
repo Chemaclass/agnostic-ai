@@ -116,8 +116,8 @@ func privateDir(path string) error {
 	if !info.IsDir() {
 		return fmt.Errorf("%s: expected a directory", path)
 	}
-	// Windows reports every folder as 0o777, and a chmod there would
-	// rewrite the folder's entry in its parent on every call.
+	// Windows reports every folder as 0o777, so the check would chmod
+	// on every call, and a chmod there only sets the read-only flag.
 	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		return os.Chmod(path, 0o700)
 	}

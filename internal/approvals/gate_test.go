@@ -15,10 +15,10 @@ const (
 	testHome = "/home/me"
 )
 
-// Hook approve falls back to ask on Windows before it reaches the gate.
+// Without a hook route, hook approve asks before it reaches the gate.
 func skipGateOnWindows(t *testing.T) {
 	t.Helper()
-	if runtime.GOOS == "windows" {
+	if RouteFor("claude").Mechanism(ModeYolo, runtime.GOOS) == nil {
 		t.Skip("approvals fall back to ask on Windows")
 	}
 }
