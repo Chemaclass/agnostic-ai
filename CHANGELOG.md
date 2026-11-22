@@ -10,7 +10,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 - **Breaking:** layer names in `list`, `status`, `explain --layers`, the web interface and adapter input changed, and `--global` is now `--scope user` (#3856).
 - Send questions, reviews and file handoffs between local Claude Code and Codex sessions from the companion or from the agents themselves (#3832, #3836).
-- Approve or deny a Claude Code or Codex permission request from its companion row (#3906, #3908, #3909).
+- Approve or deny a Claude Code or Codex permission request from its companion row (#3906, #3908, #3909, #3911).
 - Companion updates check the signer, show progress, and restore the earlier app when the new one fails to start (#3850, #3888).
 - The companion opens and resumes chats on Windows and Linux, and switches to the exact tab in iTerm2, WezTerm, kitty, tmux and Konsole (#3221, #3222, #3843).
 
@@ -26,13 +26,13 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 #### Claude Code
 
-- With `approvals.companion: true`, the companion shows a request with **Approve** and **Deny**. The hook entry's timeout is now 310 seconds (#3906, #3908).
-- The companion lists agent team teammates as subagents in a tree, and a click on one in tmux brings its pane forward (#3905, #3907).
+- With `approvals.companion: true`, the companion shows a request and its folder with **Approve** and **Deny**. The hook timeout is now 310 seconds (#3906, #3908, #3911).
+- The companion lists agent team teammates as subagents in a tree, and a click on one in tmux brings its pane forward (#3905, #3907, #3911).
 - An `x-<target>` block on a hook spec now sets `timeout` and `statusMessage` for that target. A spec with such a block gets them on the next `sync` (#3906, #3909).
 
 #### Codex
 
-- With `approvals.companion: true`, the companion shows a Codex request with **Approve**, **Deny** and **Answer in terminal**, for up to 60 seconds (#3909).
+- With `approvals.companion: true`, the companion shows a Codex request with **Approve**, **Deny** and **Answer in terminal**, for up to 60 seconds (#3909, #3911).
 - After `sync --scope user`, Codex asks once to review the changed approvals hook. Trust it again in `/hooks` to keep hook approvals (#3909).
 
 #### Kiro
