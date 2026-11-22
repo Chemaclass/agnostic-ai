@@ -19,6 +19,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - **Breaking:** layer names changed: `project-user` is `local`, `global` is `user`, `global-local` is `user-local`. Update scripts that match them (#3856).
 - **Deprecated:** `--global` is now `--scope user`, `new rule --scope <dir>` is `--dir`, and `doctor --scope` is `--checks`. The old spellings warn (#3856).
 - The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you. Only the companion can approve them or act as you (#3832-#3837, #3872, #3891, #3898, #3915).
+- The companion and the CLI must match: a new companion refuses an older CLI, also for **Dashboard**, and an older companion with a newer CLI says to run `agnostic-ai companion install` (#3938, #3939).
 - Typing into a chat or resuming one in a terminal through the local server needs the companion or a tab `view` opened. Scripts that sent through the API stop working; an open without proof returns the command to run (#3930).
 - Companion updates check the signer, show each step, keep the earlier app until the new one starts, and keep Accessibility access (#3601, #3850, #3874, #3888). On macOS, grant Accessibility once more after this first update.
 - The companion opens chats on Windows and Linux and switches to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
