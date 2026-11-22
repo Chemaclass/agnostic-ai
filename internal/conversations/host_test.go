@@ -812,3 +812,23 @@ func TestSystemProcesses_TableListsThisProcess(t *testing.T) {
 	}
 	t.Errorf("this process is missing from %d rows", len(table))
 }
+
+func TestOpen_NoRunOffersTheResumeCommandInsteadOfRunningIt(t *testing.T) {
+	for _, app := range []string{"Ghostty", "iTerm", "Terminal"} {
+		t.Run(app, func(t *testing.T) {
+			tab := terminalHost{App: app, TTY: "/dev/ttys004"}
+			ended := Conversation{Tool: ToolClaude, Open: Route{Kind: RouteTerminal, Command: "claude --resume x"}, lastTab: &tab}
+			launcher := &fakeLauncher{focusOK: true}
+
+			reply := Open(context.Background(), ended, fakeProcesses{}, NoRun(launcher, "Needs proof."))
+
+			want := OpenReply{Message: "Needs proof. Run this command in a terminal.", Command: "claude --resume x"}
+			if reply != want {
+				t.Errorf("reply = %+v, want %+v", reply, want)
+			}
+			if len(launcher.calls) != 0 {
+				t.Errorf("calls = %v, want none", launcher.calls)
+			}
+		})
+	}
+}

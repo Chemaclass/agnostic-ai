@@ -162,7 +162,7 @@ Cloud sessions and refresh:
 Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from the server's own origin.
 
 - Reopens a conversation the list holds along its `open` route and returns `{opened, message, command?, helper?, reached?}`.
-- Bringing a live chat to the front needs no proof. Resuming an ended chat runs a command in a terminal, so it needs the companion's secret or the key of a tab `view` opened. Without one nothing runs, and `command` holds the resume command to run by hand.
+- Running a command in a terminal, such as resuming an ended terminal session or attaching to a `claude --bg` session no terminal shows, needs the companion's secret or the key of a tab `view` opened. Without one no command runs, and `command` holds it to run by hand. Bringing a live terminal tab to the front needs no proof, nor does opening a chat in the Claude app, an editor or a browser.
 - `helper` names a subagent or teammate the conversation lists in `helpers`. See [open a helper](@/docs/cli-reference/conversations-helpers-api.md#open-a-helper) for what comes to the front, the note in `message`, and `reached`.
 
 {% <details summary="Open details, results and status codes"> %}

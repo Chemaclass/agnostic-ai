@@ -345,7 +345,11 @@ func (h *conversationsHandler) open(w http.ResponseWriter, r *http.Request) {
 	launcher := h.launcher
 	if h.proven == nil || !h.proven(r) {
 		// Focusing a live chat needs no proof; starting a command does.
-		launcher = noRunLauncher{launcher}
+		reason := "Starting it from here needs the companion or a page that agnostic-ai view --scope user opened."
+		if !h.canProveAny() {
+			reason = "This server cannot start sessions."
+		}
+		launcher = conversations.NoRun(launcher, reason)
 	}
 	reply, found := h.scanner.ReopenHelper(context.WithoutCancel(r.Context()), req.Tool, req.ID, req.Helper, h.scanOptions(req.Editor), launcher)
 	if r.Context().Err() != nil || !time.Now().Before(deadline) {
@@ -371,22 +375,10 @@ func (h *conversationsHandler) logLateOpen(tool conversations.Tool, reply conver
 	_, _ = fmt.Fprintf(h.logOut, "an open of a %s conversation answered after its caller left: %s\n", tool, outcome)
 }
 
-// noRunLauncher opens and focuses as its launcher does, and refuses
-// to run or type a command in a terminal.
-type noRunLauncher struct {
-	conversations.Launcher
-}
-
-func (noRunLauncher) RunInNewTerminal(context.Context, string) error {
-	return conversations.ErrRunRefused
-}
-
-func (noRunLauncher) RunInNewTab(context.Context, string, string) error {
-	return conversations.ErrRunRefused
-}
-
-func (noRunLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
-	return false, conversations.ErrRunRefused
+// canProveAny reports whether this server holds a secret or session key
+// a request could prove itself with.
+func (h *conversationsHandler) canProveAny() bool {
+	return h.canProve != nil && h.canProve()
 }
 
 // send types text into a conversation's input without submitting it.
@@ -397,7 +389,7 @@ func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.proven == nil || !h.proven(r) {
 		message := "Sending needs the companion's secret or the key of a tab that view opened. Nothing was typed."
-		if h.canProve == nil || !h.canProve() {
+		if !h.canProveAny() {
 			message = "This server cannot type into sessions. Use the companion, or a page that agnostic-ai view --scope user opened."
 		}
 		writeEditJSON(w, http.StatusForbidden, editError{Error: message})

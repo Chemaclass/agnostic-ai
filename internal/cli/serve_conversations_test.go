@@ -1523,6 +1523,10 @@ func TestConversationsHandler_TypesASendOnlyWithProof(t *testing.T) {
 		}
 	}
 
+	h.proven = nil
+	if rec := send(companionSecretHeader, string(testCompanionSecret)); rec.Code != http.StatusForbidden {
+		t.Errorf("send on a handler with no proof check = %d %s, want 403", rec.Code, rec.Body)
+	}
 	h.proven, h.canProve = (&settingsHandler{}).proven, (&settingsHandler{}).canProve
 	if rec := send(companionSecretHeader, string(testCompanionSecret)); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "This server cannot type into sessions") {
 		t.Errorf("send on a server with no secret or session key = %d %s, want 403 saying it cannot type", rec.Code, rec.Body)
@@ -1544,7 +1548,7 @@ func (l *focusLauncher) FocusTab(_ context.Context, app, tty string) (bool, erro
 
 func TestConversationsHandler_StartsAResumeOnlyWithProof(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
-	h.proven = testCompanionSecret.allows
+	h.proven, h.canProve = testCompanionSecret.allows, func() bool { return true }
 	open := func(secret string) conversations.OpenReply {
 		t.Helper()
 		rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`"}`, func(r *http.Request) {
@@ -1561,10 +1565,15 @@ func TestConversationsHandler_StartsAResumeOnlyWithProof(t *testing.T) {
 
 	for _, secret := range []string{"", strings.Repeat("0", len(testCompanionSecret))} {
 		reply := open(secret)
-		if reply.Opened || !strings.Contains(reply.Command, "claude --resume "+inProject) || !strings.Contains(reply.Message, "Run this command in a terminal") {
+		if reply.Opened || !strings.Contains(reply.Command, "claude --resume "+inProject) || !strings.HasPrefix(reply.Message, "Starting it from here needs the companion") {
 			t.Errorf("open of an ended chat without proof = %+v, want the command to run by hand", reply)
 		}
 	}
+	h.canProve = nil
+	if reply := open(""); reply.Opened || reply.Command == "" || !strings.HasPrefix(reply.Message, "This server cannot start sessions.") {
+		t.Errorf("open on a server with no proof = %+v", reply)
+	}
+	h.canProve = func() bool { return true }
 	if len(launcher.calls) != 0 {
 		t.Fatalf("an open without proof ran %v", launcher.calls)
 	}
