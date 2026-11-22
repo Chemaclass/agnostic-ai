@@ -632,6 +632,7 @@ test('choosing Approve routine calls for me asks first, then saves, and Apply to
   await menu.getByRole('button', { name: 'Turn on' }).click()
   expect((await saved).postDataJSON()).toEqual({ key: 'approvals.mode', value: 'yolo', expected: 'ask' })
   await expect(menu.getByRole('radio', { name: 'Approve routine calls for me' })).toHaveAttribute('aria-checked', 'true')
+  await expect(menu.getByRole('radio', { name: 'Approve routine calls for me' })).toBeFocused()
   await expect(menu.getByText('Not in effect yet: the hook is not installed for Claude Code and Codex.')).toBeVisible()
   await expect(page.locator('#approvals-mode')).toHaveText('Auto-approve on')
 
@@ -642,6 +643,7 @@ test('choosing Approve routine calls for me asks first, then saves, and Apply to
   await expect(menu.getByText(/Applied: 2 files written\. Codex will show Hooks need review once/)).toBeVisible()
   await expect(menu.getByText(/^Not in effect yet/)).toBeHidden()
   await expect(menu.getByRole('button', { name: 'Apply to my tools' })).toBeHidden()
+  await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toBeFocused()
 })
 
 test('Ask me saves at once, without a question', async ({ page }) => {

@@ -20,9 +20,10 @@ function button(className, text) {
 /**
  * The approvals part of the settings menu: the status line under its rows, the question before a mode that
  * answers prompts, and Apply to my tools. `changed(doc)` hands each new settings document to the menu, which
- * draws the rows; `listChanged(version)` reads the list a change made, so the header chip follows.
+ * draws the rows; `listChanged(version)` reads the list a change made, so the header chip follows. `row(id)` is the
+ * control the focus goes to once a question is answered: the checked mode, or the companion switch after a sync.
  */
-export function approvalsMenu({ changed, listChanged }) {
+export function approvalsMenu({ changed, listChanged, row }) {
   const state = { doc: undefined, tag: undefined, timer: undefined, busy: false, said: undefined, pending: undefined, back: undefined, shown: 0, taken: 0 }
 
   const box = element('div', 'menu-approvals')
@@ -36,11 +37,12 @@ export function approvalsMenu({ changed, listChanged }) {
   const confirmTitle = element('p', 'menu-confirm-title')
   const confirmBody = element('p', 'menu-confirm-body')
   const confirmFiles = element('ul', 'menu-confirm-files')
+  const confirmNotes = element('div', 'menu-confirm-notes')
   const confirmGo = button('menu-confirm-go', '')
   const confirmCancel = button('menu-confirm-cancel', 'Cancel')
   const confirmActions = element('div', 'menu-confirm-actions')
   confirmActions.append(confirmCancel, confirmGo)
-  confirm.append(confirmTitle, confirmBody, confirmFiles, confirmActions)
+  confirm.append(confirmTitle, confirmBody, confirmFiles, confirmNotes, confirmActions)
   confirm.setAttribute('aria-labelledby', 'menu-confirm-title')
   confirmTitle.id = 'menu-confirm-title'
   box.append(lines, apply, said, confirm)
@@ -87,26 +89,32 @@ export function approvalsMenu({ changed, listChanged }) {
     confirmBody.textContent = question.body
     confirmFiles.replaceChildren(...(question.files ?? []).map((file) => element('li', '', file)))
     confirmFiles.hidden = !question.files?.length
+    confirmNotes.replaceChildren(...(question.notes ?? []).map((note) => element('p', '', note)))
+    confirmNotes.hidden = !question.notes?.length
     confirmGo.hidden = !question.go
     confirmGo.textContent = question.go ?? ''
     draw()
     confirmCancel.focus()
   }
 
-  /** Closes the question and puts the focus back where it was asked from. */
+  /** Closes the question; Cancel puts the focus back where it was asked from. */
   function answered() {
     const back = state.back
     state.pending = undefined
     state.back = undefined
     draw()
-    back?.()?.focus()
+    return back
   }
 
-  confirmCancel.addEventListener('click', answered)
-  confirmGo.addEventListener('click', () => {
+  confirmCancel.addEventListener('click', () => answered()?.()?.focus())
+  confirmGo.addEventListener('click', async () => {
     const go = state.pending
     answered()
-    go?.()
+    // Go hides the question, and the button it was asked from may hide too; the focus waits on the box until the
+    // answer names where it belongs.
+    box.tabIndex = -1
+    box.focus()
+    await go?.()
   })
 
   /** Saves one setting with the value the menu showed; a refusal shows why, and the server's current value. */
@@ -140,7 +148,10 @@ export function approvalsMenu({ changed, listChanged }) {
       save('approvals.mode', mode, current)
       return
     }
-    ask(question, () => save('approvals.mode', mode, current), back)
+    ask(question, async () => {
+      await save('approvals.mode', mode, current)
+      row('approvalsMode')?.focus()
+    }, back)
   }
 
   /** Apply to my tools: shows what a sync would change, then runs it. */
@@ -164,7 +175,12 @@ export function approvalsMenu({ changed, listChanged }) {
     // The menu closed while the plan was read: nobody asked any more.
     if (shown !== state.shown) return
     state.said = undefined
-    ask(syncConfirmOf(plan), () => run(plan.id), () => apply)
+    ask(syncConfirmOf(plan), () => runThenFocus(plan.id), () => apply)
+  }
+
+  async function runThenFocus(id) {
+    await run(id)
+    if (state.pending === undefined) row('approvalsCompanion')?.focus()
   }
 
   async function run(id) {
@@ -182,7 +198,7 @@ export function approvalsMenu({ changed, listChanged }) {
         state.busy = false
         if (shown !== state.shown) return
         state.said = error.message
-        ask(syncConfirmOf(error.plan), () => run(error.plan.id), () => apply)
+        ask(syncConfirmOf(error.plan), () => runThenFocus(error.plan.id), () => apply)
         return
       }
       state.said = syncFailureOf(error)

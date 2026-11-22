@@ -1541,6 +1541,15 @@ kbd {
   user-select: text;
 }
 
+.menu-approvals:focus {
+  outline: none;
+}
+
+.menu-confirm-notes p {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+}
+
 .menu-confirm-actions {
   display: flex;
   justify-content: flex-end;

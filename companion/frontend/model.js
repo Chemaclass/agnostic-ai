@@ -1631,8 +1631,9 @@ export function syncConfirmOf(plan) {
   if (files.length === 0) return { title: 'Nothing to apply', body: 'Your tools already match your user configuration.', files }
   return {
     title: 'Apply to my tools?',
-    body: ['This applies all pending changes of your user configuration, not only approvals:', ...(plan.notes ?? [])].join(' '),
+    body: 'This applies all pending changes of your user configuration, not only approvals:',
     files,
+    notes: plan.notes ?? [],
     go: 'Apply',
   }
 }

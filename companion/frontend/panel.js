@@ -2180,6 +2180,7 @@ const approvalsRows = approvalsMenu({
     if (!menu.hidden && settings.items) drawSettings()
   },
   listChanged: afterChange,
+  row: (id) => (id === 'approvalsMode' ? menu.querySelector('.choice[aria-checked="true"]') : settings.controls.get(id)),
 })
 
 /** A click on a shortcut starts taking its new keys, or stops when it was already. */

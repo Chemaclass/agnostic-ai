@@ -138,7 +138,7 @@ test('the sync question lists every file and says it applies all pending changes
   const question = syncConfirmOf({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }] })
   assert.deepEqual(question.files, ['create /h/.codex/hooks.json'])
   assert.match(question.body, /all pending changes of your user configuration/)
-  assert.match(syncConfirmOf({ id: 'x', files: [{ path: 'a', change: 'update' }], notes: ['claude: a warning'] }).body, /approvals: claude: a warning$/)
+  assert.deepEqual(syncConfirmOf({ id: 'x', files: [{ path: 'a', change: 'update' }], notes: ['claude: a warning'] }).notes, ['claude: a warning'])
   assert.equal(syncConfirmOf({ id: 'x', files: [] }).go, undefined)
   assert.equal(syncResultOf({ written: ['a'], notes: ['Codex will show Hooks need review once. Open /hooks in Codex and trust it.'] }), 'Applied: 1 file written. Codex will show Hooks need review once. Open /hooks in Codex and trust it.')
   assert.equal(syncFailureOf(Object.assign(new Error('conflict.'), { command: 'agnostic-ai sync --scope user' })), 'conflict. Run agnostic-ai sync --scope user in a terminal.')
