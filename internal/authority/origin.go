@@ -32,7 +32,8 @@ func ParseOrigin(raw string) (string, error) {
 	return u.Scheme + "://" + strings.ToLower(u.Host), nil
 }
 
-func loopbackHost(hostPort string) bool {
+// LoopbackHost reports whether a Host header names a loopback address.
+func LoopbackHost(hostPort string) bool {
 	host := hostPort
 	if parsed, port, err := net.SplitHostPort(hostPort); err == nil {
 		n, err := strconv.Atoi(port)
@@ -55,7 +56,7 @@ func loopbackHost(hostPort string) bool {
 
 // RequestAllowed shares the same local boundary across reads and edits.
 func RequestAllowed(r *http.Request, allowedOrigins ...string) bool {
-	if !loopbackHost(r.Host) {
+	if !LoopbackHost(r.Host) {
 		return false
 	}
 	origin := r.Header.Get("Origin")
@@ -92,7 +93,7 @@ const deniedNavigation = `<!doctype html>
 func CORS(next http.Handler, allowedOrigins ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Vary", "Origin")
-		if !loopbackHost(r.Host) {
+		if !LoopbackHost(r.Host) {
 			writeError(w, http.StatusMisdirectedRequest, errors.New("request Host must name a loopback address"))
 			return
 		}

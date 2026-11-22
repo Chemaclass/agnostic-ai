@@ -43,6 +43,10 @@ type editHandler struct {
 	mu        sync.Mutex
 	validate  func() ([]string, error)
 	baselines map[string]editBaseline
+	// proven says whether a request carries the companion secret or the
+	// web session key. A user-level hook or MCP server runs commands as
+	// the user on their next sync, so writing one needs it.
+	proven func(*http.Request) bool
 }
 
 // level names the served level in messages: project, or global.
@@ -110,6 +114,10 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: "read request: " + err.Error()})
 		return
 	}
+	if h.userLevel && (r.URL.Path == editHookPath || r.URL.Path == editMCPPath) && !h.provenApply(r, body) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "A user-level hook or MCP server runs commands as you, so adding one needs the companion or a page opened with agnostic-ai view --scope user. You can also add the spec file by hand."})
+		return
+	}
 	var plan editPlan
 	var ok bool
 	switch r.URL.Path {
@@ -140,6 +148,17 @@ func (h *editHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if ok {
 		h.applyPlan(w, plan)
 	}
+}
+
+// provenApply allows previews, and an apply only with proof.
+func (h *editHandler) provenApply(r *http.Request, body []byte) bool {
+	var req struct {
+		Action string `json:"action"`
+	}
+	if json.Unmarshal(body, &req) != nil || req.Action != "apply" {
+		return true
+	}
+	return h.proven != nil && h.proven(r)
 }
 
 // recheckedEdit runs the edit only while what the page showed still

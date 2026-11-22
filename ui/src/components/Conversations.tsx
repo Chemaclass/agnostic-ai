@@ -485,6 +485,10 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
           now={now}
           onClose={() => setShellSelection(undefined)}
           onResult={(feedback) => {
+            // Unmount with the same render that shows the result: the
+            // dialog's close event comes a task later, and until then the
+            // closed dialog still holds the shell command.
+            setShellSelection(undefined)
             onShellFeedback(feedback)
             openButton.current?.focus()
           }}

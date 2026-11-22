@@ -1765,6 +1765,7 @@ export function syncConfirmOf(plan) {
     title: 'Apply to my tools?',
     body: 'This applies all pending changes of your user configuration, not only approvals:',
     files,
+    commands: plan.commands ?? [],
     notes: plan.notes ?? [],
     go: 'Apply',
   }

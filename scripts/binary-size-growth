@@ -2,9 +2,9 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3913: user-level servers serve the settings document, a settings write
-# route with a proof gate, a YAML setter for the approvals block, and a sync
-# route that runs sync --scope user in process, pinned to the confirmed plan's
-# content, and a lock file shared by approvals writers. No new dependency.
-# The build grows by 77824 bytes.
-77824
+# #3913 slice 2: the embedded web client gains the Approvals and companion
+# settings tab, and the server gains the web session (unlock file, one-time
+# code exchange, hop page), the hook and MCP commands in the sync plan,
+# and a policy check before each approvals write. No new dependency. The
+# build grows by 65536 bytes.
+65536

@@ -430,7 +430,7 @@ func TestSettings_WaitsForTheApprovalsLock(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(source, "local", config.ConfigFileName)); !os.IsNotExist(err) {
 		t.Errorf("the write went ahead without the lock: %v", err)
 	}
-	if _, err := writeApprovalsAskLocked(source); err == nil {
+	if _, err := writeApprovalsAskLocked(source, true); err == nil {
 		t.Error("Ask me went ahead without the lock")
 	}
 }
@@ -452,5 +452,42 @@ func TestRestorePoint_LeavesAnOutsideEditAlone(t *testing.T) {
 	writeFile(t, path, "ours\n")
 	if err := undo([]byte("ours\n")); err != nil || readFile(t, path) != "before\n" {
 		t.Errorf("undo of our own write = %v, file %q", err, readFile(t, path))
+	}
+}
+
+// TestSettings_AskKeepsALocalCompanionOff: Ask me without proof keeps a
+// local companion: false that hides a shared true.
+func TestSettings_AskKeepsALocalCompanionOff(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: yolo\n  companion: true\n")
+	writeFile(t, filepath.Join(source, "local", config.ConfigFileName), "approvals:\n  mode: yolo\n  companion: no\n")
+	if rec, _ := postSetting(t, h, `{"key":"approvals.mode","value":"ask"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("Ask me = %d %s", rec.Code, rec.Body)
+	}
+	home, err := config.LoadHomeApprovals(source)
+	if err != nil || home.Mode != config.ApprovalsAsk || home.Companion {
+		t.Errorf("after Ask me = %+v, %v; want ask with the buttons off", home, err)
+	}
+	approvalsHandlerAsk := approvalsHandler{reader: h.reader}
+	if rec := postEdit(t, approvalsHandlerAsk, approvalsAskPath, `{"mode":"ask"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("legacy Ask me = %d %s", rec.Code, rec.Body)
+	}
+	if home, err := config.LoadHomeApprovals(source); err != nil || home.Companion {
+		t.Errorf("after the legacy Ask me = %+v, %v", home, err)
+	}
+}
+
+// TestSettings_AskRepairsABrokenLocalBlock: without proof, Ask me still
+// repairs a local block that does not load, with the buttons off.
+func TestSettings_AskRepairsABrokenLocalBlock(t *testing.T) {
+	for _, local := range []string{"approvals:\n  mode: bogus\n", "approvals:\n  mode: yolo\n  companion: maybe\n"} {
+		h, source := settingsFixture(t, "version: 1\ntargets: [claude]\napprovals:\n  mode: ask\n  companion: true\n")
+		writeFile(t, filepath.Join(source, "local", config.ConfigFileName), local)
+		if rec, _ := postSetting(t, h, `{"key":"approvals.mode","value":"ask"}`, nil); rec.Code != http.StatusOK {
+			t.Fatalf("Ask me on %q = %d %s", local, rec.Code, rec.Body)
+		}
+		home, err := config.LoadHomeApprovals(source)
+		if err != nil || home.Mode != config.ApprovalsAsk || home.Companion {
+			t.Errorf("after Ask me on %q = %+v, %v", local, home, err)
+		}
 	}
 }

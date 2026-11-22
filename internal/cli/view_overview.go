@@ -82,7 +82,7 @@ func viewPortCandidates() []string {
 
 // serveView blocks while the server runs; a listen error means the port
 // was taken between the probe and the bind.
-func serveView(cmd *cobra.Command, browser func(string) error, addr, root string, userLevel bool) error {
+func serveView(cmd *cobra.Command, browser func(string) error, addr, root string, userLevel, unlock bool) error {
 	serve := newServeCmdWithBrowser(browser)
 	// serve runs as a command of its own, outside the root, so it takes
 	// the root's version along for /api/health.
@@ -93,6 +93,10 @@ func serveView(cmd *cobra.Command, browser func(string) error, addr, root string
 	serve.SilenceErrors = true
 	serve.SilenceUsage = true
 	args := []string{"--open", "--addr", addr}
+	if !unlock {
+		// The companion opens the address it reads, so it gets the plain one.
+		args = append(args, "--no-unlock")
+	}
 	if userLevel {
 		args = append(args, "--scope", specScopeUser)
 	} else {
@@ -191,7 +195,14 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 			reuse := func(addr string) error {
 				url := "http://" + addr + "/"
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Using agnostic-ai at %s\n", url)
-				if err := open(url); err != nil {
+				target := url
+				// The running server writes a new unlock file; an older one opens the page locked.
+				if useUser && !companion {
+					if file, err := offerSession(cmd.Context(), addr); err == nil {
+						target = file
+					}
+				}
+				if err := open(target); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 				return nil
@@ -217,7 +228,7 @@ func newViewCmdWithPorts(browser func(string) error, probe func(string, time.Dur
 			budget := viewBusyProbeTimeout
 			var bindErr error
 			for _, candidate := range free {
-				err := serveView(cmd, open, candidate, root, useUser)
+				err := serveView(cmd, open, candidate, root, useUser, !companion)
 				var listenErr *net.OpError
 				if !errors.As(err, &listenErr) || listenErr.Op != "listen" {
 					return err

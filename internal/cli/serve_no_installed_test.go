@@ -32,6 +32,7 @@ func serveAndFetchEvidence(t *testing.T, args ...string) servedEvidence {
 	var fetchErr error
 	done := make(chan struct{})
 	cmd := newServeCmdWithBrowser(func(url string) error {
+		url = openedPage(url)
 		go func() {
 			defer close(done)
 			defer cancel()

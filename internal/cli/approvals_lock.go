@@ -42,14 +42,12 @@ func lockApprovalsWrites(source string) (func(), error) {
 	}
 }
 
-// writeApprovalsAskLocked is writeApprovalsAsk on source's local home
-// file, under the approvals lock.
-func writeApprovalsAskLocked(source string) (string, error) {
+// writeApprovalsAskLocked is writeApprovalsAsk under the approvals lock.
+func writeApprovalsAskLocked(source string, proven bool) (string, error) {
 	release, err := lockApprovalsWrites(source)
 	if err != nil {
 		return "", err
 	}
 	defer release()
-	path := userConfigPaths(source)[1]
-	return path, writeApprovalsAsk(path)
+	return writeApprovalsAsk(source, proven)
 }

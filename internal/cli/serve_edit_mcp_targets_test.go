@@ -9,7 +9,7 @@ import (
 func TestServeEditMCP_PreviewOnlyNamesToolsThatWriteTheServer(t *testing.T) {
 	source, _ := mcpEditUser(t, `{"mcpServers":{"github":{"command":"github-mcp","env":{"GITHUB_TOKEN":"ghp_synthetic123"}}}}`)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, kimi]\n")
-	preview := mcpEditPreview(t, newEditHandler(source, true), mcpEditIdentity("github", "shared", "user", "~/.claude.json"))
+	preview := mcpEditPreview(t, provenUserEdits(source), mcpEditIdentity("github", "shared", "user", "~/.claude.json"))
 	if !slices.Equal(preview.Targets, []string{"claude"}) {
 		t.Errorf("preview targets = %v; Kimi cannot interpolate the env reference", preview.Targets)
 	}

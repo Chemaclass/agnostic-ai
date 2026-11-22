@@ -28,6 +28,7 @@ export const DOC_TOPICS: Record<string, DocTopic> = {
   support: { path: '/docs/target-behavior/', label: 'coding tool support' },
   findings: { path: '/docs/cli-reference/check/', label: 'configuration checks' },
   editor: { path: '/docs/cli-reference/serve/#serve', label: 'opening files in an editor' },
+  user: { path: '/docs/approvals/#change-it-from-the-companion', label: 'approvals and companion settings' },
   targets: { path: '/docs/configuration/#targets', label: 'selecting coding tools' },
 }
 

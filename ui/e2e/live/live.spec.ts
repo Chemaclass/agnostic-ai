@@ -133,7 +133,18 @@ createInterface({input:process.stdin}).on('line',line=>{
     const args = ['serve', '--addr', '127.0.0.1:0', ...allowedOrigins.flatMap((origin) => ['--allow-origin', origin]), ...(userLevel ? ['--scope', 'user'] : ['--dir', project])]
     child = spawn(binary, args, { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] })
     const url = await serverURL(child)
-    return { root, userHome, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, close }
+    // Opens the page as `view --scope user` does, through an unlock file, so
+    // the tab gets the session key that adding a hook or MCP server needs.
+    const unlock = async (page: Page) => {
+      const offer = await fetch(`${url}api/session/offer`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+      expect(offer.status).toBe(200)
+      const { file } = await offer.json() as { file: string }
+      const code = /#unlock=([0-9a-f]+)/.exec(await readFile(file, 'utf8'))?.[1]
+      expect(code).toBeTruthy()
+      await page.goto(`${url}unlock#unlock=${code}`)
+      await expect.poll(() => page.evaluate(() => sessionStorage.getItem('agnostic-ai.session'))).toBeTruthy()
+    }
+    return { root, userHome, url, env, config, configBytes, settings, sharedBytes, localSettings, localBytes, unlock, close }
   } catch (error) {
     await close()
     throw error
@@ -1048,6 +1059,7 @@ test('live user Tools makes one native server a spec and refuses credentials it 
   } })
   try {
     await writeFile(claudeJSON, bytes, { mode: 0o600 })
+    await f.unlock(page)
     await page.goto(`${f.url}?view=tools&tab=native`)
     const block = page.getByRole('region', { name: /Found in tools/ })
     const notion = block.locator('.item-row', { hasText: 'notion' })

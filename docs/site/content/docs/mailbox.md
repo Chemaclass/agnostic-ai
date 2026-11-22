@@ -157,7 +157,7 @@ The local user-level server provides these routes to the companion. The conversa
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
 | `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
 | `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |
-| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. Writing `false` needs the companion's secret; without it the answer is 403. |
+| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. Writing `false` needs the companion's secret; without it the answer is 403. The web page changes this switch through [`POST /api/settings`](@/docs/cli-reference/serve-api.md#post-api-settings) instead. |
 
 Questions and findings take `body`. A `review_request` takes `refs: {worktree, base, commit?, paths?}` and optional `models: {from?, to?}`. Pass the preview’s commit, base and paths to keep the selection pinned. The server checks the worktree against the source chat and verifies any supplied paths against Git. A review request with a `body`, verdict or unknown field is refused with `echo`. An invalid base, commit or path selection is refused with `refs`.
 

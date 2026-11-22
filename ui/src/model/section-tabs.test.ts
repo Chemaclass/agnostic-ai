@@ -72,8 +72,8 @@ describe('section tabs', () => {
     expect(landingTab(tools, sectionTabs(tools), true)).toBe('native')
   })
 
-  it('keeps the coding tools and editor tabs in Settings even without items of their own', () => {
+  it('keeps the coding tools, editor and user settings tabs in Settings even without items of their own', () => {
     const settings = section({ id: 'settings', kinds: [{ kind: 'builtin', label: 'Built-ins', count: 1 }, { kind: 'config', label: 'Config files', count: 1 }] })
-    expect(sectionTabs(settings).map((tab) => tab.id)).toEqual(['builtins', 'targets', 'configuration', 'editor'])
+    expect(sectionTabs(settings).map((tab) => tab.id)).toEqual(['builtins', 'targets', 'configuration', 'editor', 'user'])
   })
 })

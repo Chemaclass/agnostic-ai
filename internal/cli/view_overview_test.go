@@ -272,6 +272,7 @@ func TestView_OpensBrowserWithBundledUIAndSelectedOverview(t *testing.T) {
 			result := make(chan error, 1)
 			opened := 0
 			cmd := newViewCmdWithBrowser(func(url string) error {
+				url = openedPage(url)
 				opened++
 				go func() {
 					defer cancel()
@@ -606,7 +607,7 @@ func runViewOnPortsWithProbe(t *testing.T, ports []string, probe func(string, ti
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	opened := ""
-	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, probe, ports, now)
+	cmd := newViewCmdWithPorts(func(url string) error { opened = openedPage(url); cancel(); return nil }, probe, ports, now)
 	cmd.SetContext(ctx)
 	var out bytes.Buffer
 	cmd.SetOut(&out)
@@ -754,7 +755,7 @@ func TestView_ScanRechecksATakenPortAfterTheBindFails(t *testing.T) {
 			defer cancel()
 			opened := ""
 			probes := map[string]int{}
-			cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, _ time.Duration) *viewServer {
+			cmd := newViewCmdWithPorts(func(url string) error { opened = openedPage(url); cancel(); return nil }, func(addr string, _ time.Duration) *viewServer {
 				probes[addr]++
 				if addr == ports[0] && probes[addr] > 1 {
 					return tc.late
@@ -823,7 +824,7 @@ func TestView_ScanWaitsForASlowServerOfTheSameConfiguration(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	opened := ""
-	cmd := newViewCmdWithPorts(func(url string) error { opened = url; cancel(); return nil }, func(addr string, timeout time.Duration) *viewServer {
+	cmd := newViewCmdWithPorts(func(url string) error { opened = openedPage(url); cancel(); return nil }, func(addr string, timeout time.Duration) *viewServer {
 		if addr == ports[0] && timeout >= 500*time.Millisecond {
 			return &viewServer{OK: true, Root: project, UI: true}
 		}
@@ -912,6 +913,7 @@ func TestView_HealthNamesTheRootVersion(t *testing.T) {
 	defer cancel()
 	health := make(chan string, 1)
 	view := newViewCmdWithPorts(func(url string) error {
+		url = openedPage(url)
 		go func() {
 			defer cancel()
 			var got struct {
