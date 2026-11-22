@@ -38,6 +38,8 @@ type settings struct {
 	SmallCompanion bool `json:"smallCompanion,omitempty"`
 	// CheckForUpdates is whether the companion checks for updates on its own; nil means it does.
 	CheckForUpdates *bool `json:"checkForUpdates,omitempty"`
+	// KeptShells are the stuck shells the person chose to keep running for now.
+	KeptShells []keptShell `json:"keptShells,omitempty"`
 }
 
 // shortcut is the saved shortcut, or the default before one was saved.

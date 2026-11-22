@@ -104,6 +104,15 @@ export function stopShell(conversation, shell) {
   return change('/api/stop-shell', { tool: conversation.tool, id: conversation.id, pid: shell.pid, procStart: shell.procStart })
 }
 
+/** The stuck shells the person kept running, saved in the companion settings: {shells: [{tool, id, pid, procStart, wakeAt, keeps}]}. */
+export const readKeptShells = () => call('/api/kept-shells')
+/** Saves one record from keepOf; answers the kept shells as readKeptShells does. */
+export const keepShell = (record) => post('/api/kept-shells/keep', record)
+/** Removes the records of these shells; answers the kept shells as readKeptShells does. */
+export function forgetShells(shells) {
+  return post('/api/kept-shells/forget', { shells: shells.map(({ pid, procStart }) => ({ pid, procStart })) })
+}
+
 /** Turns automatic approvals off for every tool and project, from the next request on. Answers {body, version}. */
 export function askApprovals() {
   return change('/api/approvals/ask', { mode: 'ask' })

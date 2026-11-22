@@ -50,6 +50,8 @@ function fixtureState(name, now) {
     polled: structuredClone(conversations),
     preferences: { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: false, checkForUpdates: true },
     appearance: { animate: true, dimWhenIdle: false, smallCompanion: false, presence: 'shown' },
+    /** The stuck shells kept running, as the shell keeps them in its settings file. */
+    keptShells: [],
     /** The update entry; a terminal install has none yet. */
     update: fixture.update ?? { state: 'unavailable' },
     /** What waited in the last list, as the shell remembers it. */
@@ -545,6 +547,24 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       state.update = { state: 'updating', version: state.update.version, current: state.update.current, step: 'downloading' }
       noContent(response)
       emit('update', state.update)
+    },
+    'GET /api/kept-shells': (request, response) => sendJSON(response, 200, { shells: state.keptShells }),
+    // Like the shell: a record replaces the one for the same shell, and every change tells the pages.
+    'POST /api/kept-shells/keep': async (request, response) => {
+      const record = await bodyOf(request)
+      logCall('/api/kept-shells/keep', record)
+      const same = (kept) => kept.pid === record.pid && kept.procStart === record.procStart
+      state.keptShells = [...state.keptShells.filter((kept) => !same(kept)), record]
+      sendJSON(response, 200, { shells: state.keptShells })
+      emit('kept-shells', state.keptShells)
+    },
+    'POST /api/kept-shells/forget': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/kept-shells/forget', body)
+      const named = (kept) => body.shells.some((shell) => shell.pid === kept.pid && shell.procStart === kept.procStart)
+      state.keptShells = state.keptShells.filter((kept) => !named(kept))
+      sendJSON(response, 200, { shells: state.keptShells })
+      emit('kept-shells', state.keptShells)
     },
     'GET /api/appearance': (request, response) => sendJSON(response, 200, state.appearance),
     'POST /api/appearance/animate': async (request, response) => {

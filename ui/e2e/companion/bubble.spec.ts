@@ -52,3 +52,17 @@ for (const side of [92, 64]) {
     expect(await strongestEdgeAlpha(page)).toBe(0)
   })
 }
+
+test('a kept shell leaves the circle count until its wake time', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'stuck-shells' } })
+  await page.goto('/')
+  await expect(page.locator('#badge.is-blocked')).toBeVisible()
+  await expect(page.locator('#count')).toHaveText('1')
+
+  const kept = await page.request.post('/api/kept-shells/keep', {
+    data: { tool: 'claude', id: 'shell-blocked', pid: 531, procStart: '2026-11-07T00:30:00.000Z', wakeAt: '2999-01-01T00:00:00.000Z', keeps: 1 },
+  })
+  expect(kept.ok()).toBe(true)
+  await expect(page.locator('#badge')).toBeHidden()
+  await expect(page.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: none needs you')
+})

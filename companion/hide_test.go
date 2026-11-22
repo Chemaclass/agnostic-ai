@@ -11,6 +11,7 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -655,7 +656,7 @@ func TestWaiting_Gained(t *testing.T) {
 }
 
 func TestWaitingIn_ReadsBlockedAndUnreadRows(t *testing.T) {
-	got, ok := waitingIn([]byte(`{"needsYou":5,"conversations":[{"tool":"claude","id":"a","state":"blocked"},{"tool":"codex","id":"b","state":"unread"},{"tool":"claude","id":"c","state":"working"}]}`))
+	got, ok := waitingIn([]byte(`{"needsYou":5,"conversations":[{"tool":"claude","id":"a","state":"blocked"},{"tool":"codex","id":"b","state":"unread"},{"tool":"claude","id":"c","state":"working"}]}`), nil, time.Now())
 	if !ok || len(got.ids) != 2 || got.ids["claude:a"] != "claude" || got.ids["codex:b"] != "codex" {
 		t.Errorf("waitingIn = %+v, %v", got, ok)
 	}

@@ -1,6 +1,6 @@
 import { Events, System } from '/wails/runtime.js'
-import { CallError, readInbox, togglePanel } from '/api.js'
-import { circleLabelOf, isDrag, waitingOf } from '/model.js'
+import { CallError, readInbox, readKeptShells, togglePanel } from '/api.js'
+import { circleLabelOf, isDrag, keptViewOf, waitingOf } from '/model.js'
 // Waits for the person's animation choice, so a still circle never starts spinning.
 import '/motion.js'
 
@@ -8,12 +8,19 @@ const bubble = document.getElementById('bubble')
 const badge = document.getElementById('badge')
 const badgeCount = document.getElementById('count')
 let shownCount = 0
+/** The last list read, so a kept shell's wake time can count it again with no new read. */
+let lastReply
+/** The stuck shells the person kept running; the panel's choice, so the circle counts what the list shows. */
+let keptShells = []
 
 function badgeText(count) {
   return count > 99 ? '99+' : String(count)
 }
 
-function show({ view, note }) {
+function show(reply) {
+  lastReply = reply
+  const { note } = reply
+  const view = keptViewOf(reply.view, keptShells, Date.now())
   const count = view.needsYou
   const working = view.conversations.some((conversation) => conversation.state === 'working')
   bubble.classList.toggle('is-working', working)
@@ -44,6 +51,7 @@ document.addEventListener('motion', () => {
 
 /** No list could be read: an old count would be a guess, so none shows. */
 function showTrouble(message) {
+  lastReply = undefined
   bubble.classList.remove('is-working')
   bubble.classList.add('is-troubled')
   bubble.classList.remove('is-idle')
@@ -107,4 +115,13 @@ bubble.addEventListener('click', (event) => {
 // The shell reports the pointer while another app is in front, where :hover may not fire.
 Events.On('pointer', (event) => bubble.classList.toggle('is-hovered', event.data === true))
 Events.On('inbox', refresh)
-refresh()
+Events.On('kept-shells', (event) => {
+  keptShells = event.data ?? []
+  if (lastReply) show(lastReply)
+})
+setInterval(() => {
+  if (lastReply) show(lastReply)
+}, 30 * 1000)
+readKeptShells().then(({ shells }) => {
+  keptShells = shells
+}, () => {}).finally(refresh)

@@ -144,7 +144,7 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 
 Right-click a row to reach what its buttons do, and a little more:
 
-- **Mark complete** moves an unmarked chat from Active or Needs you to Archived. A chat waiting only on a forgotten shell stays in Needs you until the shell stops.
+- **Mark complete** moves an unmarked chat from Active or Needs you to Archived. A chat waiting only on a forgotten shell stays in Needs you until the shell stops or you [keep it running](#stop-a-forgotten-shell).
 - **Undo complete** clears the mark you set. The [usual rules for Archived](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) still apply.
 - **Hide from agnostic-ai**: takes an archived chat out of every list and search. The tool keeps the chat.
 - **Stop chat…** in the macOS companion asks before ending a live Claude Code terminal session. You can resume from its transcript. Separate shell processes may keep running. The [Stop chat API](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-session) is available on macOS and Linux.
@@ -242,9 +242,23 @@ A Codex subagent opens its own thread, or switches to its terminal. A Claude Cod
 
 On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the command, how long it has run, and the subagent that started it when known. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
 
-1. Right-click the row and choose **Stop shell…**. If there is more than one shell, choose which one to stop.
-2. Review the command, run time and number of processes in its group. Choose **Stop shell** to stop that group. The Claude Code session stays open.
-3. If the shell changed, choose it again from the refreshed list. If processes left the group and are still running, the result names their process IDs.
+Each warning line has two buttons, for Claude Code on macOS and Linux:
+
+- **Stop** asks before it stops that shell.
+- **Keep running** says you meant to leave the shell running.
+
+To stop a shell:
+
+1. Choose **Stop** on its line. You can also right-click the row and choose **Stop shell…**, then pick the shell when there is more than one.
+2. Review the command, run time and number of processes in its group. While the agent is still working, the question says it may need this shell. Choose **Stop shell** to stop that group. The Claude Code session stays open.
+3. The line reads "Stopping the shell…", then says whether the shell stopped. If the shell changed, choose it again from the refreshed list. If processes left the group and are still running, the result names their process IDs.
+
+**Keep running** takes the chat out of Needs you and out of the circle's count. Its line turns grey and says when it asks again, and **Stop** stays on it. The first wait is 30 minutes. Each further **Keep running** on the same shell doubles it, up to 4 hours: 30 minutes, 1 hour, 2 hours, then 4 hours each time. The companion saves the choice in its settings, so it lasts across a restart.
+
+- The choice follows the shell, not the chat. If the agent works again and then stops, the shell still waits for its time.
+- A shell with a new process ID or start time asks on its own, even when another shell of the same chat is kept.
+- A kept shell does not bring a hidden circle back.
+- To be asked now, right-click the row and choose **Ask about this shell again**.
 
 Warnings start after 30 minutes by default. To change the time or turn off the warnings and action, set [`conversations.stuckShellAfter`](@/docs/global-configuration-reference.md#global-conversations).
 
@@ -294,7 +308,7 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 
 ## What a chat waits for {#waiting}
 
-In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. An unread reply has a plain orange dot, and so does a wait you already read while its subagents still work under Working.
+In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. A chat whose only wait is a forgotten shell has a terminal icon in place of the lock. An unread reply has a plain orange dot, and so does a wait you already read while its subagents still work under Working.
 
 A row that waits for you can carry [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) with `{for, tool?, detail?}`. `for` is `permission` (approve a tool call), `answer` (a question), or `shell` (a [forgotten shell](#stop-a-forgotten-shell) is the only work left). It is omitted when unknown.
 
