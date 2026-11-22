@@ -23,6 +23,7 @@ On macOS and Linux, the server scans again before it signals the shell's process
 |--------|---------|
 | 200 | The stop request completed. The body is `{stillRunning?: [{pid, procStart}]}`. |
 | 400 | The request body or a field is invalid. |
+| 403 | The request carries neither the companion's secret nor a tab's [session key](@/docs/approvals.md#who-can-change-this), or comes from another origin. Nothing is stopped. |
 | 409 | The server refused the target, for example because the session closed or the process identity changed. |
 | 500 | The server could not complete the stop. |
 

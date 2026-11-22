@@ -342,17 +342,18 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	if c.Tool != ToolCursor || c.store == "" {
 		return c, false
 	}
+	// This fresh read alone decides whether the chat may still run.
 	held, err := processes.Holders([]string{c.store})
 	pid := held[c.store]
 	if pid <= 0 {
-		// A clean read of this one store settles what the scan could not see.
-		c.liveUnknown = c.liveUnknown && err != nil
+		c.liveUnknown = err != nil
 		return c, false
 	}
 	// Another program with the store open, such as a database viewer,
-	// must not stop an ended chat from resuming.
+	// must not stop an ended chat from resuming; a holder whose command
+	// cannot be read may be the chat itself.
 	if command := processes.Args([]int{pid})[pid]; !agentCommands[commandName(command)] {
-		c.liveUnknown = c.liveUnknown && (err != nil || command == "")
+		c.liveUnknown = err != nil || command == ""
 		return c, false
 	}
 	c.Live = true
@@ -523,7 +524,14 @@ func openInTab(ctx context.Context, launcher Launcher, app, command string) tabO
 // another tab in front says where the session is instead. A session
 // that ended since the scan resumes as an ended one does.
 func focusTerminal(ctx context.Context, c Conversation, processes Processes, launcher Launcher) OpenReply {
-	if c.process == nil || !processes.Alive(c.process.PID, c.process.ProcStart) {
+	if c.process == nil {
+		return resumeTerminal(ctx, c, launcher)
+	}
+	alive, err := processes.AliveAmong([]ProcessRef{{PID: c.process.PID, ProcStart: c.process.ProcStart}})
+	if err != nil {
+		return OpenReply{Message: livenessUnknownMessage, Command: c.Open.Command}
+	}
+	if !alive[c.process.PID] {
 		return resumeTerminal(ctx, c, launcher)
 	}
 	placed := c.placed

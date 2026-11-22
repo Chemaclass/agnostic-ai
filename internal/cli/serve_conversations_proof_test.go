@@ -170,3 +170,44 @@ func TestRenameReachesCloud_NamesTheOnlineKinds(t *testing.T) {
 		}
 	}
 }
+
+// countedProcesses counts the process reads a request makes.
+type countedProcesses struct {
+	stillProcesses
+	asked *atomic.Int32
+}
+
+func (p countedProcesses) Table() ([]conversations.ProcessInfo, error) {
+	p.asked.Add(1)
+	return nil, errors.New("failed to read processes")
+}
+
+func (p countedProcesses) AliveAmong([]conversations.ProcessRef) (map[int]bool, error) {
+	p.asked.Add(1)
+	return nil, errors.New("failed to read processes")
+}
+
+func TestConversationsHandler_StopsAShellOnlyWithProof(t *testing.T) {
+	body := `{"tool":"claude","id":"` + inProject + `","pid":4242,"procStart":"Sat Nov  7 11:00:00 2026"}`
+	h, _, _ := conversationsFixture(t, true)
+	var asked atomic.Int32
+	h.scanner.Processes = countedProcesses{asked: &asked}
+	valid, refused := withProof(h)
+	for name, proof := range refused {
+		if rec := postProven(t, h, conversationStopShellPath, body, proof); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "Nothing was stopped") {
+			t.Errorf("stop shell with %s = %d %s, want 403", name, rec.Code, rec.Body)
+		}
+	}
+	if got := asked.Load(); got != 0 {
+		t.Fatalf("a shell stop without proof read the processes %d times", got)
+	}
+	for name, proof := range valid {
+		if rec := postProven(t, h, conversationStopShellPath, body, proof); rec.Code == http.StatusForbidden {
+			t.Errorf("stop shell with %s = %d %s, want it past the proof check", name, rec.Code, rec.Body)
+		}
+	}
+	withoutProofSource(h)
+	if rec := postProven(t, h, conversationStopShellPath, body, valid["the companion secret"]); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "This server cannot stop shells") {
+		t.Errorf("stop shell on a server with no proof source = %d %s", rec.Code, rec.Body)
+	}
+}

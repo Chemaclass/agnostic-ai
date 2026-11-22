@@ -18,6 +18,9 @@ func (h *conversationsHandler) stopShell(w http.ResponseWriter, r *http.Request)
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	if h.refuseUnproven(w, r, "Stopping a shell", "Nothing was stopped.", "stop shells") {
+		return
+	}
 	var req conversationStopShellRequest
 	const usage = "send {tool, id, pid, procStart}"
 	if !readConversationRequest(w, r, usage, &req) {

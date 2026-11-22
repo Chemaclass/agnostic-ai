@@ -131,8 +131,8 @@ type conversationsHandler struct {
 	// server; a list read without it shows no held request.
 	companion companionSecret
 	// proven says whether a request carries the companion secret or the
-	// web session key. A send, a start, a delete, a session stop and an
-	// online rename act as the person, so each needs one; nil proves
+	// web session key. A send, a start, a delete, a session or shell
+	// stop and an online rename act as the person, so each needs one; nil proves
 	// nothing.
 	proven func(*http.Request) bool
 	// canProve says whether this server has a secret or session key at

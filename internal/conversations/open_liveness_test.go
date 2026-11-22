@@ -133,13 +133,18 @@ func TestOpen_ClaudeSessionLivenessFromItsSessionsFolder(t *testing.T) {
 func TestOpen_CursorAgentChatTheScanCouldNotSeeFollowsAFreshRead(t *testing.T) {
 	for name, tc := range map[string]struct {
 		processes fakeProcesses
+		scanSaw   bool
 		resumes   bool
 	}{
-		"a clean read finds no holder": {processes: fakeProcesses{}, resumes: true},
-		"the read fails":               {processes: fakeProcesses{readFails: true}},
+		"a clean read finds no holder":              {processes: fakeProcesses{}, resumes: true},
+		"the read fails":                            {processes: fakeProcesses{readFails: true}},
+		"the read fails after a scan that saw it":   {processes: fakeProcesses{readFails: true}, scanSaw: true},
+		"a holder whose command cannot be read":     {processes: fakeProcesses{held: map[string]int{"store.db": 31}}, scanSaw: true},
+		"another program holds the store":           {processes: fakeProcesses{held: map[string]int{"store.db": 31}, args: map[int]string{31: "/usr/bin/sqlite3 store.db"}}, scanSaw: true, resumes: true},
+		"a clean read after a scan that saw it too": {processes: fakeProcesses{}, scanSaw: true, resumes: true},
 	} {
 		t.Run(name, func(t *testing.T) {
-			chat := Conversation{Tool: ToolCursor, App: AppCLI, store: filepath.Join(t.TempDir(), "store.db"), liveUnknown: true, Open: Route{Kind: RouteTerminal, Command: "cursor-agent --resume x"}}
+			chat := Conversation{Tool: ToolCursor, App: AppCLI, store: filepath.Join(t.TempDir(), "store.db"), liveUnknown: !tc.scanSaw, Open: Route{Kind: RouteTerminal, Command: "cursor-agent --resume x"}}
 			launcher := &fakeLauncher{focusOK: true}
 
 			reply := Open(context.Background(), chat, tc.processes, launcher)
@@ -148,5 +153,16 @@ func TestOpen_CursorAgentChatTheScanCouldNotSeeFollowsAFreshRead(t *testing.T) {
 				t.Errorf("resumed = %v, want %v: calls %v, reply %+v", resumed, tc.resumes, launcher.calls, reply)
 			}
 		})
+	}
+}
+
+func TestOpen_LiveSessionWhoseProcessCheckFailsIsNotResumed(t *testing.T) {
+	session := Conversation{Tool: ToolClaude, App: AppCLI, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 42, ProcStart: "Sat Nov  7 11:00:00 2026"}}
+	launcher := &fakeLauncher{focusOK: true}
+
+	reply := Open(context.Background(), session, fakeProcesses{readFails: true}, launcher)
+
+	if len(launcher.calls) != 0 || reply.Opened || !strings.Contains(reply.Message, "Could not check") || !strings.Contains(reply.Command, "--resume") {
+		t.Errorf("a failed process check must launch nothing: calls %v, reply %+v", launcher.calls, reply)
 	}
 }
