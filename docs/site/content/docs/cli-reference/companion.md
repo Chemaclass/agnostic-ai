@@ -172,7 +172,7 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` with nothing running succeeds and says so.
 - **Quit Agnostic AI companion** in the menus does the same as `stop`.
-- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) with its lock, `companion-state.json` (what a running companion shows the web page), `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
+- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) with its lock, `companion-state.json`, `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
 - When the companion cannot run, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
 - `stop` and `uninstall` manage the terminal-installed companion. For the disk-image app, quit from its menu, turn off **Start at login**, remove any CLI link you installed, then move the app from Applications to Trash.
@@ -203,8 +203,6 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 - The circle shows a solid orange count with a lock and a halo for chats waiting for you (a terminal when all wait on a shell). Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
 - The circle and the list's ⋯ menu hold the same items in the same order, except the mailbox approval switch, which only the ⋯ menu shows.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
-- The web page's **Settings**, then **Approvals and companion**, has the same four switches (Animate, Dim when idle, Small companion, Check for updates). A running companion applies a change made there within 5 seconds. Turning off Check for updates there needs a tab that `view` opened. While it runs, the page also shows both shortcuts and Start at login, read only.
-- A shortcut written into `companion.json` by another program is put back: the system must take the keys first, so change them from the menu.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
 - Send copied text: the shortcut is Ctrl+Alt+V until you change it.
 - Dim: pointing at the circle, or any conversation that needs you, brings back full color.
