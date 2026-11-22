@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -162,11 +163,13 @@ func (s *Scanner) claudePaneHelpers(work *claudeWork) []helper {
 	return helpers
 }
 
-// teammatePane finds the process of a pane teammate of lead: a process
-// in a tmux pane whose arguments name both the member and its lead.
-// Claude Code 2.1.330 runs it as the pane's own process; one a shell in
-// the pane started is found too. The pane id its team lists is never
-// handed to tmux; the process says which pane it runs in.
+// teammatePane finds the process of a pane teammate of lead: a Claude
+// Code process in a tmux pane whose arguments name both the member and
+// its lead, each once. Claude Code 2.1.330 runs it as the pane's own
+// process; one a shell in the pane started is found too. Any other
+// program, or more than one match, finds none, so the lead opens
+// instead. The pane id its team lists is never handed to tmux; the
+// process says which pane it runs in.
 func teammatePane(table []ProcessInfo, args func([]int) map[int]string, member, lead string) (int, bool) {
 	byPID := make(map[int]ProcessInfo, len(table))
 	for _, process := range table {
@@ -194,12 +197,52 @@ func teammatePane(table []ProcessInfo, args func([]int) map[int]string, member, 
 	if len(panes) == 0 {
 		return 0, false
 	}
+	found := 0
 	for pid, command := range args(panes) {
-		if argValue(command, "--agent-id") == member && argValue(command, "--parent-session-id") == lead {
-			return pid, true
+		words := strings.Fields(command)
+		if !claudeProgram(words) || onlyArgValue(words, "--agent-id") != member || onlyArgValue(words, "--parent-session-id") != lead {
+			continue
+		}
+		if found != 0 {
+			return 0, false
+		}
+		found = pid
+	}
+	return found, found != 0
+}
+
+// claudeProgram reports whether a command line runs Claude Code: its
+// executable, named claude or kept in the native installer's versions
+// folder, or node running the npm package. ps joins arguments with
+// spaces, so the executable is every word before the first flag.
+func claudeProgram(words []string) bool {
+	if len(words) > 1 && filepath.Base(words[0]) == "node" {
+		return strings.Contains(filepath.ToSlash(words[1]), "/@anthropic-ai/claude-code/")
+	}
+	end := slices.IndexFunc(words, func(word string) bool { return strings.HasPrefix(word, "-") })
+	if end < 0 {
+		end = len(words)
+	}
+	executable := filepath.ToSlash(strings.Join(words[:end], " "))
+	return filepath.Base(executable) == "claude" || strings.Contains(executable, "/claude/versions/")
+}
+
+// onlyArgValue is the word after flag when flag appears once, or "".
+func onlyArgValue(words []string, flag string) string {
+	value, seen := "", 0
+	for i, word := range words {
+		if word != flag {
+			continue
+		}
+		seen++
+		if i+1 < len(words) {
+			value = words[i+1]
 		}
 	}
-	return 0, false
+	if seen != 1 {
+		return ""
+	}
+	return value
 }
 
 // argValue is the word after flag in a command line, or "".

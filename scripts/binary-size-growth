@@ -2,8 +2,8 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3906: the approvals hook holds a Claude Code request for the companion
-# (pending and decision files, digest, signal cleanup), and the server lists
-# held requests, withdraws stale ones and serves the decide route. No new
-# dependency. The linux/amd64 release build grows by 81920 bytes.
-81920
+# #3910: the server checks the companion's secret, rechecks a held request
+# against a fresh list read before it writes a decision, and releases held
+# requests on a timer. No new dependency. The local build grows by 20480
+# bytes; this leaves room for the linux/amd64 build.
+32768

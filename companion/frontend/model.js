@@ -476,15 +476,38 @@ export function pendingOf(conversation) {
 
 const PENDING_VERBS = { Read: 'Read', Write: 'Write', Edit: 'Edit', MultiEdit: 'Edit' }
 
+// Every request names the folder it runs in, where its relative paths start; one without it gets no buttons.
 function pendingBlocksOf(call, input, cwd) {
   const block = (label, text) => (typeof text === 'string' && text !== '' ? [{ label, text }] : [])
-  if (call === 'Bash') return block('Run', input.command)
-  // A patch's paths start from the folder Codex runs in, which the row does not otherwise show.
-  if (call === 'apply_patch') return typeof input.patch === 'string' && input.patch !== '' ? [...block('In', cwd), ...block('Patch', input.patch)] : []
+  if (typeof cwd !== 'string' || cwd === '') return []
+  const folder = block('In', cwd)
+  if (call === 'Bash') {
+    const options = shellOptionsOf(input)
+    if (options === undefined || typeof input.command !== 'string' || input.command === '') return []
+    return [...folder, ...block('Run', input.command), ...block('Options', options)]
+  }
+  if (call === 'apply_patch') return typeof input.patch === 'string' && input.patch !== '' ? [...folder, ...block('Patch', input.patch)] : []
   const verb = PENDING_VERBS[call]
   if (!verb || !input.file_path) return []
-  if (input.old) return [...block(verb, input.file_path), ...block('Replace', input.old), ...block('With', input.new)]
-  return [...block(verb, input.file_path), ...block(call === 'Write' ? 'Content' : 'New text', input.new)]
+  if (input.old) return [...folder, ...block(verb, input.file_path), ...block('Replace', input.old), ...block('With', input.new)]
+  return [...folder, ...block(verb, input.file_path), ...block(call === 'Write' ? 'Content' : 'New text', input.new)]
+}
+
+/** How a command runs, such as "In the background, time limit 120 s"; '' for the defaults, undefined for an option the panel cannot read. */
+function shellOptionsOf(input) {
+  const { background, timeout } = input
+  if (background !== undefined && typeof background !== 'boolean') return undefined
+  if (timeout !== undefined && !(Number.isSafeInteger(timeout) && timeout > 0)) return undefined
+  const parts = []
+  if (background) parts.push('In the background')
+  if (timeout) parts.push(`time limit ${formatSeconds(timeout)}`)
+  const text = parts.join(', ')
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+function formatSeconds(ms) {
+  const seconds = ms / 1000
+  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)} s`
 }
 
 /** What the panel says when an answer no longer reaches its request: the server answered 404 or 409. */

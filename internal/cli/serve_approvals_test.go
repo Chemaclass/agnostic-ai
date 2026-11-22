@@ -50,9 +50,16 @@ func newApprovalsFixture(t *testing.T, mode string, routed bool) *approvalsFixtu
 		now:       func() time.Time { return f.now },
 		routed:    func(string, string) bool { return f.routed },
 		activated: func(_ string, mode string, _ string) bool { return mode != config.ApprovalsReview || !f.reviewerOff },
+		afterFunc: func(time.Duration, func()) {},
 	}
+	h.approvals.rows = h.firstPage
+	h.companion = testCompanionSecret
 	return f
 }
+
+// testCompanionSecret is the secret of the companion the fixture's
+// server runs for.
+const testCompanionSecret companionSecret = "0123456789abcdef0123456789abcdef"
 
 func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -94,7 +101,7 @@ func (f *approvalsFixture) busy(t *testing.T) {
 
 func (f *approvalsFixture) list(t *testing.T) (conversations.View, conversations.Conversation) {
 	t.Helper()
-	view := listConversations(t, f.h)
+	view := listConversationsAs(t, f.h, string(f.h.companion))
 	for _, c := range view.Conversations {
 		if c.ID == inProject {
 			return view, c

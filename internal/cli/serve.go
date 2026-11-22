@@ -107,6 +107,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				}
 				uiDir = abs
 			}
+			companion := takeCompanionSecret()
 			stuckShellAfter := servedShellThreshold(cmd.ErrOrStderr())
 			src, err := openAuthoritySource(dir, userLevel)
 			if err != nil {
@@ -154,8 +155,9 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			if stopWithStdin {
 				ctx = endedWith(ctx, cmd.InOrStdin())
 			}
-			if stopWithStdin && userLevel {
-				// Only a companion starts a user-level server this way.
+			if stopWithStdin && userLevel && companion != "" {
+				// Only a companion starts a user-level server this way, and
+				// only one that passed its secret can answer a held request.
 				if source, err := userSourceRoot(); err == nil {
 					live, stopLive := context.WithCancel(ctx)
 					wait := keepCompanionLive(live, source)
@@ -163,7 +165,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					defer stopLive()
 				}
 			}
-			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions, stuckShellAfter: stuckShellAfter}))
+			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions, stuckShellAfter: stuckShellAfter, companion: companion}))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -194,6 +196,8 @@ type serveMuxOptions struct {
 	// threads. Without it nothing reads the sign-in or leaves this machine.
 	cloudSessions   bool
 	stuckShellAfter *time.Duration
+	// companion is the secret of the companion that started the server.
+	companion companionSecret
 }
 
 // newServeMux routes the API and the client. More specific patterns win
@@ -208,6 +212,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux := http.NewServeMux()
 	conversationsHandler := newConversationsHandler(opts.Root, opts.UserLevel)
 	conversationsHandler.stuckShellAfter = muxOpts.stuckShellAfter
+	conversationsHandler.companion = muxOpts.companion
 	opts.ScanningSince = conversationsHandler.scanner.ScanningSince
 	mux.Handle("/", authority.NewHandler(load, opts))
 	views := newOverviewHandler(".", muxOpts.compareInstalled)
@@ -238,7 +243,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	for _, path := range conversationPaths {
 		mux.Handle(path, conversationsHandler)
 	}
-	approvalsRoutes := approvalsHandler{reader: conversationsHandler.approvals}
+	approvalsRoutes := approvalsHandler{reader: conversationsHandler.approvals, secret: muxOpts.companion}
 	mux.Handle(approvalsViewPath, approvalsRoutes)
 	mux.Handle(approvalsAskPath, approvalsRoutes)
 	mux.Handle(approvalsDecidePath, approvalsRoutes)

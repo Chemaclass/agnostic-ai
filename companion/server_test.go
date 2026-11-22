@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -269,5 +270,39 @@ func TestServer_KeepsAServerThatAnswersBetweenLateReads(t *testing.T) {
 
 	if s.base != base || s.lateReads != 0 {
 		t.Errorf("base %q, late reads %d; want the server kept and the count reset", s.base, s.lateReads)
+	}
+}
+
+func TestServer_HandsItsSecretOverTheEnvironmentAndSendsItOnEachCall(t *testing.T) {
+	got := make(chan string, 1)
+	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/conversations" {
+			got <- r.Header.Get(secretHeader)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	t.Cleanup(api.Close)
+	seen := filepath.Join(t.TempDir(), "seen")
+	fakeCommand(t, `echo "$@" > "`+seen+`.args"
+echo "$`+secretEnv+`" > "`+seen+`.env"
+echo "Serving agnostic-ai at `+api.URL+`/"
+cat > /dev/null`)
+	s := newServer()
+	t.Cleanup(s.rest)
+
+	if _, err := s.get(context.Background(), "/api/conversations", ""); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(s.secret) != 64 {
+		t.Fatalf("secret has %d characters, want 64", len(s.secret))
+	}
+	if header := <-got; header != s.secret {
+		t.Errorf("the call carried %q, want the launch secret", header)
+	}
+	env, _ := os.ReadFile(seen + ".env")
+	args, _ := os.ReadFile(seen + ".args")
+	if strings.TrimSpace(string(env)) != s.secret || strings.Contains(string(args), s.secret) {
+		t.Errorf("the server got the secret in env %q and args %q; want env only", env, args)
 	}
 }

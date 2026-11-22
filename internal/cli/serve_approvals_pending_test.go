@@ -127,9 +127,9 @@ func TestApprovals_HeldRequestForAnotherCallIsNotShown(t *testing.T) {
 	f := newApprovalsFixture(t, config.ApprovalsAsk, true)
 	f.callWaits(t, "make build")
 	f.wait(t, f.now.Add(-time.Second))
-	other := f.hold(t, "Bash", approvals.PendingInput{Command: "make other"}, f.now.Add(-10*time.Second))
-	read := f.hold(t, "Read", approvals.PendingInput{FilePath: "/p/make build"}, f.now.Add(-9*time.Second))
-	same := f.hold(t, "Bash", approvals.PendingInput{Command: "make build"}, f.now.Add(-8*time.Second))
+	other := f.hold(t, "Bash", approvals.PendingInput{Command: "make other"}, f.now.Add(-3*time.Second))
+	read := f.hold(t, "Read", approvals.PendingInput{FilePath: "/p/make build"}, f.now.Add(-2500*time.Millisecond))
+	same := f.hold(t, "Bash", approvals.PendingInput{Command: "make build"}, f.now.Add(-2*time.Second))
 
 	_, c := f.list(t)
 
@@ -219,7 +219,13 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 	now := time.Now()
 	reader := newApprovalsReader()
 	reader.source = func() (string, error) { return home, nil }
-	h := approvalsHandler{reader: reader}
+	reader.afterFunc = func(time.Duration, func()) {}
+	reader.rows = func(context.Context) (conversations.View, string) {
+		row := conversations.Conversation{Tool: conversations.ToolClaude, ID: "s", Live: true}
+		row.HoldForPermission("Bash", "", now)
+		return conversations.View{Conversations: []conversations.Conversation{row}}, ""
+	}
+	h := approvalsHandler{reader: reader, secret: testCompanionSecret}
 	dir := approvals.PendingDir(home)
 	id, _ := approvals.NewPendingID()
 	digest := approvals.PendingDigest("claude", "s", "Bash", []byte(`{"command":"touch a.txt"}`))
@@ -256,8 +262,10 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 		{"no JSON type", body(id, digest, "approve"), func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") }, http.StatusUnsupportedMediaType},
 		{"other origin", body(id, digest, "approve"), func(r *http.Request) { r.Header.Set("Origin", "https://example.com") }, http.StatusForbidden},
 		{"remote host", body(id, digest, "approve"), func(r *http.Request) { r.Host = "example.com" }, http.StatusMisdirectedRequest},
+		{"no secret", body(id, digest, "approve"), func(r *http.Request) { r.Header.Del(companionSecretHeader) }, http.StatusForbidden},
+		{"other secret", body(id, digest, "approve"), func(r *http.Request) { r.Header.Set(companionSecretHeader, strings.Repeat("f", 32)) }, http.StatusForbidden},
 	} {
-		if rec := postEdit(t, h, approvalsDecidePath, tc.body, tc.mutate); rec.Code != tc.want {
+		if rec := postEdit(t, h, approvalsDecidePath, tc.body, asCompanion(tc.mutate)); rec.Code != tc.want {
 			t.Errorf("%s: POST = %d %s, want %d", tc.name, rec.Code, rec.Body, tc.want)
 		}
 	}
@@ -270,19 +278,29 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 		t.Fatal("a refused request wrote a decision")
 	}
 
-	if rec := postEdit(t, h, approvalsDecidePath, body(id, digest, "deny"), nil); rec.Code != http.StatusOK {
+	if rec := postEdit(t, h, approvalsDecidePath, body(id, digest, "deny"), asCompanion(nil)); rec.Code != http.StatusOK {
 		t.Fatalf("POST deny = %d %s", rec.Code, rec.Body)
 	}
 	if d, ok := approvals.ReadDecision(dir, id); !ok || d.Decision != approvals.DecideDeny || d.Digest != digest {
 		t.Errorf("decision = %+v, %v", d, ok)
 	}
-	if rec := postEdit(t, h, approvalsDecidePath, body(id, digest, "approve"), nil); rec.Code != http.StatusNotFound {
+	if rec := postEdit(t, h, approvalsDecidePath, body(id, digest, "approve"), asCompanion(nil)); rec.Code != http.StatusNotFound {
 		t.Errorf("a second answer = %d, want 404", rec.Code)
 	}
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
 		if strings.HasSuffix(e.Name(), ".decision.json") && e.Name() != id+".decision.json" || strings.HasPrefix(e.Name(), ".") {
 			t.Errorf("unexpected decision file %s", filepath.Join(dir, e.Name()))
+		}
+	}
+}
+
+// asCompanion adds the companion's secret to a request, then mutate.
+func asCompanion(mutate func(*http.Request)) func(*http.Request) {
+	return func(r *http.Request) {
+		r.Header.Set(companionSecretHeader, string(testCompanionSecret))
+		if mutate != nil {
+			mutate(r)
 		}
 	}
 }

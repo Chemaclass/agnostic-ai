@@ -167,8 +167,19 @@ func conversationsFixture(t *testing.T, userLevel bool) (*conversationsHandler, 
 
 func listConversations(t *testing.T, h http.Handler) conversations.View {
 	t.Helper()
+	return listConversationsAs(t, h, "")
+}
+
+// listConversationsAs reads the list with the companion secret, when
+// one is given.
+func listConversationsAs(t *testing.T, h http.Handler, secret string) conversations.View {
+	t.Helper()
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+"?editor=cursor", nil))
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath+"?editor=cursor", nil)
+	if secret != "" {
+		req.Header.Set(companionSecretHeader, secret)
+	}
+	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET = %d %s", rec.Code, rec.Body)
 	}

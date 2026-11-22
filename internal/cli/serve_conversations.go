@@ -127,6 +127,9 @@ type conversationsHandler struct {
 	// leaves the list as the tools report it.
 	approvals       *approvalsReader
 	stuckShellAfter *time.Duration
+	// companion is the secret of the companion that started this
+	// server; a list read without it shows no held request.
+	companion companionSecret
 }
 
 // conversationOpenReplyTimeout outlasts the companion's openTimeout and
@@ -136,7 +139,7 @@ const conversationOpenReplyTimeout = 90 * time.Second
 
 func newConversationsHandler(root string, userLevel bool) *conversationsHandler {
 	scanner := conversations.NewScanner()
-	return &conversationsHandler{
+	h := &conversationsHandler{
 		root:          root,
 		userLevel:     userLevel,
 		scanner:       scanner,
@@ -147,6 +150,19 @@ func newConversationsHandler(root string, userLevel bool) *conversationsHandler 
 		openReplyWait: conversationOpenReplyTimeout,
 		approvals:     newApprovalsReader(),
 	}
+	h.approvals.rows = h.firstPage
+	return h
+}
+
+// firstPage reads the unfiltered first page of the list, and the folder
+// the server is limited to, as decorate reads them.
+func (h *conversationsHandler) firstPage(ctx context.Context) (conversations.View, string) {
+	opts := h.scanOptions("")
+	folder := ""
+	if len(opts.Within) > 0 {
+		folder = opts.Within[0]
+	}
+	return h.scanner.Scan(ctx, opts), folder
 }
 
 func (h *conversationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -204,8 +220,12 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// one more scan instead of a list that missed a write made meanwhile.
 	stamp := h.scanner.TakeStamp()
 	tagged := stamp.Tag
+	companion := h.companion.allows(r)
 	if h.approvals != nil {
 		tagged += "\x00" + h.approvals.stamp(r.URL.RawQuery)
+		if companion {
+			tagged += "\x00companion"
+		}
 	}
 	store, hasMailbox := h.mailboxStore()
 	hasMailbox = hasMailbox && mailboxOriginStatus(r) == 0
@@ -228,6 +248,9 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 			folder = opts.Within[0]
 		}
 		h.approvals.decorate(&view, folder, r.URL.RawQuery)
+		if !companion {
+			withoutPending(&view)
+		}
 	}
 	if hasMailbox {
 		h.addMailboxSummaries(r.Context(), store, &view, opts)

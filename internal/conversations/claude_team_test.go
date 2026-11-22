@@ -334,6 +334,58 @@ func TestOpenTeammatePane_FindsOnlyTheMemberOfThisLead(t *testing.T) {
 	}
 }
 
+func TestOpenTeammatePane_OnlyOneClaudeProcessMatches(t *testing.T) {
+	args := func(t *testing.T) string {
+		t.Helper()
+		return strings.TrimSpace(teamFixture(t, "swarm-teammate-ps.txt"))
+	}
+	for name, change := range map[string]func(t *testing.T, p *fakeProcesses){
+		"a second Claude process with the same flags": func(t *testing.T, p *fakeProcesses) {
+			t.Helper()
+			p.table = append(p.table, ProcessInfo{PID: 19400, PPID: 19211, Stat: "Ss+", TTY: "/dev/ttys007", Command: p.table[1].Command})
+			p.args[19400] = args(t)
+		},
+		"a program other than Claude": func(t *testing.T, p *fakeProcesses) {
+			t.Helper()
+			p.table[1].Command = "sh"
+			p.args[19212] = "sh -c echo " + args(t)
+		},
+		"a flag given twice": func(t *testing.T, p *fakeProcesses) {
+			t.Helper()
+			p.args[19212] = args(t) + " --agent-id other@session-0d2fda98"
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			processes := swarmTable(t, true)
+			change(t, &processes)
+			launcher := &fakeLauncher{focusOK: true, tmuxClient: 31000}
+
+			opening := openTeammatePane(context.Background(), Conversation{Tool: ToolClaude, ID: swarmLead}, "echo@session-0d2fda98", processes, launcher)
+
+			if opening.shown || len(launcher.calls) != 0 {
+				t.Errorf("no pane is touched, so the lead opens, actual %+v calls %v", opening, launcher.calls)
+			}
+		})
+	}
+}
+
+func TestClaudeProgram(t *testing.T) {
+	for command, want := range map[string]bool{
+		"/Users/me/.local/share/claude/versions/2.1.330 --agent-id a":       true,
+		"/opt/homebrew/bin/claude --agent-id a":                             true,
+		"node /usr/lib/node_modules/@anthropic-ai/claude-code/cli.js":       true,
+		"node /tmp/other.js --agent-id a":                                   false,
+		"/Users/John Doe/.local/share/claude/versions/2.1.330 --agent-id a": true,
+		"sh -c claude --agent-id a":                                         false,
+		"/usr/bin/claude-wrapper --agent-id a":                              false,
+		"":                                                                  false,
+	} {
+		if got := claudeProgram(strings.Fields(command)); got != want {
+			t.Errorf("claudeProgram(%q) = %v, want %v", command, got, want)
+		}
+	}
+}
+
 func TestTmuxAttachCommand_NamesOnlyASafeSocket(t *testing.T) {
 	for command, want := range map[string]string{
 		"tmux -L claude-swarm-18267 new-session -d": "tmux -L claude-swarm-18267 attach",

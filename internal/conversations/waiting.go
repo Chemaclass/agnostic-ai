@@ -34,6 +34,18 @@ type waitingOn struct {
 	Detail string `json:"detail,omitempty"`
 	// since is when the tool began to wait, when it says.
 	since time.Time
+	// called is when the transcript recorded the call that waits; zero
+	// when unknown.
+	called time.Time
+}
+
+// CalledAt is when the transcript recorded the call that waits, zero
+// when it is unknown.
+func (w *waitingOn) CalledAt() time.Time {
+	if w == nil {
+		return time.Time{}
+	}
+	return w.called
 }
 
 // PermissionWait reports whether the conversation waits for the person
@@ -99,6 +111,8 @@ type toolCall struct {
 	id    string
 	name  string
 	input toolInput
+	// at is when the transcript recorded the call; zero when unknown.
+	at time.Time
 }
 
 // toolInput holds the input fields callDetails reads; the rest of the
@@ -262,7 +276,7 @@ func capitalized(word string) string {
 // waits. The detail and the text it is read from both go through the
 // credential check; when either may hold one, the row gets no detail.
 func approvalOf(call toolCall) *waitingOn {
-	w := &waitingOn{For: waitPermission, Tool: call.name}
+	w := &waitingOn{For: waitPermission, Tool: call.name, called: call.at}
 	var source, detail string
 	if rule, listed := callDetails[call.name]; listed {
 		source = rule.source(call.input)
