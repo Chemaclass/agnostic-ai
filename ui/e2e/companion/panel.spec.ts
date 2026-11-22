@@ -79,7 +79,7 @@ test('Escape clears a search first and then closes the list', async ({ page }) =
 test('a row shows the agent\'s latest reply under its title, and a row without one shows none', async ({ page }) => {
   await openPanel(page)
   const waiting = row(page, 'Approve the database migration')
-  await expect(waiting.locator('.text > *')).toHaveClass(['title', 'needs-reason is-waiting', 'reply', /meta/])
+  await expect(waiting.locator('.text > :not(.actions)')).toHaveClass(['title', 'needs-reason is-waiting', 'reply', /meta/])
   await expect(waiting.locator('.reply')).toHaveText('Should I run the migration on the staging copy first?')
   await expect(row(page, 'Fix the login redirect').locator('.reply')).toHaveCount(0)
 })
@@ -125,6 +125,9 @@ test('a click on the name starts the rename and opens nothing; Escape cancels it
   const field = page.getByLabel('New name')
   await expect(field).toBeFocused()
   await expect(field).toHaveValue('Plan the sync dry run')
+  await expect(completeButton(target)).toHaveCount(0)
+  const end = (await field.boundingBox())!
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.getAttribute('aria-label'), { x: end.x + end.width - 4, y: end.y + end.height / 2 })).toBe('New name')
   await field.click()
   await expect(field).toBeFocused()
   await field.fill('Something else')
@@ -148,6 +151,60 @@ test('a click on the name renames and Enter saves it', async ({ page }) => {
   await field.press('Enter')
   expect((await renamed).postDataJSON()).toMatchObject({ id: 'active-2', title: 'Ship the dry run' })
   expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+/** Whether the row's text column reaches the row's right padding, so no column is kept for buttons. */
+const textSpansRow = async (target: Locator) => {
+  const text = (await target.locator('.text').boundingBox())!
+  const box = (await target.boundingBox())!
+  return Math.abs(text.x + text.width - (box.x + box.width - 8)) <= 1
+}
+
+test('a row without buttons has no actions, and its text takes the full width', async ({ page }) => {
+  await openPanel(page)
+  const working = row(page, 'Refactor the search index')
+  await expect(working.locator('.actions')).toHaveCount(0)
+  expect(await textSpansRow(working)).toBe(true)
+  await working.hover()
+  expect(await textSpansRow(working)).toBe(true)
+})
+
+test('a row with buttons keeps its text full width at rest and lays the buttons over it on hover', async ({ page }) => {
+  await openPanel(page)
+  await page.mouse.move(0, 0)
+  const target = row(page, 'Plan the sync dry run')
+  await expect(target.locator('.actions')).toHaveCSS('opacity', '0')
+  expect(await textSpansRow(target)).toBe(true)
+
+  await target.locator('.meta').hover({ position: { x: 4, y: 4 } })
+  const button = completeButton(target)
+  await expect(button).toBeVisible()
+  await expect(target.locator('.actions')).toHaveCSS('opacity', '1')
+  expect(await textSpansRow(target)).toBe(true)
+  const center = (await button.boundingBox())!
+  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.getAttribute('aria-label'), { x: center.x + center.width / 2, y: center.y + center.height / 2 })).toMatch(/^Mark complete,/)
+  const marked = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/mark')
+  await button.click()
+  await marked
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('a hovered row\'s buttons cover only its title line, so the shell and chip buttons under it stay clickable', async ({ page }) => {
+  const topmost = (box: { x: number, y: number, width: number, height: number }) =>
+    page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('button')?.textContent, { x: box.x + box.width / 2, y: box.y + box.height / 2 })
+  await openPanel(page, 'needs-reasons')
+  const shells = row(page, 'Preview the reports page')
+  await shells.locator('.meta').hover({ position: { x: 4, y: 4 } })
+  await expect(completeButton(shells)).toBeVisible()
+  const stop = shells.getByRole('button', { name: /^Stop/ }).first()
+  expect(await topmost((await stop.boundingBox())!)).toBe(await stop.textContent())
+
+  await openPanel(page, 'mailbox-claims')
+  const claimed = row(page, 'Review the parser')
+  await claimed.locator('.meta').hover({ position: { x: 4, y: 4 } })
+  const chip = claimed.locator('.claim-chip')
+  const box = (await chip.boundingBox())!
+  expect(await topmost({ ...box, x: box.x + box.width - 6, width: 0 })).toBe(await chip.textContent())
 })
 
 test('Enter on a focused header or footer button runs only that button, with a row selected', async ({ page }) => {
@@ -246,9 +303,8 @@ test('a click on the meta line or beside the name opens the chat', async ({ page
   for (const click of [
     clickRow,
     async (target: ReturnType<typeof row>) => {
-      const text = (await target.locator('.text').boundingBox())!
       const title = (await target.locator('.title').boundingBox())!
-      await page.mouse.click(text.x + text.width - 2, title.y + title.height / 2)
+      await page.mouse.click(title.x + title.width + 8, title.y + title.height / 2)
     },
   ]) {
     await openPanel(page)
@@ -2012,7 +2068,7 @@ test('in yolo an approved chat works on outside Needs you and the circle counts 
 test('a permission the gate left to the person names why, and a tool approvals do not reach says so', async ({ page }) => {
   await openPanel(page, 'auto-approvals')
   const push = row(page, 'Ship the parser fix')
-  await expect(push.locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'approval-reason', 'meta', 'approved'])
+  await expect(push.locator('.text > :not(.actions)')).toHaveClass(['title', 'reply is-approval', 'approval-reason', 'meta', 'approved'])
   await expect(push.locator('.approval-reason')).toHaveText('Always asks: publishing')
   await expect(push).toHaveAttribute('data-tooltip', /Always asks: publishing/)
   await expect(row(page, 'Rename the config keys').locator('.approval-reason')).toHaveText('Approvals not supported for Cursor')
@@ -2498,7 +2554,7 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   await expect(helpers.locator('.title')).toHaveText(['Find rename call sites', 'Size budget check', 'Review #3511: local app chats', 'Review #3512: rename in each app', 'Helper rows design'])
   await expect(helpers.locator('.meta')).toHaveText(['Claude Code · Explore · 1m', 'Claude Code · 1m', 'Codex · 2m', 'Codex · 4m', 'Claude Code · Plan · 6m'])
   // A subagent's latest message sits between its title and its details; one that wrote none has no line.
-  await expect(helpers.first().locator('.text > *')).toHaveClass(['title', 'reply', 'meta'])
+  await expect(helpers.first().locator('.text > :not(.actions)')).toHaveClass(['title', 'reply', 'meta'])
   await expect(helpers.first().locator('.reply')).toHaveText('Twelve call sites so far, most in internal/cli.')
   await expect(helpers.locator('.reply')).toHaveCount(1)
   await expect(helpers.locator('.state.is-working > .work-system')).toHaveCount(5)
@@ -2563,7 +2619,7 @@ test('a subagent with its own pane opens it and leaves no note', async ({ page }
 test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {
   await openPanel(page, 'approvals')
   const bash = row(page, 'Refactor PRs')
-  await expect(bash.locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'meta'])
+  await expect(bash.locator('.text > :not(.actions)')).toHaveClass(['title', 'reply is-approval', 'meta'])
   await expect(bash.locator('.approval')).toHaveText('Approve git push origin…')
   await expect(bash.locator('.approval-code')).toHaveText('git push origin…')
   await expect(bash.locator('.approval svg')).toHaveCount(1)
@@ -2601,12 +2657,12 @@ test('a permission whose call is unknown shows a lock, and a question keeps its 
 test('working subagents get their own line under the meta line, and it still folds them out', async ({ page }) => {
   await openPanel(page, 'approvals')
   const question = row(page, 'SFTP write: discussion')
-  await expect(question.locator('.text > *')).toHaveClass(['title', 'needs-reason is-question', 'reply', 'meta', 'subagents'])
+  await expect(question.locator('.text > :not(.actions)')).toHaveClass(['title', 'needs-reason is-question', 'reply', 'meta', 'subagents'])
   await expect(question.locator('.meta')).not.toContainText('subagent')
   await question.getByRole('button', { name: '▸ 1 subagent' }).click()
   await expect(page.locator('.helper-row .title')).toHaveText(['Check the SFTP folder'])
   await expect(row(page, 'SFTP write: discussion').getByRole('button', { name: '▾ 1 subagent' })).toHaveAttribute('aria-expanded', 'true')
-  await expect(row(page, 'Rider lifecycle gaps in Notion').locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'meta', 'subagents'])
+  await expect(row(page, 'Rider lifecycle gaps in Notion').locator('.text > :not(.actions)')).toHaveClass(['title', 'reply is-approval', 'meta', 'subagents'])
   // A chat with no working subagent has no such line.
   await expect(row(page, 'Webhooks v2 dashboard').locator('.subagents')).toHaveCount(0)
 })

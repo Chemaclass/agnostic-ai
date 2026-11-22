@@ -681,7 +681,7 @@ body {
 .row {
   position: relative;
   display: grid;
-  grid-template-columns: 56px 1fr auto;
+  grid-template-columns: 56px 1fr;
   align-items: center;
   gap: 8px;
   padding: 8px 8px;
@@ -944,6 +944,7 @@ body {
 }
 
 .text {
+  position: relative;
   min-width: 0;
 }
 
@@ -1089,18 +1090,35 @@ body {
   stroke-linejoin: round;
 }
 
+/* The buttons sit over the end of the title line only while they show, so a resting row gives its text the full width. */
 .actions {
+  position: absolute;
+  top: -4px;
+  right: 0;
+  isolation: isolate;
   display: flex;
   gap: 4px;
+  padding-left: 20px;
   opacity: 0;
+  pointer-events: none;
   transform: translateX(4px);
   transition: opacity 120ms ease, transform 160ms var(--ease-out);
+}
+
+/* The fade covers the title line alone; the lines under it stay readable and clickable. */
+.actions::before {
+  content: "";
+  position: absolute;
+  inset: 4px 0;
+  z-index: -1;
+  background: linear-gradient(to right, transparent, var(--row-lit) 16px);
 }
 
 .row:hover .actions,
 .row.is-active .actions,
 .actions:focus-within {
   opacity: 1;
+  pointer-events: auto;
   transform: none;
 }
 
@@ -1142,6 +1160,10 @@ body {
 .row.is-completing .actions {
   opacity: 1;
   transform: none;
+}
+
+.row:not(:hover, .is-active) .actions::before {
+  display: none;
 }
 
 .action.is-done,

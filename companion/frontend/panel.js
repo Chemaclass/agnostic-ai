@@ -375,7 +375,9 @@ function rowOf(conversation, order, folderNames, under) {
   const page = cloudPageOf(conversation)
   if (page) actions.prepend(actionButton('web', CLOUD_PAGE_LABEL, () => openRow(page)))
 
-  row.append(stateMark(conversation), text, actions)
+  // The buttons sit on the title line, where the name field would be under them.
+  if (actions.childElementCount > 0 && !renaming) text.append(actions)
+  row.append(stateMark(conversation), text)
   row.addEventListener('click', () => chooseRow(conversation))
   row.addEventListener('mousemove', () => setActive(key))
   row.addEventListener('contextmenu', (event) => {
