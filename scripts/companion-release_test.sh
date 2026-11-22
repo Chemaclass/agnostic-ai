@@ -139,7 +139,7 @@ function stub_image_holder() {
   # shellcheck disable=SC2329
   function kill() {
     echo "$*" >> "$KILLED"
-    [ "$1" != -0 ]
+    [ "$1" != -0 ] || [ "$(grep -c -- '^-0' "$KILLED")" -le "${HOLDER_LIVES:-0}" ]
   }
 }
 
@@ -150,7 +150,7 @@ function unstub_image_holder() {
 function test_release_image_stops_the_helper_that_keeps_the_image_open() {
   local tmp output
   tmp="$(mktemp -d)"
-  stub_image_holder 4242 /System/Library/PrivateFrameworks/DiskImages2.framework/XPCServices/diskimages-helper "$tmp/killed"
+  stub_image_holder 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper "$tmp/killed"
   stub_sleep "$tmp/slept"
   output="$(release_image image.dmg 2>&1)"
   local killed
@@ -163,6 +163,23 @@ function test_release_image_stops_the_helper_that_keeps_the_image_open() {
   assert_contains "hdiutil info" "$output"
   assert_contains "stopping the disk image helper: 4242" "$output"
   assert_same "4242|-0 4242|-9 4242|" "$killed"
+}
+
+function test_release_image_waits_ten_seconds_before_forcing_the_helper_out() {
+  local tmp output killed slept
+  tmp="$(mktemp -d)"
+  stub_image_holder 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper "$tmp/killed"
+  stub_sleep "$tmp/slept"
+  HOLDER_LIVES=20
+  output="$(release_image image.dmg 2>&1)"
+  killed="$(grep -c -- '^-0' "$tmp/killed")|$(tail -1 "$tmp/killed")"
+  slept="$(wc -l < "$tmp/slept" | tr -d ' ')"
+  unset HOLDER_LIVES
+  unstub_image_holder
+  rm -rf "$tmp"
+
+  assert_same "10" "$slept"
+  assert_same "11|-9 4242" "$killed"
 }
 
 function test_release_image_leaves_other_holders_alone() {

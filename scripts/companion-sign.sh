@@ -123,7 +123,11 @@ for image in "${images[@]}"; do
   sign_companion_app "$work/image/$companion_app_name.app" "$keychain"
   ln -s /Applications "$work/image/Applications"
   hdiutil_retrying create -ov -format UDZO -volname "$companion_app_name" -srcfolder "$work/image" "$image"
-  hdiutil_retrying verify "$image"
+  release_image "$image"
+  if ! hdiutil_retrying verify "$image"; then
+    image_diagnostics "$image"
+    exit 1
+  fi
   verify_companion_image "$image" "$work/mount"
   echo "$image"
 done

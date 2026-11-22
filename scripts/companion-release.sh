@@ -35,10 +35,11 @@ image_diagnostics() {
   hdiutil info >&2 || true
 }
 
-# On some runners `hdiutil create` returns while its diskimages-helper keeps
-# the finished image open and locked, for as long as the job runs, so every
-# verify fails at once with "Resource temporarily unavailable". The helper
-# has nothing left to write: the verify that follows checks the checksums.
+# On some runners verify fails at once with "Resource temporarily
+# unavailable" for as long as the job runs, and the runner then kills an
+# orphan diskimages-helper that `hdiutil create` left behind. Stopping a
+# helper that still holds the finished image is safe: verify checks the
+# checksums right after.
 release_image() {
   local image="$1" pid pids helpers="" waited=0
   pids="$(lsof -t -- "$image" 2>/dev/null)" || true
