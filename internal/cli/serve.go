@@ -279,8 +279,10 @@ func serializeAPI(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Conversations read only the coding tools' own stores and lock
 		// their own scanner, so a slow scan does not hold up the overview.
+		// An answer to a held request renders nothing either, and must not
+		// wait behind a sync started from the settings.
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.URL.Path != authority.HealthPath && r.URL.Path != switchPath &&
-			!slices.Contains(conversationPaths, r.URL.Path) {
+			r.URL.Path != approvalsDecidePath && !slices.Contains(conversationPaths, r.URL.Path) {
 			mu.Lock()
 			defer mu.Unlock()
 		}

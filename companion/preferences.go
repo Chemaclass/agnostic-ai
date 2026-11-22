@@ -74,7 +74,7 @@ func (s *shell) changeCheckForUpdates(on bool) error {
 	s.mu.Lock()
 	before := s.settings
 	s.settings.CheckForUpdates = &on
-	err := saveSettingsChange(s.settingsPath, func(saved *settings) { saved.CheckForUpdates = &on })
+	err := saveSettingsChange(s.settingsPath, before, func(saved *settings) { saved.CheckForUpdates = &on })
 	if err != nil {
 		s.settings = before
 	}

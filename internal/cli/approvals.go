@@ -618,6 +618,9 @@ func editApprovalsYAML(data []byte, key string, value any, block func(old *yaml.
 		}
 	}
 	if index < 0 && (root == nil || root.Style&yaml.FlowStyle == 0) {
+		if endsDocument(data) {
+			return nil, errors.New("ends its YAML document with ...; " + byHand)
+		}
 		text := string(data)
 		if text != "" && !strings.HasSuffix(text, "\n") {
 			text += "\n"
@@ -656,6 +659,17 @@ func editApprovalsYAML(data []byte, key string, value any, block func(old *yaml.
 		return nil, fmt.Errorf("encode: %w", err)
 	}
 	return buf.Bytes(), nil
+}
+
+// endsDocument reports whether data holds a YAML document end marker:
+// text appended after it would start a document nobody reads.
+func endsDocument(data []byte) bool {
+	for line := range strings.SplitSeq(string(data), "\n") {
+		if strings.TrimRight(line, " \t\r") == "..." {
+			return true
+		}
+	}
+	return false
 }
 
 // projectApprovalsIssues reports approvals keys in the project files at

@@ -201,16 +201,24 @@ func lockSettings(path string) (release func(), err error) {
 
 // saveSettingsChange applies change to the settings file under its lock.
 // It reads the file again first, so a value another process wrote since
-// stays. A file that is not JSON is replaced by the change alone.
-func saveSettingsChange(path string, change func(*settings)) error {
+// stays. A file that is missing or not JSON starts from base, the
+// companion's own copy before the change.
+func saveSettingsChange(path string, base settings, change func(*settings)) error {
 	release, err := lockSettings(path)
 	if err != nil {
 		return err
 	}
 	defer release()
-	saved, err := readSettings(path)
-	if _, unreadable := errors.AsType[*unreadableSettings](err); err != nil && !unreadable {
-		return err
+	saved := base
+	if _, statErr := os.Stat(path); statErr == nil {
+		read, err := readSettings(path)
+		_, unreadable := errors.AsType[*unreadableSettings](err)
+		switch {
+		case err == nil:
+			saved = read
+		case !unreadable:
+			return err
+		}
 	}
 	change(&saved)
 	return writeSettings(path, saved)

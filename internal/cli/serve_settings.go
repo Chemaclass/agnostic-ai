@@ -330,7 +330,7 @@ func approvalsWriteFile(source string) (string, error) {
 // writeApprovalsSetting sets one approvals key in the home config in
 // source and returns the files it changed. Ask me writes what the Ask me
 // chip writes. A value that needs the hook adds approvals to builtins
-// when it is missing.
+// when it is missing; when that fails, the approvals change is undone.
 func writeApprovalsSetting(source, key string, value any) ([]string, error) {
 	if key == "mode" && value == config.ApprovalsAsk {
 		path := userConfigPaths(source)[1]
@@ -340,37 +340,69 @@ func writeApprovalsSetting(source, key string, value any) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	before, err := os.ReadFile(path)
-	existed := err == nil
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+	_, loadErr := config.LoadHomeApprovals(source)
+	restore, err := restorePoint(path)
+	if err != nil {
+		return nil, err
 	}
 	if err := editApprovalsFile(path, func(data []byte) ([]byte, error) { return approvalsSetYAML(data, key, value) }); err != nil {
 		return nil, err
 	}
-	if _, err := config.LoadHomeApprovals(source); err != nil {
-		restoreErr := os.Remove(path)
-		if existed {
-			restoreErr = atomicfile.Write(path, before, 0o644)
-		}
-		return nil, errors.Join(fmt.Errorf("the change would break the approvals block, so it was not kept: %w", err), restoreErr)
+	home, err := config.LoadHomeApprovals(source)
+	switch {
+	case err != nil && loadErr == nil:
+		return nil, errors.Join(fmt.Errorf("the change would break the approvals block, so it was not kept: %w", err), restore())
+	case err == nil && !approvalsHolds(home, key, value):
+		return nil, errors.Join(fmt.Errorf("%s: the change would not take effect, so it was not kept; set approvals.%s by hand", path, key), restore())
 	}
 	changed := []string{path}
 	if !needsApprovalsHook(key, value) {
 		return changed, nil
 	}
 	builtins, err := loadUserBuiltins(source, io.Discard)
-	if err != nil || slices.Contains(builtins, config.ApprovalsBuiltin) {
-		return changed, err
+	if err == nil && slices.Contains(builtins, config.ApprovalsBuiltin) {
+		return changed, nil
 	}
-	file, err := addApprovalsBuiltin(source)
+	file := ""
+	if err == nil {
+		file, err = addApprovalsBuiltin(source)
+	}
 	if err != nil {
-		return changed, fmt.Errorf("saved approvals.%s in %s, but could not add approvals to builtins: %w", key, path, err)
+		return nil, errors.Join(fmt.Errorf("could not add approvals to builtins, so approvals.%s was not changed: %w", key, err), restore())
 	}
 	if !slices.Contains(changed, file) {
 		changed = append(changed, file)
 	}
 	return changed, nil
+}
+
+// approvalsHolds reports whether the loaded approvals carry key: value.
+func approvalsHolds(home config.ApprovalsConfig, key string, value any) bool {
+	switch key {
+	case "mode":
+		return cmpMode(home.Mode) == value
+	case "companion":
+		return home.Companion == value
+	}
+	return false
+}
+
+// restorePoint returns a func that puts path back as it is now: its
+// bytes, or no file.
+func restorePoint(path string) (func() error, error) {
+	before, err := os.ReadFile(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return func() error {
+			if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return err
+			}
+			return nil
+		}, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	return func() error { return atomicfile.Write(path, before, 0o644) }, nil
 }
 
 // needsApprovalsHook reports whether approvals.key: value only works
@@ -528,7 +560,11 @@ func (h *settingsHandler) logChange(source, call, detail string) {
 
 // runInProcess runs agnostic-ai with args in this process, as view runs
 // serve, and returns its standard output. The caller holds serializeAPI.
+// The root command's pre-run sets package state, which this server keeps
+// using, so it is put back after.
 func (h *settingsHandler) runInProcess(ctx context.Context, args ...string) ([]byte, error) {
+	prevVerbosity, prevWarnOut, prevWarned := verbosity, requiresWarnOut, requiresWarned
+	defer func() { verbosity, requiresWarnOut, requiresWarned = prevVerbosity, prevWarnOut, prevWarned }()
 	var out, errOut bytes.Buffer
 	root := NewRootCmd(h.version)
 	root.SetContext(ctx)

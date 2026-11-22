@@ -238,7 +238,9 @@ func TestSaveSettingsChange_WaitsForTheLock(t *testing.T) {
 		t.Fatal(err)
 	}
 	done := make(chan error, 1)
-	go func() { done <- saveSettingsChange(path, func(saved *settings) { saved.DimWhenIdle = true }) }()
+	go func() {
+		done <- saveSettingsChange(path, settings{Shortcut: "Cmd+Shift+K"}, func(saved *settings) { saved.DimWhenIdle = true })
+	}()
 	select {
 	case err := <-done:
 		t.Fatalf("the save did not wait for the lock: %v", err)
@@ -248,7 +250,7 @@ func TestSaveSettingsChange_WaitsForTheLock(t *testing.T) {
 	if err := <-done; err != nil {
 		t.Fatal(err)
 	}
-	if saved, err := readSettings(path); err != nil || !saved.DimWhenIdle {
+	if saved, err := readSettings(path); err != nil || !saved.DimWhenIdle || saved.Shortcut != "Cmd+Shift+K" {
 		t.Errorf("saved %+v, %v", saved, err)
 	}
 }

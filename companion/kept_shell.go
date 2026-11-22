@@ -84,7 +84,9 @@ func (s *shell) changeKeptShells(change func([]keptShell) []keptShell) ([]keptSh
 	now := time.Now()
 	s.settings.KeptShells = slices.DeleteFunc(change(slices.Clone(before)), func(k keptShell) bool { return now.Sub(k.WakeAt) > keptRecordAge })
 	kept := slices.Clone(s.settings.KeptShells)
-	err := saveSettingsChange(s.settingsPath, func(saved *settings) { saved.KeptShells = kept })
+	base := s.settings
+	base.KeptShells = before
+	err := saveSettingsChange(s.settingsPath, base, func(saved *settings) { saved.KeptShells = kept })
 	if err != nil {
 		s.settings.KeptShells = before
 	}

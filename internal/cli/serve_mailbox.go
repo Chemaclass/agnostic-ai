@@ -412,8 +412,8 @@ func queueMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.S
 	writeMailboxChange(w, store.Queue(r.Context(), req.Thread, req.N))
 }
 
-// saveMailboxSettings turns approval of agent sends on, or off with the
-// companion's secret: turning it off lets agents send unchecked.
+// saveMailboxSettings turns approval of agent sends on, or off only with
+// the companion's secret.
 func saveMailboxSettings(w http.ResponseWriter, r *http.Request, store mailbox.Store, secret companionSecret) {
 	var req struct {
 		ApproveAgentSends *bool `json:"approveAgentSends"`

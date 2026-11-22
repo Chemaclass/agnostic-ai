@@ -324,3 +324,46 @@ func TestConversationsList_TagCoversMailboxAndCompanionSettings(t *testing.T) {
 		t.Error("the list tag missed a companion.json change")
 	}
 }
+
+func TestSettings_TightensABlockThatDoesNotLoad(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\napprovals:\n  mode: yolo\n  companion: true\n  nonsense: 1\n")
+	if rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("POST = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, filepath.Join(source, config.ConfigFileName)); !strings.Contains(got, "companion: false") {
+		t.Errorf("shared config = %q", got)
+	}
+}
+
+func TestSettings_RefusesAFileWithADocumentEndMarker(t *testing.T) {
+	const shared = "version: 1\n...\n"
+	h, source := settingsFixture(t, shared)
+	if rec := postEdit(t, h, settingsWritePath, `{"key":"approvals.mode","value":"ask"}`, nil); rec.Code != http.StatusOK {
+		t.Fatalf("ask = %d %s", rec.Code, rec.Body)
+	}
+	writeFile(t, filepath.Join(source, "local", config.ConfigFileName), shared)
+	if rec := postEdit(t, h, settingsWritePath, `{"key":"approvals.mode","value":"ask"}`, nil); rec.Code != http.StatusConflict {
+		t.Fatalf("ask into a file with an end marker = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, filepath.Join(source, "local", config.ConfigFileName)); got != shared {
+		t.Errorf("local config = %q", got)
+	}
+}
+
+func TestSettings_UndoesTheChangeWhenTheBuiltinCannotBeAdded(t *testing.T) {
+	const shared = "version: 1\ntargets: [claude]\nbuiltins: [no-such-builtin]\n"
+	h, source := settingsFixture(t, shared)
+	rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":true}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "was not changed") {
+		t.Fatalf("POST = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(source, "local", config.ConfigFileName)); !os.IsNotExist(err) {
+		t.Errorf("the local config was kept: %v", err)
+	}
+	if got := readFile(t, filepath.Join(source, config.ConfigFileName)); got != shared {
+		t.Errorf("shared config = %q", got)
+	}
+	if entries, _ := approvals.ReadLog(approvals.LogPath(source)); len(entries) != 0 {
+		t.Errorf("an undone change was logged: %+v", entries)
+	}
+}

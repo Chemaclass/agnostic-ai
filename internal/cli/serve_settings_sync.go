@@ -34,7 +34,8 @@ type settingsSyncFile struct {
 }
 
 // settingsSyncPlan lists every pending user-level change, not only the
-// approvals ones. id names it, so apply runs only the plan the person saw.
+// approvals ones. id names its files and key changes, so apply refuses a
+// plan whose list changed since the person saw it.
 type settingsSyncPlan struct {
 	ID    string             `json:"id"`
 	Files []settingsSyncFile `json:"files"`

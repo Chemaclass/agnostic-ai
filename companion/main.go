@@ -615,7 +615,7 @@ func (s *shell) changeSettings(change func(saved *settings)) error {
 	defer s.mu.Unlock()
 	before := s.settings
 	change(&s.settings)
-	err := saveSettingsChange(s.settingsPath, change)
+	err := saveSettingsChange(s.settingsPath, before, change)
 	if err != nil {
 		s.settings = before
 	}
