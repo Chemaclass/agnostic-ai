@@ -43,6 +43,9 @@ const (
 // decision log. Slice 2 adds the web page.
 const settingsByCompanion = approvals.ByCompanion
 
+// settingsByWeb names a change asked from a page that view opened.
+const settingsByWeb = "web"
+
 // settingsView is the user settings both the companion menu and the web
 // page show. Every read builds it from the files, so two servers on one
 // disk agree.
@@ -114,8 +117,10 @@ type settingsHandler struct {
 	reader    *approvalsReader
 	// marks is the conversation marks file; the mailbox sits beside it.
 	marks func() string
-	// secret is the companion's; a loosening write needs it.
-	secret  companionSecret
+	// secret is the companion's; a loosening write needs it or session.
+	secret companionSecret
+	// session is the key of a page this server opened, or nil.
+	session *webSession
 	version string
 	// runSync runs agnostic-ai with args in process and returns what it
 	// printed; tests replace it.
@@ -150,8 +155,18 @@ func (h *settingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // proven reports whether r carries proof that the person asked: the
 // secret of the companion that started this server.
+// proven reports whether r carries the companion's secret or the key of
+// a page this server opened.
 func (h *settingsHandler) proven(r *http.Request) bool {
-	return h.secret.allows(r)
+	return h.secret.allows(r) || h.session.allows(r)
+}
+
+// askedBy names who asked for a proven change, for the decision log.
+func (h *settingsHandler) askedBy(r *http.Request) string {
+	if h.secret.allows(r) {
+		return settingsByCompanion
+	}
+	return settingsByWeb
 }
 
 func (h *settingsHandler) view(w http.ResponseWriter, r *http.Request) {
@@ -344,7 +359,7 @@ var errBrokenBlockNeedsProof = errors.New("the approvals block in the home confi
 
 // errSettingNeedsProof refuses a write that would turn on automatic
 // approvals for a caller without the companion's secret.
-var errSettingNeedsProof = errors.New("this change would turn on automatic approvals, so only the companion can make it here; use the companion's settings menu, or edit the home config")
+var errSettingNeedsProof = errors.New("this change would turn on automatic approvals; make it from the companion or a page opened with agnostic-ai view --scope user")
 
 // writeApprovalsSetting sets one approvals key in the home config in
 // source and returns the files it changed; the caller holds the approvals
@@ -559,7 +574,7 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if value.loosens && !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "This change makes approvals less strict, so only the companion can make it here. Use the companion's settings menu, or edit the home config."})
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "This change makes approvals less strict. To change this here, run agnostic-ai view --scope user again, or use the companion. You can also edit the home config."})
 		return
 	}
 	if strings.HasPrefix(change.Key, "approvals.") {
@@ -588,11 +603,11 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 	}
 	changed, err := h.apply(r.Context(), change.Key, value.value, h.proven(r))
 	if errors.Is(err, errBrokenBlockNeedsProof) {
-		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "The approvals block in the home config does not load, so only Ask me or the companion can change it here. Choose Ask me, use the companion's settings menu, or fix the home config.", Settings: new(h.document(r))})
+		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "The approvals block in the home config does not load. Choose Ask me, fix the home config, or make the change from the companion or a page opened with agnostic-ai view --scope user.", Settings: new(h.document(r))})
 		return
 	}
 	if errors.Is(err, errSettingNeedsProof) {
-		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "This change would turn on automatic approvals, so only the companion can make it here. Use the companion's settings menu, or edit the home config.", Settings: new(h.document(r))})
+		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "This change would turn on automatic approvals. To change this here, run agnostic-ai view --scope user again, or use the companion.", Settings: new(h.document(r))})
 		return
 	}
 	if err != nil {
@@ -600,7 +615,7 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if value.loosens {
-		h.logChange(doc.ConfigRoot, "set", change.Key+": "+fmt.Sprint(value.value))
+		h.logChange(doc.ConfigRoot, h.askedBy(r), "set", change.Key+": "+fmt.Sprint(value.value))
 	}
 	after := h.document(r)
 	for i, path := range changed {
@@ -632,11 +647,11 @@ func (h *settingsHandler) apply(ctx context.Context, key string, value any, prov
 
 // logChange adds a loosening write or a sync to the approvals decision
 // log. A log that cannot be written does not undo the change.
-func (h *settingsHandler) logChange(source, call, detail string) {
+func (h *settingsHandler) logChange(source, by, call, detail string) {
 	if source == "" {
 		return
 	}
-	entry := approvals.Entry{Time: h.now().UTC(), Tool: "settings", Call: call, Detail: detail, Mode: "-", Decision: approvals.Changed, By: settingsByCompanion}
+	entry := approvals.Entry{Time: h.now().UTC(), Tool: "settings", Call: call, Detail: detail, Mode: "-", Decision: approvals.Changed, By: by}
 	if home, err := config.LoadHomeApprovals(source); err == nil {
 		entry.Mode = cmpMode(home.Mode)
 	}

@@ -88,7 +88,7 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 	// A sync can outlast the server's write timeout; the companion waits a minute for it.
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.syncReplyWait))
 	if !h.proven(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "A sync installs hooks, so only the companion can run it here. Run " + settingsSyncCommand + " in a terminal."})
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "A sync installs hooks, so it needs the companion or a page opened with agnostic-ai view --scope user. Run " + settingsSyncCommand + " in a terminal."})
 		return
 	}
 	var req settingsSyncRequest
@@ -129,7 +129,7 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	source, _ := h.reader.source()
-	h.logChange(source, "sync", "sync --scope user")
+	h.logChange(source, h.askedBy(r), "sync", "sync --scope user")
 	reply := settingsSyncReply{Written: []string{}, Notes: report.shortNotes(), Settings: h.document(r)}
 	for _, write := range report.Writes {
 		reply.Written = append(reply.Written, write.Path)

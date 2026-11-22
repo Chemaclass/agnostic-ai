@@ -294,7 +294,7 @@ Takes no input. A user-level server only; a project server answers 404. Returns 
 - `approvals.tools` uses the same fields as [`GET /api/views/approvals`](#get-api-views-approvals).
 - `mailbox.approveAgentSends` is the mailbox switch.
 - `sync.needed` is `true` when `sync --scope user` would put the asked mode, or the companion buttons, in effect: the hook is not installed, `approvals` is missing from `builtins`, or a native reviewer key is missing or left over. `sync.reasons` says which.
-- `canLoosen` says whether this request carried the companion's secret.
+- `canLoosen` says whether this request carried the companion's secret or the [session key](#post-api-session-unlock).
 - The answer has an `ETag`. A request with `If-None-Match` set to it answers 304 while nothing changed.
 
 ```json
@@ -314,20 +314,28 @@ Body: `{"key", "value", "expected"}` with `Content-Type: application/json`. A us
 | `approvals.companion` | `true` or `false` | The same file as a mode other than `ask`. |
 | `mailbox.approveAgentSends` | `true` or `false` | The mailbox `settings.json`. |
 
-- A change that makes the machine less safe needs the companion's secret: `review`, `yolo`, `approvals.companion: true` and `approveAgentSends: false`. Without it the answer is 403 and no file changes. `ask`, `approvals.companion: false` and `approveAgentSends: true` need only a request from the server's own origin.
+- A change that makes the machine less safe needs the companion's secret or the session key in `X-Agnostic-Ai-Session`: `review`, `yolo`, `approvals.companion: true` and `approveAgentSends: false`. Without it the answer is 403 and no file changes. `ask`, `approvals.companion: false` and `approveAgentSends: true` need only a request from the server's own origin.
 - `review`, `yolo` and `approvals.companion: true` need the approvals hook. When `approvals` is not in the home `builtins`, the same request adds it to `local/agnostic-ai.yaml`.
 - Replies `{"settings": <the new document>, "changed": [<each file it wrote>]}`. The hook reads the new mode on its next request; installing the hook still needs [a sync](#post-api-settings-sync).
 - An `expected` that no longer matches answers 409 with `{"error", "settings"}` and changes nothing. So does a file it cannot edit safely, such as one with two YAML documents or a merge key.
-- Each loosening write adds a line to the [decision log](@/docs/approvals.md#the-decision-log) with `decision: changed` and `by: companion`.
+- Each loosening write adds a line to the [decision log](@/docs/approvals.md#the-decision-log) with `decision: changed` and `by: companion`, or `by: web` for the session key.
 - An origin added with `--allow-origin` is refused.
 
 ## `POST /api/settings/sync`
 
-Body: `{"action": "plan"}` or `{"action": "apply", "id"}`. A user-level server only, and it needs the companion's secret: a sync installs hooks. Without it the answer is 403.
+Body: `{"action": "plan"}` or `{"action": "apply", "id"}`. A user-level server only, and it needs the companion's secret or the session key: a sync installs hooks. Without it the answer is 403.
 
 - `plan` runs `sync --scope user --plan --json` and replies `{id, files: [{path, change, target, keys}], notes}`. The list holds every pending user-level change, not only approvals.
 - `apply` plans again. The `id` covers the content of every change, not only the file list, so a source edit after the plan, even one that leaves the same files, answers 409 with the new plan. The sync then writes only the changes that plan holds. Otherwise it runs `sync --scope user` and replies `{written, notes, settings}`. When the sync wrote the Codex hooks file, `notes` says to trust it in Codex's `/hooks`.
 - A sync that fails answers 422 with `{error, command}`, where `command` is the one to run by hand.
+
+## `POST /api/session/unlock`
+
+Body: `{"code"}`. Every user-level server with the web page has a session; a project or `--api-only` server answers 404. The server's own origin only.
+
+- At start the server draws a 256-bit key and keeps it in memory. `view` asks the server for a one-time code (`POST /api/session/offer`, 204), which writes an HTML file with mode 0600 in a 0700 `agnostic-ai/unlock` folder under the user config folder, then opens that file. The file sends the browser to `/unlock#unlock=<code>`, a page with no data that moves to `/#unlock=<code>`.
+- The page posts the code here and gets `{"key"}`. A code works once, and a new offer replaces the old one. The file is removed after use or after 60 seconds. A used, replaced or expired code answers 403.
+- The page sends the key in `X-Agnostic-Ai-Session` on settings writes and syncs.
 
 ## When `path` is omitted
 

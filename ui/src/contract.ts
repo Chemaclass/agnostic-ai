@@ -1179,7 +1179,82 @@ export const API = {
   health: '/api/health',
   switch: '/api/switch',
   globalCreate: '/api/global/create',
+  settingsView: '/api/views/settings',
+  settingsWrite: '/api/settings',
+  settingsSync: '/api/settings/sync',
+  sessionUnlock: '/api/session/unlock',
 } as const
+
+/** The settings document a user-level server answers at GET /api/views/settings. */
+export const SETTINGS_SCHEMA_VERSION = 'settings/v1'
+
+export type ApprovalsMode = 'ask' | 'review' | 'yolo'
+
+/** One tool's approvals, as `agnostic-ai approvals status` reports it. */
+export interface ApprovalsToolStatus {
+  tool: string
+  /** What the settings ask for. */
+  mode: string
+  /** What the tool does. */
+  effective: string
+  from: string
+  route?: string
+  yolo: string
+  review: string
+  /** Why mode falls back to ask. */
+  reason?: string
+  min_version?: string
+  notes?: string[]
+}
+
+export interface SettingsView {
+  schemaVersion: string
+  configRoot: string
+  approvals: {
+    mode: string
+    /** The home file, relative to configRoot, whose approvals block is in effect; empty when none has one. */
+    modeFile: string
+    companion: boolean
+    overrides: { tools: number; projects: number; alwaysAsk: number }
+    /** Keys of the shared file that the local block hides. */
+    shadowed: string[]
+    tools: ApprovalsToolStatus[]
+    problem?: string
+  }
+  /** Missing when the mailbox cannot be read. */
+  mailbox?: { approveAgentSends: boolean }
+  sync: { needed: boolean; reasons: string[] }
+  /** Whether this request carried proof, so the loosening controls work. */
+  canLoosen: boolean
+}
+
+export type SettingKey = 'approvals.mode' | 'approvals.companion' | 'mailbox.approveAgentSends'
+
+export interface SettingsWriteReply {
+  settings: SettingsView
+  /** Every file the write changed, relative to configRoot when inside it. */
+  changed: string[]
+}
+
+/** One file a `sync --scope user` would change. */
+export interface SettingsSyncFile {
+  path: string
+  change: string
+  target?: string
+  keys?: string[]
+}
+
+export interface SettingsSyncPlan {
+  id: string
+  files: SettingsSyncFile[]
+  notes: string[]
+}
+
+export interface SettingsSyncReply {
+  written: string[]
+  notes: string[]
+  settings: SettingsView
+}
 
 /** One file a row lists, as GET /api/views/source returns it. */
 export interface SourceView {

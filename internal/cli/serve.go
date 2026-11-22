@@ -39,10 +39,10 @@ func newServeCmd() *cobra.Command {
 
 func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	var (
-		addr, dir, uiDir, switchBack          string
-		open, userLevel, noInstalled, apiOnly bool
-		stopWithStdin, cloudSessions          bool
-		allowedOrigins                        []string
+		addr, dir, uiDir, switchBack           string
+		open, userLevel, noInstalled, apiOnly  bool
+		stopWithStdin, cloudSessions, noUnlock bool
+		allowedOrigins                         []string
 	)
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -140,8 +140,26 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				_, _ = fmt.Fprintln(out, "API-only mode; no web interface is served.")
 			}
 			_, _ = fmt.Fprintln(out, "Press Ctrl-C to stop.")
+			// A user-level page gets the key that lets it loosen approvals
+			// through a file only this account can read. A later view run
+			// asks for one, so a server that opened none still has a key.
+			var session *webSession
+			if userLevel && !apiOnly {
+				if session, err = newWebSession(ln.Addr().String()); err != nil {
+					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! the page opens locked: %v\n", err)
+				}
+				defer session.close()
+			}
 			if open {
-				if err := browser(url); err != nil {
+				target := url
+				if session != nil && !noUnlock {
+					if file, err := session.offer(); err == nil {
+						target = file
+					} else {
+						_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! the page opens locked: %v\n", err)
+					}
+				}
+				if err := browser(target); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! could not open a browser: %v\n", err)
 				}
 			}
@@ -165,7 +183,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 					defer stopLive()
 				}
 			}
-			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions, stuckShellAfter: stuckShellAfter, companion: companion}))
+			return serveUntilInterrupted(ctx, ln, newServeMux(src.load, opts, serveMuxOptions{compareInstalled: !noInstalled, switches: switches, cloudSessions: cloudSessions, stuckShellAfter: stuckShellAfter, companion: companion, session: session}))
 		},
 	}
 	cmd.Flags().StringSliceVar(&allowedOrigins, "allow-origin", nil, "Additional exact browser origin allowed to call the API.")
@@ -180,6 +198,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("switch-back")
 	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
+	cmd.Flags().BoolVar(&noUnlock, "no-unlock", false, "With --open, open the plain address, without the unlock file that lets the page loosen approvals.")
+	_ = cmd.Flags().MarkHidden("no-unlock")
 	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --scope user.")
 	return cmd
 }
@@ -198,6 +218,8 @@ type serveMuxOptions struct {
 	stuckShellAfter *time.Duration
 	// companion is the secret of the companion that started the server.
 	companion companionSecret
+	// session is the web session key of a page this server opened.
+	session *webSession
 }
 
 // newServeMux routes the API and the client. More specific patterns win
@@ -248,6 +270,10 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux.Handle(approvalsAskPath, approvalsRoutes)
 	mux.Handle(approvalsDecidePath, approvalsRoutes)
 	settings := newSettingsHandler(opts.UserLevel, conversationsHandler.approvals, func() string { return conversationsHandler.scanner.MarksPath }, muxOpts.companion, opts.Version)
+	settings.session = muxOpts.session
+	sessions := sessionHandler{session: muxOpts.session}
+	mux.Handle(sessionUnlockPath, sessions)
+	mux.Handle(sessionOfferPath, sessions)
 	mux.Handle(settingsViewPath, settings)
 	mux.Handle(settingsWritePath, settings)
 	mux.Handle(settingsSyncPath, settings)
@@ -267,7 +293,11 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 			mux.Handle(userCreatePath, newUserCreateHandler(switches.peer.root))
 		}
 	}
-	return authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
+	guarded := authority.CORS(bufferAPIBody(serializeAPI(mux)), opts.AllowedOrigins...)
+	if muxOpts.session == nil {
+		return guarded
+	}
+	return unlockHop(guarded)
 }
 
 // serializeAPI runs one API request at a time. Rendering adapters in
