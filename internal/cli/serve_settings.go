@@ -338,6 +338,10 @@ func approvalsWriteFile(source string) (string, error) {
 	return paths[1], nil
 }
 
+// errBrokenBlockNeedsProof refuses a write to an approvals block that
+// does not load from a caller without the companion's secret.
+var errBrokenBlockNeedsProof = errors.New("the approvals block in the home config does not load")
+
 // errSettingNeedsProof refuses a write that would turn on automatic
 // approvals for a caller without the companion's secret.
 var errSettingNeedsProof = errors.New("this change would turn on automatic approvals, so only the companion can make it here; use the companion's settings menu, or edit the home config")
@@ -346,9 +350,9 @@ var errSettingNeedsProof = errors.New("this change would turn on automatic appro
 // source and returns the files it changed; the caller holds the approvals
 // lock. Ask me writes what the Ask me chip writes. A value that needs the
 // hook adds approvals to builtins when it is missing; when that fails,
-// the approvals change is undone. Without proven, a write that leaves the
-// policy looser than before, such as one that repairs a broken block
-// that holds yolo, is undone.
+// the approvals change is undone. Without proven, a block that does not
+// load is left alone, and a write that leaves the policy looser than
+// before is undone.
 func writeApprovalsSetting(source, key string, value any, proven bool) ([]string, error) {
 	if key == "mode" && value == config.ApprovalsAsk {
 		path := userConfigPaths(source)[1]
@@ -359,9 +363,10 @@ func writeApprovalsSetting(source, key string, value any, proven bool) ([]string
 		return nil, err
 	}
 	before, loadErr := config.LoadHomeApprovals(source)
-	if loadErr != nil {
-		// A block that does not load leaves every prompt to the person.
-		before = config.ApprovalsConfig{}
+	if loadErr != nil && !proven {
+		// A block that does not load leaves every prompt to the person, and
+		// a repair could turn on what it holds before any check runs.
+		return nil, errBrokenBlockNeedsProof
 	}
 	undo, err := restorePoint(path)
 	if err != nil {
@@ -582,6 +587,10 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	changed, err := h.apply(r.Context(), change.Key, value.value, h.proven(r))
+	if errors.Is(err, errBrokenBlockNeedsProof) {
+		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "The approvals block in the home config does not load, so only Ask me or the companion can change it here. Choose Ask me, use the companion's settings menu, or fix the home config.", Settings: new(h.document(r))})
+		return
+	}
 	if errors.Is(err, errSettingNeedsProof) {
 		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "This change would turn on automatic approvals, so only the companion can make it here. Use the companion's settings menu, or edit the home config.", Settings: new(h.document(r))})
 		return

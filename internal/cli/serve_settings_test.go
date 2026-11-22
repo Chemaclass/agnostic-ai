@@ -338,7 +338,7 @@ func TestConversationsList_TagCoversMailboxAndCompanionSettings(t *testing.T) {
 
 func TestSettings_TightensABlockThatDoesNotLoad(t *testing.T) {
 	h, source := settingsFixture(t, "version: 1\napprovals:\n  mode: yolo\n  companion: true\n  nonsense: 1\n")
-	if rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, nil); rec.Code != http.StatusOK {
+	if rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, withSecret(settingsTestSecret)); rec.Code != http.StatusOK {
 		t.Fatalf("POST = %d %s", rec.Code, rec.Body)
 	}
 	if got := readFile(t, filepath.Join(source, config.ConfigFileName)); !strings.Contains(got, "companion: false") {
@@ -389,6 +389,9 @@ func TestSettings_RepairingABrokenYoloBlockNeedsProof(t *testing.T) {
 	}
 	if got := readFile(t, path); got != shared {
 		t.Errorf("a refused repair changed the file:\n%s", got)
+	}
+	if !strings.Contains(rec.Body.String(), "Choose Ask me") {
+		t.Errorf("refusal = %s", rec.Body)
 	}
 	if rec, _ := postSetting(t, h, `{"key":"approvals.mode","value":"ask"}`, nil); rec.Code != http.StatusOK {
 		t.Errorf("Ask me without proof = %d %s", rec.Code, rec.Body)

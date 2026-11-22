@@ -106,7 +106,7 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	moved := func(plan settingsSyncPlan) {
-		writeEditJSON(w, http.StatusConflict, settingsSyncRefusal{Error: "The pending changes changed since you checked them. Check them again.", Plan: &plan})
+		writeEditJSON(w, http.StatusConflict, settingsSyncRefusal{Error: "The pending changes, or a file they touch, changed since you checked them. Check them again.", Plan: &plan})
 	}
 	if plan.ID != req.ID {
 		moved(plan)
