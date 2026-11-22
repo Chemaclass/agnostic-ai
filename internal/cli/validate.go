@@ -402,7 +402,7 @@ func firstPath(entries []spec.Entry) string {
 	if len(entries) == 0 {
 		return ""
 	}
-	return entries[0].Path
+	return filepath.ToSlash(entries[0].Path)
 }
 
 func sortedKeys(m map[string]struct{}) []string {

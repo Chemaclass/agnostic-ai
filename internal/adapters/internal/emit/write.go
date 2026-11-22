@@ -245,7 +245,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		return nil
 	}
 	if dryRun {
-		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
+		fmt.Printf("--- %s ---\n%s\n", filepath.ToSlash(path), preview.Display(path, content).Text)
 		return nil
 	}
 	cur := &onDisk{path: path}

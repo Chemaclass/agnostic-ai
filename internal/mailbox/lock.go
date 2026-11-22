@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 )
 
@@ -115,7 +116,9 @@ func privateDir(path string) error {
 	if !info.IsDir() {
 		return fmt.Errorf("%s: expected a directory", path)
 	}
-	if info.Mode().Perm() != 0o700 {
+	// Windows reports every folder as 0o777, and a chmod there would
+	// rewrite the folder's entry in its parent on every call.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		return os.Chmod(path, 0o700)
 	}
 	return nil
