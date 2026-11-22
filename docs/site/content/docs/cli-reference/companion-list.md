@@ -105,7 +105,7 @@ Right-click a chat and choose **Copy session ID**. The clipboard gets the exact 
 
 Right-click a local Claude Code or Codex chat and choose **Message another session…**. Pick the receiver under **To**, click its row, or enter its session ID. The [mailbox](@/docs/mailbox.md) shows the thread under both chats and gives you controls to pause, close or stop it.
 
-Choose **Claim files…** to note which files a session works on. A claim does not block edits. A chat with claims shows a chip such as "2 paths claimed" in its row; click it to see and release them. The **File claims** button in the footer shows only while a claim exists. A [file handoff](@/docs/mailbox.md#hand-off-files) moves a claim when the other session accepts it.
+Choose **Claim files…** to note which files a session works on. A claim does not block edits. See [hand off files](@/docs/mailbox.md#hand-off-files).
 
 ## Rename a chat {#rename-a-chat}
 
