@@ -120,8 +120,9 @@ func (s Store) Stats(ctx context.Context, since time.Time) (Stats, error) {
 		at := since.UTC().Format(time.RFC3339)
 		stats.Since = &at
 	}
-	// Writes replace files atomically, so counting goes on without the lock
-	// and never finishes an interrupted transfer.
+	// Writes replace files atomically and readJSON lets them replace an
+	// open file, so counting goes on without the lock and never finishes an
+	// interrupted transfer.
 	if err := ctx.Err(); err != nil {
 		return Stats{}, err
 	}
