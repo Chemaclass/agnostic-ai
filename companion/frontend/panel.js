@@ -362,7 +362,11 @@ function rowOf(conversation, order, folderNames, under) {
   if (subagents) text.append(subagents)
   const shells = stuckShellsOf(conversation)
   const labels = shellLabelsOf(shells, now)
-  const lead = shellsLeadOf(conversation, now)
+  // A stop that went through shows on the line before the next list drops the shell.
+  const lead = shellsLeadOf(conversation, now, (shell) => {
+    const stop = state.shellStops.get(shellKeyOf(shell))
+    return Boolean(stop?.text) && !stop.problem
+  })
   if (lead) text.append(element('div', 'shells-lead', lead))
   shells.forEach((shell, index) => text.append(shellLine(conversation, shell, labels[index], now, shells.length > 1)))
   const listed = new Set(shells.map(shellKeyOf))

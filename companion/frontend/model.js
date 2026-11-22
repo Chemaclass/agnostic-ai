@@ -618,10 +618,10 @@ export function needsReasonOf(conversation, now, nameOf) {
 
 /**
  * The line above a row's stuck shells that says what the orange lines are. Undefined when the row has none, when its
- * Needs you reason already says it waits on them, or when every shell is kept, since a kept line explains itself.
+ * Needs you reason already says it waits on them, or when every shell is kept or `stopped`, since those lines say so.
  */
-export function shellsLeadOf(conversation, now) {
-  const running = stuckShellsOf(conversation).filter((shell) => !shell.keptUntil).length
+export function shellsLeadOf(conversation, now, stopped = () => false) {
+  const running = stuckShellsOf(conversation).filter((shell) => !shell.keptUntil && !stopped(shell)).length
   if (running === 0 || needsReasonOf(conversation, now)?.kind === 'shell') return undefined
   return running > 1 ? `${running} shells are still running` : 'A shell is still running'
 }

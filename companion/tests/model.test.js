@@ -1345,6 +1345,9 @@ test('a row says its orange lines are shells still running, unless its reason al
   const kept = { ...other, keptUntil: '2026-11-09T12:30:00Z' }
   assert.equal(lead(row('k', 'working', { live: true, stuckShells: [{ ...shell, keptUntil: '2026-11-09T12:30:00Z' }, kept] })), undefined)
   assert.equal(lead(row('k', 'working', { live: true, stuckShells: [shell, kept] })), 'A shell is still running')
+  const working = row('t', 'working', { live: true, stuckShells: [shell, other] })
+  assert.equal(shellsLeadOf(working, now, (stopping) => stopping.pid === 43), 'A shell is still running')
+  assert.equal(shellsLeadOf(working, now, () => true), undefined)
   assert.equal(lead(row('n', 'working', { live: true })), undefined)
   assert.equal(lead(row('n', 'working', { live: true, stuckShells: [] })), undefined)
   assert.equal(lead(row('q', 'blocked', { live: true, waiting: { for: 'answer' }, stuckShells: [shell] })), 'A shell is still running')
