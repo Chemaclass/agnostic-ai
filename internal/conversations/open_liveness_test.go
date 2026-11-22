@@ -166,3 +166,14 @@ func TestOpen_LiveSessionWhoseProcessCheckFailsIsNotResumed(t *testing.T) {
 		t.Errorf("a failed process check must launch nothing: calls %v, reply %+v", launcher.calls, reply)
 	}
 }
+
+func TestSend_CursorAgentChatWhoseHolderCheckFailedSaysSo(t *testing.T) {
+	chat := Conversation{Tool: ToolCursor, App: AppCLI, store: filepath.Join(t.TempDir(), "store.db"), Open: Route{Kind: RouteTerminal, Command: "cursor-agent --resume x"}}
+	launcher := &fakeLauncher{focusOK: true}
+
+	reply := Send(context.Background(), chat, "hi", fakeProcesses{readFails: true}, launcher)
+
+	if reply.Sent || !strings.Contains(reply.Message, "Could not check whether it still runs") || len(launcher.calls) != 0 {
+		t.Errorf("reply %+v, calls %v", reply, launcher.calls)
+	}
+}

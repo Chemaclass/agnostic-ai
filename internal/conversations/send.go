@@ -127,6 +127,9 @@ func send(ctx context.Context, c Conversation, text string, source sendSource, p
 	}
 	if c.Open.Kind == RouteTerminal {
 		held, ok := heldNow(c, processes)
+		if !ok && livenessUnknown(held) {
+			return SendReply{Message: "Could not check whether it still runs, so nothing was typed."}
+		}
 		if !ok {
 			return SendReply{Message: "It is not running, so nothing was typed." + resumeTip}
 		}
