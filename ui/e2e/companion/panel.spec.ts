@@ -2319,7 +2319,43 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   await explore.click()
   expect((await claude).postDataJSON()).toEqual({ tool: 'claude', id: 'helpers-1', title: 'Rename chats', helper: 'agent-explore' })
   await expectInfoNotice(page, 'How to reach the subagent')
-  await expect(noticeCard(page)).toContainText("Its subagent is 'Find rename call sites'. Use the agent rows below the prompt to switch to it.")
+  await expect(noticeCard(page)).toContainText("Press the down arrow to pick 'Find rename call sites' below the prompt, then Enter.")
+})
+
+test('subagents show as a tree under their real parent, each level folds, and a deep click shows its note at once', async ({ page }) => {
+  await openPanel(page, 'subagent-tree')
+  const parent = row(page, 'Ship the subagent tree')
+  await parent.getByRole('button', { name: '▸ 6 subagents, 4 levels' }).click()
+  const helpers = page.locator('.helper-row')
+  await expect(helpers.locator('.title')).toHaveText(['echo', 'Review the diff', 'Find call sites', 'Read the open path', 'Check one file', 'Started by a finished subagent'])
+  // Each level sits one step further in than the one above it.
+  const left = (title: string) => helpers.filter({ hasText: title }).evaluate((element) => element.getBoundingClientRect().left)
+  const lefts = await Promise.all(['Review the diff', 'Find call sites', 'Read the open path', 'Check one file'].map(left))
+  for (let level = 1; level < lefts.length; level += 1) expect(lefts[level]).toBeGreaterThan(lefts[level - 1])
+  expect(await left('Started by a finished subagent')).toBe(lefts[0])
+  await expect(helpers.filter({ hasText: 'echo' })).toHaveAttribute('title', 'Switch to its pane')
+
+  await page.getByRole('button', { name: '▾ 1 subagent' }).last().click()
+  await expect(helpers.filter({ hasText: 'Check one file' })).toHaveCount(0)
+  await page.getByRole('button', { name: '▸ 1 subagent' }).click()
+  await expect(helpers.filter({ hasText: 'Check one file' })).toHaveCount(1)
+
+  const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  const peeked = page.waitForRequest((request) => request.url().endsWith('/api/panel/peek'))
+  await helpers.filter({ hasText: 'Check one file' }).click()
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'tree-1', title: 'Ship the subagent tree', helper: 'acheck-1' })
+  await peeked
+  await expectInfoNotice(page, 'How to reach the subagent')
+  await expect(noticeCard(page)).toContainText("It runs inside 'Read the open path'. Open that row first.")
+})
+
+test('a subagent with its own pane opens it and leaves no note', async ({ page }) => {
+  await openPanel(page, 'subagent-tree')
+  await row(page, 'Ship the subagent tree').getByRole('button', { name: '▸ 6 subagents, 4 levels' }).click()
+  const opened = page.waitForResponse((response) => response.url().endsWith('/api/open'))
+  await page.locator('.helper-row').filter({ hasText: 'echo' }).click()
+  expect(await (await opened).json()).toMatchObject({ opened: true, reached: 'subagent' })
+  await expect(noticeCard(page)).toBeHidden()
 })
 
 test('a pending approval takes the reply line\'s place, and the reply moves to the tooltip', async ({ page }) => {

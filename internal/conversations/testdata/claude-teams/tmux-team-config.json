@@ -1,0 +1,36 @@
+{
+  "name": "session-820909bc",
+  "createdAt": 1795332209719,
+  "leadAgentId": "team-lead@session-820909bc",
+  "leadSessionId": "820909bc-14f2-48f6-b4da-df2d65f577ee",
+  "leadProcess": {
+    "pid": 56172,
+    "pidSpace": "host",
+    "claimedAt": 1795332209719
+  },
+  "members": [
+    {
+      "agentId": "team-lead@session-820909bc",
+      "name": "team-lead",
+      "agentType": "team-lead",
+      "joinedAt": 1795332209719,
+      "tmuxPaneId": "leader",
+      "cwd": "/tmp/app",
+      "subscriptions": [],
+      "backendType": "in-process"
+    },
+    {
+      "agentId": "echo@session-820909bc",
+      "name": "echo",
+      "color": "blue",
+      "joinedAt": 1795332214224,
+      "tmuxPaneId": "%1",
+      "subscriptions": [],
+      "model": "haiku",
+      "planModeRequired": false,
+      "cwd": "/tmp/app",
+      "backendType": "tmux",
+      "isActive": false
+    }
+  ]
+}

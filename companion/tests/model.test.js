@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helperTreeOf, helpersToggleOf, subtreeToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
@@ -706,10 +706,10 @@ test('shows working subagents newest first, five at most until all are asked for
   const conversation = row('a', 'working', { helpers })
   const folded = helperRowsOf(conversation, false)
   assert.equal(HELPERS_SHOWN, 5)
-  assert.deepEqual(folded.rows.map((h) => h.id), ['work-new', 'work-mid', 'work-old', 'work-older', 'work-oldest'])
+  assert.deepEqual(folded.rows.map((node) => node.helper.id), ['work-new', 'work-mid', 'work-old', 'work-older', 'work-oldest'])
   assert.equal(folded.more, 1)
   const all = helperRowsOf(conversation, true)
-  assert.deepEqual(all.rows.map((h) => h.id), ['work-new', 'work-mid', 'work-old', 'work-older', 'work-oldest', 'work-ancient'])
+  assert.deepEqual(all.rows.map((node) => node.helper.id), ['work-new', 'work-mid', 'work-old', 'work-older', 'work-oldest', 'work-ancient'])
   assert.equal(all.more, 0)
   assert.deepEqual(helpers.map((h) => h.id)[0], 'done-new', 'the server order is left as it came')
 })
@@ -738,13 +738,57 @@ test('a Codex subagent opens its own thread; a Claude Code subagent opens the ch
 test('a subagent row says what its click does', () => {
   assert.equal(helperTooltipOf(helper('run-1', 'working', 1, { tool: 'codex' })), 'Open this Codex thread')
   assert.equal(helperTooltipOf(helper('agent-1', 'working', 1)), 'Open the chat it runs in, and show how to reach this subagent')
+  assert.equal(helperTooltipOf(helper('agent-1', 'working', 1, { reach: 'rows' })), 'Open the chat it runs in, and show how to reach this subagent')
+  assert.equal(helperTooltipOf(helper('agent-1', 'working', 1, { reach: 'nested' })), 'Open the chat it runs in, and show how to reach this subagent')
+  assert.equal(helperTooltipOf(helper('echo@team', 'working', 1, { reach: 'pane' })), 'Switch to its pane')
 })
 
-test('an open of a Claude Code subagent leaves the reply as a notice; any other open leaves none', () => {
-  const said = 'Opened the chat it runs in. Its subagent is \'Find call sites\'. Use the agent rows below the prompt to switch to it.'
-  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: { tool: 'claude', id: 'explore' } }), { message: said, hint: true })
+test('an open that reached the chat a subagent runs in leaves the reply as a notice; any other open leaves none', () => {
+  const said = 'Switched to the Terminal tab that runs it. Press the down arrow to pick \'Find call sites\' below the prompt, then Enter.'
+  const explore = { tool: 'claude', id: 'explore' }
+  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: explore, reached: 'parent' }), { message: said, hint: true })
+  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: explore }), { message: said, hint: true }, 'a reply without reached reads as the parent')
+  const finished = 'That subagent has finished. Its chat is open.'
+  assert.deepEqual(subagentNoticeOf({ opened: true, message: finished, reached: 'parent' }), { message: finished, hint: true })
+  const codex = 'Switched to the Ghostty tab that runs it. Type /subagents to switch to \'Aquinas\'.'
+  assert.deepEqual(subagentNoticeOf({ opened: true, message: codex, reached: 'parent' }), { message: codex, hint: true })
+  assert.equal(subagentNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.', helper: explore, reached: 'subagent' }), undefined)
   assert.equal(subagentNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.' }), undefined)
-  assert.equal(subagentNoticeOf({ opened: false, message: 'That subagent no longer works in this chat.' }), undefined)
+  assert.equal(subagentNoticeOf({ opened: false, message: 'Terminal could not be opened.', helper: explore, reached: 'parent' }), undefined)
+})
+
+test('subagents show as a tree of any depth, each under its real parent, newest first on each level', () => {
+  const helpers = [
+    helper('mate', 'working', 5, { reach: 'rows' }),
+    helper('one', 'working', 4, { parentId: 'mate', reach: 'nested' }),
+    helper('two', 'working', 3, { parentId: 'one', reach: 'nested' }),
+    helper('three', 'working', 2, { parentId: 'two', reach: 'nested' }),
+    helper('one-b', 'working', 1, { parentId: 'mate', reach: 'nested' }),
+    helper('done', 'finished', 1, { parentId: 'mate' }),
+  ]
+  const tree = helperTreeOf(row('a', 'working', { helpers }))
+  const shape = (node) => [node.helper.id, node.children.map(shape)]
+  assert.deepEqual(tree.roots.map(shape), [['mate', [['one-b', []], ['one', [['two', [['three', []]]]]]]]])
+  assert.equal(tree.total, 5)
+  assert.equal(tree.depth, 4)
+  assert.equal(helpersToggleOf(row('a', 'working', { helpers }), false), '▸ 5 subagents, 4 levels')
+  assert.equal(subtreeToggleOf(tree.roots[0], true), '▾ 4 subagents')
+  assert.equal(subtreeToggleOf(tree.roots[0].children[1].children[0], false), '▸ 1 subagent')
+})
+
+test('a subagent whose parent is gone, or whose parents lead back to it, sits at the top', () => {
+  const helpers = [
+    helper('orphan', 'working', 1, { parentId: 'gone' }),
+    helper('self', 'working', 2, { parentId: 'self' }),
+    helper('loop-a', 'working', 3, { parentId: 'loop-b' }),
+    helper('loop-b', 'working', 4, { parentId: 'loop-a' }),
+    helper('under-loop', 'working', 5, { parentId: 'loop-a' }),
+  ]
+  const tree = helperTreeOf(row('a', 'working', { helpers }))
+  const shape = (node) => [node.helper.id, node.children.map(shape)]
+  assert.deepEqual(tree.roots.map(shape), [['orphan', []], ['self', []], ['loop-a', [['under-loop', []]]], ['loop-b', []]])
+  assert.equal(tree.total, 5, 'no subagent is dropped')
+  assert.equal(helpersToggleOf(row('a', 'working', { helpers }), true), '▾ 5 subagents, 2 levels')
 })
 
 test('a late open failure replaces no notice or a subagent hint, and never another failure', () => {

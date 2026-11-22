@@ -633,6 +633,37 @@ func TestShowRoute_LeavesAHiddenOrFadedCompanionAlone(t *testing.T) {
 	}
 }
 
+func TestPeekRoute_ShowsTheListWithoutTakingTheKeys(t *testing.T) {
+	quiet := peeksQuietly
+	peeksQuietly = true
+	t.Cleanup(func() { peeksQuietly = quiet })
+	s, _ := placedShell(t)
+	routes := s.routes(s.inbox, fstest.MapFS{})
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/panel/peek", nil))
+
+	panel := s.panel.(*fakeWindow)
+	if rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"shown":true}` || !panel.IsVisible() || panel.IsFocused() {
+		t.Errorf("POST /api/panel/peek = %d %s, shown %v, focused %v; want shown and not focused", rec.Code, rec.Body, panel.IsVisible(), panel.IsFocused())
+	}
+
+	s.setPresence(hidden)
+	s.hidePanel()
+	hidden := httptest.NewRecorder()
+	routes.ServeHTTP(hidden, httptest.NewRequest(http.MethodPost, "/api/panel/peek", nil))
+	if panel.IsVisible() || strings.TrimSpace(hidden.Body.String()) != `{"shown":false}` {
+		t.Errorf("a peek brought the list of a hidden companion back, or said it did: %s", hidden.Body)
+	}
+
+	s.setPresence(shown)
+	peeksQuietly = false
+	routes.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/panel/peek", nil))
+	if panel.IsVisible() {
+		t.Error("where a shown window may take the keys, a peek shows nothing")
+	}
+}
+
 func TestWaiting_Gained(t *testing.T) {
 	ab := waiting{ids: map[string]string{"a": "claude", "b": "claude"}}
 	cases := []struct {

@@ -171,6 +171,8 @@ export async function saveMailboxSettings(settings) {
 export const togglePanel = () => post('/api/panel/toggle')
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')
+/** Shows the panel beside the circle without taking the keys from the app in front; answers {shown}. */
+export const peekPanel = () => post('/api/panel/peek')
 
 /** The settings menu's values: {shortcut, shortcutProblem?, sendShortcut, sendShortcutProblem?, startAtLogin, startAtLoginProblem?, checkForUpdates}. */
 export const readPreferences = () => call('/api/preferences')

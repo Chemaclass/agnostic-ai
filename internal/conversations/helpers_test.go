@@ -261,9 +261,9 @@ func TestClaudeHelpers_ListsWorkingSubagentsWithTypeAndTitle(t *testing.T) {
 	helpers := scanner.claudeHelpers(file, work, map[string]bool{})
 
 	want := `[
-  {"tool":"claude","id":"background","title":"Find rename call sites","kind":"Explore","state":"working","updatedAt":"2026-11-14T09:03:00Z"},
-  {"tool":"claude","id":"inline","title":"Size budget check","kind":"general-purpose","state":"working","updatedAt":"2026-11-14T09:02:00Z"},
-  {"tool":"claude","id":"secret","title":"","kind":"general-purpose","state":"working","updatedAt":"2026-11-14T09:00:00Z"}
+  {"tool":"claude","id":"background","title":"Find rename call sites","kind":"Explore","state":"working","updatedAt":"2026-11-14T09:03:00Z","reach":"rows"},
+  {"tool":"claude","id":"inline","title":"Size budget check","kind":"general-purpose","state":"working","updatedAt":"2026-11-14T09:02:00Z","reach":"rows"},
+  {"tool":"claude","id":"secret","title":"","kind":"general-purpose","state":"working","updatedAt":"2026-11-14T09:00:00Z","reach":"rows"}
 ]`
 	if got := helpersJSON(t, helpers); got != compactJSON(t, want) {
 		t.Errorf("working subagents only, newest first, with a title only when it holds no credential:\n%s", got)
@@ -300,7 +300,7 @@ func TestCodexWorkingSubagents_ListsWorkingDirectSubagentsAndFocusesTheirProcess
 
 	_, opens := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 
-	want := `[{"tool":"codex","id":"` + child + `","title":"Aquinas","kind":"explorer","state":"working","updatedAt":"2026-11-07T11:00:00Z"}]`
+	want := `[{"tool":"codex","id":"` + child + `","title":"Aquinas","kind":"explorer","state":"working","updatedAt":"2026-11-07T11:00:00Z","reach":"codex-threads"}]`
 	if got := helpersJSON(t, rows[0].Helpers); got != compactJSON(t, want) {
 		t.Errorf("a parent lists its direct subagent, named by its nickname when it has no title:\n%s", got)
 	}
@@ -317,6 +317,42 @@ func TestCodexWorkingSubagents_ListsWorkingDirectSubagentsAndFocusesTheirProcess
 	scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
 	if rows[0].Helpers != nil {
 		t.Error("subagents whose locks cannot be read must not be listed")
+	}
+}
+
+func TestCodexWorkingSubagents_ListsASubagentOfASubagentUnderTheThreadAtTheTop(t *testing.T) {
+	scanner, stores := testScanner(t, nil, fakeProcesses{})
+	parent, child, grandchild := idSafari, idCache, idSide
+	rollout := filepath.Join(stores.CodexDir, "sessions", "child.jsonl")
+	write(t, rollout, "")
+	appendWorkerEvent(t, rollout, obj{"type": "event_msg", "payload": obj{"type": "task_started"}})
+	worker := func(id, parent, nickname string) json.RawMessage {
+		source, _ := json.Marshal(obj{"subagent": obj{"thread_spawn": obj{"parent_thread_id": parent, "agent_nickname": nickname}}})
+		row, _ := json.Marshal(obj{"id": id, "source": string(source), "rollout_path": rollout, "cwd": "/tmp/app", "originator": "codex-tui", "updated_at_ms": 1794049200000})
+		return row
+	}
+	scanner.SQLite = func(context.Context, string, string) ([]json.RawMessage, error) {
+		return []json.RawMessage{worker(child, parent, "Aquinas"), worker(grandchild, child, "Leibniz")}, nil
+	}
+	writeWorkerLocks(t, stores.CodexDir, child, grandchild)
+	scanner.Processes = fakeProcesses{held: map[string]int{child + ".lock": 10, grandchild + ".lock": 11}}
+	rows := []Conversation{{ID: parent}}
+
+	_, opens := scanner.codexWorkingSubagents(context.Background(), "state.sqlite", rows, editorApps[0])
+
+	parents := map[string]string{}
+	for _, h := range rows[0].Helpers {
+		parents[h.ID] = h.ParentID
+	}
+	if want := map[string]string{child: "", grandchild: child}; !maps.Equal(parents, want) {
+		t.Errorf("both levels show under the thread at the top, each naming its parent, actual %s", asJSON(t, rows[0].Helpers))
+	}
+	names := map[string]string{}
+	for _, row := range opens {
+		names[row.ID] = row.subagent
+	}
+	if want := map[string]string{child: "Aquinas", grandchild: "Leibniz"}; !maps.Equal(names, want) {
+		t.Errorf("each subagent's thread knows the name its note gives, actual %v", names)
 	}
 }
 
@@ -405,31 +441,42 @@ func TestReopenHelper_FocusesTheParentAndNamesTheSubagent(t *testing.T) {
 	if !slices.ContainsFunc(launcher.calls, func(call string) bool { return strings.HasPrefix(call, "focus ") }) {
 		t.Errorf("the parent's tab must come to the front, actual calls %v", launcher.calls)
 	}
-	want := "Switched to the Terminal tab that runs it. Its subagent is 'Find call sites'. Use the agent rows below the prompt to switch to it."
+	want := "Switched to the Terminal tab that runs it. Press the down arrow to pick 'Find call sites' below the prompt, then Enter."
 	if reply.Message != want {
 		t.Errorf("reply = %q", reply.Message)
 	}
 	if reply.Helper == nil || reply.Helper.ID != "explore" || reply.Helper.Title != "Find call sites" {
 		t.Errorf("the reply names the subagent that was meant, actual %s", asJSON(t, reply.Helper))
 	}
+	if reply.Reached != reachedParent {
+		t.Errorf("the chat came to the front, not the subagent, actual %q", reply.Reached)
+	}
+	for _, call := range launcher.calls {
+		if strings.HasPrefix(call, "type ") {
+			t.Errorf("no key is sent to the terminal, actual calls %v", launcher.calls)
+		}
+	}
 }
 
-func TestReopenHelper_RefusesASubagentTheParentDoesNotList(t *testing.T) {
+func TestReopenHelper_FocusesTheParentOfASubagentThatFinished(t *testing.T) {
 	scanner := liveSubagentScanner(t)
-	launcher := &fakeLauncher{}
+	launcher := &fakeLauncher{focusOK: true}
 
 	reply, found := scanner.ReopenHelper(context.Background(), ToolClaude, idSafari, "finished", ScanOptions{}, launcher)
 
-	if !found || reply.Opened || reply.Helper != nil {
-		t.Errorf("an unknown subagent is refused, actual %+v found %v", reply, found)
+	if !found || !reply.Opened || reply.Helper != nil || reply.Reached != reachedParent {
+		t.Errorf("a finished subagent still opens its chat, actual %+v found %v", reply, found)
 	}
-	if len(launcher.calls) != 0 {
-		t.Errorf("a refused subagent focuses nothing, actual calls %v", launcher.calls)
+	if reply.Message != "Switched to the Terminal tab that runs it. "+subagentFinished {
+		t.Errorf("reply = %q", reply.Message)
+	}
+	if !slices.ContainsFunc(launcher.calls, func(call string) bool { return strings.HasPrefix(call, "focus ") }) {
+		t.Errorf("the parent's tab must come to the front, actual calls %v", launcher.calls)
 	}
 }
 
 func TestValidAgentID(t *testing.T) {
-	for _, id := range []string{"explore", "a00045583c3432f5c", "aside_question-1"} {
+	for _, id := range []string{"explore", "a00045583c3432f5c", "aside_question-1", "echo@session-0d2fda98"} {
 		if !ValidAgentID(id) {
 			t.Errorf("%q is an agent id", id)
 		}
@@ -480,8 +527,8 @@ func TestReopenHelper_OpensOfOneChatShareOneOpenAndEachGetsItsOwnReply(t *testin
 	if got := answerOf(t, picked); got.reply.Helper == nil || !strings.Contains(got.reply.Message, "'Find call sites'") {
 		t.Errorf("an open that joined names its subagent: %+v", got.reply)
 	}
-	if got := answerOf(t, gone); got.reply.Opened || got.reply.Message != subagentGone {
-		t.Errorf("an unknown subagent is refused even when it joins an open: %+v", got.reply)
+	if got := answerOf(t, gone); !got.reply.Opened || !strings.HasSuffix(got.reply.Message, " "+subagentFinished) {
+		t.Errorf("a finished subagent that joins an open says so: %+v", got.reply)
 	}
 	if n := launcher.focuses.Load(); n != 1 {
 		t.Errorf("opens of one chat share one tab switch, actual %d", n)
@@ -497,22 +544,73 @@ func TestSubagentReply_KeepsTheOpenMessageAndPointsAtTheAgentRowsOnlyInATerminal
 		want         string
 	}{
 		"a terminal tab": {inTerminal, picked,
-			"Opened. Its subagent is 'Find call sites'. Use the agent rows below the prompt to switch to it."},
+			"Opened. Press the down arrow to pick 'Find call sites' below the prompt, then Enter."},
 		"an editor extension": {Conversation{App: AppIDE, Open: Route{Kind: RouteLink}}, picked,
 			"Opened. Its subagent is 'Find call sites'."},
 		"a background session": {Conversation{App: AppCLI, Open: Route{Kind: RouteFocus}, placed: &placement{claudeBackground: true}}, picked,
 			"Opened. Its subagent is 'Find call sites'."},
 		"a subagent with only a type": {inTerminal, helper{Tool: ToolClaude, ID: "x", Kind: "Explore"},
-			"Opened. Its subagent is 'Explore'. Use the agent rows below the prompt to switch to it."},
+			"Opened. Press the down arrow to pick 'Explore' below the prompt, then Enter."},
 		"a subagent with no name": {inTerminal, helper{Tool: ToolClaude, ID: "x"},
-			"Opened. Use the agent rows below the prompt to switch to its subagent."},
+			"Opened. Press the down arrow to pick its subagent below the prompt, then Enter."},
+		"a subagent whose parent is gone": {inTerminal, helper{Tool: ToolClaude, ID: "x", Title: "Grep", ParentID: "gone", Reach: reachNested, ParentName: "reviewer"},
+			"Opened. It runs inside 'reviewer'. Open that row first."},
+		"a desktop chat's nested subagent": {Conversation{App: AppDesktop, Open: Route{Kind: RouteLink}}, helper{Tool: ToolClaude, ID: "x", Title: "Grep", Reach: reachNested, ParentName: "reviewer"},
+			"Opened. Its subagent is 'Grep'."},
 	} {
 		t.Run(name, func(t *testing.T) {
-			reply := subagentReply(OpenReply{Opened: true, Message: "Opened."}, tc.conversation, tc.picked)
-			if reply.Message != tc.want || reply.Helper == nil || reply.Helper.ID != tc.picked.ID {
-				t.Errorf("reply = %q, helper %v", reply.Message, reply.Helper)
+			reply := subagentReply(OpenReply{Opened: true, Message: "Opened."}, tc.conversation, tc.picked, "", "")
+			if reply.Message != tc.want || reply.Helper == nil || reply.Helper.ID != tc.picked.ID || reply.Reached != reachedParent {
+				t.Errorf("reply = %q, helper %v, reached %q", reply.Message, reply.Helper, reply.Reached)
 			}
 		})
+	}
+}
+
+// helperTree is a lead with a teammate in a pane, and three levels of
+// subagents under a teammate in the lead's process.
+func helperTree() []helper {
+	return []helper{
+		{Tool: ToolClaude, ID: "pane", Title: "Pane work", Reach: reachPane, name: "echo", member: "echo@team"},
+		{Tool: ToolClaude, ID: "under-pane", Title: "Under the pane", ParentID: "pane", Reach: reachNested, ParentName: "echo"},
+		{Tool: ToolClaude, ID: "mate", Title: "Teammate work", Reach: reachRows, name: "reviewer"},
+		{Tool: ToolClaude, ID: "one", Title: "Level one", ParentID: "mate", Reach: reachNested, ParentName: "reviewer"},
+		{Tool: ToolClaude, ID: "two", Title: "Level two", ParentID: "one", Reach: reachNested, ParentName: "Level one"},
+		{Tool: ToolClaude, ID: "loop-a", Title: "Loop A", ParentID: "loop-b", Reach: reachNested},
+		{Tool: ToolClaude, ID: "loop-b", Title: "Loop B", ParentID: "loop-a", Reach: reachNested},
+	}
+}
+
+func TestSubagentReply_SaysWhatCameToTheFrontAndThePathFromThere(t *testing.T) {
+	tree := Conversation{App: AppCLI, Open: Route{Kind: RouteFocus}, Helpers: helperTree()}
+	for name, tc := range map[string]struct {
+		picked, pane, attach string
+		want, reached        string
+	}{
+		"its own pane":            {"pane", "pane", "", "Switched.", reachedSubagent},
+		"under a pane":            {"under-pane", "pane", "", "Switched. Press the down arrow to pick 'Under the pane' below the prompt, then Enter.", reachedParent},
+		"inside a teammate":       {"one", "", "", "Switched. It runs inside 'reviewer'. Open that row first.", reachedParent},
+		"two levels down":         {"two", "", "", "Switched. It runs inside 'Level one'. Open 'reviewer', then 'Level one'.", reachedParent},
+		"a cycle":                 {"loop-a", "", "", "Switched. It runs inside 'Loop B'. Open that row first.", reachedParent},
+		"a pane no terminal show": {"pane", "", "tmux -L s attach", "Switched. The pane of 'echo' is in a tmux session no terminal shows. Run this command to see it.", reachedParent},
+	} {
+		t.Run(name, func(t *testing.T) {
+			picked, _ := subagentIn(tree.Helpers, tc.picked)
+			reply := subagentReply(OpenReply{Opened: true, Message: "Switched."}, tree, picked, tc.pane, tc.attach)
+			if reply.Message != tc.want || reply.Reached != tc.reached || reply.Command != tc.attach {
+				t.Errorf("reply = %q reached %q command %q", reply.Message, reply.Reached, reply.Command)
+			}
+		})
+	}
+}
+
+func TestPaneTarget_IsTheSubagentOrItsNearestAncestorWithAPane(t *testing.T) {
+	helpers := helperTree()
+	for picked, want := range map[string]string{"pane": "pane", "under-pane": "pane", "two": "", "loop-a": "", "gone": "", "": ""} {
+		target, ok := paneTarget(helpers, picked)
+		if target.ID != want || ok != (want != "") {
+			t.Errorf("paneTarget(%q) = %q %v, want %q", picked, target.ID, ok, want)
+		}
 	}
 }
 

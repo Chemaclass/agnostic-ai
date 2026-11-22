@@ -288,6 +288,9 @@ type Conversation struct {
 	bridge string
 	// heldBy is the id of the local row that took this cloud row in.
 	heldBy string
+	// subagent names a Codex subagent's thread, which opens only through
+	// the row that lists it as a helper; empty for any other row.
+	subagent string
 	// appArchived: the conversation's own app keeps it archived, as the
 	// app's flag says on this read.
 	appArchived bool
@@ -375,7 +378,16 @@ type OpenReply struct {
 	// Helper is the Claude Code subagent the open was asked for, when
 	// one was named; the chat it runs in is what opened.
 	Helper *helper `json:"helper,omitempty"`
+	// Reached says what came to the front when a helper was named:
+	// reachedSubagent for its own view, reachedParent for the chat it
+	// runs in, where Message says how to reach it.
+	Reached string `json:"reached,omitempty"`
 }
+
+const (
+	reachedSubagent = "subagent"
+	reachedParent   = "parent"
+)
 
 var toolLabels = map[Tool]string{
 	ToolClaude:  "Claude Code",

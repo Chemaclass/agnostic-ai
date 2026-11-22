@@ -1,8 +1,8 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
+import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, keepOf, keptShellLineOf, keptShellsOfRow, keptViewOf, shellCommandOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 
@@ -83,6 +83,8 @@ const state = {
    */
   helpersOpen: new Set(),
   helpersAll: new Set(),
+  /** Subagents whose own subagents the person folded shut, by chat key and subagent id; the rest show unfolded. */
+  helpersShut: new Set(),
   /** Keys of the chats whose approved requests are unfolded; they last until the companion quits. */
   approvedOpen: new Set(),
   /** Pick mode: the copied text as the banner shows it, {preview, words, chars, hash}; undefined outside it. */
@@ -594,25 +596,7 @@ function helperList(conversation, key, now) {
   const box = element('div', 'helpers')
   box.id = helpersId(key)
   const { rows, more } = helperRowsOf(conversation, state.helpersAll.has(key))
-  for (const helper of rows) {
-    const row = element('button', 'helper-row')
-    row.type = 'button'
-    const text = element('span', 'text')
-    text.append(element('span', 'title', helperTitleOf(helper)))
-    const reply = helperReplyOf(helper)
-    if (reply) text.append(element('span', 'reply', reply))
-    text.append(element('span', 'meta', helperDetailsOf(helper, now)))
-    if (state.pick) row.title = 'Paste the copied text into the chat it runs in'
-    else row.title = helperTooltipOf(helper)
-    row.append(helperMark(), text)
-    row.addEventListener('click', () => {
-      if (!mailbox.composing) {
-        if (state.pick) chooseRow(conversation)
-        else openRow(helperOpenOf(conversation, helper))
-      }
-    })
-    box.append(row)
-  }
+  for (const node of rows) box.append(helperNode(conversation, key, node, now))
   if (more > 0) {
     const button = element('button', 'helpers-more', `+${more} more`)
     button.type = 'button'
@@ -623,6 +607,55 @@ function helperList(conversation, key, now) {
     box.append(button)
   }
   return box
+}
+
+/** A subagent's row and, under a toggle that folds them, the subagents it started, one step further in. */
+function helperNode(conversation, key, node, now) {
+  const item = element('div', 'helper-node')
+  item.append(helperRow(conversation, node.helper, now))
+  if (node.children.length === 0) return item
+  const nodeKey = key + '|' + node.helper.id
+  const open = !state.helpersShut.has(nodeKey)
+  const toggle = element('button', 'helpers-toggle is-nested', subtreeToggleOf(node, open))
+  toggle.type = 'button'
+  toggle.setAttribute('aria-expanded', String(open))
+  toggle.setAttribute('aria-controls', helpersId(nodeKey))
+  toggle.addEventListener('click', (event) => {
+    event.stopPropagation()
+    const focused = document.activeElement === toggle
+    if (open) state.helpersShut.add(nodeKey)
+    else state.helpersShut.delete(nodeKey)
+    draw({ force: true })
+    if (focused) refocus(`.helpers-toggle[aria-controls="${helpersId(nodeKey)}"]`)
+  })
+  item.append(toggle)
+  if (open) {
+    const nested = element('div', 'helpers is-nested')
+    nested.id = helpersId(nodeKey)
+    for (const child of node.children) nested.append(helperNode(conversation, key, child, now))
+    item.append(nested)
+  }
+  return item
+}
+
+function helperRow(conversation, helper, now) {
+  const row = element('button', 'helper-row')
+  row.type = 'button'
+  const text = element('span', 'text')
+  text.append(element('span', 'title', helperTitleOf(helper)))
+  const reply = helperReplyOf(helper)
+  if (reply) text.append(element('span', 'reply', reply))
+  text.append(element('span', 'meta', helperDetailsOf(helper, now)))
+  if (state.pick) row.title = 'Paste the copied text into the chat it runs in'
+  else row.title = helperTooltipOf(helper)
+  row.append(helperMark(), text)
+  row.addEventListener('click', () => {
+    if (!mailbox.composing) {
+      if (state.pick) chooseRow(conversation)
+      else openRow(helperOpenOf(conversation, helper))
+    }
+  })
+  return row
 }
 
 function renameField(conversation, renaming) {
@@ -1040,8 +1073,16 @@ async function openRow(conversation) {
   if (pending) showLateOpenFailure()
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (thisOpen !== latestOpen) return
-  // The terminal keeps the front; the note waits in the panel for its next showing, unless a failure replaces it.
+  // The note shows at once, in the panel shown beside the circle without taking the keys from the terminal.
+  // Where the panel cannot show, it waits there for its next showing, unless a failure replaces it.
   if (note) showOpenFailure(note, NOTICES.subagent)
+  if (note && !failure) {
+    // Set before the call: the panel-shown it may cause can arrive before its answer, and takes returning back.
+    state.returning = true
+    const peeked = await peekPanel().catch(() => ({ shown: false }))
+    if (!peeked?.shown) state.returning = false
+    return
+  }
   if (!failure) return
   showOpenFailure(failure, NOTICES.notOpened)
   state.returning = true

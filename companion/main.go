@@ -14,6 +14,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"sync"
 	"time"
 
@@ -404,10 +405,34 @@ func (s *shell) showPanelWhileShown() {
 	}
 }
 
+// peeksQuietly is true where showing the panel leaves the keys where
+// they are: on macOS it is a non-activating panel. Elsewhere a shown
+// window may take them, so the page's note waits for the next showing.
+var peeksQuietly = runtime.GOOS == "darwin"
+
+// peekPanel shows the list beside the bubble, as showPanelWhileShown
+// does, without taking the keys: the page asks after an open it left a
+// note for, and the terminal it brought forward keeps them. It reports
+// whether the panel showed.
+func (s *shell) peekPanel() bool {
+	s.placing.Lock()
+	defer s.placing.Unlock()
+	if !peeksQuietly || s.presenceNow() != shown {
+		return false
+	}
+	s.showPanelFocused(eventPanelShown, false)
+	return true
+}
+
 // showPanelOn opens the panel beside the bubble and tells it with event,
 // whose data is the corner nearest the bubble. The caller holds placing,
 // so a Hide cannot land between the presence it checked and the show.
 func (s *shell) showPanelOn(event string) {
+	s.showPanelFocused(event, true)
+}
+
+// showPanelFocused is showPanelOn, with the keys only when focus is true.
+func (s *shell) showPanelFocused(event string, focus bool) {
 	nearest := corner("")
 	work, placed := s.workArea()
 	var x, y int
@@ -423,7 +448,9 @@ func (s *shell) showPanelOn(event string) {
 	if px, py := s.panel.Position(); placed && (px != x || py != y) {
 		s.panel.SetPosition(x, y)
 	}
-	s.panel.Focus()
+	if focus {
+		s.panel.Focus()
+	}
 	s.panel.EmitEvent(event, string(nearest))
 }
 
@@ -684,6 +711,11 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST /api/panel/show", func(w http.ResponseWriter, _ *http.Request) {
 		s.showPanelWhileShown()
 		w.WriteHeader(http.StatusNoContent)
+	})
+	// The page waits for no panel-shown when the answer says none showed.
+	mux.HandleFunc("POST /api/panel/peek", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]bool{"shown": s.peekPanel()})
 	})
 	mux.HandleFunc("GET /api/preferences", s.getPreferences)
 	mux.HandleFunc("POST /api/preferences/shortcut", s.setShortcut(s.changeOpenShortcut))

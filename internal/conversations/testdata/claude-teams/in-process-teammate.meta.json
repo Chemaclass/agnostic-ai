@@ -1,0 +1,17 @@
+{
+  "agentType": "legolas-3905",
+  "isBuiltIn": false,
+  "description": "Build the subagent tree",
+  "name": "legolas-3905",
+  "spawnDepth": 0,
+  "requestShape": "background",
+  "requestNonInteractive": true,
+  "model": "opus",
+  "pickedEffortModel": "opus",
+  "taskKind": "in_process_teammate",
+  "teamName": "session-ad3d3020",
+  "color": "purple",
+  "planModeRequired": false,
+  "spawnedAgentType": "general-purpose",
+  "permissionMode": "bypassPermissions"
+}

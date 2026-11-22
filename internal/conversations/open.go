@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -204,29 +205,87 @@ func openRoute(ctx context.Context, c Conversation, processes Processes, launche
 	}
 }
 
-// subagentGone is the reply for a subagent its chat no longer lists:
-// it finished, or it was never there.
-const subagentGone = "That subagent no longer works in this chat, so nothing was opened. Refresh the list."
+// subagentFinished is the reply for a subagent its chat no longer
+// lists, once the chat opened: it finished, or it was never there.
+const subagentFinished = "That subagent has finished. Its chat is open."
 
-// subagentReply adds which subagent was asked for to the reply of the
-// chat it runs in. Only a terminal tab shows the agent rows below the
-// prompt; the tool takes no command that shows a subagent.
-func subagentReply(reply OpenReply, c Conversation, picked helper) OpenReply {
-	reply.Helper = &picked
-	name := picked.Title
-	if name == "" {
-		name = picked.Kind
+// paneTarget is the helper whose pane an open of subagent brings
+// forward: the subagent itself, or the nearest helper it runs inside,
+// when one has a terminal pane of its own.
+func paneTarget(helpers []helper, subagent string) (helper, bool) {
+	picked, listed := subagentIn(helpers, subagent)
+	if subagent == "" || !listed {
+		return helper{}, false
 	}
-	rows := c.App == AppCLI && c.Open.Kind == RouteFocus && (c.placed == nil || !c.placed.claudeBackground)
+	for _, h := range append([]helper{picked}, ancestorsOf(helpers, picked)...) {
+		if h.Reach == reachPane && h.member != "" {
+			return h, true
+		}
+	}
+	return helper{}, false
+}
+
+// subagentReply adds which subagent was asked for to the reply of what
+// opened: its own pane, the pane of a helper it runs inside, or the chat
+// it runs in. Only its own pane needs no note. Otherwise the note says
+// how to reach it from there: the agent rows below the prompt, the row
+// of each helper it runs inside, or the command that shows its pane.
+// Only a terminal tab shows the rows; the tool takes no command that
+// shows a subagent, and nothing is typed into the tab.
+func subagentReply(reply OpenReply, c Conversation, picked helper, pane, attach string) OpenReply {
+	reply.Helper = &picked
+	if pane == picked.ID {
+		reply.Reached = reachedSubagent
+		return reply
+	}
+	reply.Reached = reachedParent
+	// The helpers it runs inside, nearest first, up to the one whose
+	// pane came to the front.
+	var inside []helper
+	for _, h := range ancestorsOf(c.Helpers, picked) {
+		if h.ID == pane {
+			break
+		}
+		inside = append(inside, h)
+	}
+	name := picked.shownName()
+	rows := pane != "" || (c.App == AppCLI && c.Open.Kind == RouteFocus && (c.placed == nil || !c.placed.claudeBackground))
 	switch {
-	case name != "" && rows:
-		reply.Message += fmt.Sprintf(" Its subagent is '%s'. Use the agent rows below the prompt to switch to it.", name)
-	case name != "":
+	case attach != "":
+		owner := picked
+		if target, ok := paneTarget(c.Helpers, picked.ID); ok {
+			owner = target
+		}
+		reply.Message += fmt.Sprintf(" The pane of '%s' is in a tmux session no terminal shows. Run this command to see it.", owner.shownName())
+		reply.Command = attach
+	case !rows && name != "":
 		reply.Message += fmt.Sprintf(" Its subagent is '%s'.", name)
-	case rows:
-		reply.Message += " Use the agent rows below the prompt to switch to its subagent."
+	case !rows:
+	case len(inside) > 0 || (pane == "" && picked.Reach == reachNested && picked.ParentName != ""):
+		reply.Message += nestedNote(picked, inside)
+	case name != "":
+		reply.Message += fmt.Sprintf(" Press the down arrow to pick '%s' below the prompt, then Enter.", name)
+	default:
+		reply.Message += " Press the down arrow to pick its subagent below the prompt, then Enter."
 	}
 	return reply
+}
+
+// nestedNote says which helpers to open, outermost first, to reach a
+// subagent that runs inside others; inside lists them nearest first.
+func nestedNote(picked helper, inside []helper) string {
+	if len(inside) == 0 {
+		return fmt.Sprintf(" It runs inside '%s'. Open that row first.", picked.ParentName)
+	}
+	parent := inside[0].shownName()
+	if len(inside) == 1 {
+		return fmt.Sprintf(" It runs inside '%s'. Open that row first.", parent)
+	}
+	path := make([]string, 0, len(inside))
+	for _, h := range slices.Backward(inside) {
+		path = append(path, "'"+h.shownName()+"'")
+	}
+	return fmt.Sprintf(" It runs inside '%s'. Open %s.", parent, strings.Join(path, ", then "))
 }
 
 // heldNow checks a cursor-agent chat's store again before it is resumed:

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -66,6 +67,13 @@ type claudeWorkerEvents struct {
 	shellCalls       map[string]claudeShellCall
 	backgroundShells []claudeShellCall
 	mainWorking      bool
+	// teammates are the agent team members this transcript spawned.
+	teammates map[string]claudeTeammate
+	// own is whether this transcript's own agent takes a turn, sidechain
+	// lines included, as a teammate's transcript says it; ownKnown is
+	// false before any line says so.
+	own      nativeTaskEvent
+	ownKnown bool
 }
 
 type nativeTaskEvent struct {
@@ -74,7 +82,7 @@ type nativeTaskEvent struct {
 }
 
 func newClaudeWorkerEvents() claudeWorkerEvents {
-	return claudeWorkerEvents{tasks: map[string]nativeTaskEvent{}, pending: map[string]bool{}, calls: map[string]string{}}
+	return claudeWorkerEvents{tasks: map[string]nativeTaskEvent{}, pending: map[string]bool{}, calls: map[string]string{}, teammates: map[string]claudeTeammate{}}
 }
 
 // Claude Code records Agent/Task dispatches, async launches, task notifications,
@@ -107,13 +115,20 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 	if err != nil || when.UnixMilli() < startedAt {
 		return nil
 	}
+	switch {
+	case event.Type == "assistant" && slices.Contains(turnEnds, event.Message.StopReason):
+		events.own, events.ownKnown = nativeTaskEvent{at: when}, true
+	case event.Type == "assistant" && slices.Contains(turnSteps, event.Message.StopReason),
+		event.Type == "user" && !event.IsMeta:
+		events.own, events.ownKnown = nativeTaskEvent{working: true, at: when}, true
+	}
 	if !event.IsSidechain {
 		switch event.Type {
 		case "assistant":
-			switch event.Message.StopReason {
-			case "end_turn", "stop_sequence", "max_tokens", "refusal":
+			switch {
+			case slices.Contains(turnEnds, event.Message.StopReason):
 				events.mainWorking = false
-			case "tool_use", "pause_turn":
+			case slices.Contains(turnSteps, event.Message.StopReason):
 				events.mainWorking = true
 			}
 		case "user":
@@ -195,7 +210,13 @@ func (events *claudeWorkerEvents) visit(line []byte, startedAt int64) error {
 		default:
 			return errors.New("native task result has no activity metadata")
 		}
-		if wasAgent && result.Status == "async_launched" && result.AgentID != "" {
+		if wasAgent && result.Status == "teammate_spawned" && result.AgentID != "" {
+			events.tasks[result.AgentID] = nativeTaskEvent{working: true, at: when}
+			events.teammates[result.AgentID] = claudeTeammate{
+				at: when, name: result.Name, team: result.TeamName, member: result.TeammateID, kind: result.AgentType,
+				pane: result.PaneID != "" && result.PaneID != inProcessPane,
+			}
+		} else if wasAgent && result.Status == "async_launched" && result.AgentID != "" {
 			events.tasks[result.AgentID] = nativeTaskEvent{working: true, at: when}
 		} else if wasAgent && result.AgentID != "" {
 			events.tasks[result.AgentID] = nativeTaskEvent{at: when}
@@ -221,7 +242,21 @@ type nativeTaskResult struct {
 	Success        bool   `json:"success"`
 	ResumedAgentID string `json:"resumedAgentId"`
 	RevivedAgentID string `json:"revivedAgentId"`
+	// A teammate spawn also names the teammate, its team, its member id
+	// there, its agent type, and the tmux pane it runs in, or
+	// inProcessPane for one inside the lead's process.
+	Name       string `json:"name"`
+	TeamName   string `json:"team_name"`
+	TeammateID string `json:"teammate_id"`
+	AgentType  string `json:"agent_type"`
+	PaneID     string `json:"tmux_pane_id"`
 }
+
+// Stop reasons that end a turn, and those that continue it.
+var (
+	turnEnds  = []string{"end_turn", "stop_sequence", "max_tokens", "refusal"}
+	turnSteps = []string{"tool_use", "pause_turn"}
+)
 
 // A fork's own transcript opens with its launch. The parent's transcript
 // already records that launch with its metadata.
@@ -315,6 +350,9 @@ type claudeWork struct {
 	agents      map[string]bool
 	pending     map[string]bool
 	mainWorking bool
+	// teammates are the session's agent team members, each with whether
+	// it works.
+	teammates map[string]claudeTeammateState
 }
 
 // count is how many subagents work.
@@ -347,9 +385,12 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, []string{dir}
 	}
+	agentOf := map[string]string{}
 	for _, entry := range entries {
-		if _, ok := claudeAgentID(entry); ok {
-			files = append(files, filepath.Join(dir, entry.Name()))
+		if id, ok := claudeAgentID(entry); ok {
+			path := filepath.Join(dir, entry.Name())
+			files = append(files, path)
+			agentOf[path] = id
 		}
 	}
 	watch := append([]string{dir}, files...)
@@ -369,7 +410,9 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 	previousLogs := kept.logs
 	kept.logs = make(map[string]*nativeLog[claudeWorkerEvents], len(files))
 	tasks := map[string]nativeTaskEvent{}
-	work := &claudeWork{agents: map[string]bool{}, pending: map[string]bool{}}
+	spawned := map[string]claudeTeammate{}
+	turns := map[string]nativeTaskEvent{}
+	work := &claudeWork{agents: map[string]bool{}, pending: map[string]bool{}, teammates: map[string]claudeTeammateState{}}
 	for _, path := range files {
 		if path != file {
 			info, err := os.Stat(path)
@@ -389,7 +432,10 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 		kept.logs[path] = log
 		if path == file {
 			work.mainWorking = log.value.mainWorking
+		} else if log.value.ownKnown {
+			turns[agentOf[path]] = log.value.own
 		}
+		maps.Copy(spawned, log.value.teammates)
 		for call := range log.value.pending {
 			work.pending[call] = true
 		}
@@ -403,7 +449,23 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 	for id, event := range tasks {
 		work.agents[id] = event.working
 	}
-	return work, watch
+	lead := strings.TrimSuffix(filepath.Base(file), ".jsonl")
+	teams := map[string]bool{}
+	for id, teammate := range spawned {
+		state, known := s.claudeTeammateStateOf(lead, teammate, tasks[id], turns[id])
+		if !known {
+			return nil, append(watch, s.claudeTeamPath(teammate.team))
+		}
+		work.agents[id] = state.working
+		work.teammates[id] = state
+		if path := s.claudeTeamPath(teammate.team); path != "" {
+			teams[path] = true
+		}
+	}
+	// A team's config changes as a teammate stops or goes idle, with no
+	// write to any transcript. The watched files join the scan's stamp in
+	// order, so they are sorted.
+	return work, append(watch, slices.Sorted(maps.Keys(teams))...)
 }
 
 // claudeSubagentsDir is the folder that holds a session's subagent
@@ -423,11 +485,17 @@ func claudeAgentID(entry os.DirEntry) (string, bool) {
 
 // claudeAgentMeta is what Claude Code writes beside a subagent's
 // transcript when it spawns one: the call's description and agent type,
-// and the id of the Agent or Task call that spawned it.
+// the id of the Agent or Task call that spawned it, and the subagent
+// that did when one did. A teammate has no call id; it has a name, its
+// team and its task kind instead.
 type claudeAgentMeta struct {
-	AgentType   string `json:"agentType"`
-	Description string `json:"description"`
-	ToolUseID   string `json:"toolUseId"`
+	AgentType     string `json:"agentType"`
+	Description   string `json:"description"`
+	ToolUseID     string `json:"toolUseId"`
+	ParentAgentID string `json:"parentAgentId"`
+	Name          string `json:"name"`
+	TeamName      string `json:"teamName"`
+	TaskKind      string `json:"taskKind"`
 }
 
 // claudeAgentMetaOf reads a subagent's meta file, kept until it changes.
@@ -501,20 +569,21 @@ func readClaudeAgentReply(path string) string {
 	return reply
 }
 
-// claudeHelpers lists a live session's native subagents that work, from
-// its subagents folder: those work names working, and those whose
-// spawning call work names as waiting for its result. A finished one is
-// not listed. Nil work is unknown, and lists none.
+// claudeHelpers lists a live session's native subagents and teammates
+// that work: from its subagents folder, those work names working and
+// those whose spawning call work names as waiting for its result, then
+// its pane teammates. A finished one is not listed. Nil work is
+// unknown, and lists none.
 func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]bool) []helper {
 	if work == nil || work.count() == 0 {
 		return nil
 	}
 	dir := claudeSubagentsDir(file)
 	entries, err := os.ReadDir(dir)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil
 	}
-	var helpers []helper
+	helpers := s.claudePaneHelpers(work)
 	for _, entry := range entries {
 		// Only an id an open request can name is listed.
 		id, ok := claudeAgentID(entry)
@@ -534,12 +603,31 @@ func (s *Scanner) claudeHelpers(file string, work *claudeWork, seen map[string]b
 		}
 		transcript := filepath.Join(dir, entry.Name())
 		seen[transcript] = true
-		helpers = append(helpers, helper{
+		h := helper{
 			Tool: ToolClaude, ID: id, Kind: meta.AgentType, State: helperWorking,
-			Title:     s.helperTitle(meta.Description, ""),
+			Title:     s.helperTitle(firstNonEmpty(meta.Description, meta.Name), ""),
 			Reply:     s.shown.get(texts{reply: s.claudeAgentReplyOf(transcript)}).reply,
 			UpdatedAt: stamp(info.ModTime()),
-		})
+			Reach:     reachRows,
+			name:      s.helperTitle(meta.Name, ""),
+		}
+		if meta.ParentAgentID != "" && meta.ParentAgentID != id && ValidAgentID(meta.ParentAgentID) {
+			h.ParentID, h.Reach = meta.ParentAgentID, reachNested
+		}
+		helpers = append(helpers, h)
+	}
+	for i, h := range helpers {
+		if h.Reach != reachNested {
+			continue
+		}
+		if ancestors := ancestorsOf(helpers, h); len(ancestors) > 0 {
+			helpers[i].ParentName = ancestors[0].shownName()
+			continue
+		}
+		parentMeta := filepath.Join(dir, "agent-"+h.ParentID+".meta.json")
+		seen[parentMeta] = true
+		parent := s.claudeAgentMetaOf(parentMeta)
+		helpers[i].ParentName = s.helperTitle(firstNonEmpty(parent.Name, parent.Description, parent.AgentType), "")
 	}
 	return sortedHelpers(helpers)
 }
@@ -674,12 +762,20 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 			continue // A finished subagent is not listed.
 		}
 		spawn := spawns[worker.ID]
-		helpers[spawn.ParentID] = append(helpers[spawn.ParentID], helper{
+		h := helper{
 			Tool: ToolCodex, ID: worker.ID, Kind: spawn.Role, State: helperWorking,
 			Title:     s.helperTitle(codexWorkerTitle(worker, spawn), worker.FirstUserMessage),
 			UpdatedAt: timeFromMillis(worker.UpdatedAtMs),
-		})
-		row := Conversation{Tool: ToolCodex, ID: worker.ID, Folder: worker.Cwd, UpdatedAt: timeFromMillis(worker.UpdatedAtMs)}
+			Reach:     reachCodexThreads,
+		}
+		// A subagent of a subagent is listed under the thread at the top,
+		// naming the subagent that spawned it.
+		root := codexRootOf(parents, worker.ID)
+		if root != spawn.ParentID {
+			h.ParentID = spawn.ParentID
+		}
+		helpers[root] = append(helpers[root], h)
+		row := Conversation{Tool: ToolCodex, ID: worker.ID, Folder: worker.Cwd, UpdatedAt: timeFromMillis(worker.UpdatedAtMs), subagent: firstNonEmpty(h.shownName(), "Untitled subagent")}
 		codexRoute(&row, codexThread{ID: worker.ID, Cwd: worker.Cwd, Originator: worker.Originator, Source: worker.Source}, editor)
 		focusLive(&row, pid)
 		rows = append(rows, row)
@@ -696,6 +792,21 @@ func (s *Scanner) codexWorkingSubagents(ctx context.Context, statePath string, c
 	// order, so they are sorted to keep an unchanged set's stamp stable.
 	slices.Sort(watched)
 	return watched, rows
+}
+
+// codexRootOf is the thread at the top of a subagent's spawn chain: the
+// first one that is no subagent, or the last before a cycle.
+func codexRootOf(parents map[string]string, id string) string {
+	seen := map[string]bool{id: true}
+	root := parents[id]
+	for {
+		parent, isSubagent := parents[root]
+		if !isSubagent || seen[root] {
+			return root
+		}
+		seen[root] = true
+		root = parent
+	}
 }
 
 // codexWorkerTitle is a subagent's own name or title. With neither, nor

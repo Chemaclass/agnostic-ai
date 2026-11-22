@@ -204,17 +204,25 @@ func (s *server) start() (string, error) {
 	}
 
 	served := make(chan string, 1)
+	read := make(chan struct{})
 	go func() {
+		defer close(read)
 		lines := bufio.NewScanner(output)
 		for lines.Scan() {
 			if address, ok := strings.CutPrefix(lines.Text(), servedLinePrefix); ok {
-				served <- strings.TrimSuffix(strings.TrimSpace(address), "/")
+				select {
+				case served <- strings.TrimSuffix(strings.TrimSpace(address), "/"):
+				default:
+				}
 			}
 		}
 		close(served)
 	}()
 	ended := make(chan struct{})
 	go func() {
+		// Wait closes stdout, so it waits for the reader: a server that
+		// says its address and ends at once would otherwise lose the line.
+		<-read
 		// Collect the process when it ends, and forget its address then.
 		_ = process.Wait()
 		close(ended)
