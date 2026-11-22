@@ -993,6 +993,8 @@ export interface Conversation {
   claimCount?: number
   /** The paths across this session's file claims; absent when it claims none. */
   claimedPaths?: number
+  /** Active path conflicts this session holds or requests, with or without a thread. */
+  claimConflicts?: ConversationMailboxConflict[]
   open: ConversationRoute
 }
 
@@ -1011,6 +1013,7 @@ export interface ConversationThreadSummary {
 }
 
 export interface ConversationMailboxConflict {
+  id: string
   worktree: string
   path: string
   requester: { tool: ConversationTool; id: string }

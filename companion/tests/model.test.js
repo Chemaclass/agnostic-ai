@@ -1110,6 +1110,9 @@ test('a row waiting only on kept shells sits under Active until the wake time', 
   assert.equal(due.conversations[0].state, 'blocked')
   assert.equal(due.needsYou, 2)
 
+  const conflicted = { ...view, conversations: [{ ...waitingRow, claimConflicts: [{ id: 'c1', worktree: '/w', path: 'a.go' }] }, view.conversations[1]] }
+  assert.equal(keptViewOf(conflicted, [record], shellNow).needsYou, 2, 'a path conflict keeps the row under Needs you')
+
   const another = keptViewOf(view, [{ ...record, procStart: 'later' }], shellNow)
   assert.equal(another.conversations[0].state, 'blocked')
 
@@ -1361,6 +1364,55 @@ test('shell labels tell apart shells whose commands share a long start', async (
 test('a kept shell names its wake time before its command', async () => {
   const { keptShellNoteOf } = await import('../frontend/model.js')
   assert.equal(keptShellNoteOf({ ...shell, keptUntil: new Date(shellNow + 30 * 60000).toISOString() }, shellNow), 'Kept running · asks again in 30 min')
+})
+
+const holderRef = { tool: 'claude', id: 'holder-1' }
+const requesterRef = { tool: 'codex', id: 'requester-1' }
+const pathConflict = { worktree: '/w', path: 'internal/mailbox/handoff.go', requester: requesterRef, holder: holderRef }
+const names = { 'claude:holder-1': 'Fix the parser', 'codex:requester-1': 'Draft the tests' }
+const nameIn = (ref) => names[`${ref.tool}:${ref.id}`]
+
+test('a conflict line names the path and the other session on both rows', async () => {
+  const { claimConflictOf } = await import('../frontend/model.js')
+  assert.equal(claimConflictOf(row('x', 'active')), undefined)
+  assert.equal(claimConflictOf({ ...holderRef, claimConflicts: [pathConflict] }, nameIn), 'Draft the tests wants internal/mailbox/handoff.go, which this session claims')
+  assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [pathConflict] }, nameIn), 'internal/mailbox/handoff.go is claimed by Fix the parser')
+  assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [pathConflict] }), 'internal/mailbox/handoff.go is claimed by Claude Code session holder-1')
+  assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [{ ...pathConflict, holder: undefined }] }), 'No session holds internal/mailbox/handoff.go any more')
+  const lostHandoff = { ...pathConflict, holder: requesterRef, sender: holderRef, thread: 't', n: 1 }
+  assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [lostHandoff] }, nameIn), 'Fix the parser no longer holds internal/mailbox/handoff.go')
+  assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [pathConflict, pathConflict] }, nameIn), 'internal/mailbox/handoff.go is claimed by Fix the parser, and 1 more conflict')
+})
+
+test('a conflict puts a row under Needs you whatever its state, after a permission and with the other waits', async () => {
+  const { needsPersonOf, needsReasonOf } = await import('../frontend/model.js')
+  const working = row('holder-1', 'working', { claimConflicts: [pathConflict] })
+  assert.equal(needsPersonOf(working), true)
+  assert.equal(needsPersonOf(row('y', 'working')), false)
+  assert.deepEqual(needsReasonOf(working, Date.now(), nameIn), { kind: 'conflict', text: 'Draft the tests wants internal/mailbox/handoff.go, which this session claims' })
+  const archived = row('holder-1', 'dormant', { claimConflicts: [pathConflict] })
+  assert.equal(needsReasonOf(archived, Date.now(), nameIn).kind, 'conflict')
+  const unread = row('holder-1', 'unread', { claimConflicts: [pathConflict] })
+  assert.equal(needsReasonOf(unread, Date.now(), nameIn).kind, 'conflict')
+  const permission = row('holder-1', 'blocked', {
+    claimConflicts: [pathConflict], live: true, activity: 'waiting', waiting: { for: 'permission', tool: 'Bash', detail: 'npm test' },
+  })
+  assert.equal(needsReasonOf(permission, Date.now(), nameIn).kind, 'permission')
+})
+
+test('conflict rows group under Needs you, count as waits on the circle with a lock, and rank after a permission', async () => {
+  const { firstWaitingOf, stateIconOf } = await import('../frontend/model.js')
+  const conflicted = row('c', 'working', { claimConflicts: [pathConflict] })
+  const permission = row('p', 'blocked', { live: true, activity: 'waiting', waiting: { for: 'permission', tool: 'Bash', detail: 'npm test' } })
+  const unread = row('u', 'unread')
+  const groups = grouped([unread, conflicted, row('w', 'working'), permission])
+  assert.deepEqual(groups.map((group) => [group.id, group.rows.map((r) => r.id)]), [['needs-you', ['p', 'c', 'u']], ['working', ['w']]])
+  assert.deepEqual(waitingOf({ conversations: [conflicted, unread] }), { blocked: 1, unread: 1, icon: 'lock' })
+  assert.deepEqual(waitingOf({ conversations: [row('s', 'unread', { claimConflicts: [pathConflict] })] }), { blocked: 1, unread: 0, icon: 'lock' })
+  assert.equal(firstWaitingOf({ conversations: [row('w', 'working'), conflicted] }), keyOf(conflicted))
+  assert.equal(stateIconOf(conflicted), 'lock')
+  assert.equal(stateIconOf(row('w', 'working')), undefined)
+  assert.equal(viewIn({ conversations: [conflicted, row('w', 'working')] }, 'local').needsYou, 1)
 })
 
 test('a release splits into requests within the path and byte limits, one owner and worktree each', async () => {

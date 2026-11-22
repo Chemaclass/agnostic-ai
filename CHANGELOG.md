@@ -23,6 +23,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The companion opens chats on Windows and Linux and switches to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
 - Each companion row under Needs you says why, stuck shells read apart with passwords masked, and the approvals mode is a small chip (#3912, #3917, #3921).
 - The companion's ⋯ menu sets the approvals mode and the Approve button, and **Apply to my tools** shows the files before it syncs (#3913, #3916). Turn off agent message approval in the companion, not through the local API.
+- File claims show only while one exists, as a chip on the chat that holds them, with a "?" to the docs. Gone sessions' claims release in one step, and a path two sessions want puts both under Needs you until it is released or dismissed (#3914, #3919, #3920).
 
 ### By tool
 

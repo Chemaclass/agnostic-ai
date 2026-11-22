@@ -284,6 +284,7 @@ func finishTransfer(state *claimsFile, move pendingTransfer) error {
 	state.Conflicts = slices.DeleteFunc(slices.Clone(state.Conflicts), func(c ClaimConflict) bool {
 		return c.Thread == move.Thread && c.N == move.N
 	})
+	retireUnblocked(state)
 	state.Pending = nil
 	return nil
 }

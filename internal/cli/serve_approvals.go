@@ -418,7 +418,7 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 			note.Approved, note.Recent = session.Approved, session.recent
 		}
 		if held := snap.pending[key]; c.Tool == conversations.ToolCodex && c.Live && len(held) > 0 {
-			if _, waits := c.PermissionWait(); !waits && c.HoldForPermission(held[0].Call, pendingDetail(held[0]), held[0].created) {
+			if _, waits := c.PermissionWait(); !waits && c.HoldForPermission(held[0].Call, pendingDetail(held[0]), held[0].created) && !view.NeedsYouAnyway(*c) {
 				view.NeedsYou++
 			}
 		}
@@ -434,7 +434,9 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 			if !hold.IsZero() {
 				if c.State == conversations.StateBlocked {
 					c.State = conversations.StateWorking
-					view.NeedsYou = max(view.NeedsYou-1, 0)
+					if !view.NeedsYouAnyway(*c) {
+						view.NeedsYou = max(view.NeedsYou-1, 0)
+					}
 				}
 				c.Activity = conversations.ActivityWorking
 				c.Waiting = nil
@@ -454,7 +456,7 @@ func applyApprovals(view *conversations.View, snap approvalsSnapshot, folder str
 			continue
 		}
 		if _, hold, _ := waitVerdictOf(c, snap, now, firstSeen); !hold.IsZero() && len(pendingShown(c, snap.pending[key])) == 0 {
-			if c.State == conversations.StateBlocked {
+			if c.State == conversations.StateBlocked && !view.NeedsYouAnyway(c) {
 				view.NeedsYou = max(view.NeedsYou-1, 0)
 			}
 			held(hold)
