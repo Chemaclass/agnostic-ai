@@ -293,7 +293,7 @@ func passesPasswordArg(args []string) bool {
 // sshpassPasswordAt is the index of the literal password in an sshpass
 // command's words, -p and its value as one word or two, or 0 for none.
 func sshpassPasswordAt(args []string) int {
-	if len(args) == 0 || filepath.Base(args[0]) != "sshpass" {
+	if len(args) == 0 || programName(args[0]) != "sshpass" {
 		return 0
 	}
 	for i := 1; i < len(args) && strings.HasPrefix(args[i], "-"); i++ {

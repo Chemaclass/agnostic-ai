@@ -2,7 +2,6 @@ package preview
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -69,7 +68,7 @@ func passesPasswordInText(text string) bool {
 		for i, arg := range args {
 			args[i] = strings.Trim(arg, `"'.,;:)`)
 		}
-		name := text[m[2]:m[3]]
+		name := strings.TrimSuffix(text[m[2]:m[3]], ".exe")
 		if name != "sshpass" {
 			if slices.ContainsFunc(args, mysqlPasswordArg) {
 				return true
@@ -77,7 +76,7 @@ func passesPasswordInText(text string) bool {
 			continue
 		}
 		args = append([]string{name}, args...)
-		if at := sshpassPasswordAt(args); at > 0 && (args[at-1] != "-p" || at+1 < len(args) && sshpassCommands[filepath.Base(args[at+1])]) {
+		if at := sshpassPasswordAt(args); at > 0 && (args[at-1] != "-p" || at+1 < len(args) && sshpassCommands[programName(args[at+1])]) {
 			return true
 		}
 	}

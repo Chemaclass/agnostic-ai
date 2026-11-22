@@ -30,7 +30,7 @@ var (
 func MaskCommandPasswords(line string) (shown, rest string, ok bool) {
 	words := strings.Split(line, " ")
 	var out, kept []string
-	program := ""
+	program, curlUser := "", false
 	for i := 0; i < len(words); i++ {
 		word := words[i]
 		found := noPassword
@@ -41,7 +41,7 @@ func MaskCommandPasswords(line string) (shown, rest string, ok bool) {
 			if name, _, ok := strings.Cut(word, "="); ok && passwordEnvNames[name] {
 				found = passwordAt{at: i, offset: len(name) + 1}
 			} else if !shellAssignment.MatchString(word) && !commandWrappers[word] && !strings.HasPrefix(word, "-") {
-				program = filepath.Base(word)
+				program = programName(word)
 			}
 		case mysqlClient(program):
 			found = mysqlPasswordAt(words, i)
@@ -59,10 +59,11 @@ func MaskCommandPasswords(line string) (shown, rest string, ok bool) {
 				}
 				continue
 			case !strings.HasPrefix(word, "-"):
-				program = filepath.Base(word)
+				program = programName(word)
 			}
-		case program == "curl" || program == "curl.exe":
+		case program == "curl":
 			found = curlPasswordAt(words, i)
+			curlUser = curlUser || found.at >= 0
 		}
 		if end, offset, after, ok := passwordSpan(words, found); ok {
 			out = append(out, words[i:found.at]...)
@@ -81,8 +82,24 @@ func MaskCommandPasswords(line string) (shown, rest string, ok bool) {
 		}
 	}
 	rest = strings.Join(kept, " ")
-	return strings.Join(out, " "), rest, !passesPasswordIn(rest)
+	return strings.Join(out, " "), rest, !passesPasswordIn(rest) && (!curlUser || !slices.ContainsFunc(words, curlData))
 }
+
+// programName is the command a word runs, without its folder, a leading
+// subshell or group opener, or an .exe suffix.
+func programName(word string) string {
+	return strings.TrimSuffix(filepath.Base(strings.TrimLeft(word, "$({")), ".exe")
+}
+
+// curlData reports whether word sends a curl request body, which may
+// repeat the password a masked -u held.
+func curlData(word string) bool {
+	return strings.HasPrefix(word, "-d") || strings.HasPrefix(word, "--data") || strings.HasPrefix(word, "--json")
+}
+
+// identifiedBy is SQL that sets a password, as in `CREATE USER ...
+// IDENTIFIED BY 'secret'`.
+var identifiedBy = regexp.MustCompile(`(?i)\bidentified\s+by\b`)
 
 var (
 	segmentSeparator = regexp.MustCompile(`[;&|]`)
@@ -93,8 +110,8 @@ var (
 
 // passesPasswordIn reports whether text, a command with the passwords
 // it masked taken out, still passes one: a MySQL client or sshpass with
-// a literal after -p or --password anywhere, or a password variable set
-// to a literal.
+// a literal after -p or --password anywhere, a MySQL client with SQL
+// that sets a password, or a password variable set to a literal.
 func passesPasswordIn(text string) bool {
 	for _, segment := range segmentSeparator.Split(text, -1) {
 		args := strings.Fields(segment)
@@ -105,12 +122,12 @@ func passesPasswordIn(text string) bool {
 			if name, value, ok := strings.Cut(arg, "="); ok && passwordEnvNames[name] && strings.Trim(value, "'\"") != "" && !notLiteral(strings.Trim(value, "'\"")) {
 				return true
 			}
-			base := filepath.Base(arg)
+			base := programName(arg)
 			if base == "sshpass" && sshpassPasswordAt(args[i:]) > 0 {
 				return true
 			}
 			if strings.HasPrefix(base, "mysql") || strings.HasPrefix(base, "mariadb") {
-				if slices.ContainsFunc(args[i+1:], mysqlPasswordArg) || mysqlSpacedPassword(args[i+1:]) {
+				if slices.ContainsFunc(args[i+1:], mysqlPasswordArg) || mysqlSpacedPassword(args[i+1:]) || identifiedBy.MatchString(text) {
 					return true
 				}
 			}

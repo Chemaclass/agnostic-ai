@@ -16,6 +16,8 @@ func TestMaskCommandPasswords_MasksKnownPasswordArgumentsOnly(t *testing.T) {
 		{"unclosed quote", `mysql --password='hunter2 pass`, `mysql --password='` + r, "mysql"},
 		{"after a separator", "cd /srv && mysql -phunter2pass; ls -p x", "cd /srv && mysql -p" + r + "; ls -p x", "cd /srv && mysql ; ls -p x"},
 		{"behind sudo", "sudo PGPASSWORD=hunter2pass psql", "sudo PGPASSWORD=" + r + " psql", "sudo psql"},
+		{"sshpass in a subshell", "(sshpass -p hunter2pass ssh host)", "(sshpass -p " + r + " ssh host)", "(sshpass ssh host)"},
+		{"sshpass.exe", "sshpass.exe -p hunter2pass ssh host", "sshpass.exe -p " + r + " ssh host", "sshpass.exe ssh host"},
 		{"sshpass glued", "sshpass -phunter2pass ssh host", "sshpass -p" + r + " ssh host", "sshpass ssh host"},
 		{"sshpass from a file", "sshpass -f pass.txt ssh -p 22 host", "sshpass -f pass.txt ssh -p 22 host", "sshpass -f pass.txt ssh -p 22 host"},
 		{"curl grouped switches", "curl -fsSu alice:hunter2pass https://x.example.com", "curl -fsSu alice:" + r + " https://x.example.com", "curl https://x.example.com"},
@@ -50,6 +52,11 @@ func TestMaskCommandPasswords_WithholdsAPasswordItCannotMask(t *testing.T) {
 		"cd /srv;sshpass -p hunter2pass ssh host",
 		"docker run -e MYSQL_PWD=hunter2pass mysql",
 		"echo PGPASSWORD=hunter2pass",
+		`mysql -u root -pold9secret -e "ALTER USER 'app'@'%' IDENTIFIED BY 'newsecret9x'"`,
+		`mysql --password=old9secret -e "create user app identified by 'newsecret9x'"`,
+		`curl -u alice:hunter2pass -d '{"password":"hunter2pass"}' https://x.example.com`,
+		"curl --user alice:hunter2pass --data-raw x https://x.example.com",
+		"echo $(sshpass -p hunter2pass ssh host)",
 	} {
 		if shown, _, ok := MaskCommandPasswords(line); ok {
 			t.Errorf("MaskCommandPasswords(%q) = %q, want it withheld", line, shown)
