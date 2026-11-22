@@ -273,7 +273,7 @@ func (s *Scanner) scan(ctx context.Context, opts ScanOptions, stamp *StoreStamp)
 		Tools: []Source{}, Conversations: page,
 	}
 	view.NeedsYou, view.PermissionWaits = read.needsYou, read.waits
-	view.pinned = pinned
+	view.Pinned = pinned
 	for ref := range pinned {
 		if read.calm[ref] {
 			view.NeedsYou++

@@ -454,3 +454,31 @@ func TestUnfilteredFirstPage(t *testing.T) {
 		}
 	}
 }
+
+// A session in a path conflict already counts once in needsYou, so what
+// approvals do to its wait leaves the count alone.
+func TestApplyApprovals_LeavesTheCountOfAConflictSession(t *testing.T) {
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	var view conversations.View
+	if err := json.Unmarshal([]byte(`{"needsYou":2,"conversations":[
+		{"tool":"codex","id":"t1","live":true,"state":"active","activity":"working"},
+		{"tool":"codex","id":"t2","live":true,"state":"blocked","waiting":{"for":"permission"}}
+	]}`), &view); err != nil {
+		t.Fatal(err)
+	}
+	view.Pinned = map[conversations.Ref]bool{{Tool: conversations.ToolCodex, ID: "t1"}: true, {Tool: conversations.ToolCodex, ID: "t2"}: true}
+	snap := approvalsSnapshot{
+		policy: config.ApprovalsPolicy{Home: config.ApprovalsConfig{Mode: config.ApprovalsAsk}}, policyOK: true,
+		projectAsk: map[string]string{}, routed: func(string, string) bool { return true },
+		pending: map[string][]heldRequest{
+			approvalSessionKey("codex", "t1"): {{PendingRequest: conversations.PendingRequest{ID: "a", Digest: "da", Call: "Bash", Input: approvals.PendingInput{Command: "touch a.txt"}}, created: now.Add(-2 * time.Second)}},
+		},
+	}
+	applyApprovals(&view, snap, "", now, map[string]time.Time{})
+	if view.Conversations[0].State != conversations.StateBlocked {
+		t.Errorf("t1 state = %s, want blocked by its held request", view.Conversations[0].State)
+	}
+	if view.NeedsYou != 2 {
+		t.Errorf("needsYou = %d, want 2: each conflict session counts once", view.NeedsYou)
+	}
+}

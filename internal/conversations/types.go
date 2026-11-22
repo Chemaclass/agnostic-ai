@@ -168,15 +168,15 @@ type View struct {
 	ApprovalsMode string         `json:"approvalsMode,omitempty"`
 	Tools         []Source       `json:"tools"`
 	Conversations []Conversation `json:"conversations"`
-	// pinned is ScanOptions.NeedsYou: rows that need the person whatever
+	// Pinned is ScanOptions.NeedsYou: rows that need the person whatever
 	// their state.
-	pinned map[Ref]bool
+	Pinned map[Ref]bool `json:"-"`
 }
 
 // NeedsYouAnyway reports whether row counts in NeedsYou for a reason
 // its state does not hold, so a change of its state leaves the count.
 func (v View) NeedsYouAnyway(row Conversation) bool {
-	return v.pinned[Ref{Tool: row.Tool, ID: row.ID}]
+	return v.Pinned[Ref{Tool: row.Tool, ID: row.ID}]
 }
 
 // Source reports one tool's store.
