@@ -1759,6 +1759,8 @@ stopShellGo.addEventListener('click', async () => {
     const message = stoppedShellOf(result.body)
     const problem = Boolean(result.body.stillRunning?.length)
     state.shellStops.set(shellKey, { key, text: message, problem, version: result.version })
+    // A stopped shell is done with, even where the next list cannot say it is gone.
+    forgetKept(state.keptShells.filter((record) => shellKeyOf(record) === shellKey))
     if (problem) showOpenFailure({ message }, NOTICES.shellProcessesLeft)
     else say(message)
   }

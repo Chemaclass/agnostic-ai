@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -143,6 +144,8 @@ func TestKeptShellRoutes_RefuseAKeepWithoutAShell(t *testing.T) {
 		`{"tool":"claude","id":"a","pid":531,"wakeAt":"` + wake + `","keeps":1}`,
 		`{"tool":"claude","id":"a","pid":531,"procStart":"s","keeps":1}`,
 		`{"tool":"claude","id":"a","pid":531,"procStart":"s","wakeAt":"` + wake + `"}`,
+		`{"tool":"claude","id":"a","pid":531,"procStart":"s","wakeAt":"` + time.Now().Add(-time.Minute).Format(time.RFC3339) + `","keeps":1}`,
+		`{"tool":"claude","id":"a","pid":531,"procStart":"s","wakeAt":"` + time.Now().Add(5*time.Hour).Format(time.RFC3339) + `","keeps":1}`,
 	} {
 		rec := httptest.NewRecorder()
 		routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/kept-shells/keep", strings.NewReader(body)))
@@ -178,4 +181,47 @@ func TestKeptShellRoutes_DropRecordsADayPastTheirWakeTime(t *testing.T) {
 	if kept := keptShellsOf(t, rec); len(kept) != 1 || kept[0].PID != 531 {
 		t.Errorf("kept = %+v; want only the new record", kept)
 	}
+}
+
+func TestKeptShellRoutes_KeepAtMostMaxKeptShells(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	now := time.Now()
+	for i := range maxKeptShells {
+		s.settings.KeptShells = append(s.settings.KeptShells, keptShell{Tool: "claude", ID: "a", PID: 1000 + i, ProcStart: "s", WakeAt: now.Add(time.Duration(i+1) * time.Minute), Keeps: 1})
+	}
+	routes := s.routes(&inbox{}, fstest.MapFS{})
+	wake := now.Add(3 * time.Hour).Format(time.RFC3339)
+
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/kept-shells/keep", strings.NewReader(`{"tool":"claude","id":"a","pid":531,"procStart":"s","wakeAt":"`+wake+`","keeps":1}`)))
+
+	kept := keptShellsOf(t, rec)
+	if len(kept) != maxKeptShells || kept[len(kept)-1].PID != 531 || slices.ContainsFunc(kept, func(k keptShell) bool { return k.PID == 1000 }) {
+		t.Errorf("kept %d records; want %d, the first to wake gone and the new one kept", len(kept), maxKeptShells)
+	}
+}
+
+func TestKeptWake_ArmsTheNextWakeAfterFiring(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	s.inbox = &inbox{}
+	now := time.Now()
+	s.settings.KeptShells = []keptShell{{PID: 1, ProcStart: "s", WakeAt: now.Add(50 * time.Millisecond)}, {PID: 2, ProcStart: "s", WakeAt: now.Add(time.Hour)}}
+	s.armKeptWake()
+	first := s.keptWakeTimer()
+
+	deadline := time.Now().Add(5 * time.Second)
+	for s.keptWakeTimer() == first && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	if s.keptWakeTimer() == first {
+		t.Fatal("the timer was not armed again after it fired")
+	}
+	s.keptWakeTimer().Stop()
+}
+
+func (s *shell) keptWakeTimer() *time.Timer {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.keptWake
 }

@@ -794,11 +794,14 @@ export function keptShellsOfRow(conversation, kept) {
 }
 
 /**
- * The records a full list shows are over: their chat is live in it and the shell is gone from its stuck shells.
- * A working chat does not count: the server leaves out a shell it cannot tell from the turn's own work.
+ * The records a full list shows are over: the shell is gone from a live chat that the server reads shells for, one
+ * waiting on a shell or listing other shells, and that is not working: the server leaves out a shell it cannot tell
+ * from the turn's own work. A chat that waits on a permission or a question, or is idle, lists no shells at all, so
+ * its records stay until the companion drops them a day after their wake time.
  */
 export function finishedKeepsOf(view, kept) {
-  const settled = view.conversations.filter((conversation) => conversation.live && conversation.state !== 'working')
+  const readsShells = (conversation) => conversation.waiting?.for === 'shell' || stuckShellsOf(conversation).length > 0
+  const settled = view.conversations.filter((conversation) => conversation.live && conversation.state !== 'working' && readsShells(conversation))
   const live = new Map(settled.map((conversation) => [keyOf(conversation), conversation]))
   return kept.filter((record) => {
     const conversation = live.get(keyOf(record))

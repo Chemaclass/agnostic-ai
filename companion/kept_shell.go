@@ -37,6 +37,20 @@ func keptUntil(kept []keptShell, pid int, procStart string, now time.Time) bool 
 // the record of a chat that ended.
 const keptRecordAge = 24 * time.Hour
 
+// longestKeep is the longest wait the page asks for; keepSkew allows
+// for the page's clock reading a little apart from the companion's.
+const (
+	longestKeep = 4 * time.Hour
+	keepSkew    = time.Minute
+)
+
+// maxKeptShells bounds the file; past it the records that wake first go.
+const maxKeptShells = 64
+
+// shortestKeptWake keeps a timer that fires early, after a clock change,
+// from firing again at once.
+const shortestKeptWake = time.Second
+
 // nextKeptWake is how long until the first record after now wakes.
 func nextKeptWake(kept []keptShell, now time.Time) (time.Duration, bool) {
 	var next time.Duration
@@ -100,7 +114,10 @@ func (s *shell) armKeptWakeLocked(now time.Time) {
 	if !ok || s.inbox == nil {
 		return
 	}
-	s.keptWake = time.AfterFunc(wait, func() { s.listRead(s.inbox.held()) })
+	s.keptWake = time.AfterFunc(max(wait, shortestKeptWake), func() {
+		s.listRead(s.inbox.held())
+		s.armKeptWake()
+	})
 }
 
 func writeKeptShells(w http.ResponseWriter, kept []keptShell) {
@@ -127,8 +144,16 @@ func (s *shell) keepShell(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "send " + shape})
 		return
 	}
+	if now := time.Now(); !body.WakeAt.After(now) || body.WakeAt.After(now.Add(longestKeep+keepSkew)) {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "wakeAt must be within the next 4 hours"})
+		return
+	}
 	kept, err := s.changeKeptShells(func(kept []keptShell) []keptShell {
 		kept = slices.DeleteFunc(kept, func(k keptShell) bool { return k.is(body.PID, body.ProcStart) })
+		if len(kept) >= maxKeptShells {
+			slices.SortFunc(kept, func(a, b keptShell) int { return a.WakeAt.Compare(b.WakeAt) })
+			kept = kept[len(kept)-maxKeptShells+1:]
+		}
 		return append(kept, body)
 	})
 	if err != nil {
