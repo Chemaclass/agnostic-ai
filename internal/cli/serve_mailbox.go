@@ -70,6 +70,10 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	if mailboxNeedsCompanion(r.URL.Path) && !h.companion.allows(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Change the mailbox from the companion that started this server."})
+		return
+	}
 	switch r.URL.Path {
 	case mailboxSendPath:
 		h.sendMailboxMessage(w, r, store)
@@ -92,6 +96,18 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 	case mailboxSettingsPath:
 		saveMailboxSettings(w, r, store, h.companion)
 	}
+}
+
+// mailboxNeedsCompanion reports whether a change route records a
+// person's action, so only a request with the companion's secret may
+// call it. A send without it counts as an agent's, refs only reads, and
+// settings check the secret only for the change that loosens them.
+func mailboxNeedsCompanion(path string) bool {
+	switch path {
+	case mailboxSendPath, mailboxRefsPath, mailboxSettingsPath:
+		return false
+	}
+	return true
 }
 
 func writeMailboxError(w http.ResponseWriter, err error) {
@@ -169,7 +185,12 @@ func (h *conversationsHandler) sendMailboxMessage(w http.ResponseWriter, r *http
 		refuse(req, mailbox.NewRefusal("refs"))
 		return
 	}
-	receipt, err := store.SendFromWorktree(ctx, req.From, req.SendRequest, source.Folder)
+	// Only the companion's secret proves a person sent it; any other local client counts as an agent.
+	send := store.SendFromAgent
+	if h.companion.allows(r) {
+		send = store.SendFromWorktree
+	}
+	receipt, err := send(ctx, req.From, req.SendRequest, source.Folder)
 	if err != nil {
 		writeMailboxError(w, err)
 		return

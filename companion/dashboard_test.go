@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -103,9 +104,13 @@ func TestFindBinary_CLIManagedLaunchUsesRecordedCommand(t *testing.T) {
 }
 
 // TestOpenDashboard_OpensTheUnlockFileTheServerOffers: the page the
-// companion opens gets the session key, and a file outside the unlock
-// folder is never opened.
+// companion opens gets the session key. A missing file, one others can
+// read, a link, or a file in a linked folder outside the unlock folder
+// opens the plain address instead.
 func TestOpenDashboard_OpensTheUnlockFileTheServerOffers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no unlock files on Windows")
+	}
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
@@ -124,11 +129,46 @@ func TestOpenDashboard_OpensTheUnlockFileTheServerOffers(t *testing.T) {
 	}))
 	defer srv.Close()
 	port := srv.URL[strings.LastIndex(srv.URL, ":")+1:]
-	ours := filepath.Join(config, "agnostic-ai", "unlock", "unlock-"+port+"-0123456789ab.html")
+	folder := filepath.Join(config, "agnostic-ai", "unlock")
+	outside := t.TempDir()
+	place := func(dir, id string, mode os.FileMode) string {
+		t.Helper()
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(dir, "unlock-"+port+"-"+id+".html")
+		if err := os.WriteFile(path, []byte("<!doctype html>"), mode); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	ours := place(folder, "0123456789ab", 0o600)
+	resolved, err := filepath.EvalSymlinks(ours)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readable := place(folder, "aaaaaaaaaaaa", 0o644)
+	linked := filepath.Join(folder, "unlock-"+port+"-bbbbbbbbbbbb.html")
+	if err := os.Symlink(place(outside, "cccccccccccc", 0o600), linked); err != nil {
+		t.Fatal(err)
+	}
+	linkedFolder := filepath.Join(config, "agnostic-ai", "linked")
+	if err := os.Symlink(outside, linkedFolder); err != nil {
+		t.Fatal(err)
+	}
+	locked := srv.URL + "/"
 	for _, c := range []struct{ file, want string }{
 		{ours, ours},
-		{"/Users/Shared/x.command", srv.URL + "/"},
-		{filepath.Join(config, "agnostic-ai", "unlock", "unlock-1-0123456789ab.html"), srv.URL + "/"},
+		{resolved, resolved},
+		{"/Users/Shared/x.command", locked},
+		{filepath.Join(folder, "unlock-1-0123456789ab.html"), locked},
+		{filepath.Join(folder, "unlock-"+port+"-dddddddddddd.html"), locked},
+		{readable, locked},
+		{linked, locked},
+		{filepath.Join(linkedFolder, "unlock-"+port+"-cccccccccccc.html"), locked},
 	} {
 		offered = c.file
 		opened := ""

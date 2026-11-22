@@ -24,13 +24,24 @@ func mailboxHTTPFixture(t *testing.T) (*conversationsHandler, *recordingLauncher
 	t.Helper()
 	h, launcher, _ := conversationsFixture(t, true)
 	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	h.companion = testCompanionSecret
 	return h, launcher
 }
 
+// mailboxHTTP calls as the companion, with its secret.
 func mailboxHTTP(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	return mailboxHTTPAs(t, h, string(testCompanionSecret), method, path, body)
+}
+
+// mailboxHTTPAs calls with secret, or as another local client when it is empty.
+func mailboxHTTPAs(t *testing.T, h http.Handler, secret, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	req := httptest.NewRequest(method, "http://127.0.0.1:4310/"+strings.TrimPrefix(path, "/"), strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
+	if secret != "" {
+		req.Header.Set(companionSecretHeader, secret)
+	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	return rec
@@ -327,6 +338,7 @@ func (l *mailboxTerminalLauncher) TypeInTab(ctx context.Context, app, tty, text 
 func TestMailboxHTTP_TypesOnceAcrossServerInstances(t *testing.T) {
 	h, _, project := conversationsFixture(t, true)
 	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	h.companion = testCompanionSecret
 	writeFile(t, filepath.Join(h.scanner.Stores.ClaudeDir, "sessions", "77.json"), `{"pid":77,"sessionId":"`+inWorktree+`","status":"idle"}`)
 	h.scanner.Processes = mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}}
 	id := mailboxSendThread(t, h, mailboxSendBody(inWorktree, "question", "Did the tests pass?", ""))
@@ -353,7 +365,7 @@ func TestMailboxHTTP_TypesOnceAcrossServerInstances(t *testing.T) {
 	}}
 	h.launcher = launcher
 
-	another := &conversationsHandler{userLevel: true, root: project, openReplyWait: h.openReplyWait, launcher: launcher,
+	another := &conversationsHandler{userLevel: true, root: project, openReplyWait: h.openReplyWait, launcher: launcher, companion: testCompanionSecret,
 		scanner: &conversations.Scanner{
 			Stores: h.scanner.Stores, SQLite: h.scanner.SQLite, MarksPath: h.scanner.MarksPath, Now: h.scanner.Now,
 			Processes: mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}},

@@ -110,14 +110,8 @@ func (h *conversationsHandler) changeMailboxClaim(w http.ResponseWriter, r *http
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// dismissMailboxConflict removes a conflict with no thread. Only the
-// companion that started this server may: the request must carry its
-// per-launch secret, on top of the local origin check every mailbox route has.
+// dismissMailboxConflict removes a conflict with no thread.
 func (h *conversationsHandler) dismissMailboxConflict(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
-	if !h.companion.allows(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "Dismiss a conflict from the companion that started this server."})
-		return
-	}
 	var req struct {
 		conversations.Ref
 		Conflict string `json:"conflict"`

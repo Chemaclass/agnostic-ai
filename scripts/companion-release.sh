@@ -8,7 +8,7 @@
 
 # macOS can report a disk image is busy while creating or verifying it.
 hdiutil_retrying() {
-  local attempts=4 delay=5 attempt=1 output status
+  local attempts=6 delay=5 attempt=1 output status
   while :; do
     status=0
     output="$(hdiutil "$@" 2>&1)" || status=$?

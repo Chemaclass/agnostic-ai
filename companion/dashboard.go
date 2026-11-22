@@ -218,8 +218,22 @@ func offerUnlockFile(ctx context.Context, client *http.Client, address *url.URL)
 	}
 	file := filepath.Clean(reply.File)
 	name := unlockFileName.FindStringSubmatch(filepath.Base(file))
-	if filepath.Dir(file) != filepath.Join(config, "agnostic-ai", "unlock") || name == nil || name[1] != address.Port() {
+	if !filepath.IsAbs(file) || name == nil || name[1] != address.Port() {
 		return "", fmt.Errorf("the unlock offer named %q, outside the unlock folder", reply.File)
+	}
+	folder, err := filepath.EvalSymlinks(filepath.Join(config, "agnostic-ai", "unlock"))
+	if err != nil {
+		return "", fmt.Errorf("find the unlock folder: %w", err)
+	}
+	if parent, err := filepath.EvalSymlinks(filepath.Dir(file)); err != nil || parent != folder {
+		return "", fmt.Errorf("the unlock offer named %q, outside the unlock folder", reply.File)
+	}
+	info, err := os.Lstat(file)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", file, err)
+	}
+	if err := ownUnlockFile(info); err != nil {
+		return "", fmt.Errorf("%s: %w", file, err)
 	}
 	return file, nil
 }

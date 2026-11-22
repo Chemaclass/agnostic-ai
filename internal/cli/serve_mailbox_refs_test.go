@@ -51,6 +51,7 @@ func TestMailboxHTTP_SendsReviewRefsFromTheSenderButRefusesAnotherWorktree(t *te
 
 	body = reviewSendBody(h.root, base, commit)
 	body = strings.TrimSuffix(body, "}") + `,"models":{"from":"gpt-6.2-sol","to":"gpt-6.2-astra"}}`
+	mailboxExpectRefusal(t, mailboxHTTPAs(t, h, "", http.MethodPost, "/api/mailbox/send", body), "format")
 	id := mailboxSendThread(t, h, body)
 	rec := mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/threads?tool=claude&id="+inProject, "")
 	var threads struct {

@@ -309,7 +309,10 @@ func TestMailboxProxy_ForwardsApprovalQueueAndSettings(t *testing.T) {
 				return
 			}
 			w.WriteHeader(http.StatusNoContent)
-		case "/api/mailbox/approve", "/api/mailbox/queue":
+		case "/api/mailbox/send", "/api/mailbox/approve", "/api/mailbox/queue":
+			if r.Header.Get(secretHeader) == "" {
+				t.Errorf("%s reached the server without the companion secret", r.URL.Path)
+			}
 			if r.Method != http.MethodPost || r.Header.Get("Content-Type") != "application/json" {
 				t.Errorf("mutation = %s %s", r.Method, r.URL)
 			}
@@ -334,7 +337,7 @@ func TestMailboxProxy_ForwardsApprovalQueueAndSettings(t *testing.T) {
 	if rec.Code != http.StatusOK || rec.Body.String() != `{"approveAgentSends":true}` {
 		t.Errorf("settings = %d %s", rec.Code, rec.Body)
 	}
-	for _, action := range []string{"approve", "queue", "settings"} {
+	for _, action := range []string{"send", "approve", "queue", "settings"} {
 		req := httptest.NewRequest(http.MethodPost, "/api/mailbox/"+action, strings.NewReader(`{}`))
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -354,7 +357,7 @@ func TestMailboxProxy_ForwardsApprovalQueueAndSettings(t *testing.T) {
 	if rec.Code != http.StatusUnsupportedMediaType {
 		t.Errorf("approve without JSON = %d", rec.Code)
 	}
-	if listReads.Load() != 2 {
+	if listReads.Load() != 3 {
 		t.Errorf("list reads = %d", listReads.Load())
 	}
 }
