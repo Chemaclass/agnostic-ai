@@ -622,10 +622,11 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     for (const claim of card.active) claimsList.append(claimEntry(claim, release, current.owner))
     for (const conflict of conflicts ?? []) {
       const line = element('p', 'mailbox-refusal', conflictText(conflict))
-      // Only the requester of a conflict with no thread can drop it; a thread's conflict clears with the thread.
-      if (current.owner && !conflict.thread && keyOf(conflict.requester) === keyOf(current.owner)) {
+      // A conflict with no thread is the requester's to drop, from its own card or the footer's, where a requester
+      // with no row can still be cleared; a thread's conflict clears with the thread.
+      if (!conflict.thread && (!current.owner || keyOf(conflict.requester) === keyOf(current.owner))) {
         claimsList.append(line, button('Dismiss', 'dismiss-conflict', () => mutateClaim(current, () => dismissConflict({
-          ...current.owner, worktree: conflict.worktree, path: conflict.path,
+          ...refOf(conflict.requester), worktree: conflict.worktree, path: conflict.path,
         }), 'Conflict dismissed.')))
       } else {
         claimsList.append(line)

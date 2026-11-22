@@ -836,10 +836,12 @@ export function claimConflictOf(conversation, nameOf = () => undefined) {
   if (conflicts.length === 0) return undefined
   const [first] = conflicts
   const name = (ref) => nameOf(ref) || sessionNameOf(ref)
-  const holds = first.holder && keyOf(first.holder) === keyOf(conversation)
+  const self = keyOf(conversation)
+  const asks = keyOf(first.requester) === self
   let text
-  if (holds) text = `${name(first.requester)} wants ${first.path}, which this session claims`
-  else if (first.holder) text = `${first.path} is claimed by ${name(first.holder)}`
+  if (!asks) text = `${name(first.requester)} wants ${first.path}, which this session claims`
+  else if (first.holder && keyOf(first.holder) !== self) text = `${first.path} is claimed by ${name(first.holder)}`
+  else if (first.sender) text = `${name(first.sender)} no longer holds ${first.path}`
   else text = `No session holds ${first.path} any more`
   return conflicts.length > 1 ? `${text}, and ${plural(conflicts.length - 1, 'more conflict', 'more conflicts')}` : text
 }

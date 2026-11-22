@@ -250,6 +250,7 @@ export function mailboxRelease(state, ask, now) {
 /** Like the server: the requester drops its conflict with no thread; anything else changes nothing. */
 export function mailboxDismiss(state, ask, now) {
   if (!ask?.worktree || typeof ask.path !== 'string' || !ask.path) return refused('format', undefined, now)
+  if (!/^[0-9a-f-]{36}$/.test(ask.id ?? '')) return refused('unknown-session', undefined, now)
   state.claimConflicts = state.claimConflicts.filter((conflict) =>
     conflict.thread || !same(conflict.requester, ask) || conflict.worktree !== ask.worktree || conflict.path !== ask.path)
   return changed({})

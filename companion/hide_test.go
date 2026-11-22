@@ -696,6 +696,13 @@ func TestWaitingIn_ReadsBlockedAndUnreadRows(t *testing.T) {
 	}
 }
 
+func TestWaitingIn_ReadsARowWithAPathConflictWhateverItsState(t *testing.T) {
+	got, ok := waitingIn([]byte(`{"conversations":[{"tool":"claude","id":"a","state":"working","claimConflicts":[{"path":"a.go"}]},{"tool":"claude","id":"c","state":"working"}]}`), nil, time.Now())
+	if !ok || len(got.ids) != 1 || got.ids["claude:a"] != "claude" {
+		t.Errorf("waitingIn = %+v, %v", got, ok)
+	}
+}
+
 func TestShowingAgain_KeepsACircleHiddenOnASecondScreenThere(t *testing.T) {
 	s, _ := placedShell(t)
 	bubble := s.bubble.(*fakeWindow)

@@ -1376,6 +1376,8 @@ test('a conflict line names the path and the other session on both rows', async 
   assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [pathConflict] }, nameIn), 'internal/mailbox/handoff.go is claimed by Fix the parser')
   assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [pathConflict] }), 'internal/mailbox/handoff.go is claimed by Claude Code session holder-1')
   assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [{ ...pathConflict, holder: undefined }] }), 'No session holds internal/mailbox/handoff.go any more')
+  const lostHandoff = { ...pathConflict, holder: requesterRef, sender: holderRef, thread: 't', n: 1 }
+  assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [lostHandoff] }, nameIn), 'Fix the parser no longer holds internal/mailbox/handoff.go')
   assert.equal(claimConflictOf({ ...requesterRef, claimConflicts: [pathConflict, pathConflict] }, nameIn), 'internal/mailbox/handoff.go is claimed by Fix the parser, and 1 more conflict')
 })
 
