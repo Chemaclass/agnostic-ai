@@ -160,7 +160,7 @@ Clear a chat that needs you without opening it.
 
 The chat leaves Needs you in the companion and the web interface, and moves where an opened one would: Active, or Archived when closed.
 
-{% <details summary="Details: same mark as opening, failures, the circle count"> %}
+{% <details summary="Details: same mark as opening, failures, the circle count and click"> %}
 - The mark is the seen mark that opening a chat saves, stored through the server.
 - When a closed chat moves at once and when it waits a day: see [`state`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations).
 - On a chat resumed by hand with a reply from before, it clears the orange ring. The next write brings it to Needs you.
@@ -170,6 +170,8 @@ The chat leaves Needs you in the companion and the web interface, and moves wher
 - The first failed save stops the run and says why.
 - The list holds every blocked and unread chat of any age.
 - The circle counts them all, whatever the search or place. With **All** chosen and no search, it shows zero after the run until something new is written.
+- The circle's number is the rows of the kind its icon names that the list shows under Needs you with **All** chosen and no search: waiting chats when one waits, else unread replies.
+- While a chat needs you, a click on the circle opens the list on the first row under Needs you, selected and in view. It clears the search, switches to **All** when no chat in the chosen place needs you, and unfolds Needs you.
 {% </details> %}
 
 ## Rows and order {#rows}
@@ -194,7 +196,9 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 | Waiting for you | The tool says it waits, but not for what. |
 | New reply | Something was written since you last looked. "Hidden because it may hold a password or key" is added when the reply is left out. |
 
-Hover a row, a shell line or an approval pill for a tooltip. It opens after a short pause, or when the arrow keys select a row. It sits above the row, or below it when there is no room, and never covers the row. It closes when you press a key, scroll or click, and it follows the row under a still pointer when the list changes.
+While [approvals](@/docs/cli-reference/companion.md#approvals) answer prompts, a chip beside the search says **Auto-approve on** (`yolo`) or **Reviewers answer** (`review`), with the full sentence as its tooltip. **Ask me** on it switches back to ask.
+
+Hover a row, shell line or approval pill, or select a row with the arrow keys, for a tooltip. It never covers the row, and closes on a key, scroll or click.
 
 A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits under its parent in the same group.
 
