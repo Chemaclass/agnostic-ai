@@ -2,7 +2,7 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3910: the server checks the companion's secret, rechecks a held request
-# against a fresh list read before it writes a decision, and releases held
-# requests on a timer. No new dependency. The build grows by 20480 bytes.
-20480
+# #3918: the stuck-shell command masks passwords passed as plain arguments
+# to mysql, sshpass and curl, and withholds one it cannot mask; the shared
+# check also reads sshpass. No new dependency. The build grows by 24576 bytes.
+24576
