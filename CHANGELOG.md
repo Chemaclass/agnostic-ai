@@ -6,6 +6,47 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### Highlights
+
+- **Breaking:** layer names in `list`, `status`, `explain --layers`, the web interface and adapter input changed, and `--global` is now `--scope user` (#3856).
+- Send questions, reviews and file handoffs between local Claude Code and Codex sessions from the companion or from the agents themselves (#3832, #3836).
+- Approve or deny a Claude Code request from the companion row, with the terminal prompt still open (#3906, #3908).
+- Companion updates check the signer, show progress, and restore the earlier app when the new one fails to start (#3850, #3888).
+- The companion opens and resumes chats on Windows and Linux, and switches to the exact tab in iTerm2, WezTerm, kitty, tmux and Konsole (#3221, #3222, #3843).
+
+### General
+
+- **Breaking:** layer names changed: `project-user` is `local`, `global` is `user`, `global-local` is `user-local`. Update scripts that match them (#3856).
+- **Deprecated:** `--global` is now `--scope user`, `new rule --scope <dir>` is `--dir`, and `doctor --scope` is `--checks`. The old spellings warn (#3856).
+- The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you (#3832-#3837, #3872, #3891, #3898).
+- Companion updates check the signer, show each step, keep the earlier app until the new one starts, and keep Accessibility access (#3601, #3850, #3874, #3888). On macOS, grant Accessibility once more after this first update.
+- The companion opens chats on Windows and Linux, and switches to the exact tab in iTerm2, WezTerm, kitty, tmux and Konsole (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
+
+### By tool
+
+#### Claude Code
+
+- With `approvals.companion: true`, the companion shows a request with **Approve** and **Deny**. The hook entry's timeout is now 310 seconds (#3906, #3908).
+- The companion lists agent team teammates as subagents in a tree, and a click on one in tmux brings its pane forward (#3905, #3907).
+- An `x-<target>` block on a hook spec now sets `timeout` for that target, in seconds. A spec with such a block gets it on the next `sync` (#3906).
+
+#### Kiro
+
+- With approvals in `review`, `sync --scope user` adds the `approve-for-me` preset to `~/.kiro/settings/permissions.yaml` and keeps your rules (#3809).
+
+#### Qwen Code
+
+- With `yolo`, `approvals status` accepts the `auto-edit` value of `tools.approvalMode` and the other spellings Qwen Code reads (#3861).
+
+#### Pi
+
+- `approvals status` says Pi has no local permission prompt, instead of saying its hooks can only block or observe (#3862).
+
+### Site
+
+- The companion docs say where a companion started from Finder looks for Homebrew and npm, and what ran for updates (#3850).
+- New [Scopes](https://agnostic-ai.org/docs/scopes/) page: project, local and user in one table, which wins, and what each command takes (#3856).
+
 ## v0.96.0 - 2026-11-20
 
 ### Highlights
