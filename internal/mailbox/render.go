@@ -15,6 +15,7 @@ const blockClosing = "\n</agnostic-ai-mailbox>"
 
 type renderedActor struct {
 	Tool    string `json:"tool"`
+	Model   string `json:"model,omitempty"`
 	Session string `json:"session"`
 	By      string `json:"by"`
 }
@@ -46,6 +47,9 @@ func renderLine(thread string, m Message) ([]byte, error) {
 	}
 	if m.Type == Handoff {
 		line.Notice = "Paths move only after the receiving session accepts this handoff."
+	}
+	if m.Model != "" {
+		line.From.Model = m.Model + " (stated by sender)"
 	}
 	return json.Marshal(line)
 }

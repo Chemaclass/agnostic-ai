@@ -112,7 +112,7 @@ The guards keep cooperating sessions to the supported mailbox actions. Read a he
 
 {% <details summary="Message format and refusals"> %}
 
-A question or finding carries up to 4,000 characters. Each JSON message line fits in 5,000 bytes. The recipient sees JSON inside one `<agnostic-ai-mailbox>` block, with its thread, message number, type and sender. The wrapper labels the message as quoted data. The mailbox refuses text that looks like a credential.
+A question or finding carries up to 4,000 characters. Each JSON message line fits in 5,000 bytes. The recipient sees JSON inside one `<agnostic-ai-mailbox>` block, with its thread, message number, type and sender. When an agent states its model, the sender entry gains `"model": "<name> (stated by sender)"`. Nothing checks that the name is true, and it counts toward the 5,000 bytes. The wrapper labels the message as quoted data. The mailbox refuses text that looks like a credential.
 
 A refusal gives the guard, reason and next step. For example, `cap` means the thread reached its limit. `unknown-session` means the destination is missing, ambiguous or outside the supported local sessions. See the [mailbox API](#mailbox-api) for the request format.
 
