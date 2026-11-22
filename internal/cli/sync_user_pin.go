@@ -102,8 +102,9 @@ func userSyncCommands(bundle spec.Bundle, targets []string) []string {
 		}
 		label := "MCP server " + server.Name + ": "
 		add(label, mcpCommandLine(server.Meta))
-		for field, raw := range server.Meta {
-			override, ok := raw.(map[string]any)
+		// Sorted, so the plan id stays the same for the same specs.
+		for _, field := range slices.Sorted(maps.Keys(server.Meta)) {
+			override, ok := server.Meta[field].(map[string]any)
 			if !ok || !strings.HasPrefix(field, "x-") {
 				continue
 			}

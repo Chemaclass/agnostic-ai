@@ -392,16 +392,16 @@ func writeApprovalsSetting(source, key string, value any, proven bool) ([]string
 	if err != nil {
 		return nil, err
 	}
+	data, err := os.ReadFile(path)
+	missing := errors.Is(err, fs.ErrNotExist)
+	if err != nil && !missing {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
 	before, loadErr := config.LoadHomeApprovals(source)
 	if loadErr != nil && !proven {
 		// A block that does not load leaves every prompt to the person, and
 		// a repair could turn on what it holds before any check runs.
 		return nil, errBrokenBlockNeedsProof
-	}
-	data, err := os.ReadFile(path)
-	missing := errors.Is(err, fs.ErrNotExist)
-	if err != nil && !missing {
-		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	undo := restoreTo(path, data, missing)
 	ours, err := approvalsSetYAML(data, key, value)
