@@ -29,6 +29,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The web settings tab also sets the companion's Animate, Dim when idle, Small companion and Check for updates switches; a running companion applies them within 5 seconds (#3913, #3934).
 - File claims show only while one exists, as a chip on the chat that holds them, with a "?" to the docs. Gone sessions' claims release in one step, and a path two sessions want puts both under Needs you until it is released or dismissed (#3914, #3919, #3920).
 - The companion settings menu scrolls within the list in short windows (#3942).
+- The local server requires the companion or an unlocked web tab to delete archived chats, stop sessions or shells, or rename cloud chats (#3938, #3941).
+- If the local server cannot tell whether a session still runs, it shows a manual resume command (#3938, #3941).
 
 ### By tool
 
