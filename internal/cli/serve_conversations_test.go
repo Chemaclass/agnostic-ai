@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -161,6 +162,8 @@ func conversationsFixture(t *testing.T, userLevel bool) (*conversationsHandler, 
 		renameInTool:  func(context.Context, conversations.Conversation, string) error { return nil },
 		logOut:        io.Discard,
 		openReplyWait: conversationOpenReplyTimeout,
+		// Requests count as proven; the proof tests set their own check.
+		proven: proveAll,
 	}
 	return h, launcher, project
 }
@@ -1472,6 +1475,125 @@ func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
 	}
 	if len(launcher.calls) != 0 {
 		t.Errorf("nothing may be typed or opened, got %v", launcher.calls)
+	}
+}
+
+// proveAll stands for a request with the companion secret or session key.
+func proveAll(*http.Request) bool { return true }
+
+func TestConversationsHandler_TypesASendOnlyWithProof(t *testing.T) {
+	h, _, _ := conversationsFixture(t, true)
+	writeFile(t, filepath.Join(h.scanner.Stores.ClaudeDir, "sessions", "77.json"), `{"pid":77,"sessionId":"`+inWorktree+`","status":"idle"}`)
+	h.scanner.Processes = mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}}
+	var typed atomic.Int32
+	h.launcher = &mailboxTerminalLauncher{typeInTab: func(context.Context, string, string, string, bool) (bool, error) {
+		typed.Add(1)
+		return true, nil
+	}}
+	session := &webSession{key: strings.Repeat("k", 64)}
+	settings := &settingsHandler{secret: testCompanionSecret, session: session}
+	h.proven, h.canProve = settings.proven, settings.canProve
+	send := func(header, value string) *httptest.ResponseRecorder {
+		return postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inWorktree+`","text":"hi"}`, func(r *http.Request) {
+			if header != "" {
+				r.Header.Set(header, value)
+			}
+		})
+	}
+
+	for name, proof := range map[string][2]string{
+		"no proof":            {"", ""},
+		"a wrong secret":      {companionSecretHeader, strings.Repeat("0", len(testCompanionSecret))},
+		"a wrong session key": {sessionHeader, strings.Repeat("0", len(session.key))},
+	} {
+		if rec := send(proof[0], proof[1]); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "Nothing was typed") {
+			t.Errorf("send with %s = %d %s, want 403", name, rec.Code, rec.Body)
+		}
+	}
+	if got := typed.Load(); got != 0 {
+		t.Fatalf("a send without proof typed %d times", got)
+	}
+	for name, proof := range map[string][2]string{
+		"the companion secret": {companionSecretHeader, string(testCompanionSecret)},
+		"the session key":      {sessionHeader, session.key},
+	} {
+		before := typed.Load()
+		if rec := send(proof[0], proof[1]); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"sent":true`) || typed.Load() != before+1 {
+			t.Errorf("send with %s = %d %s, typed %d", name, rec.Code, rec.Body, typed.Load()-before)
+		}
+	}
+
+	h.proven = nil
+	if rec := send(companionSecretHeader, string(testCompanionSecret)); rec.Code != http.StatusForbidden {
+		t.Errorf("send on a handler with no proof check = %d %s, want 403", rec.Code, rec.Body)
+	}
+	h.proven, h.canProve = (&settingsHandler{}).proven, (&settingsHandler{}).canProve
+	if rec := send(companionSecretHeader, string(testCompanionSecret)); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "This server cannot type into sessions") {
+		t.Errorf("send on a server with no secret or session key = %d %s, want 403 saying it cannot type", rec.Code, rec.Body)
+	}
+	if got := typed.Load(); got != 2 {
+		t.Errorf("typed %d times, want only the two proven sends", got)
+	}
+}
+
+// focusLauncher records focuses as recordingLauncher records the rest.
+type focusLauncher struct {
+	recordingLauncher
+}
+
+func (l *focusLauncher) FocusTab(_ context.Context, app, tty string) (bool, error) {
+	l.calls = append(l.calls, "focus "+app+" "+tty)
+	return true, nil
+}
+
+func TestConversationsHandler_StartsAResumeOnlyWithProof(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	h.proven, h.canProve = testCompanionSecret.allows, func() bool { return true }
+	open := func(secret string) conversations.OpenReply {
+		t.Helper()
+		rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inProject+`"}`, func(r *http.Request) {
+			if secret != "" {
+				r.Header.Set(companionSecretHeader, secret)
+			}
+		})
+		var reply conversations.OpenReply
+		if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &reply) != nil {
+			t.Fatalf("open = %d %s", rec.Code, rec.Body)
+		}
+		return reply
+	}
+
+	for _, secret := range []string{"", strings.Repeat("0", len(testCompanionSecret))} {
+		reply := open(secret)
+		if reply.Opened || !strings.Contains(reply.Command, "claude --resume "+inProject) || !strings.HasPrefix(reply.Message, "Starting it from here needs the companion") {
+			t.Errorf("open of an ended chat without proof = %+v, want the command to run by hand", reply)
+		}
+	}
+	h.canProve = nil
+	if reply := open(""); reply.Opened || reply.Command == "" || !strings.HasPrefix(reply.Message, "This server cannot start sessions.") {
+		t.Errorf("open on a server with no proof = %+v", reply)
+	}
+	h.canProve = func() bool { return true }
+	if len(launcher.calls) != 0 {
+		t.Fatalf("an open without proof ran %v", launcher.calls)
+	}
+	if reply := open(string(testCompanionSecret)); !reply.Opened || len(launcher.calls) != 1 || !strings.HasPrefix(launcher.calls[0], "terminal ") {
+		t.Errorf("open with the secret = %+v, calls %v; want a resume in a terminal", reply, launcher.calls)
+	}
+}
+
+func TestConversationsHandler_FocusesALiveChatWithoutProof(t *testing.T) {
+	h, _, _ := conversationsFixture(t, true)
+	h.proven = nil
+	writeFile(t, filepath.Join(h.scanner.Stores.ClaudeDir, "sessions", "77.json"), `{"pid":77,"sessionId":"`+inWorktree+`","status":"idle"}`)
+	h.scanner.Processes = mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}}
+	launcher := &focusLauncher{}
+	h.launcher = launcher
+
+	rec := postEdit(t, h, conversationOpenPath, `{"tool":"claude","id":"`+inWorktree+`"}`, nil)
+
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"opened":true`) || len(launcher.calls) != 1 || launcher.calls[0] != "focus Terminal /dev/ttys001" {
+		t.Errorf("focus of a live chat without proof = %d %s, calls %v", rec.Code, rec.Body, launcher.calls)
 	}
 }
 

@@ -1,7 +1,7 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
-import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
+import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
@@ -332,7 +332,12 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
-  const needs = needsReasonOf(conversation, now, sessionTitleOf)
+  // A stop that went through shows on the line before the next list drops the shell.
+  const stopped = (shell) => {
+    const stop = state.shellStops.get(shellKeyOf(shell))
+    return Boolean(stop?.text) && !stop.problem
+  }
+  const needs = needsReasonOf(conversation, now, sessionTitleOf, stopped)
   if (needs?.kind === 'conflict') text.append(conflictLine(conversation, needs.text))
   else if (needs && needs.kind !== 'permission') text.append(element('div', 'needs-reason is-' + needs.kind, needs.text))
   if (approval) text.append(approvalLine(approval))
@@ -362,6 +367,8 @@ function rowOf(conversation, order, folderNames, under) {
   if (subagents) text.append(subagents)
   const shells = stuckShellsOf(conversation)
   const labels = shellLabelsOf(shells, now)
+  const lead = shellsLeadOf(conversation, now, stopped)
+  if (lead) text.append(element('div', 'shells-lead', lead))
   shells.forEach((shell, index) => text.append(shellLine(conversation, shell, labels[index], now, shells.length > 1)))
   const listed = new Set(shells.map(shellKeyOf))
   for (const [shell, stop] of state.shellStops) {
@@ -435,7 +442,12 @@ function shellLine(conversation, shell, label, now, stacked) {
   // The spaces are for screen readers and copied text; the gap spaces the parts on screen.
   if (shell.keptUntil) words.append(element('span', 'shell-note', keptShellNoteOf(shell, now) + ':'), ' ')
   else {
-    if (label.detail) words.append(element('span', 'shell-note', label.detail), ' ')
+    if (label.detail) {
+      // The name gives way before the command, whose end tells two shells apart.
+      const owner = element('span', 'shell-owner')
+      owner.append(element('span', 'shell-owner-name', label.detail), ' ·')
+      words.append(owner, ' ')
+    }
     words.append(element('span', 'shell-age', label.age), ' ')
   }
   words.append(element('code', 'shell-command', label.command))

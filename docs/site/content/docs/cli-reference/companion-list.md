@@ -270,7 +270,7 @@ On macOS the notice shows at once: the list comes up beside the circle without t
 
 ## Stop a forgotten shell {#stop-a-forgotten-shell}
 
-On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. The server masks passwords passed in [known ways](@/docs/cli-reference/conversations-shell-api.md), but may miss some. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
+On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. The server masks passwords passed in [known ways](@/docs/cli-reference/conversations-shell-api.md), but may miss some. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. Elsewhere, as under **Working**, a line such as "2 shells are still running" comes first.
 
 Each warning line has two buttons, for Claude Code on macOS and Linux:
 

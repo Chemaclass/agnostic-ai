@@ -561,6 +561,11 @@ func (s *Scanner) Reopen(ctx context.Context, tool Tool, id string, opts ScanOpt
 // whether a pane comes to the front.
 func (s *Scanner) ReopenHelper(ctx context.Context, tool Tool, id, subagent string, opts ScanOptions, launcher Launcher) (OpenReply, bool) {
 	key := markKey(tool, id)
+	if _, noRun := launcher.(noRunLauncher); noRun {
+		// An open that may not run a command answers differently, so a
+		// proven open never joins one, nor the other way round.
+		key += "\x00no-run"
+	}
 	s.openingMu.Lock()
 	if running, ok := s.opening[key]; ok {
 		s.openingMu.Unlock()
