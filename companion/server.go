@@ -231,12 +231,9 @@ func (s *server) start() (string, error) {
 		return "", fmt.Errorf("start agnostic-ai serve: %w", err)
 	}
 	if s.secret != "" {
-		if _, err := io.WriteString(input, s.secret+"\n"); err != nil {
-			_ = input.Close()
-			_ = process.Process.Kill()
-			_ = process.Wait()
-			return "", fmt.Errorf("start agnostic-ai serve: hand over the secret: %w", err)
-		}
+		// A failed write means the server already ended, as an older one
+		// that does not know the flag does; the wait below says why.
+		_, _ = io.WriteString(input, s.secret+"\n")
 	}
 
 	served := make(chan string, 1)

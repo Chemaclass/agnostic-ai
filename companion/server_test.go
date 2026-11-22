@@ -312,3 +312,29 @@ cat > /dev/null`)
 		t.Errorf("the server got env %q and args %q; want the secret on stdin only, asked for with %s", env, args, secretFlag)
 	}
 }
+
+func TestServer_WithoutASecretAsksForNone(t *testing.T) {
+	seen := filepath.Join(t.TempDir(), "seen")
+	fakeCommand(t, `echo "$@" > "`+seen+`.args"
+echo "Serving agnostic-ai at http://127.0.0.1:1/"
+cat > "`+seen+`.stdin"`)
+	s := newServer()
+	s.secret = ""
+
+	if _, err := s.address(); err != nil {
+		t.Fatal(err)
+	}
+	s.rest()
+
+	waitFor(t, "the server to read its input to the end", func() bool {
+		_, err := os.Stat(seen + ".stdin")
+		return err == nil
+	})
+	args, _ := os.ReadFile(seen + ".args")
+	if strings.Contains(string(args), secretFlag) {
+		t.Errorf("started with %q; want no %s without a secret", args, secretFlag)
+	}
+	if stdin, _ := os.ReadFile(seen + ".stdin"); len(stdin) != 0 {
+		t.Errorf("stdin = %q; want nothing written", stdin)
+	}
+}

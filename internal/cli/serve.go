@@ -185,7 +185,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("switch-back")
 	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
-	cmd.Flags().BoolVar(&secretFromStdin, "secret-from-stdin", false, "Read the companion's per-launch secret from the first line of standard input.")
+	cmd.Flags().BoolVar(&secretFromStdin, "secret-from-stdin", false, "Read the companion's per-launch secret from the first line of standard input; serve waits for that line before it listens.")
 	_ = cmd.Flags().MarkHidden("secret-from-stdin")
 	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --scope user.")
 	return cmd
