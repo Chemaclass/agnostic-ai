@@ -73,14 +73,24 @@ func TestCompanionStaysUp_KeepsTheNewCompanionWhenTheProcessListCannotBeRead(t *
 	}
 }
 
-func TestCompanionRunsProgram_MatchesTheProgramName(t *testing.T) {
+func TestProgramListed_MatchesTheAppAndTheProgramInsideIt(t *testing.T) {
 	t.Parallel()
-	list := "/sbin/launchd\n/Users/me/Library/Application Support/agnostic-ai/companion/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion\n"
-	if !programListed(list, "/private/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion") {
-		t.Error("a companion that runs from another path spelling was not found")
+	program := "/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion"
+	for _, tc := range []struct {
+		list string
+		want bool
+	}{
+		{"/sbin/launchd\n/private/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion\n", true},
+		{"/usr/local/bin/agnostic-ai-companion\n", false},
+		{"/Applications/other.app/Contents/MacOS/agnostic-ai-companion\n", false},
+		{"/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion-helper\n", false},
+	} {
+		if got := programListed(tc.list, program); got != tc.want {
+			t.Errorf("programListed(%q) = %t; want %t", tc.list, got, tc.want)
+		}
 	}
-	if programListed("/sbin/launchd\n/usr/bin/agnostic-ai-companion-helper\n", "/apps/agnostic-ai-companion") {
-		t.Error("a program with a longer name was taken for the companion")
+	if !programListed("agnostic-ai-companion\n/opt/c/agnostic-ai-companion\n", "/home/me/c/agnostic-ai-companion") {
+		t.Error("a program outside an app was not found by its name")
 	}
 }
 
@@ -106,6 +116,9 @@ func TestInstallCompanion_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts(t
 			}
 			kept := false
 			tools.running = func(ctx context.Context, program string) (bool, error) {
+				if len(started) == 0 {
+					return false, nil
+				}
 				if aside, _ := filepath.Glob(filepath.Join(dir, companionBuildPrefix+"*", companionAsideName)); len(aside) == 1 {
 					kept = true
 				}
@@ -174,14 +187,16 @@ func TestCompanionUpdateApp_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts
 	app := testDownloadableApp(t, t.TempDir())
 	tools := builtTools(t)
 	tools.quit = func(context.Context, string) (bool, error) { return false, nil }
-	newRuns := true
-	tools.running = func(context.Context, string) (bool, error) {
-		// The new app shows up once, then quits.
-		running := newRuns
-		newRuns = false
-		return running, nil
-	}
 	var launches []string
+	looks := 0
+	tools.running = func(context.Context, string) (bool, error) {
+		if len(launches) == 0 {
+			return false, nil
+		}
+		// The new app shows up once, then quits.
+		looks++
+		return looks == 1, nil
+	}
 	var out bytes.Buffer
 	deps := companionAppDeps{
 		prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
@@ -262,5 +277,50 @@ func TestUninstallCompanion_RefusesWhileAnInstallHoldsTheFolder(t *testing.T) {
 	}
 	if _, statErr := os.Stat(installed); statErr != nil {
 		t.Errorf("the companion was removed under the install: %v", statErr)
+	}
+}
+
+func TestInstallCompanion_StartsAnUpdatedCompanionOnceTheEarlierOneLeavesTheList(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "darwin")
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	started := false
+	tools.start = func(string, []string) error { started = true; return nil }
+	lingering := 3
+	tools.running = func(context.Context, string) (bool, error) {
+		if !started {
+			lingering--
+			return lingering >= 0, nil
+		}
+		return true, nil
+	}
+
+	if err := installCompanion(context.Background(), io.Discard, false, tools, dir, macBuild(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if lingering >= 0 {
+		t.Errorf("started while the earlier companion was still listed (%d looks left)", lingering)
+	}
+}
+
+func TestInstallCompanion_DoesNotWatchTheStartOffMacOS(t *testing.T) {
+	for _, goos := range []string{"linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
+			dir := t.TempDir()
+			installedCompanion(t, dir, goos)
+			tools := builtTools(t)
+			var asked int
+			tools.quit = runsUntilAsked(&asked)
+			tools.running = func(context.Context, string) (bool, error) {
+				t.Error("watched the process list off macOS")
+				return true, nil
+			}
+
+			if err := installCompanion(context.Background(), io.Discard, false, tools, dir, companionBuild{goos: goos, version: "1.2.3", revision: "abc123"}, nil); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

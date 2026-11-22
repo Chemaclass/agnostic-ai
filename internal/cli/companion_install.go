@@ -289,18 +289,26 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 
 // The updated companion counts as started once the process list shows it
 // companionSettleTries times in a row, within companionStartTries looks.
-// open returns once macOS accepts the launch, before the app opens its
-// windows, so an app that quits while it starts would otherwise pass.
+// open reports only that macOS accepted the launch, so an app that quits
+// while it opens its windows would otherwise pass.
 const (
 	companionStartPause  = 500 * time.Millisecond
-	companionStartTries  = 20
+	companionStartTries  = 30
 	companionSettleTries = 6
 )
 
 // launchUpdatedCompanion starts the updated companion with start and waits
-// until it stays up. One that does not is asked to quit, in case it is
-// only slow, so the earlier one can take its place.
+// until it stays up. The earlier companion can stay listed a moment after
+// it lets go of its lock, so it is first given time to leave the list. One
+// that does not stay up is asked to quit, in case it is only slow, so the
+// earlier one can take its place.
 func launchUpdatedCompanion(ctx context.Context, out io.Writer, tools companionTools, program string, start func() error) error {
+	for try := 0; try < companionStartTries; try++ {
+		if listed, err := tools.running(ctx, program); err != nil || !listed {
+			break
+		}
+		tools.pause(companionStartPause)
+	}
 	if err := start(); err != nil {
 		return err
 	}

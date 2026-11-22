@@ -128,30 +128,41 @@ func quitCompanion(ctx context.Context, path string) (bool, error) {
 	}
 }
 
-// companionProgramRuns reports whether the process list holds a program
-// named like path. macOS lists each program by the path it started from,
-// and that path can be spelled another way than path, so only the name is
-// compared. The earlier companion has ended by then, so the one listed is
-// the one just started.
+// companionProgramRuns reports whether this user's process list holds the
+// program at path. macOS lists each program by the path it started from,
+// which can be spelled another way than path, such as through /private, so
+// the app's name and the path inside it are compared.
 func companionProgramRuns(ctx context.Context, path string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "ps", "-axo", "comm=").Output()
+	out, err := exec.CommandContext(ctx, "ps", "-xo", "comm=").Output()
 	if err != nil {
 		return false, fmt.Errorf("list the running programs: %w", err)
 	}
 	return programListed(string(out), path), nil
 }
 
-// programListed reports whether one line of list names a program called like path.
+// programListed reports whether one line of list ends like path, from the
+// app folder on, or by its name for a program outside an app.
 func programListed(list, path string) bool {
-	name := filepath.Base(path)
+	tail := "/" + filepath.Base(path)
+	if app, inside := companionAppForProgram(path); inside {
+		tail = "/" + filepath.Base(app) + "/Contents/MacOS/" + filepath.Base(path)
+	}
 	for line := range strings.Lines(list) {
-		if filepath.Base(strings.TrimSpace(line)) == name {
+		if line = strings.TrimSpace(line); line == tail[1:] || strings.HasSuffix(line, tail) {
 			return true
 		}
 	}
 	return false
+}
+
+// companionAppForProgram returns the app that holds the program at path.
+func companionAppForProgram(path string) (string, bool) {
+	macOS := filepath.Dir(path)
+	contents := filepath.Dir(macOS)
+	app := filepath.Dir(contents)
+	return app, filepath.Base(macOS) == "MacOS" && filepath.Base(contents) == "Contents" && filepath.Ext(app) == ".app"
 }
 
 // withWhatItSaid adds what a failed program printed to its error.

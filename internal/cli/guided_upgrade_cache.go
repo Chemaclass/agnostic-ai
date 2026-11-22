@@ -38,10 +38,11 @@ func recentUpgradeCheck(at, now time.Time) bool {
 }
 
 // savedLater reports whether stored was saved by a process that started
-// after ours, so ours finished late and must not replace it. A time a day
-// or more ahead comes from a clock that was wrong, and is replaced.
-func savedLater(stored, ours time.Time) bool {
-	return stored.After(ours) && stored.Sub(ours) < 24*time.Hour
+// while ours waited, after ours started, so ours must not replace it. That
+// process saved a time at most waited after ours; a time further ahead
+// comes from a clock that was wrong, and is replaced.
+func savedLater(stored, ours time.Time, waited time.Duration) bool {
+	return stored.After(ours) && stored.Sub(ours) <= waited
 }
 
 func readUpgradeCache(path string) upgradeCheckCache {
@@ -62,6 +63,7 @@ func readUpgradeCache(path string) upgradeCheckCache {
 // the latest release's image cannot be checked.
 // It writes only the fields it owns, over a fresh read of the file.
 func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepImageOffer bool, fetch func(string) (upgradeOffer, error), image func(string) (bool, error)) (string, bool, error) {
+	started := time.Now()
 	cache := readUpgradeCache(path)
 	fresh := cache.Offer.Latest != "" && recentUpgradeCheck(cache.CheckedAt, now)
 	changed, imageChanged := false, false
@@ -96,12 +98,8 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 	var later *upgradeCheckCache
 	if changed || imageChanged {
 		_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-			if changed && savedLater(stored.CheckedAt, cache.CheckedAt) {
-				kept := *stored
-				later = &kept
-				return
-			}
-			if changed {
+			late := changed && savedLater(stored.CheckedAt, cache.CheckedAt, time.Since(started))
+			if changed && !late {
 				if stored.Offer.Latest != cache.Offer.Latest {
 					stored.OfferedAt = time.Time{}
 				}
@@ -110,9 +108,13 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 			if imageChanged && stored.Offer.Latest == latest {
 				stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
 			}
+			if late {
+				kept := *stored
+				later = &kept
+			}
 		})
 	}
-	if later != nil {
+	if later != nil && later.Offer.Latest != latest {
 		return later.Offer.Latest, later.CompanionImageTag == later.Offer.Latest && later.CompanionImage, nil
 	}
 	if imageErr != nil && !refresh && keepImageOffer && cache.CompanionImage && newerStableRelease(cache.CompanionImageTag, current) {
@@ -130,6 +132,7 @@ func cachedUpgradeOffer(current string) (upgradeOffer, error) {
 }
 
 func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string) (upgradeOffer, error)) (upgradeOffer, error) {
+	started := time.Now()
 	cache := readUpgradeCache(path)
 	recent := func(at time.Time) bool { return recentUpgradeCheck(at, now) }
 	if cache.GuidedFailureCurrent == current && cache.GuidedFailureAt.After(cache.CheckedAt) && recent(cache.GuidedFailureAt) {
@@ -156,7 +159,7 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	// OfferedAt always belongs to the release stored beside it.
 	var offered upgradeOffer
 	offer := func(c *upgradeCheckCache) {
-		if newerStableRelease(c.Offer.Latest, current) && !recent(c.OfferedAt) && !savedLater(c.OfferedAt, now) {
+		if newerStableRelease(c.Offer.Latest, current) && !recent(c.OfferedAt) && !savedLater(c.OfferedAt, now, time.Since(started)) {
 			c.OfferedAt, offered = now, c.Offer
 		}
 	}
@@ -164,7 +167,7 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
 	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
 		read = true
-		if fetched && !savedLater(stored.CheckedAt, cache.CheckedAt) {
+		if fetched && !savedLater(stored.CheckedAt, cache.CheckedAt, time.Since(started)) {
 			if stored.Offer.Latest != cache.Offer.Latest {
 				stored.OfferedAt = time.Time{}
 			}
