@@ -107,7 +107,13 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 		if err == nil && reported != "" && info.Version != "" && !versionsEqual(version, info.Version) && versionsEqual(reported, info.Version) {
 			stillOld = true
 		}
-		if err == nil {
+		// A package channel can publish a newer release after the GitHub check. The CLI it installed
+		// is already in place, so the companion follows it.
+		aheadOfCheck := err == nil && info.Method != installBinary && newerStableRelease(reported, version)
+		if aheadOfCheck {
+			_, _ = fmt.Fprintf(out, "The package manager installed %s, newer than the release checked (%s).\n", reported, version)
+		}
+		if err == nil && !aheadOfCheck {
 			if reported == "" || (version != "" && !versionsEqual(reported, version)) || (version == "" && versionsEqual(reported, info.Version)) {
 				err = fmt.Errorf("%s reports %q, expected updated CLI %s", path, strings.TrimSpace(actual), version)
 			}

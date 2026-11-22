@@ -477,3 +477,80 @@ func TestInstallCompanion_KeepsTheEarlierAppWhenItCannotBePutBack(t *testing.T) 
 		t.Errorf("the earlier companion at %s is gone (%v)", aside, readErr)
 	}
 }
+
+func TestInstallCompanion_RestoresTheEarlierAppWhenTheNewOneDoesNotStart(t *testing.T) {
+	dir := t.TempDir()
+	installed := installedCompanion(t, dir, "darwin")
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	var started []string
+	tools.start = func(path string, _ []string) error {
+		raw, _ := os.ReadFile(path)
+		started = append(started, string(raw))
+		if len(started) == 1 {
+			return errors.New("open refused")
+		}
+		return nil
+	}
+	var out bytes.Buffer
+
+	err := installCompanion(context.Background(), &out, false, tools, dir, macBuild(), nil)
+
+	if err == nil || !strings.Contains(err.Error(), "start the companion: open refused") {
+		t.Fatalf("err = %v", err)
+	}
+	if raw, _ := os.ReadFile(installed); string(raw) != "the one that works" {
+		t.Errorf("installed program = %q; want the earlier companion back", raw)
+	}
+	want := []string{"built from github.com/chemaclass/agnostic-ai/companion@abc123", "the one that works"}
+	if strings.Join(started, "|") != strings.Join(want, "|") {
+		t.Errorf("started %q; want the new companion, then the earlier one", started)
+	}
+	for _, line := range []string{"Could not start the updated companion.", "Restored the earlier companion.", "Started the earlier companion."} {
+		if !strings.Contains(out.String(), line) {
+			t.Errorf("output %q; want %q", out.String(), line)
+		}
+	}
+	if revision := installedRevision(dir); revision != "" {
+		t.Errorf("recorded revision %q for the earlier companion", revision)
+	}
+	entries, _ := os.ReadDir(filepath.Join(dir, "companion"))
+	if len(entries) != 1 {
+		t.Errorf("the companion folder holds %d entries, want only the app", len(entries))
+	}
+}
+
+func TestInstallCompanion_KeepsTheEarlierAppWhenTheNewOneDoesNotStartAndCannotBeSwappedBack(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "darwin")
+	app := companionBundle(dir)
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	tools.start = func(string, []string) error { return errors.New("open refused") }
+	swapped := false
+	tools.rename = func(from, to string) error {
+		if to == app && swapped {
+			return errors.New("disk full")
+		}
+		if to == app {
+			swapped = true
+		}
+		return os.Rename(from, to)
+	}
+	var out bytes.Buffer
+
+	err := installCompanion(context.Background(), &out, false, tools, dir, macBuild(), nil)
+
+	var kept companionKeptAside
+	if !errors.As(err, &kept) {
+		t.Fatalf("err = %v; want the earlier companion kept aside", err)
+	}
+	if raw, readErr := os.ReadFile(filepath.Join(kept.aside, "Contents", "MacOS", companionName)); string(raw) != "the one that works" {
+		t.Errorf("the earlier companion at %s is gone (%v)", kept.aside, readErr)
+	}
+	if !strings.Contains(out.String(), "Could not restore the earlier companion.") {
+		t.Errorf("output %q", out.String())
+	}
+}

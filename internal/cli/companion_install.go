@@ -138,6 +138,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	}
 	target := companionFile(dir, build.goos)
 	place := func() error { return tools.rename(built, target) }
+	var restore func() error
 	if build.goos == "darwin" {
 		app := filepath.Join(staging, companionAppName+".app")
 		if err := assembleCompanionApp(ctx, tools, dir, built, app, build.version); err != nil {
@@ -145,6 +146,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		}
 		target = companionBundle(dir)
 		place = func() error { return replaceCompanionApp(tools.rename, app, target, staging) }
+		restore = func() error { return restoreCompanionApp(tools.rename, app, target, staging) }
 	}
 	// An interrupt stops here, before anything installed changes. Past
 	// this point the install finishes, so a stopped companion starts again.
@@ -167,7 +169,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		_, _ = fmt.Fprintln(out, "Start it with: agnostic-ai companion")
 		return nil
 	}
-	keepStaging, err = replaceInstalledCompanion(ctx, out, tools, dir, build, installed, target, place, loginEntries)
+	keepStaging, err = replaceInstalledCompanion(ctx, out, tools, dir, build, installed, target, place, restore, loginEntries)
 	return err
 }
 
@@ -215,8 +217,9 @@ func obtainCompanion(ctx context.Context, out io.Writer, live bool, tools compan
 // replaceInstalledCompanion puts the new companion over the installed
 // one: it stops a running one, places the new one, and starts it again.
 // keepStaging reports that the staging folder holds the only copy of the
-// app place could not put back.
-func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools companionTools, dir string, build companionBuild, installed, target string, place func() error, loginEntries []string) (keepStaging bool, err error) {
+// app place could not put back. restore, when set, puts the earlier app
+// back after the new one fails to start.
+func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools companionTools, dir string, build companionBuild, installed, target string, place, restore func() error, loginEntries []string) (keepStaging bool, err error) {
 	// Windows does not replace the file of a program that runs.
 	ran, err := endCompanion(ctx, tools, installed)
 	alone := err == nil
@@ -258,12 +261,39 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 		_, _ = fmt.Fprintf(out, "Could not install the updated companion: %v\n", err)
 	}
 	if startErr := startInstalledCompanion(tools, installed); startErr != nil {
-		return keepStaging, errors.Join(err, startErr)
+		if err != nil || restore == nil {
+			return keepStaging, errors.Join(err, startErr)
+		}
+		return restartEarlierInstalledCompanion(out, tools, dir, installed, restore, startErr)
 	}
 	if err == nil {
 		_, _ = fmt.Fprintln(out, "✓ Started it again")
 	}
 	return keepStaging, err
+}
+
+// restartEarlierInstalledCompanion puts the earlier app back after the new
+// one failed to start, and starts it. The CLI upgrade that came first stays.
+// The companion reads these lines from its update log.
+func restartEarlierInstalledCompanion(out io.Writer, tools companionTools, dir, installed string, restore func() error, startErr error) (keepStaging bool, err error) {
+	_, _ = fmt.Fprintln(out, "Could not start the updated companion.")
+	if restoreErr := restore(); restoreErr != nil {
+		_, kept := errors.AsType[companionKeptAside](restoreErr)
+		_, _ = fmt.Fprintf(out, "Could not restore the earlier companion. %v\n", restoreErr)
+		return kept, errors.Join(startErr, restoreErr)
+	}
+	_, _ = fmt.Fprintln(out, "Restored the earlier companion.")
+	// The recorded commit names the new build, not the earlier app.
+	_ = recordCompanionInstall(dir, "")
+	if os.Getenv(envCompanionUpdate) != "" {
+		_, _ = fmt.Fprintf(out, "Could not install the updated companion: %v\n", startErr)
+	}
+	if again := startInstalledCompanion(tools, installed); again != nil {
+		_, _ = fmt.Fprintln(out, "Could not start the earlier companion.")
+		return false, errors.Join(startErr, fmt.Errorf("the earlier companion: %w", again))
+	}
+	_, _ = fmt.Fprintln(out, "Started the earlier companion.")
+	return false, startErr
 }
 
 // buildCompanion builds the companion into build.into and returns the program.

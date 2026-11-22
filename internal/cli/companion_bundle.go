@@ -138,6 +138,22 @@ func replaceCompanionApp(rename func(from, to string) error, built, installed, s
 	return nil
 }
 
+// restoreCompanionApp undoes replaceCompanionApp: the new app goes back to
+// built and the earlier one, moved aside, returns to installed.
+func restoreCompanionApp(rename func(from, to string) error, built, installed, staging string) error {
+	aside := filepath.Join(staging, companionAsideName)
+	if _, err := os.Stat(aside); err != nil {
+		return fmt.Errorf("no earlier companion to restore: %w", err)
+	}
+	if err := rename(installed, built); err != nil {
+		return err
+	}
+	if err := rename(aside, installed); err != nil {
+		return companionKeptAside{err: err, aside: aside, installed: installed}
+	}
+	return nil
+}
+
 // companionKeptAside is an install that could neither put the new app in
 // place nor the old one back. The old one stays aside, for the person to
 // move back.

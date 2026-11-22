@@ -254,3 +254,76 @@ func TestCompanionUpdateStatus_DistinguishesMissingAndMalformedImageChecksums(t 
 		})
 	}
 }
+
+func TestUpgradeCache_TheGuidedCheckKeepsTheImageAnotherProcessWrote(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	fetch := func(string) (upgradeOffer, error) {
+		// Another CLI process records the disk image while this one asks GitHub.
+		if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(-time.Minute), Offer: upgradeOffer{Latest: "0.97.0"}, CompanionImageTag: "0.97.0", CompanionImage: true}); err != nil {
+			t.Fatal(err)
+		}
+		return upgradeOffer{Latest: "0.97.0"}, nil
+	}
+
+	if _, err := cachedUpgradeOfferAt(path, "0.96.0", now, fetch); err != nil {
+		t.Fatal(err)
+	}
+
+	cache := readUpgradeCache(path)
+	if cache.CompanionImageTag != "0.97.0" || !cache.CompanionImage || !cache.CheckedAt.Equal(now) || !cache.OfferedAt.Equal(now) {
+		t.Errorf("cache = %+v; want the image kept and the guided check recorded", cache)
+	}
+}
+
+func TestUpgradeCache_WaitsForAnotherWriter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	lock, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := tryLockProjectFile(lock); err != nil {
+		t.Skipf("no file locks here: %v", err)
+	}
+	released := make(chan struct{})
+	go func() {
+		time.Sleep(100 * time.Millisecond)
+		if err := writeUpgradeCache(path, upgradeCheckCache{CompanionImageTag: "0.97.0"}); err != nil {
+			t.Error(err)
+		}
+		close(released)
+		_ = lock.Close()
+	}()
+
+	err = updateUpgradeCache(path, func(cache *upgradeCheckCache) {
+		select {
+		case <-released:
+		default:
+			t.Error("wrote while another process held the cache")
+		}
+		cache.Current = "0.96.0"
+	})
+
+	if cache := readUpgradeCache(path); err != nil || cache.CompanionImageTag != "0.97.0" || cache.Current != "0.96.0" {
+		t.Errorf("cache = %+v, %v; want both writes", cache, err)
+	}
+}
+
+func TestCompanionUpdateCache_AFailedAutomaticCheckAsksAgainAtTheNextStart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update-check.json")
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(-48 * time.Hour), Offer: upgradeOffer{Latest: "0.97.0"}}); err != nil {
+		t.Fatal(err)
+	}
+	asked := 0
+	offline := func(string) (upgradeOffer, error) { asked++; return upgradeOffer{}, errors.New("offline") }
+
+	for _, at := range []time.Time{now, now.Add(time.Minute)} {
+		if latest, _, err := companionUpdateCacheAt(path, "0.96.0", at, false, false, offline, nil); err != nil || latest != "0.97.0" {
+			t.Fatalf("offline start = %q, %v; want the last answer", latest, err)
+		}
+	}
+	if asked != 2 {
+		t.Errorf("asked %d times; want each start to ask again after a failure", asked)
+	}
+}
