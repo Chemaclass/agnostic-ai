@@ -200,7 +200,7 @@ func TestKonsole_LongTextGoesInPartsInsideOnePaste(t *testing.T) {
 	parts := 0
 	for _, call := range commands.calls {
 		if part, ok := strings.CutPrefix(call, konsoleDBus+"/Sessions/2 org.kde.konsole.Session.sendText string:"); ok {
-			if len(part) > konsoleSendPart+len("\x1b[200~") {
+			if len(part) > sendPart+len("\x1b[200~") {
 				t.Errorf("a part of %d bytes", len(part))
 			}
 			sent.WriteString(part)
@@ -225,5 +225,18 @@ func TestNotOpened_KonsoleRefusingTheCommandSaysTheTabOpened(t *testing.T) {
 	err := notOpened(tabOpening{app: "Konsole", err: errKonsoleCommandsOff}, "cd '/tmp/app' && x")
 	if !strings.Contains(err.Error(), "opened a Konsole tab") || !strings.Contains(err.Error(), "run this line there: cd '/tmp/app' && x") {
 		t.Errorf("err %v", err)
+	}
+}
+
+func TestKonsole_ClosesThePasteWhenALaterPartFails(t *testing.T) {
+	send := konsoleDBus + "/Sessions/2 org.kde.konsole.Session.sendText string:"
+	text := strings.Repeat("a", sendPart) + "second"
+	commands := &fakeCommands{out: konsoleReplies(), errs: map[string]error{send + "aaaaaasecond": errors.New("refused")}}
+
+	if ok, err := testKonsole(commands).typeIn(context.Background(), "/dev/pts/0", text); ok || err == nil {
+		t.Fatalf("ok %v err %v", ok, err)
+	}
+	if last := commands.calls[len(commands.calls)-1]; last != send+"\x1b[201~" {
+		t.Errorf("last call = %q, want the paste closed", last)
 	}
 }

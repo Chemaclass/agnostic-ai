@@ -177,8 +177,12 @@ func updateFailureReason(log, step string) string {
 		return "the earlier companion could not be restored. See the log for its saved location"
 	case strings.Contains(log, "Could not start the earlier companion."):
 		return "the earlier companion could not restart. Open it again"
+	case strings.Contains(log, "Could not start the updated companion.") && strings.Contains(log, "Restored the earlier companion."):
+		return "the updated companion could not start, so the earlier one was restored"
 	case strings.Contains(log, "Could not start the updated companion."):
 		return "the updated companion could not restart"
+	case strings.Contains(log, "Could not replace the companion app."):
+		return "the new app could not replace the earlier one, which was kept"
 	case strings.Contains(log, "CLI upgrade succeeded, but companion update failed:"):
 		if strings.Contains(log, "start the companion:") {
 			return "the CLI was upgraded, but the companion could not restart"

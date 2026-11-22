@@ -87,17 +87,17 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 		}
 	}
 	if changed || imageChanged {
-		stored := readUpgradeCache(path)
-		if changed && !stored.CheckedAt.After(cache.CheckedAt) {
-			if stored.Offer.Latest != cache.Offer.Latest {
-				stored.OfferedAt = time.Time{}
+		_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
+			if changed {
+				if stored.Offer.Latest != cache.Offer.Latest {
+					stored.OfferedAt = time.Time{}
+				}
+				stored.CheckedAt, stored.Offer = cache.CheckedAt, cache.Offer
 			}
-			stored.CheckedAt, stored.Offer = cache.CheckedAt, cache.Offer
-		}
-		if imageChanged && stored.Offer.Latest == latest {
-			stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
-		}
-		_ = writeUpgradeCache(path, stored)
+			if imageChanged && stored.Offer.Latest == latest {
+				stored.CompanionImageTag, stored.CompanionImage = cache.CompanionImageTag, cache.CompanionImage
+			}
+		})
 	}
 	if imageErr != nil && !refresh && keepImageOffer && cache.CompanionImage && newerStableRelease(cache.CompanionImageTag, current) {
 		return cache.CompanionImageTag, true, nil
@@ -119,14 +119,15 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	if cache.GuidedFailureCurrent == current && cache.GuidedFailureAt.After(cache.CheckedAt) && recent(cache.GuidedFailureAt) {
 		return upgradeOffer{}, nil
 	}
-	if !recent(cache.CheckedAt) || cache.Current != current {
+	fetched := !recent(cache.CheckedAt) || cache.Current != current
+	if fetched {
 		offer, err := fetch(current)
 		if err != nil {
-			stored := readUpgradeCache(path)
-			if stored.CheckedAt.Before(now) && stored.GuidedFailureAt.Before(now) {
-				stored.GuidedFailureAt, stored.GuidedFailureCurrent = now, current
-				_ = writeUpgradeCache(path, stored)
-			}
+			_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
+				if stored.CheckedAt.Before(now) && stored.GuidedFailureAt.Before(now) {
+					stored.GuidedFailureAt, stored.GuidedFailureCurrent = now, current
+				}
+			})
 			return upgradeOffer{}, err
 		}
 		if offer.Latest != cache.Offer.Latest {
@@ -135,13 +136,59 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 		cache.CheckedAt, cache.Current, cache.Offer = now, current, offer
 		cache.GuidedFailureAt, cache.GuidedFailureCurrent = time.Time{}, ""
 	}
-	if !newerStableRelease(cache.Offer.Latest, current) || recent(cache.OfferedAt) {
-		_ = writeUpgradeCache(path, cache)
+	offering := newerStableRelease(cache.Offer.Latest, current) && !recent(cache.OfferedAt)
+	if offering {
+		cache.OfferedAt = now
+	}
+	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
+	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
+		if fetched {
+			stored.CheckedAt, stored.Current, stored.Offer = cache.CheckedAt, cache.Current, cache.Offer
+			stored.GuidedFailureAt, stored.GuidedFailureCurrent = cache.GuidedFailureAt, cache.GuidedFailureCurrent
+		}
+		stored.OfferedAt = cache.OfferedAt
+	})
+	if !offering {
 		return upgradeOffer{}, nil
 	}
-	cache.OfferedAt = now
-	_ = writeUpgradeCache(path, cache)
 	return cache.Offer, nil
+}
+
+// Writers retry the cache lock this long; the holder only reads and replaces one small file.
+const (
+	upgradeCacheLockTries = 50
+	upgradeCacheLockPause = 20 * time.Millisecond
+)
+
+// updateUpgradeCache applies change to a fresh read of the cache while it
+// holds a lock beside it, so CLI processes that run at once keep each
+// other's fields.
+func updateUpgradeCache(path string, change func(*upgradeCheckCache)) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	lock, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return fmt.Errorf("%s: %w", path, err)
+	}
+	defer func() { _ = lock.Close() }()
+	for try := 1; ; try++ {
+		err := tryLockProjectFile(lock)
+		if err == nil {
+			break
+		}
+		if !projectLockContended(err) {
+			// Without file locks the cache is still written, as before the lock existed.
+			break
+		}
+		if try == upgradeCacheLockTries {
+			return fmt.Errorf("lock %s: %w", path, err)
+		}
+		time.Sleep(upgradeCacheLockPause)
+	}
+	cache := readUpgradeCache(path)
+	change(&cache)
+	return writeUpgradeCache(path, cache)
 }
 
 func writeUpgradeCache(path string, cache upgradeCheckCache) error {

@@ -143,12 +143,12 @@ export function takesText(conversation) {
 }
 
 /** The apps whose tabs the server can type into, as a live row's route names them: "Switch to Ghostty". */
-const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm', 'Switch to WezTerm', 'Switch to kitty'])
+const TYPABLE_ROUTES = new Set(['Switch to Terminal', 'Switch to Ghostty', 'Switch to iTerm', 'Switch to WezTerm', 'Switch to kitty', 'Switch to Konsole'])
 /** The tools the server types into: they say when they wait for an answer. */
 const TYPED_TOOLS = new Set(['claude', 'codex'])
 
 /**
- * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty, iTerm, WezTerm or kitty tab, under
+ * The rows the copied text can be typed into, in list order: live, in a Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab, under
  * Needs you, Working or Active. Like the server, it leaves out a chat that waits for an answer, where typed text
  * could answer it, a Cursor chat, which does not say when it waits, and a working chat whose tool may drop typed text:
  * only Claude Code keeps it.
@@ -573,6 +573,88 @@ export function threadsOf(conversation) {
   return conversation.threads ?? []
 }
 
+const RECEIVER_GROUP_LABELS = { archived: 'Archived · gets it when resumed' }
+
+/** "Companion rebuild · Claude Code": a session named in the mailbox form. */
+export function sessionLabelOf(conversation) {
+  return `${titleOf(conversation)} · ${toolLabelOf(conversation)}`
+}
+
+/**
+ * The sessions `from` can message, one group per list group, most recently updated first.
+ * Each option reads "Title · Tool · folder"; options that read the same add their age, then the first 8 characters of their ID.
+ */
+export function receiversOf(conversations, from, now) {
+  const fromKey = keyOf(from)
+  const folders = folderNamesOf(conversations.map((conversation) => conversation.folder))
+  const options = conversations
+    .filter((conversation) => mailboxSessionOf(conversation) && keyOf(conversation) !== fromKey)
+    .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+    .map((conversation) => {
+      const parts = [titleOf(conversation), toolLabelOf(conversation)]
+      if (conversation.folder) parts.push(folders.get(conversation.folder) ?? folderName(conversation.folder))
+      return {
+        value: keyOf(conversation),
+        to: { tool: conversation.tool, id: conversation.id },
+        title: titleOf(conversation),
+        found: sessionLabelOf(conversation),
+        group: GROUP_OF_STATE[conversation.state] ?? 'active',
+        label: parts.join(' · '),
+      }
+    })
+  const tellApart = (more) => {
+    const counts = new Map()
+    for (const option of options) counts.set(option.label, (counts.get(option.label) ?? 0) + 1)
+    const shared = options.filter((option) => counts.get(option.label) > 1)
+    for (const option of shared) option.label += ' · ' + more(option)
+  }
+  const updated = new Map(conversations.map((conversation) => [keyOf(conversation), conversation.updatedAt]))
+  tellApart((option) => ago(updated.get(option.value), now))
+  tellApart((option) => option.to.id.slice(0, 8))
+  return GROUPS
+    .map((group) => ({ id: group.id, label: RECEIVER_GROUP_LABELS[group.id] ?? group.title, options: options.filter((option) => option.group === group.id) }))
+    .filter((group) => group.options.length > 0)
+}
+
+const TYPE_HELP = {
+  question: (name) => `Ask ${name} something. Its reply comes back to this thread.`,
+  finding: (name) => `Tell ${name} what you found. It can reply or close the thread.`,
+  review_request: (name) => `Ask ${name} to review the changes in this chat's worktree.`,
+  handoff: (name) => `Offer ${name} the files you claimed, so it can take them over.`,
+}
+
+/** The line under Type: what a message of that type asks of the receiver. */
+export function typeHelpOf(type, name) {
+  return TYPE_HELP[type]?.(name || 'the other session') ?? ''
+}
+
+const ARRIVAL = {
+  'needs-you': 'with its next prompt',
+  active: 'with its next prompt',
+  working: 'with its next prompt, after its current work',
+  archived: 'when it is resumed',
+}
+
+/** When the receiver reads the message, from its list group. Empty without a known receiver. */
+export function arrivalOf(group, name) {
+  if (!name || !ARRIVAL[group]) return ''
+  return `This waits in the thread. With the mailbox built-in on, ${name} gets it ${ARRIVAL[group]}.`
+}
+
+/**
+ * What a typed session ID points at among `receivers` (the flat options of receiversOf):
+ * one receiver, none, two tools, or the sender itself.
+ */
+export function typedReceiverOf(receivers, from, typed) {
+  const id = typed.trim()
+  if (!id) return { status: 'empty' }
+  if (id === from.id) return { status: 'sender', note: 'That is the sending session.' }
+  const matches = receivers.filter((receiver) => receiver.to.id === id)
+  if (matches.length > 1) return { status: 'two', note: 'Two sessions use this ID. Choose from the list.' }
+  if (matches.length === 1) return { status: 'found', receiver: matches[0], note: `Found: ${matches[0].found}.` }
+  return { status: 'unknown', note: 'No session in the list has this ID. It may not be loaded yet.' }
+}
+
 export function reviewModelsOf(from, to) {
   const sending = from?.trim()
   const reviewing = to?.trim()
@@ -597,6 +679,12 @@ export function handoffAnswerOf(thread, message) {
 
 export function senderKindOf(message) {
   return message.from?.by === 'agent' ? 'Sent by the agent' : undefined
+}
+
+/** The model label the person entered for a session, or empty: a model an agent states never counts as one. */
+export function modelLabelOf(models, ref) {
+  const model = ref ? models?.[keyOf(ref)] : undefined
+  return model?.statedBy === 'human' ? model.name : ''
 }
 
 /** The model an agent says it runs. The mailbox cannot check it. */
@@ -1098,7 +1186,7 @@ export function updateMessageOf(update) {
   const withNote = (text) => (note ? { text: `${text} ${note.text}`, command: note.command } : { text })
   if (update.result === 'release-changed') return { text: update.reason, log: update.log }
   if (update.result === 'unreachable') return withNote('Could not check for updates. Check your connection and try again.')
-  if (update.result === 'latest') return withNote(`No newer version is available for this Mac. You have v${update.current}.`)
+  if (update.result === 'latest') return withNote(`No newer version is available for this computer. You have v${update.current}.`)
   if (update.state === 'checking') return { text: 'Checking for updates…' }
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
   if (update.state === 'failed') {

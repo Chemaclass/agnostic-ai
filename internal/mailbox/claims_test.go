@@ -28,7 +28,7 @@ func claimRepo(t *testing.T) string {
 
 func claimAndOffer(t *testing.T, s Store, root string, paths ...string) Receipt {
 	t.Helper()
-	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root); err != nil {
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	return offerPaths(t, s, root, paths...)
@@ -71,7 +71,7 @@ func TestClaims_TransfersOneChildAndReleaseKeepsItFree(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectedOwner(t, s, root, "scope/a.go", conversations.Ref{})
-	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope/a.go"}}, root); err != nil {
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope/a.go"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	second := offerPaths(t, s, root, "scope")
@@ -87,7 +87,7 @@ func TestClaims_ReleasesThroughTheSameWorktreeAlias(t *testing.T) {
 	alias := filepath.Join(t.TempDir(), "worktree")
 	claimSymlink(t, root, alias)
 	gives := Gives{alias, []string{"scope/file.go"}}
-	if err := s.Claim(t.Context(), claude, gives, root); err != nil {
+	if err := s.Claim(t.Context(), claude, gives, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Release(t.Context(), claude, gives); err != nil {
@@ -104,7 +104,7 @@ func TestClaims_AConflictAtAcceptanceMovesNothingAndShowsBothSides(t *testing.T)
 	if err := s.Release(t.Context(), claude, file); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Claim(t.Context(), mailThird, file, root); err != nil {
+	if err := s.Claim(t.Context(), mailThird, file, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept")
@@ -207,7 +207,7 @@ func TestClaims_ReleasesStaleScopeAfterWorktreeDisappears(t *testing.T) {
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
 	gives := Gives{root, []string{"scope"}}
-	if err := s.Claim(t.Context(), claude, gives, root); err != nil {
+	if err := s.Claim(t.Context(), claude, gives, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Rename(root, filepath.Join(filepath.Dir(root), "moved")); err != nil {
@@ -244,7 +244,7 @@ func expectedOwnerIn(t *testing.T, view ClaimView, root, path string, want conve
 func TestClaims_ReleaseDoesNotRequireGitMetadata(t *testing.T) {
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
-	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root); err != nil {
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Rename(filepath.Join(root, ".git"), filepath.Join(root, "removed-git")); err != nil {
@@ -263,7 +263,7 @@ func TestClaims_ReleaseOfStoredPathDoesNotFollowRetargetedSymlink(t *testing.T) 
 	}
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
-	if err := s.Claim(t.Context(), claude, Gives{root, []string{"a.go", "b.go"}}, root); err != nil {
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"a.go", "b.go"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	writeReviewFile(t, root, "b.go", "keep this claim")
@@ -281,7 +281,7 @@ func TestClaims_DeclineAndStopKeepOwnership(t *testing.T) {
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
 	offer := claimAndOffer(t, s, root, "scope/a.go")
-	err := s.Claim(t.Context(), codex, Gives{root, []string{"scope/a.go"}}, root)
+	err := s.Claim(t.Context(), codex, Gives{root, []string{"scope/a.go"}}, root, "human")
 	requireGuard(t, err, "ownership")
 	for range 2 {
 		if err := s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "decline"); err != nil {
@@ -373,7 +373,7 @@ func TestClaims_CorruptClaimsFileLeavesThreadsWorking(t *testing.T) {
 func TestClaims_PendingTransferOfAMissingThreadIsCleared(t *testing.T) {
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
-	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root); err != nil {
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	state, err := s.readClaims()
@@ -409,11 +409,11 @@ func TestClaims_ListReadsDoNotWaitForABusyLock(t *testing.T) {
 func TestClaims_StoresUnicodePathsInOneNormalForm(t *testing.T) {
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
-	if err := s.Claim(t.Context(), claude, Gives{root, []string{"cafe\u0301.go"}}, root); err != nil {
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"cafe\u0301.go"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	expectedOwner(t, s, root, "caf\u00e9.go", claude)
-	err := s.Claim(t.Context(), codex, Gives{root, []string{"caf\u00e9.go"}}, root)
+	err := s.Claim(t.Context(), codex, Gives{root, []string{"caf\u00e9.go"}}, root, "human")
 	requireGuard(t, err, "ownership")
 }
 

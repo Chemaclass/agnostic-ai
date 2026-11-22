@@ -44,11 +44,11 @@ To use the command in a terminal, right-click the circle and choose **Install co
 {% </details> %}
 
 {% <details summary="Update the disk-image app"> %}
-The bundled CLI checks quietly on start and every 24 hours. A successful release check stays fresh for 24 hours across restarts. Offline, the app keeps the last verified disk image offer. When a newer stable release has a disk image for this Mac, both menus show **Update to vX.Y.Z** and the ⋯ button shows a dot. **Check for updates** checks now and reports release or checksum list errors. Turn off **Check for updates automatically** in either menu to stop automatic checks.
+The bundled CLI checks quietly on start and every 24 hours. A successful release check stays fresh for 24 hours across restarts. A failed check is tried again at the next start. Offline, the app keeps the last verified disk image offer. When a newer stable release has a disk image for this Mac, both menus show **Update to vX.Y.Z** and the ⋯ button shows a dot. **Check for updates** checks now and reports release or checksum list errors. Turn off **Check for updates automatically** in either menu to stop automatic checks.
 
 Choose **Update to vX.Y.Z**, then **Update and restart**. The list shows download, verification, and restart progress as the app and bundled CLI update together. The download uses the CLI installer's checksum and provenance checks. The update works without `gh` because the replacement must match the installed app's project certificate before it runs or replaces the app. After a certificate change, install the next disk image by hand once. Move the app to Applications before updating from the disk image or a read-only folder.
 
-If macOS refuses to open the replacement, the updater tries to restore and open the earlier app. If restoration fails, it saves the earlier bundle and logs its path. The list shows the failure and offers **Retry**, including after restart. The log is at `~/Library/Application Support/agnostic-ai/companion-update.log`.
+If macOS refuses to open the replacement, the updater tries to restore and open the earlier app. If restoration fails, it saves the earlier bundle and logs its path. The list shows the failure and offers **Retry**, including after restart. When the earlier app runs again, the failure says whether the new app could not take its place or could not start. A second update of the same app stops until the first one ends. The log is at `~/Library/Application Support/agnostic-ai/companion-update.log`.
 
 `agnostic-ai upgrade` from a bundled CLI link directs you to the app menu. The app looks past bundle links for a separate CLI, such as Homebrew or npm. If that CLI is older, the list shows both versions and a command to copy and run in your terminal.
 {% </details> %}
@@ -274,7 +274,7 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --scope
 
 `agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. When the CLI is already current, as after a direct Homebrew or npm upgrade, it still replaces a companion built for another release.
 
-A terminal install uses the same menus and quiet automatic checks. On macOS, **Update and restart** runs `agnostic-ai upgrade` after you confirm the offer. The CLI first checks that GitHub still shows that release, then uses its install method. Homebrew and npm publish on their own schedules. The updater verifies the installed CLI version before replacing the companion. If the package manager has yet to publish the release, choose **Retry** later.
+A terminal install uses the same menus and quiet automatic checks. On macOS, **Update and restart** runs `agnostic-ai upgrade` after you confirm the offer. The CLI first checks that GitHub still shows that release, then uses its install method. Homebrew and npm publish on their own schedules. The updater verifies the installed CLI version before replacing the companion. If the package manager has yet to publish the release, choose **Retry** later. If it already serves a newer release, the updater keeps that CLI and installs the matching companion.
 
 Older CLIs, unknown install methods, missing package managers, and other systems use **Copy command** for `agnostic-ai upgrade` and **Release page** for the GitHub release. Finder and login launches on macOS also search `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. If npm lives elsewhere, as with nvm, copy the command into a terminal where npm is available.
 
@@ -292,7 +292,7 @@ Older CLIs, unknown install methods, missing package managers, and other systems
 - Settings and Start at login stay as they were.
 - It installs none if none is installed.
 - `upgrade --check` and `upgrade --requires` do not replace it.
-- If the CLI upgrade succeeds and the companion update fails, the CLI stays upgraded. The list shows the failure and log path when it can recover the result on the next start.
+- If the CLI upgrade succeeds and the companion update fails, the CLI stays upgraded. On macOS, a new companion that does not start is replaced by the earlier one, which starts again. The list shows the failure and log path when it can recover the result on the next start.
 - When Homebrew or npm does not serve the new release yet, the CLI stays as it was and the error says to run `agnostic-ai upgrade` again later.
 - The error names the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 - A fresh companion/server start shows a panel notice when their versions differ, with the command to run. Starting through the CLI also prints a warning.

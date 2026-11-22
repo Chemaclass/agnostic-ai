@@ -468,6 +468,12 @@ func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
 		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},
 		{"replace /A.app: permission denied", updateRestarting, "the update command failed"},
+		{"Restarting the companion.\nCould not replace the companion app.\nStarted the earlier companion.\nError: replace /A.app: permission denied", updateRestarting, "the new app could not replace the earlier one, which was kept"},
+		{"Restarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nRestored the earlier companion.\nStarted the earlier companion.\n", updateRestarting, "the updated companion could not start, so the earlier one was restored"},
+		{"Restarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\n", updateRestarting, "the updated companion could not restart"},
+		{"Restarting the companion.\nCould not replace the companion app.\nCould not start the earlier companion.\n", updateRestarting, "the earlier companion could not restart. Open it again"},
+		{"Restarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nRestored the earlier companion.\nCould not start the earlier companion.\n", updateRestarting, "the earlier companion could not restart. Open it again"},
+		{"Restarting the companion.\nCould not replace the companion app.\nCould not restore the earlier companion. rename failed\n", updateRestarting, "the earlier companion could not be restored. See the log for its saved location"},
 		{"→ brew update && brew upgrade --cask Chemaclass/tap/agnostic-ai\nsh: brew: command not found\nError: upgrade: run brew: exit status 127", updateDownloading, "the package manager could not run from the companion"},
 	} {
 		if got := updateFailureReason(tc.log, tc.step); got != tc.want {
@@ -645,6 +651,7 @@ func TestFailedUpdateAfterRestart_UsesExplicitOutcomes(t *testing.T) {
 	}{
 		{"failed DMG restore", "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nCould not restore the earlier companion.\n", "the earlier companion could not be restored. See the log for its saved location", ""},
 		{"terminal launch failed", "Updating the terminal companion to 0.97.0.\nTerminal update failed: CLI upgrade succeeded, but companion update failed: start the companion: open failed\n", "the CLI was upgraded, but the companion could not restart", upgradeCommand},
+		{"terminal launch restored", "Updating the terminal companion to 0.97.0.\nCould not start the updated companion.\nRestored the earlier companion.\nCould not install the updated companion: start the companion: open failed\nStarted the earlier companion.\n", "the updated companion could not start, so the earlier one was restored", upgradeCommand},
 		{"terminal upgrade finished", "Updating the terminal companion to 0.97.0.\nTerminal update completed.\n", "", ""},
 		{"terminal upgrade in progress", "Updating the terminal companion to 0.97.0.\n", "", ""},
 	} {
@@ -666,6 +673,37 @@ func TestFailedUpdateAfterRestart_UsesExplicitOutcomes(t *testing.T) {
 				t.Errorf("status = %+v; want %q, log path and command %q", got, tc.reason, tc.command)
 			}
 		})
+	}
+}
+
+func TestFailedUpdateAfterRestart_SaysWhetherTheEarlierAppWasKeptOrRestored(t *testing.T) {
+	withVersion(t, "0.96.0")
+	for _, tc := range []struct{ name, log, reason string }{
+		{"swap failed", "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nCould not replace the companion app.\nStarted the earlier companion.\n", "the new app could not replace the earlier one, which was kept"},
+		{"rolled back", "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nRestored the earlier companion.\nStarted the earlier companion.\n", "the updated companion could not start, so the earlier one was restored"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "companion-update.log")
+			if err := os.WriteFile(path, []byte(tc.log), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if got := failedUpdateAfterRestart(path, false); got.State != updateFailed || got.Version != "0.97.0" || got.Reason != tc.reason || got.Log != path {
+				t.Errorf("status = %+v; want %q with the log path", got, tc.reason)
+			}
+		})
+	}
+}
+
+func TestTerminalUpdate_OffersTheRepairWhenTheCLIIsCurrentAndTheCompanionIsOlder(t *testing.T) {
+	wasOneClick := terminalOneClick
+	terminalOneClick = true
+	t.Cleanup(func() { terminalOneClick = wasOneClick })
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{"installed":"0.97.0","latest":"0.97.0","method":"homebrew","oneClick":true,"confirmsRelease":true}`, "")
+	s, _, _, _ := menuShell(t)
+	s.appCommands.check(t.Context(), false)
+	if got := s.updateStatus(); got.State != updateAvailable || got.Version != "0.97.0" || got.Command != "" {
+		t.Errorf("status = %+v; want a one-click update to 0.97.0", got)
 	}
 }
 

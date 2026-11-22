@@ -19,13 +19,20 @@ type pendingTransfer struct {
 	Gives
 	IgnoreCase bool      `json:"ignoreCase,omitempty"`
 	At         time.Time `json:"at"`
-	by         string
+	By         string    `json:"by,omitempty"`
+}
+
+func (move pendingTransfer) actor() string {
+	if move.By == "" {
+		return "human"
+	}
+	return move.By
 }
 
 func (move pendingTransfer) valid() bool {
 	return threadID.MatchString(move.Thread) && move.N > 0 &&
 		supportedRef(move.From) && supportedRef(move.To) && move.From != move.To &&
-		!move.At.IsZero() && validateClaimPaths(move.Gives) == nil
+		!move.At.IsZero() && (move.By == "" || knownActor(move.By)) && validateClaimPaths(move.Gives) == nil
 }
 
 func firstUnownedScope(claims []Claim, owner conversations.Ref, scope Gives) (string, bool) {
@@ -169,7 +176,7 @@ func (s Store) answerHandoff(ctx context.Context, actor *conversations.Ref, id s
 		}
 		return refused
 	}
-	move := pendingTransfer{Thread: id, N: n, From: from, To: to, Gives: *message.Gives, IgnoreCase: fold, At: time.Now().UTC(), by: by}
+	move := pendingTransfer{Thread: id, N: n, From: from, To: to, Gives: *message.Gives, IgnoreCase: fold, At: time.Now().UTC(), By: by}
 	return writeTransfer(state, thread, move, s.writeClaims, s.writeThread)
 }
 
@@ -247,11 +254,7 @@ func writeTransfer(state claimsFile, thread Thread, move pendingTransfer, saveCl
 	message.Handoff = Accepted
 	message.AcceptedAt = &move.At
 	message.AcceptedBy = &move.To
-	by := move.by
-	if by == "" {
-		by = "human"
-	}
-	thread.addEventBy(move.At, by, "accept", move.N)
+	thread.addEventBy(move.At, move.actor(), "accept", move.N)
 	if err := saveThread(thread); err != nil {
 		return err
 	}
@@ -277,7 +280,7 @@ func finishTransfer(state *claimsFile, move pendingTransfer) error {
 	for _, named := range move.Paths {
 		state.Claims, _ = removeScope(state.Claims, move.From, move.Worktree, named)
 	}
-	state.Claims = addScopes(state.Claims, move.To, move.Gives, move.IgnoreCase, move.At)
+	state.Claims = addScopes(state.Claims, move.To, move.Gives, move.IgnoreCase, move.At, move.actor())
 	state.Conflicts = slices.DeleteFunc(slices.Clone(state.Conflicts), func(c ClaimConflict) bool {
 		return c.Thread == move.Thread && c.N == move.N
 	})

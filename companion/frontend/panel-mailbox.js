@@ -1,5 +1,5 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { claimCountOf, claimStatusOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, reviewModelsOf, senderKindOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf } from '/model.js'
+import { arrivalOf, claimCountOf, claimStatusOf, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
   approve: 'Approve',
@@ -105,14 +105,25 @@ async function copyBlock(prepared) {
   }
 }
 
-export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping, showAfterRefusal }) {
+export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hideForTyping, showAfterRefusal }) {
   const byId = (id) => document.getElementById(id)
   const warning = byId('mailbox-warning')
   const composer = byId('mailbox-compose')
+  const composerTitle = byId('mailbox-compose-title')
   const fromLabel = byId('mailbox-from')
+  const toFixed = byId('mailbox-to-fixed')
+  const toName = byId('mailbox-to-name')
+  const toList = byId('mailbox-to-list')
+  const toSelect = byId('mailbox-to')
+  const toHint = byId('mailbox-to-hint-text')
+  const enterId = byId('mailbox-enter-id')
+  const toId = byId('mailbox-to-id')
   const target = byId('mailbox-target')
-  const hint = byId('mailbox-target-hint')
+  const targetStatus = byId('mailbox-target-status')
+  const useList = byId('mailbox-use-list')
   const type = byId('mailbox-type')
+  const typeHelp = byId('mailbox-type-help')
+  const arrival = byId('mailbox-arrival')
   const body = byId('mailbox-body')
   const bodyField = byId('mailbox-body-field')
   const handoff = byId('mailbox-handoff')
@@ -129,7 +140,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   const comparison = byId('mailbox-review-comparison')
   const send = byId('mailbox-send')
   const cancel = byId('mailbox-cancel')
-  const fields = [target, type, body, base, sendingModel, reviewingModel, handoffWorktree, handoffPaths, claimOffer, cancel]
+  const fields = [toSelect, enterId, target, useList, type, body, base, sendingModel, reviewingModel, handoffWorktree, handoffPaths, claimOffer, cancel]
   const claimsCard = byId('mailbox-claims')
   const claimsOwner = byId('mailbox-claims-owner')
   const claimsList = byId('mailbox-claims-list')
@@ -161,12 +172,134 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     if (draft) draft.reading = undefined
   }
 
+  function receiverOptions() {
+    return draft ? receiversOf(rows(), draft.from, Date.now()) : []
+  }
+
+  function listedReceiver(key) {
+    return receiverOptions().flatMap((group) => group.options).find((option) => option.value === key)
+  }
+
+  /** A listed receiver, or the chosen one that left the list since. */
+  function receiverByKey(key) {
+    return listedReceiver(key) ?? (draft?.kept?.value === key ? draft.kept : undefined)
+  }
+
+  /** Who the draft goes to: `to` for the request, and the name and group when the list knows the session. */
+  function receiverOf(current = draft) {
+    if (!current) return {}
+    if (current.thread) {
+      return { to: current.to, name: nameOf(current.to, current.toTitle), group: listedReceiver(keyOf(current.to))?.group }
+    }
+    if (current.typing) {
+      const typed = current.typed
+      if (typed?.status === 'found') return { to: typed.receiver.to, name: typed.receiver.title, group: typed.receiver.group }
+      if (typed?.status === 'unknown') return { to: { id: target.value.trim() } }
+      return {}
+    }
+    const chosen = current.receiver
+    return chosen ? { to: chosen.to, name: chosen.title, group: chosen.group } : {}
+  }
+
+  function fillReceivers() {
+    const groups = receiverOptions()
+    const options = groups.flatMap((group) => group.options)
+    const chosen = draft.receiver && (options.find((option) => option.value === draft.receiver.value) ?? draft.receiver)
+    draft.receiver = chosen
+    // A chosen session that left the list stays chosen and still sends.
+    if (chosen && !options.includes(chosen)) draft.kept = chosen
+    const kept = draft.kept && !options.some((option) => option.value === draft.kept.value) ? draft.kept : undefined
+    const shape = JSON.stringify([groups.map((group) => [group.label, group.options.map((option) => [option.value, option.label])]), kept?.value])
+    // Rebuilding the options while the popup is open could move the pick, so an unchanged list stays as it is.
+    if (shape !== toSelect.dataset.shape) {
+      toSelect.dataset.shape = shape
+      const children = [new Option(groups.length ? 'Choose a session' : 'No other local Claude Code or Codex sessions', '')]
+      for (const group of groups) {
+        const box = document.createElement('optgroup')
+        box.label = group.label
+        box.append(...group.options.map((option) => new Option(option.label, option.value)))
+        children.push(box)
+      }
+      if (kept) children.push(new Option(kept.label, kept.value))
+      toSelect.replaceChildren(...children)
+    }
+    toSelect.value = chosen ? chosen.value : ''
+    const empty = groups.length === 0 && !kept
+    toSelect.dataset.empty = String(empty)
+    toHint.textContent = empty ? 'Start another session, or enter an ID.' : 'Or click a session in the list.'
+  }
+
+  function refreshReceivers() {
+    if (draft.thread) {
+      const name = nameOf(draft.to, draft.toTitle)
+      composerTitle.textContent = `Reply to ${name}`
+      toName.textContent = replyLabel(draft.to, draft.toTitle)
+    } else if (draft.typing) {
+      readTyped()
+    } else {
+      fillReceivers()
+    }
+    updateComposerControls()
+  }
+
+  function readTyped() {
+    if (!draft?.typing) return
+    const flat = receiverOptions().flatMap((group) => group.options)
+    draft.typed = typedReceiverOf(flat, draft.from, target.value)
+    targetStatus.textContent = draft.typed.note ?? ''
+  }
+
+  function markRows() {
+    const marking = draft && !draft.thread
+    const fromKey = draft && keyOf(draft.from)
+    const toKey = marking && receiverOf().to?.tool ? keyOf(receiverOf().to) : undefined
+    const byKey = new Map(rows().map((conversation) => [keyOf(conversation), conversation]))
+    for (const row of shownRows()) {
+      const key = row.dataset.key
+      const conversation = byKey.get(key)
+      const tag = marking && key === fromKey ? 'From' : marking && key === toKey ? 'To' : ''
+      row.classList.toggle('is-mailbox-receivable', Boolean(marking && conversation && key !== fromKey && mailboxSessionOf(conversation)))
+      row.classList.toggle('is-mailbox-from', tag === 'From')
+      row.classList.toggle('is-mailbox-to', tag === 'To')
+      const shown = row.querySelector(':scope > .text > .mailbox-tag')
+      if (!tag) {
+        shown?.remove()
+      } else if (shown) {
+        shown.textContent = tag
+      } else {
+        row.querySelector(':scope > .text')?.prepend(element('span', 'mailbox-tag', tag))
+      }
+    }
+  }
+
   function updateComposerControls() {
     const pending = Boolean(draft?.pending)
     for (const field of fields) field.disabled = pending
+    if (draft && !draft.thread) toSelect.disabled = pending || toSelect.dataset.empty === 'true'
     const missingWorktree = type.value === HANDOFF && !handoffWorktree.value.trim()
     claimOffer.disabled = pending || missingWorktree
-    send.disabled = pending || missingWorktree || (type.value === REVIEW && !draft?.refs)
+    const { to, name, group } = receiverOf()
+    send.disabled = pending || !to || missingWorktree || (type.value === REVIEW && !draft?.refs)
+    send.textContent = name ? `Send to ${name}` : 'Send'
+    typeHelp.textContent = typeHelpOf(type.value, name)
+    arrival.textContent = arrivalOf(group, name)
+    arrival.hidden = !arrival.textContent
+    markRows()
+  }
+
+  function showTyping(typing) {
+    draft.typing = typing
+    toList.hidden = typing
+    toId.hidden = !typing
+    if (typing) {
+      readTyped()
+    } else {
+      if (draft.typed?.status === 'found') draft.receiver = draft.typed.receiver
+      draft.typed = undefined
+      targetStatus.textContent = ''
+      fillReceivers()
+    }
+    updateComposerControls()
   }
 
   function renderReview(refs, message = '') {
@@ -244,27 +377,41 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     }
   }
 
-  function start(from, to, thread) {
+  function start(from, { to, thread, toTitle } = {}) {
     if (draft?.pending || opened?.pending || claimsFor?.pending) return
     if (!thread) closeDetails(false)
     closeClaims(false)
     stopPreview()
     composer.reset()
-    draft = { from: refOf(from), to, thread }
+    draft = { from: refOf(from), to, thread, toTitle }
     handoffStatus.textContent = ''
-    fromLabel.textContent = `From ${nameOf(from)}`
-    target.value = to ? to.id : ''
-    target.readOnly = Boolean(thread)
-    hint.hidden = Boolean(thread)
+    targetStatus.textContent = ''
+    const sender = rows().find((conversation) => keyOf(conversation) === keyOf(from))
+    fromLabel.textContent = sender ? sessionLabelOf(sender) : nameOf(from)
+    toFixed.hidden = !thread
+    toList.hidden = Boolean(thread)
+    toId.hidden = true
+    toSelect.dataset.shape = ''
+    composerTitle.textContent = 'Message another session'
+    refreshReceivers()
     const models = thread ? opened?.thread?.models : undefined
-    sendingModel.value = models?.[keyOf(from)]?.name ?? ''
-    reviewingModel.value = to ? models?.[keyOf(to)]?.name ?? '' : ''
+    sendingModel.value = modelLabelOf(models, from)
+    reviewingModel.value = modelLabelOf(models, to)
     base.removeAttribute('aria-invalid')
     changeType()
     details.hidden = true
     composer.hidden = false
     document.getElementById('card').classList.add('is-mailbox-composing')
-    body.focus()
+    updateComposerControls()
+    if (thread || toSelect.disabled) body.focus()
+    else toSelect.focus()
+  }
+
+  /** A reply's To: the receiver as the list labels it, or the thread's stored title and the ID when the list does not hold it. */
+  function replyLabel(to, toTitle) {
+    const option = listedReceiver(keyOf(to))
+    if (option) return option.label
+    return toTitle ? `${toTitle} · ${to.id}` : to.id
   }
 
   function closeComposer(focus = true) {
@@ -273,6 +420,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     draft = undefined
     composer.hidden = true
     document.getElementById('card').classList.remove('is-mailbox-composing')
+    markRows()
     if (opened) {
       details.hidden = false
       if (focus) dismiss.focus()
@@ -288,17 +436,40 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       say('Choose a different local Claude Code or Codex session.', 'error')
       return true
     }
-    draft.to = refOf(conversation)
-    target.value = conversation.id
+    draft.receiver = listedReceiver(keyOf(conversation))
+    draft.typed = undefined
+    if (draft.typing) showTyping(false)
+    else fillReceivers()
+    updateComposerControls()
     const field = type.value === REVIEW ? base : type.value === HANDOFF ? handoffPaths : body
     field.focus()
     return true
   }
 
-  target.addEventListener('input', () => {
-    if (draft) draft.to = undefined
+  toSelect.addEventListener('change', () => {
+    if (!draft) return
+    draft.receiver = receiverByKey(toSelect.value)
+    updateComposerControls()
   })
-  type.addEventListener('change', changeType)
+  enterId.addEventListener('click', () => {
+    if (!draft) return
+    target.value = ''
+    showTyping(true)
+    target.focus()
+  })
+  useList.addEventListener('click', () => {
+    if (!draft) return
+    showTyping(false)
+    toSelect.focus()
+  })
+  target.addEventListener('input', () => {
+    readTyped()
+    updateComposerControls()
+  })
+  type.addEventListener('change', () => {
+    changeType()
+    updateComposerControls()
+  })
   handoffWorktree.addEventListener('input', () => {
     if (!draft) return
     draft.worktreeEdited = true
@@ -328,7 +499,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       if (error.guard === 'ownership') await afterChange(undefined)
     } finally {
       current.pending = false
-      if (draft === current) updateComposerControls()
+      if (draft === current) refreshReceivers()
     }
   })
   composer.addEventListener('submit', async (event) => {
@@ -338,7 +509,8 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
     if (!current || send.disabled) return
     current.pending = true
     updateComposerControls()
-    const to = current.to ?? { id: target.value.trim() }
+    const receiver = receiverOf(current)
+    const to = receiver.to
     const request = { from: current.from, to, type: type.value }
     if (reviewing) {
       const { worktree, commit, base } = current.refs
@@ -355,7 +527,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       const { version } = await sendMessage(request)
       current.pending = false
       closeComposer()
-      say('Message waiting in the thread.')
+      say(receiver.name ? `Message waiting in the thread with ${receiver.name}.` : 'Message waiting in the thread.')
       await afterChange(version)
       if (opened) await load(opened)
     } catch (error) {
@@ -365,7 +537,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       if (opened) await load(opened)
     } finally {
       current.pending = false
-      if (draft === current) updateComposerControls()
+      if (draft === current) refreshReceivers()
     }
   })
 
@@ -573,7 +745,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
       if (message.refs) {
         const models = thread.models ?? {}
         const refs = element('div', 'mailbox-review-refs')
-        refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(models[keyOf(message.from)]?.name, models[keyOf(message.to)]?.name)))
+        refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(modelLabelOf(models, message.from), modelLabelOf(models, message.to))))
         entry.append(refs)
       }
       if (message.gives) {
@@ -632,7 +804,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   function threadAction(current, action) {
     switch (action) {
       case 'reply':
-        start(current.from, current.to, current.summary.id)
+        start(current.from, { to: current.to, thread: current.summary.id, toTitle: current.summary.withTitle })
         break
       case 'stop':
         current.confirmStop = true
@@ -762,6 +934,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
 
   function viewChanged(view, version, mailboxNativeCopy) {
     if (view) nativeCopy = mailboxNativeCopy === true
+    if (draft && !draft.pending) refreshReceivers()
     warning.textContent = view?.mailboxWarning ?? ''
     warning.hidden = !warning.textContent
     if (claimsFor && !claimsFor.pending && claimsFor.version !== version) {
@@ -789,7 +962,7 @@ export function mailboxPanel({ rows, focusRows, afterChange, say, hideForTyping,
   }
 
   return {
-    start, choose, rowsOf, viewChanged, escape, closeDetails, openClaims, closeClaims,
+    start, choose, rowsOf, viewChanged, markRows, escape, closeDetails, openClaims, closeClaims,
     get composing() { return Boolean(draft) },
     get open() { return Boolean(draft || opened || claimsFor) },
   }
