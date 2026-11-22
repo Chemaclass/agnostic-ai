@@ -274,7 +274,7 @@ func TestSettings_ExpectedMismatchAnswersTheCurrentDocument(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &refusal); err != nil || refusal.Settings == nil || refusal.Settings.Approvals.Mode != config.ApprovalsReview {
 		t.Errorf("refusal = %s", rec.Body)
 	}
-	if _, err := os.Stat(filepath.Join(source, "local")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(source, "local", config.ConfigFileName)); !os.IsNotExist(err) {
 		t.Errorf("a refused write changed a file: %v", err)
 	}
 }
@@ -376,5 +376,78 @@ func TestSettings_UndoesTheChangeWhenTheBuiltinCannotBeAdded(t *testing.T) {
 	}
 	if entries, _ := approvals.ReadLog(approvals.LogPath(source)); len(entries) != 0 {
 		t.Errorf("an undone change was logged: %+v", entries)
+	}
+}
+
+func TestSettings_RepairingABrokenYoloBlockNeedsProof(t *testing.T) {
+	const shared = "version: 1\napprovals:\n  mode: yolo\n  companion: maybe\n"
+	h, source := settingsFixture(t, shared)
+	path := filepath.Join(source, config.ConfigFileName)
+	rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, nil)
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("POST without proof = %d %s", rec.Code, rec.Body)
+	}
+	if got := readFile(t, path); got != shared {
+		t.Errorf("a refused repair changed the file:\n%s", got)
+	}
+	if rec, _ := postSetting(t, h, `{"key":"approvals.mode","value":"ask"}`, nil); rec.Code != http.StatusOK {
+		t.Errorf("Ask me without proof = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSettings_RepairingABrokenYoloBlockWithProof(t *testing.T) {
+	h, _ := settingsFixture(t, "version: 1\napprovals:\n  mode: yolo\n  companion: maybe\n")
+	rec, reply := postSetting(t, h, `{"key":"approvals.companion","value":false}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusOK || reply.Settings.Approvals.Mode != config.ApprovalsYolo {
+		t.Fatalf("POST with proof = %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestSettings_WaitsForTheApprovalsLock(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\n")
+	approvalsLockTries = 2
+	t.Cleanup(func() { approvalsLockTries = 50 })
+	release, err := lockApprovalsWrites(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := os.OpenFile(filepath.Join(filepath.Dir(approvals.LogPath(source)), "write.lock"), os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = held.Close() })
+	release()
+	if err := tryLockProjectFile(held); err != nil {
+		t.Skipf("no file locks here: %v", err)
+	}
+	rec, _ := postSetting(t, h, `{"key":"approvals.companion","value":false}`, nil)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "another agnostic-ai process") {
+		t.Fatalf("POST while another process holds the lock = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(source, "local", config.ConfigFileName)); !os.IsNotExist(err) {
+		t.Errorf("the write went ahead without the lock: %v", err)
+	}
+	if _, err := writeApprovalsAskLocked(source); err == nil {
+		t.Error("Ask me went ahead without the lock")
+	}
+}
+
+func TestRestorePoint_LeavesAnOutsideEditAlone(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "agnostic-ai.yaml")
+	writeFile(t, path, "before\n")
+	undo, err := restorePoint(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, "someone else\n")
+	if err := undo([]byte("ours\n")); err == nil {
+		t.Error("undo replaced a file another program changed")
+	}
+	if got := readFile(t, path); got != "someone else\n" {
+		t.Errorf("file = %q", got)
+	}
+	writeFile(t, path, "ours\n")
+	if err := undo([]byte("ours\n")); err != nil || readFile(t, path) != "before\n" {
+		t.Errorf("undo of our own write = %v, file %q", err, readFile(t, path))
 	}
 }

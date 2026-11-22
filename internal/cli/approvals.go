@@ -116,8 +116,8 @@ func newApprovalsAskCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			path := userConfigPaths(source)[1]
-			if err := writeApprovalsAsk(path); err != nil {
+			path, err := writeApprovalsAskLocked(source)
+			if err != nil {
 				return err
 			}
 			cmd.Printf("approvals: ask for every tool and project. Wrote %s.\n", path)

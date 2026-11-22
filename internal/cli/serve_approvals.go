@@ -807,8 +807,8 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
-	path := userConfigPaths(source)[1]
-	if err := writeApprovalsAsk(path); err != nil {
+	path, err := writeApprovalsAskLocked(source)
+	if err != nil {
 		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 		return
 	}

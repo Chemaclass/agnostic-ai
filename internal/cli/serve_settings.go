@@ -120,11 +120,13 @@ type settingsHandler struct {
 	// runSync runs agnostic-ai with args in process and returns what it
 	// printed; tests replace it.
 	runSync func(ctx context.Context, args ...string) ([]byte, error)
-	now     func() time.Time
+	// syncReplyWait is how long a sync may take to answer.
+	syncReplyWait time.Duration
+	now           func() time.Time
 }
 
 func newSettingsHandler(userLevel bool, reader *approvalsReader, marks func() string, secret companionSecret, version string) *settingsHandler {
-	h := &settingsHandler{userLevel: userLevel, reader: reader, marks: marks, secret: secret, version: version, now: time.Now}
+	h := &settingsHandler{userLevel: userLevel, reader: reader, marks: marks, secret: secret, version: version, syncReplyWait: settingsSyncReplyTimeout, now: time.Now}
 	h.runSync = h.runInProcess
 	return h
 }
@@ -336,11 +338,18 @@ func approvalsWriteFile(source string) (string, error) {
 	return paths[1], nil
 }
 
+// errSettingNeedsProof refuses a write that would turn on automatic
+// approvals for a caller without the companion's secret.
+var errSettingNeedsProof = errors.New("this change would turn on automatic approvals, so only the companion can make it here; use the companion's settings menu, or edit the home config")
+
 // writeApprovalsSetting sets one approvals key in the home config in
-// source and returns the files it changed. Ask me writes what the Ask me
-// chip writes. A value that needs the hook adds approvals to builtins
-// when it is missing; when that fails, the approvals change is undone.
-func writeApprovalsSetting(source, key string, value any) ([]string, error) {
+// source and returns the files it changed; the caller holds the approvals
+// lock. Ask me writes what the Ask me chip writes. A value that needs the
+// hook adds approvals to builtins when it is missing; when that fails,
+// the approvals change is undone. Without proven, a write that leaves the
+// policy looser than before, such as one that repairs a broken block
+// that holds yolo, is undone.
+func writeApprovalsSetting(source, key string, value any, proven bool) ([]string, error) {
 	if key == "mode" && value == config.ApprovalsAsk {
 		path := userConfigPaths(source)[1]
 		return []string{path}, writeApprovalsAsk(path)
@@ -349,20 +358,31 @@ func writeApprovalsSetting(source, key string, value any) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, loadErr := config.LoadHomeApprovals(source)
-	restore, err := restorePoint(path)
+	before, loadErr := config.LoadHomeApprovals(source)
+	if loadErr != nil {
+		// A block that does not load leaves every prompt to the person.
+		before = config.ApprovalsConfig{}
+	}
+	undo, err := restorePoint(path)
 	if err != nil {
 		return nil, err
 	}
 	if err := editApprovalsFile(path, func(data []byte) ([]byte, error) { return approvalsSetYAML(data, key, value) }); err != nil {
 		return nil, err
 	}
+	ours, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	restore := func() error { return undo(ours) }
 	home, err := config.LoadHomeApprovals(source)
 	switch {
 	case err != nil && loadErr == nil:
 		return nil, errors.Join(fmt.Errorf("the change would break the approvals block, so it was not kept: %w", err), restore())
 	case err == nil && !approvalsHolds(home, key, value):
 		return nil, errors.Join(fmt.Errorf("%s: the change would not take effect, so it was not kept; set approvals.%s by hand", path, key), restore())
+	case err == nil && !proven && approvalsLoosened(before, home):
+		return nil, errors.Join(errSettingNeedsProof, restore())
 	}
 	changed := []string{path}
 	if !needsApprovalsHook(key, value) {
@@ -385,6 +405,29 @@ func writeApprovalsSetting(source, key string, value any) ([]string, error) {
 	return changed, nil
 }
 
+// approvalsLoosened reports whether after approves a request that before
+// left to the person: a looser mode anywhere, or the companion buttons.
+func approvalsLoosened(before, after config.ApprovalsConfig) bool {
+	if after.Companion && !before.Companion {
+		return true
+	}
+	rank := func(mode string) int { return slices.Index(config.ApprovalModes, cmpMode(mode)) }
+	if rank(after.Mode) > rank(before.Mode) {
+		return true
+	}
+	for tool, mode := range after.Tools {
+		if rank(mode) > rank(before.Tools[tool]) {
+			return true
+		}
+	}
+	for project, mode := range after.Projects {
+		if rank(mode) > rank(before.Projects[project]) {
+			return true
+		}
+	}
+	return false
+}
+
 // approvalsHolds reports whether the loaded approvals carry key: value.
 func approvalsHolds(home config.ApprovalsConfig, key string, value any) bool {
 	switch key {
@@ -396,22 +439,32 @@ func approvalsHolds(home config.ApprovalsConfig, key string, value any) bool {
 	return false
 }
 
-// restorePoint returns a func that puts path back as it is now: its
-// bytes, or no file.
-func restorePoint(path string) (func() error, error) {
+// restorePoint returns a func that puts path back as it is now (its
+// bytes, or no file) once an edit wrote ours. It leaves alone a file
+// another program changed since.
+func restorePoint(path string) (func(ours []byte) error, error) {
 	before, err := os.ReadFile(path)
-	if errors.Is(err, fs.ErrNotExist) {
-		return func() error {
-			if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
-				return err
-			}
-			return nil
-		}, nil
-	}
-	if err != nil {
+	missing := errors.Is(err, fs.ErrNotExist)
+	if err != nil && !missing {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	return func() error { return atomicfile.Write(path, before, 0o644) }, nil
+	return func(ours []byte) error {
+		now, err := os.ReadFile(path)
+		if err != nil || !bytes.Equal(now, ours) {
+			return fmt.Errorf("%s changed while the change was undone, so it was left as it is; check the approvals block", path)
+		}
+		return putBack(path, before, missing)
+	}, nil
+}
+
+func putBack(path string, before []byte, missing bool) error {
+	if missing {
+		if err := os.Remove(path); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("remove %s: %w", path, err)
+		}
+		return nil
+	}
+	return atomicfile.Write(path, before, 0o644)
 }
 
 // needsApprovalsHook reports whether approvals.key: value only works
@@ -504,6 +557,20 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusForbidden, editError{Error: "This change makes approvals less strict, so only the companion can make it here. Use the companion's settings menu, or edit the home config."})
 		return
 	}
+	if strings.HasPrefix(change.Key, "approvals.") {
+		// The check against expected and the write happen under one lock that every approvals writer takes.
+		source, err := h.reader.source()
+		if err != nil {
+			writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
+			return
+		}
+		release, err := lockApprovalsWrites(source)
+		if err != nil {
+			writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: err.Error(), Settings: new(h.document(r))})
+			return
+		}
+		defer release()
+	}
 	doc := h.document(r)
 	current, ok := currentSetting(doc, change.Key)
 	if !ok {
@@ -514,7 +581,11 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: "This setting changed since the page read it. Check the current value.", Settings: &doc})
 		return
 	}
-	changed, err := h.apply(r.Context(), change.Key, value.value)
+	changed, err := h.apply(r.Context(), change.Key, value.value, h.proven(r))
+	if errors.Is(err, errSettingNeedsProof) {
+		writeEditJSON(w, http.StatusForbidden, settingsRefusal{Error: "This change would turn on automatic approvals, so only the companion can make it here. Use the companion's settings menu, or edit the home config.", Settings: new(h.document(r))})
+		return
+	}
 	if err != nil {
 		writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: err.Error(), Settings: new(h.document(r))})
 		return
@@ -538,7 +609,7 @@ func sameJSONValue(raw json.RawMessage, value any) bool {
 }
 
 // apply writes one decoded change and returns the files it changed.
-func (h *settingsHandler) apply(ctx context.Context, key string, value any) ([]string, error) {
+func (h *settingsHandler) apply(ctx context.Context, key string, value any, proven bool) ([]string, error) {
 	if key == settingMailboxApprove {
 		store, _ := h.mailbox()
 		return []string{store.SettingsPath()}, store.SaveSettings(ctx, mailbox.Settings{ApproveAgentSends: value == true})
@@ -547,7 +618,7 @@ func (h *settingsHandler) apply(ctx context.Context, key string, value any) ([]s
 	if err != nil {
 		return nil, err
 	}
-	return writeApprovalsSetting(source, strings.TrimPrefix(key, "approvals."), value)
+	return writeApprovalsSetting(source, strings.TrimPrefix(key, "approvals."), value, proven)
 }
 
 // logChange adds a loosening write or a sync to the approvals decision
