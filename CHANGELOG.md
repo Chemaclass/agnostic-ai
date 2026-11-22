@@ -6,6 +6,10 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+### General
+
+- Send a task handoff with `mailbox send` using the sender's worktree, branch, commit and saved note (#3944, #3945).
+
 ## v0.97.0 - 2026-11-23
 
 ### Highlights
