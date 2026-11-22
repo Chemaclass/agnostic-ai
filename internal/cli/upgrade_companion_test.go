@@ -362,3 +362,58 @@ func TestUpgradeCompanion_ConfirmedReleaseRepairsAnOldCompanionWhenTheCLIIsCurre
 		t.Errorf("commands = %v, want %v", commands, want)
 	}
 }
+
+func TestUpgradeCompanion_AcceptsANewerReleaseThePackageManagerInstalled(t *testing.T) {
+	var commands []string
+	deps := upgradeDeps{
+		detect: func(string) (upgradeInfo, error) {
+			return upgradeInfo{Path: "/tool", Method: installHomebrew, Version: "1.0.0", Latest: "2.0.0", Command: "brew upgrade"}, nil
+		},
+		run: func(io.Writer, string) error { return nil },
+		companion: &upgradeCompanionDeps{
+			installed: func() (bool, error) { return true, nil },
+			current:   func() (string, bool, error) { return "1.0.0", true, nil },
+			run: func(_, _ string, args []string, _ io.Writer) (string, error) {
+				commands = append(commands, strings.Join(args, " "))
+				return "agnostic-ai version 2.1.0", nil
+			},
+		},
+	}
+	cmd := newUpgradeCmdWithDeps(deps)
+	cmd.SetArgs([]string{"--companion-confirmed-release", "2.0.0"})
+	var log bytes.Buffer
+	cmd.SetOut(&log)
+	cmd.SetErr(&log)
+	if err := cmd.Execute(); err != nil {
+		t.Fatalf("error %v, log %q", err, &log)
+	}
+	if want := []string{"--version", "companion install"}; !reflect.DeepEqual(commands, want) {
+		t.Errorf("commands = %v, want %v", commands, want)
+	}
+	for _, line := range []string{"The CLI is now 2.1.0, newer than the release checked (2.0.0).", "Terminal update completed."} {
+		if !strings.Contains(log.String(), line) {
+			t.Errorf("log %q; want %q", &log, line)
+		}
+	}
+}
+
+func TestUpgradeCompanion_RefusesAnOlderReleaseThanTheOneChecked(t *testing.T) {
+	deps := upgradeDeps{
+		detect: func(string) (upgradeInfo, error) {
+			return upgradeInfo{Path: "/tool", Method: installHomebrew, Version: "1.0.0", Latest: "2.0.0", Command: "brew upgrade"}, nil
+		},
+		run: func(io.Writer, string) error { return nil },
+		companion: &upgradeCompanionDeps{
+			installed: func() (bool, error) { return true, nil },
+			run: func(_, _ string, args []string, _ io.Writer) (string, error) {
+				if args[0] != "--version" {
+					t.Errorf("ran %v with a CLI older than the release checked", args)
+				}
+				return "agnostic-ai version 1.5.0", nil
+			},
+		},
+	}
+	if err := runUpgradeWithDeps(io.Discard, false, "", "1.0.0", deps); err == nil || !strings.Contains(err.Error(), `expected updated CLI 2.0.0`) {
+		t.Errorf("err = %v; want the older CLI refused", err)
+	}
+}

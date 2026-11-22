@@ -651,6 +651,7 @@ func TestFailedUpdateAfterRestart_UsesExplicitOutcomes(t *testing.T) {
 	}{
 		{"failed DMG restore", "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nCould not restore the earlier companion.\n", "the earlier companion could not be restored. See the log for its saved location", ""},
 		{"terminal launch failed", "Updating the terminal companion to 0.97.0.\nTerminal update failed: CLI upgrade succeeded, but companion update failed: start the companion: open failed\n", "the CLI was upgraded, but the companion could not restart", upgradeCommand},
+		{"terminal launch restored", "Updating the terminal companion to 0.97.0.\nCould not start the updated companion.\nRestored the earlier companion.\nCould not install the updated companion: start the companion: open failed\nStarted the earlier companion.\n", "the updated companion could not start, so the earlier one was restored", upgradeCommand},
 		{"terminal upgrade finished", "Updating the terminal companion to 0.97.0.\nTerminal update completed.\n", "", ""},
 		{"terminal upgrade in progress", "Updating the terminal companion to 0.97.0.\n", "", ""},
 	} {
