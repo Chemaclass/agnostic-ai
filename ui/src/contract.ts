@@ -1156,7 +1156,7 @@ export interface ConversationOpenReply {
 //   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen and its completion taken back
 //   POST /api/conversations/stop-shell                   → ConversationStopShellReply (body: ConversationStopShellRequest); 409 if refused
 //   POST /api/conversations/stop-session                 → ConversationStopSessionReply (body: ConversationStopSessionRequest); 409 if it no longer runs here
-//   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 404 when not listed, 413 over 256 KB
+//   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 403 without the companion secret or session key, 404 when not listed, 413 over 256 KB
 //   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
 //   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 404 when not listed, else ConversationDeleteRefusal
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet?, scanningSince? }; scanningSince is when the running conversation read began, set only while one runs

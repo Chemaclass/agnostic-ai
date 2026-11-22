@@ -186,7 +186,7 @@ Body: `{tool, id, editor?, helper?}` with `Content-Type: application/json`, from
 
 ## `POST /api/conversations/send`
 
-Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the server's own origin.
+Body: `{tool, id, text, html?}` with `Content-Type: application/json`, from the server's own origin, with the companion's secret or the key of a tab `view` opened ([who can change this](@/docs/approvals.md#who-can-change-this)).
 
 Types `text` into a conversation's input, never pressing Enter, and returns `{sent, message}`.
 
@@ -206,6 +206,7 @@ Types `text` into a conversation's input, never pressing Enter, and returns `{se
 |--------|---------|
 | 200 `{sent, message}` | A send that typed, and one that did not. |
 | 400 | An unknown tool or any other field. |
+| 403 | No companion secret or session key, or another origin. Nothing is typed. |
 | 404 | A conversation outside the list. |
 | 413 | `text` is over 256 KB. |
 {% </details> %}

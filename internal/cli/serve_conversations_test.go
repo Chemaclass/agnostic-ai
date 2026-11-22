@@ -18,6 +18,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -283,6 +284,7 @@ func (p slowProcesses) AliveAmong(processes []conversations.ProcessRef) (map[int
 func TestConversationsHandler_AnswersASendSlowerThanTheServerWriteTimeout(t *testing.T) {
 	const unit = 10 * time.Millisecond
 	h, _, _ := conversationsFixture(t, false)
+	h.proven = proveAll
 	h.scanner.Processes = slowProcesses{delay: 45 * unit}
 	h.openReplyWait = 90 * unit
 	srv := newServeServer(h)
@@ -1396,6 +1398,7 @@ func TestConversationsHandler_OnlyOpenNamesTheCloudIDOfASharedRow(t *testing.T) 
 
 func TestConversationsHandler_SendsOnlyToWhatItScanned(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
+	h.proven = proveAll
 
 	rec := postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inProject+`","text":"one\ntwo"}`, nil)
 
@@ -1410,6 +1413,7 @@ func TestConversationsHandler_SendsOnlyToWhatItScanned(t *testing.T) {
 
 func TestConversationsHandler_TakesCopiedHTMLBesideTheText(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
+	h.proven = proveAll
 
 	rec := postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inProject+`","text":"Notes","html":"<h1>Notes</h1>"}`, nil)
 
@@ -1445,6 +1449,7 @@ func TestConversationSendRequest_SendsMarkdownOnlyWhenItAddsSomething(t *testing
 
 func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
 	h, launcher, _ := conversationsFixture(t, false)
+	h.proven = proveAll
 	overText := strings.Repeat("a", conversations.MaxSendBytes+1)
 	overBody := strings.Repeat("a", maxConversationSendBytes)
 	for name, tc := range map[string]struct {
@@ -1472,6 +1477,57 @@ func TestConversationsHandler_RefusesASendItCannotMake(t *testing.T) {
 	}
 	if len(launcher.calls) != 0 {
 		t.Errorf("nothing may be typed or opened, got %v", launcher.calls)
+	}
+}
+
+// proveAll stands for a request with the companion secret or session key.
+func proveAll(*http.Request) bool { return true }
+
+func TestConversationsHandler_TypesASendOnlyWithProof(t *testing.T) {
+	h, _, _ := conversationsFixture(t, true)
+	writeFile(t, filepath.Join(h.scanner.Stores.ClaudeDir, "sessions", "77.json"), `{"pid":77,"sessionId":"`+inWorktree+`","status":"idle"}`)
+	h.scanner.Processes = mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}}
+	var typed atomic.Int32
+	h.launcher = &mailboxTerminalLauncher{typeInTab: func(context.Context, string, string, string, bool) (bool, error) {
+		typed.Add(1)
+		return true, nil
+	}}
+	session := &webSession{key: strings.Repeat("k", 64)}
+	settings := &settingsHandler{secret: testCompanionSecret, session: session}
+	h.proven = settings.proven
+	send := func(header, value string) *httptest.ResponseRecorder {
+		return postEdit(t, h, conversationSendPath, `{"tool":"claude","id":"`+inWorktree+`","text":"hi"}`, func(r *http.Request) {
+			if header != "" {
+				r.Header.Set(header, value)
+			}
+		})
+	}
+
+	for name, proof := range map[string][2]string{
+		"no proof":            {"", ""},
+		"a wrong secret":      {companionSecretHeader, strings.Repeat("0", len(testCompanionSecret))},
+		"a wrong session key": {sessionHeader, strings.Repeat("0", len(session.key))},
+	} {
+		if rec := send(proof[0], proof[1]); rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), "Nothing was typed") {
+			t.Errorf("send with %s = %d %s, want 403", name, rec.Code, rec.Body)
+		}
+	}
+	if got := typed.Load(); got != 0 {
+		t.Fatalf("a send without proof typed %d times", got)
+	}
+	for name, proof := range map[string][2]string{
+		"the companion secret": {companionSecretHeader, string(testCompanionSecret)},
+		"the session key":      {sessionHeader, session.key},
+	} {
+		before := typed.Load()
+		if rec := send(proof[0], proof[1]); rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"sent":true`) || typed.Load() != before+1 {
+			t.Errorf("send with %s = %d %s, typed %d", name, rec.Code, rec.Body, typed.Load()-before)
+		}
+	}
+
+	h.proven = nil
+	if rec := send(companionSecretHeader, string(testCompanionSecret)); rec.Code != http.StatusForbidden {
+		t.Errorf("send on a handler with no proof check = %d %s, want 403", rec.Code, rec.Body)
 	}
 }
 

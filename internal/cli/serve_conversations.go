@@ -130,6 +130,10 @@ type conversationsHandler struct {
 	// companion is the secret of the companion that started this
 	// server; a list read without it shows no held request.
 	companion companionSecret
+	// proven says whether a request carries the companion secret or the
+	// web session key. A send types into another session's terminal as
+	// the person, so it needs one; nil proves nothing.
+	proven func(*http.Request) bool
 }
 
 // conversationOpenReplyTimeout outlasts the companion's openTimeout and
@@ -363,6 +367,10 @@ func (h *conversationsHandler) logLateOpen(tool conversations.Tool, reply conver
 func (h *conversationsHandler) send(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	if h.proven == nil || !h.proven(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Send from the companion, or from a page agnostic-ai view --scope user opened. Nothing was typed."})
 		return
 	}
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.openReplyWait))

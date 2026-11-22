@@ -153,8 +153,6 @@ func (h *settingsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// proven reports whether r carries proof that the person asked: the
-// secret of the companion that started this server.
 // proven reports whether r carries the companion's secret or the key of
 // a page this server opened.
 func (h *settingsHandler) proven(r *http.Request) bool {
