@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -59,8 +60,13 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 11 {
-		t.Fatalf("menu.json has %d items; want 11", len(items))
+	if len(items) != 13 {
+		t.Fatalf("menu.json has %d items; want 13", len(items))
+	}
+	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends"} {
+		if i := slices.IndexFunc(items, func(item menuItem) bool { return item.ID == id }); i < 0 || !items[i].Page {
+			t.Errorf("%q is missing or not a page item, which the right-click menu skips", id)
+		}
 	}
 	actions := shellWith(t, &fakeShortcuts{}).menuActions()
 	for _, item := range items {

@@ -5,6 +5,7 @@ import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteO
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
+import { approvalsMenu } from '/panel-approvals.js'
 
 const card = document.getElementById('card')
 const queryInput = document.getElementById('query')
@@ -2141,6 +2142,8 @@ const settings = {
   appearance: undefined,
   /** The server's mailbox settings: {approveAgentSends}. */
   mailbox: undefined,
+  /** The server's settings document, which the approvals rows read; undefined when it could not be read. */
+  approvals: undefined,
   /** The update entry: {state, version?}. */
   update: { state: 'unavailable' },
   /** The id of the shortcut the next key press becomes; undefined otherwise. */
@@ -2171,6 +2174,14 @@ const flip = (id) => !menuRowsOf(settings.items, settings).find((row) => row.id 
 
 const SAVE_SHORTCUT = { shortcut: saveShortcut, sendShortcut: saveSendShortcut }
 
+const approvalsRows = approvalsMenu({
+  changed: (doc) => {
+    settings.approvals = doc
+    if (!menu.hidden && settings.items) drawSettings()
+  },
+  listChanged: afterChange,
+})
+
 /** A click on a shortcut starts taking its new keys, or stops when it was already. */
 function record(id) {
   settings.recording = settings.recording === id ? undefined : id
@@ -2183,6 +2194,8 @@ const MENU_ACTIONS = {
   smallCompanion: () => change('appearance', () => saveSmallCompanion(flip('smallCompanion'))),
   startAtLogin: () => change('preferences', () => saveStartAtLogin(flip('startAtLogin'))),
   approveAgentSends: () => change('mailbox', () => saveMailboxSettings({ approveAgentSends: flip('approveAgentSends') })),
+  approvalsMode: (event) => approvalsRows.choose(event.target.closest('[data-value]')?.dataset.value),
+  approvalsCompanion: () => approvalsRows.save('approvals.companion', flip('approvalsCompanion'), !flip('approvalsCompanion')),
   checkForUpdates: () => change('preferences', () => saveCheckForUpdates(flip('checkForUpdates'))),
   shortcut: () => record('shortcut'),
   sendShortcut: () => record('sendShortcut'),
@@ -2208,6 +2221,22 @@ function buildMenu(rows) {
     if (row.kind === 'action') {
       control = element('button', 'menu-item', row.label)
       placed = control
+    } else if (row.kind === 'choice') {
+      const labelId = `menu-${row.id}-label`
+      const label = element('span', 'menu-label', row.label)
+      label.id = labelId
+      control = element('div', 'choices')
+      control.setAttribute('role', 'radiogroup')
+      control.setAttribute('aria-labelledby', labelId)
+      for (const choice of row.choices) {
+        const option = element('button', 'choice', choice.label)
+        option.type = 'button'
+        option.setAttribute('role', 'radio')
+        option.dataset.value = choice.value
+        control.append(option)
+      }
+      placed = element('div', 'menu-row menu-choice')
+      placed.append(label, control)
     } else {
       const labelId = `menu-${row.id}-label`
       const label = element('span', 'menu-label', row.label)
@@ -2221,7 +2250,7 @@ function buildMenu(rows) {
       placed = element('div', 'menu-row')
       placed.append(label, control)
     }
-    control.type = 'button'
+    if (row.kind !== 'choice') control.type = 'button'
     if (row.hint) control.title = row.hint
     control.addEventListener('click', act)
     settings.controls.set(row.id, control)
@@ -2229,6 +2258,8 @@ function buildMenu(rows) {
     // The problem line sits between the settings and the actions.
     if (row.kind === 'action') menu.append(placed)
     else menu.insertBefore(placed, menuProblem)
+    // The approvals status line sits under the approvals rows.
+    if (row.id === 'approvalsCompanion') menu.insertBefore(approvalsRows.box, menuProblem)
   }
 }
 
@@ -2241,6 +2272,9 @@ function drawSettings() {
     if (row.kind === 'action') control.textContent = row.label
     control.disabled = Boolean(row.disabled)
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
+    if (row.kind === 'choice') {
+      for (const option of control.children) option.setAttribute('aria-checked', String(option.dataset.value === row.value))
+    }
     if (row.kind !== 'shortcut') continue
     const recording = settings.recording === row.id
     control.classList.toggle('is-recording', recording)
@@ -2257,6 +2291,7 @@ function drawSettings() {
 }
 
 function closeMenu() {
+  approvalsRows.closed()
   settings.recording = undefined
   menu.hidden = true
   menuButton.setAttribute('aria-expanded', 'false')
@@ -2266,10 +2301,10 @@ function closeMenu() {
 async function openMenu(focus) {
   try {
     const showRead = updates.since()
-    const [items, preferences, appearance, update, mailbox] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readUpdate(), readMailboxSettings().catch(unreadSetting)])
+    const [items, preferences, appearance, update, mailbox] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readUpdate(), readMailboxSettings().catch(unreadSetting), approvalsRows.read()])
     if (!settings.items) {
       settings.items = items
-      buildMenu(menuRowsOf(items, { preferences, appearance, mailbox, update }, isMac))
+      buildMenu(menuRowsOf(items, { preferences, appearance, mailbox, update, approvals: settings.approvals }, isMac))
     }
     settings.preferences = preferences
     settings.appearance = appearance
@@ -2282,6 +2317,7 @@ async function openMenu(focus) {
   settings.refusal = undefined
   drawSettings()
   menu.hidden = false
+  approvalsRows.opened()
   menuButton.setAttribute('aria-expanded', 'true')
   if (focus) settings.controls.get(focus)?.focus()
 }

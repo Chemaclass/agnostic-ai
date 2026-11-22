@@ -33,6 +33,10 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('switch', { name: 'Dim when idle' }),
     menu.getByRole('switch', { name: 'Small companion' }),
     menu.getByRole('switch', { name: 'Start at login' }),
+    menu.getByRole('radio', { name: 'Ask me', exact: true }),
+    menu.getByRole('radio', { name: "Let the tool's reviewer decide" }),
+    menu.getByRole('radio', { name: 'Approve routine calls for me' }),
+    menu.getByRole('switch', { name: 'Approve and deny from this list' }),
     menu.getByRole('switch', { name: 'Ask me before an agent sends a message' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
     menu.getByRole('button', { name: 'Send copied text' }),
@@ -610,4 +614,73 @@ test('a disk image update question offers no release page', async ({ page }) => 
   await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
 
   await expect(page.getByRole('alertdialog').getByRole('button', { name: 'Release page' })).toBeHidden()
+})
+
+test('choosing Approve routine calls for me asks first, then saves, and Apply to my tools installs the hook', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  await expect(menu.getByRole('radio', { name: 'Ask me', exact: true })).toHaveAttribute('aria-checked', 'true')
+  const saves = sent(page, '/api/settings')
+
+  await menu.getByRole('radio', { name: 'Approve routine calls for me' }).click()
+  await expect(menu.getByText('Approve routine calls for you?')).toBeVisible()
+  await menu.getByRole('button', { name: 'Cancel' }).click()
+  expect(saves).toEqual([])
+  await expect(menu.getByRole('radio', { name: 'Ask me', exact: true })).toHaveAttribute('aria-checked', 'true')
+
+  await menu.getByRole('radio', { name: 'Approve routine calls for me' }).click()
+  const saved = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/settings' && request.method() === 'POST')
+  await menu.getByRole('button', { name: 'Turn on' }).click()
+  expect((await saved).postDataJSON()).toEqual({ key: 'approvals.mode', value: 'yolo', expected: 'ask' })
+  await expect(menu.getByRole('radio', { name: 'Approve routine calls for me' })).toHaveAttribute('aria-checked', 'true')
+  await expect(menu.getByText('Not in effect yet: the hook is not installed for Claude Code and Codex.')).toBeVisible()
+  await expect(page.locator('#approvals-mode')).toHaveText('Auto-approve on')
+
+  await menu.getByRole('button', { name: 'Apply to my tools' }).click()
+  await expect(menu.getByText('This applies all pending changes of your user configuration, not only approvals:')).toBeVisible()
+  await expect(menu.getByText('create /Users/you/.codex/hooks.json')).toBeVisible()
+  await menu.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(menu.getByText(/Applied: 2 files written\. Codex will show Hooks need review once/)).toBeVisible()
+  await expect(menu.getByText(/^Not in effect yet/)).toBeHidden()
+  await expect(menu.getByRole('button', { name: 'Apply to my tools' })).toBeHidden()
+})
+
+test('Ask me saves at once, without a question', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'auto-approvals' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  await expect(menu.getByRole('radio', { name: 'Approve routine calls for me' })).toHaveAttribute('aria-checked', 'true')
+
+  const saved = page.waitForRequest((request) => new URL(request.url()).pathname === '/api/settings' && request.method() === 'POST')
+  await menu.getByRole('radio', { name: 'Ask me', exact: true }).click()
+  expect((await saved).postDataJSON()).toEqual({ key: 'approvals.mode', value: 'ask', expected: 'yolo' })
+  await expect(menu.getByRole('radio', { name: 'Ask me', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await expect(page.locator('#approvals-bar')).toBeHidden()
+})
+
+test('a change made elsewhere shows in the open menu within seconds', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toHaveAttribute('aria-checked', 'false')
+
+  const outside = await page.request.post('/api/settings', { data: { key: 'approvals.companion', value: true } })
+  expect(outside.ok()).toBe(true)
+
+  await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toHaveAttribute('aria-checked', 'true', { timeout: 4_000 })
+})
+
+test('the approvals rows hide when the settings cannot be read, and the rest of the menu works', async ({ page }) => {
+  await page.route('**/api/settings', (route) => route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"The server is restarting."}' }))
+  await openPanel(page)
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  await expect(menu.getByRole('switch', { name: 'Start at login' })).toBeVisible()
+  await expect(menu.getByRole('radio', { name: 'Ask me', exact: true })).toBeHidden()
+  await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toBeHidden()
+  await menu.getByRole('switch', { name: 'Dim when idle' }).click()
+  await expect(menu.getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'true')
 })

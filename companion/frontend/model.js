@@ -1418,7 +1418,7 @@ export function keycapsOf(shortcut, isMac) {
   return parts.map((part) => MAC_KEYCAPS[part] ?? part)
 }
 
-const MENU_KINDS = new Set(['switch', 'shortcut', 'action'])
+const MENU_KINDS = new Set(['switch', 'shortcut', 'action', 'choice'])
 
 /**
  * The Hide item's label: plain while the shortcut works, which the item above already shows,
@@ -1512,17 +1512,22 @@ export function updateBadgeOf(update) {
 }
 
 /**
- * The settings menu's rows, from menu.json and the shell's three replies:
+ * The settings menu's rows, from menu.json and the shell's replies:
  * {id, label, kind, hint?, value, disabled?}. A switch's value is its
  * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
+ * The approvals rows read the server's settings document. A choice's value is one of its choices.
  * Hide's label names the way back. The update entry shows only where the companion can update itself.
  */
-export function menuRowsOf(items, { preferences, appearance, mailbox, update = { state: 'unavailable' } }, isMac = false) {
-  const values = { ...appearance, ...preferences, ...mailbox }
+export function menuRowsOf(items, { preferences, appearance, mailbox, approvals, update = { state: 'unavailable' } }, isMac = false) {
+  const values = { ...appearance, ...preferences, ...mailbox, approvalsMode: approvals?.approvals?.mode, approvalsCompanion: approvals?.approvals?.companion }
   const updates = new Set(['update', 'checkForUpdates'])
   return items.filter((item) => !updates.has(item.id) || update.state !== 'unavailable').map((item) => {
     if (!MENU_KINDS.has(item.kind)) throw new Error(`the menu item ${item.id} has the unknown kind ${item.kind}`)
     let value
+    if (item.kind === 'choice') {
+      if (!item.choices?.some((choice) => choice.value === values[item.id])) return { ...item, unavailable: true }
+      return { ...item, value: values[item.id] }
+    }
     if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
     if (item.kind === 'switch') {
       if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
@@ -1546,4 +1551,99 @@ export function missingToolsNoteOf(view) {
   if (lacking.length === 0) return undefined
   const commands = [...new Set(lacking.map((tool) => tool.needs))]
   return `${listed.format(lacking.map((tool) => tool.label))} chats are missing: reading them needs the ${listed.format(commands)} command.`
+}
+
+/** The question before a mode that answers prompts for the person: {title, body, go}. Undefined for ask, which saves at once. */
+export function approvalsConfirmOf(mode) {
+  if (mode === 'review') {
+    return {
+      title: 'Let the tool\'s reviewer decide?',
+      body: 'Your tools\' own reviewers answer routine permission prompts for you. Prompts that always ask still reach you.',
+      go: 'Turn on',
+    }
+  }
+  if (mode === 'yolo') {
+    return {
+      title: 'Approve routine calls for you?',
+      body: 'agnostic-ai approves routine tool calls for you, one at a time. Deleting, publishing, network access and secrets still ask. Use it only where a mistake is cheap, such as a sandbox.',
+      go: 'Turn on',
+    }
+  }
+  return undefined
+}
+
+const APPROVALS_TOOL_LABELS = { ...TOOL_LABELS, kiro: 'Kiro', qwen: 'Qwen Code', qoder: 'Qoder' }
+
+const approvalsToolLabelOf = (tool) => APPROVALS_TOOL_LABELS[tool] ?? tool
+
+/**
+ * The reasons a sync would fix, short: the server words a tool's as "codex: the hook is not installed; add …", and
+ * the advice after the semicolon is what Apply to my tools does. Tools with the same reason share one clause.
+ */
+function syncReasonsOf(reasons) {
+  const tools = new Map()
+  const clauses = []
+  for (const reason of reasons) {
+    const match = /^([a-z-]+): ([^;]*)/.exec(reason)
+    if (!match) {
+      clauses.push(reason)
+      continue
+    }
+    const [, tool, text] = match
+    if (!tools.has(text)) {
+      tools.set(text, [])
+      clauses.push(text)
+    }
+    tools.get(text).push(approvalsToolLabelOf(tool))
+  }
+  return clauses.map((clause) => (tools.has(clause) ? `${clause} for ${listed.format(tools.get(clause))}` : clause)).join('; ')
+}
+
+const counted = (n, one, many) => `${n} ${n === 1 ? one : many}`
+
+/**
+ * The status line under the approvals rows, from the settings document: `{ lines, apply }`. The lines say why the
+ * asked mode is not in effect yet, which tools still ask and why, how many tools and folders have their own mode,
+ * and which shared keys a local block hides. `apply` offers Apply to my tools when a sync would fix it.
+ */
+export function approvalsStatusOf(doc) {
+  const approvals = doc?.approvals
+  if (!approvals) return { lines: [], apply: false }
+  const lines = []
+  if (approvals.problem) lines.push(`The approvals settings could not be read: ${approvals.problem}`)
+  if (doc.sync?.needed) lines.push(`Not in effect yet: ${syncReasonsOf(doc.sync.reasons)}.`)
+  const fixed = new Set(doc.sync?.reasons ?? [])
+  const asking = (approvals.tools ?? []).filter((tool) => tool.mode !== 'ask' && tool.effective === 'ask' && tool.reason && !fixed.has(`${tool.tool}: ${tool.reason}`))
+  for (const tool of asking.slice(0, 3)) lines.push(`${approvalsToolLabelOf(tool.tool)} still asks: ${tool.reason}.`)
+  if (asking.length > 3) lines.push(`${counted(asking.length - 3, 'more tool still asks', 'more tools still ask')}.`)
+  const { tools = 0, projects = 0 } = approvals.overrides ?? {}
+  if (tools + projects > 0) {
+    const parts = [tools > 0 && counted(tools, 'tool', 'tools'), projects > 0 && counted(projects, 'folder', 'folders')].filter(Boolean)
+    lines.push(`${parts.join(' and ')} ${tools + projects === 1 ? 'has its' : 'have their'} own mode. Edit them in the dashboard.`)
+  }
+  if (approvals.shadowed?.length) lines.push(`Your local home config hides ${listed.format(approvals.shadowed)} from the shared one.`)
+  return { lines, apply: Boolean(doc.sync?.needed) }
+}
+
+/** The question before a sync from the menu: {title, body, files, go?}. With no file to change there is nothing to confirm. */
+export function syncConfirmOf(plan) {
+  const files = (plan.files ?? []).map((file) => `${file.change} ${file.path}`)
+  if (files.length === 0) return { title: 'Nothing to apply', body: 'Your tools already match your user configuration.', files }
+  return {
+    title: 'Apply to my tools?',
+    body: 'This applies all pending changes of your user configuration, not only approvals:',
+    files,
+    go: 'Apply',
+  }
+}
+
+/** What the menu says after a sync: how many files it wrote, then its notes, such as the Codex trust step. */
+export function syncResultOf(reply) {
+  const written = reply.written?.length ?? 0
+  return [written === 0 ? 'Nothing needed writing.' : `Applied: ${counted(written, 'file', 'files')} written.`, ...(reply.notes ?? [])].join(' ')
+}
+
+/** Why a sync from the menu failed, with the command that does it by hand. */
+export function syncFailureOf(error) {
+  return error.command ? `${error.message} Run ${error.command} in a terminal.` : error.message
 }

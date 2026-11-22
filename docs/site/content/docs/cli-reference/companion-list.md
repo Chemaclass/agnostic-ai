@@ -196,7 +196,7 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 | Waiting for you | The tool says it waits, but not for what. |
 | New reply | Something was written since you last looked. "Hidden because it may hold a password or key" is added when the reply is left out. |
 
-While [approvals](@/docs/cli-reference/companion.md#approvals) answer prompts, a chip beside the search says **Auto-approve on** (`yolo`) or **Reviewers answer** (`review`), with the full sentence as its tooltip. **Ask me** on it switches back to ask.
+While [approvals](@/docs/cli-reference/companion.md#approvals) answer prompts, a chip beside the search says **Auto-approve on** (`yolo`) or **Reviewers answer** (`review`), with the full sentence as its tooltip. **Ask me** on it switches back to ask. The ⋯ menu changes the mode too: see [Approvals](@/docs/cli-reference/companion.md#approvals).
 
 Hover a row, shell line or approval pill, or select a row with the arrow keys, for a tooltip. It never covers the row, and closes on a key, scroll or click.
 

@@ -1,15 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { escapeTarget, hideLabelOf, menuRowsOf, updateBadgeOf, updateFeed, updateConfirmOf, updateLabelOf, updateMessageOf } from '../frontend/model.js'
+import { approvalsConfirmOf, approvalsStatusOf, escapeTarget, hideLabelOf, menuRowsOf, syncConfirmOf, syncFailureOf, syncResultOf, updateBadgeOf, updateFeed, updateConfirmOf, updateLabelOf, updateMessageOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true, checkForUpdates: true }
 const appearance = { animate: false, dimWhenIdle: true, smallCompanion: false, presence: 'shown' }
 const mailbox = { approveAgentSends: true }
+const approvals = { approvals: { mode: 'ask', companion: false, overrides: { tools: 0, projects: 0, alwaysAsk: 0 }, shadowed: [], tools: [] }, sync: { needed: false, reasons: [] } }
 
-test('without an update entry, the menu shows the nine items in the list order, with the values in effect', () => {
-  const rows = menuRowsOf(items, { preferences, appearance, mailbox, update: { state: 'unavailable' } })
+test('without an update entry, the menu shows the eleven items in the list order, with the values in effect', () => {
+  const rows = menuRowsOf(items, { preferences, appearance, mailbox, approvals, update: { state: 'unavailable' } })
   assert.deepEqual(
     rows.map(({ id, kind, value }) => [id, kind, value]),
     [
@@ -17,6 +18,8 @@ test('without an update entry, the menu shows the nine items in the list order, 
       ['dimWhenIdle', 'switch', true],
       ['smallCompanion', 'switch', false],
       ['startAtLogin', 'switch', true],
+      ['approvalsMode', 'choice', 'ask'],
+      ['approvalsCompanion', 'switch', false],
       ['approveAgentSends', 'switch', true],
       ['shortcut', 'shortcut', 'Ctrl+Alt+Space'],
       ['sendShortcut', 'shortcut', 'Ctrl+Alt+V'],
@@ -86,7 +89,58 @@ test('an unknown kind is refused', () => {
 test('a page setting the server could not answer is left out, not refused', () => {
   const rows = menuRowsOf(items, { preferences, appearance, mailbox: undefined })
   assert.equal(rows.find((row) => row.id === 'approveAgentSends').unavailable, true)
-  assert.equal(rows.filter((row) => row.unavailable).length, 1)
+  assert.deepEqual(rows.filter((row) => row.unavailable).map((row) => row.id), ['approvalsMode', 'approvalsCompanion', 'approveAgentSends'])
+})
+
+test('the approvals rows show the home config values, and a mode the menu does not offer hides the row', () => {
+  const doc = { ...approvals, approvals: { ...approvals.approvals, mode: 'yolo', companion: true } }
+  const rows = menuRowsOf(items, { preferences, appearance, mailbox, approvals: doc })
+  assert.equal(rows.find((row) => row.id === 'approvalsMode').value, 'yolo')
+  assert.equal(rows.find((row) => row.id === 'approvalsCompanion').value, true)
+  const odd = menuRowsOf(items, { preferences, appearance, mailbox, approvals: { ...doc, approvals: { ...doc.approvals, mode: 'sometimes' } } })
+  assert.equal(odd.find((row) => row.id === 'approvalsMode').unavailable, true)
+})
+
+test('only review and yolo ask before saving', () => {
+  assert.equal(approvalsConfirmOf('ask'), undefined)
+  assert.equal(approvalsConfirmOf('review').go, 'Turn on')
+  assert.match(approvalsConfirmOf('yolo').body, /one at a time/)
+})
+
+test('the status line says why the mode is not in effect, what has its own mode, and what a local block hides', () => {
+  const doc = {
+    approvals: {
+      mode: 'yolo',
+      overrides: { tools: 2, projects: 1, alwaysAsk: 0 },
+      shadowed: ['approvals.tools'],
+      tools: [
+        { tool: 'codex', mode: 'yolo', effective: 'ask', reason: 'the hook is not installed; add approvals to builtins in the home config and run sync --scope user' },
+        { tool: 'cursor', mode: 'yolo', effective: 'ask', reason: 'Approvals not supported for cursor' },
+        { tool: 'claude', mode: 'yolo', effective: 'yolo' },
+      ],
+    },
+    sync: { needed: true, reasons: ['codex: the hook is not installed; add approvals to builtins in the home config and run sync --scope user'] },
+  }
+  assert.deepEqual(approvalsStatusOf(doc), {
+    lines: [
+      'Not in effect yet: the hook is not installed for Codex.',
+      'Cursor still asks: Approvals not supported for cursor.',
+      '2 tools and 1 folder have their own mode. Edit them in the dashboard.',
+      'Your local home config hides approvals.tools from the shared one.',
+    ],
+    apply: true,
+  })
+  assert.deepEqual(approvalsStatusOf(approvals), { lines: [], apply: false })
+  assert.deepEqual(approvalsStatusOf(undefined), { lines: [], apply: false })
+})
+
+test('the sync question lists every file and says it applies all pending changes', () => {
+  const question = syncConfirmOf({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }] })
+  assert.deepEqual(question.files, ['create /h/.codex/hooks.json'])
+  assert.match(question.body, /all pending changes of your user configuration/)
+  assert.equal(syncConfirmOf({ id: 'x', files: [] }).go, undefined)
+  assert.equal(syncResultOf({ written: ['a'], notes: ['Codex will show Hooks need review once. Open /hooks in Codex and trust it.'] }), 'Applied: 1 file written. Codex will show Hooks need review once. Open /hooks in Codex and trust it.')
+  assert.equal(syncFailureOf(Object.assign(new Error('conflict.'), { command: 'agnostic-ai sync --scope user' })), 'conflict. Run agnostic-ai sync --scope user in a terminal.')
 })
 
 test('an update read that an event overtook does not overwrite the event', () => {

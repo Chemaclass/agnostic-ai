@@ -62,7 +62,43 @@ function fixtureState(name, now) {
     copiedMarkdown: Boolean(fixture.clipboardMarkdown),
     /** The approvals mode the header names; Ask me clears it. */
     approvalsMode: fixture.approvalsMode,
+    /** The home approvals settings the menu shows; the hook counts as installed in a fixture that starts loose. */
+    approvals: { mode: fixture.approvalsMode ?? 'ask', companion: Boolean(fixture.approvalsCompanion), hookInstalled: Boolean(fixture.approvalsMode) },
   }
+}
+
+const SETTINGS_ROOT = '/Users/you/.agnostic-ai'
+const SYNC_FILES = [
+  { path: '/Users/you/.claude/settings.json', change: 'update', target: 'claude' },
+  { path: '/Users/you/.codex/hooks.json', change: 'create', target: 'codex' },
+]
+const CODEX_TRUST = 'Codex will show Hooks need review once. Open /hooks in Codex and trust it.'
+
+/** The settings document as serve answers GET /api/views/settings, for the preview's own state. */
+function settingsDocOf(state) {
+  const { mode, companion, hookInstalled } = state.approvals
+  const reason = 'the hook is not installed; add approvals to builtins in the home config and run sync --scope user'
+  const loose = mode !== 'ask' || companion
+  const tools = ['claude', 'codex'].map((tool) => ({
+    tool,
+    mode,
+    effective: mode === 'ask' || hookInstalled ? mode : 'ask',
+    from: mode === 'ask' ? 'default' : 'approvals.mode',
+    ...(mode !== 'ask' && !hookInstalled ? { reason } : {}),
+  }))
+  const reasons = loose && !hookInstalled ? tools.filter((tool) => tool.reason).map((tool) => `${tool.tool}: ${tool.reason}`) : []
+  return {
+    schemaVersion: 'settings/v1',
+    configRoot: SETTINGS_ROOT,
+    approvals: { mode, modeFile: mode === 'ask' && !companion ? '' : 'local/agnostic-ai.yaml', companion, overrides: { tools: 0, projects: 0, alwaysAsk: 0 }, shadowed: [], tools },
+    mailbox: state.mailboxSettings,
+    sync: { needed: reasons.length > 0, reasons },
+    canLoosen: true,
+  }
+}
+
+function settingsTagOf(doc) {
+  return `"${createHash('sha256').update(JSON.stringify(doc)).digest('hex').slice(0, 32)}"`
 }
 
 /** Three copied lines, what most fixtures hold on the clipboard. */
@@ -499,12 +535,58 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       if (lateOpen.settled?.id === body.id) lateOpen.settled = undefined
       noContent(response)
     },
+    // Like serve: one document of the user settings, with a tag a poll sends back.
+    'GET /api/settings': (request, response) => {
+      const doc = settingsDocOf(state)
+      const tag = settingsTagOf(doc)
+      if (request.headers['if-none-match'] === tag) {
+        response.writeHead(304, { ETag: tag, 'Cache-Control': 'no-store' })
+        return response.end()
+      }
+      response.setHeader('ETag', tag)
+      sendJSON(response, 200, doc)
+    },
+    // Like serve: one change, refused when the menu showed another value than the one in effect.
+    'POST /api/settings': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/settings', body)
+      const doc = settingsDocOf(state)
+      const current = { 'approvals.mode': doc.approvals.mode, 'approvals.companion': doc.approvals.companion, 'mailbox.approveAgentSends': doc.mailbox.approveAgentSends }
+      if (!(body.key in current)) return sendJSON(response, 400, { error: 'key must be approvals.mode, approvals.companion or mailbox.approveAgentSends' })
+      if ('expected' in body && body.expected !== current[body.key]) return sendJSON(response, 409, { error: 'This setting changed since the page read it. Check the current value.', settings: doc })
+      if (body.key === 'approvals.mode') {
+        if (!['ask', 'review', 'yolo'].includes(body.value)) return sendJSON(response, 400, { error: 'approvals.mode takes ask, review or yolo' })
+        state.approvals.mode = body.value
+        state.approvalsMode = body.value === 'ask' ? undefined : body.value
+      } else if (body.key === 'approvals.companion') {
+        state.approvals.companion = Boolean(body.value)
+      } else {
+        state.mailboxSettings = { approveAgentSends: Boolean(body.value) }
+      }
+      listChanged()
+      response.setHeader('List-Version', state.version)
+      sendJSON(response, 200, { settings: settingsDocOf(state), changed: [body.key.startsWith('mailbox') ? 'mailbox/settings.json' : 'local/agnostic-ai.yaml'] })
+    },
+    // Like serve: a plan names the files, and apply runs only the plan the menu showed.
+    'POST /api/settings/sync': async (request, response) => {
+      const body = await bodyOf(request)
+      logCall('/api/settings/sync', body)
+      const files = state.approvals.hookInstalled ? [] : SYNC_FILES
+      const plan = { id: files.length ? 'plan-hooks' : 'plan-empty', files, notes: [] }
+      if (body.action === 'plan') return sendJSON(response, 200, plan)
+      if (body.action !== 'apply' || !body.id) return sendJSON(response, 400, { error: 'send {"action": "plan"} or {"action": "apply", "id": "<plan id>"}' })
+      if (body.id !== plan.id) return sendJSON(response, 409, { error: 'The pending changes changed since you checked them. Check them again.', plan })
+      state.approvals.hookInstalled = true
+      listChanged()
+      sendJSON(response, 200, { written: files.map((file) => file.path), notes: files.length ? [CODEX_TRUST] : [], settings: settingsDocOf(state) })
+    },
     // Like serve: only ask can be set here, and the list read after it no longer names a mode.
     'POST /api/approvals/ask': async (request, response) => {
       const body = await bodyOf(request)
       logCall('/api/approvals/ask', body)
       if (body.mode !== 'ask' || Object.keys(body).length !== 1) return sendJSON(response, 400, { error: 'only ask can be set here; review and yolo are set in $AGNOSTIC_AI_HOME/agnostic-ai.yaml' })
       state.approvalsMode = undefined
+      state.approvals.mode = 'ask'
       listChanged()
       response.setHeader('List-Version', state.version)
       sendJSON(response, 200, { mode: 'ask', path: '/Users/you/.agnostic-ai/local/agnostic-ai.yaml' })

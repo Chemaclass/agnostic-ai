@@ -410,6 +410,7 @@ What you see is never older than this:
 - `dashboard.go`: opens the full web interface.
 - `place.go`: where the list opens beside the circle, and whether a saved place is still on a screen.
 - `settings.go`: what the companion remembers between runs.
+- `frontend/panel-approvals.js`: the approvals rows' status line, the question before a looser mode, and Apply to my tools.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `menu.json` lists the settings both menus show, in order, so they cannot drift
   apart. `model.js` holds the logic and has no DOM in it. `look.js` turns your

@@ -37,6 +37,8 @@ agnostic-ai approvals status
 
 A user-level sync installs the `PermissionRequest` hook. Each tool's [setup and limits](#per-tool) still apply. The hook reads the mode on every request. Changing it needs no sync for the hook to respond.
 
+Or open the companion list's ⋯ menu and choose **Approve routine calls for me** under **When a tool asks permission**. It asks once, then writes the mode and adds `approvals` to `builtins` when it is missing. The menu then says **Not in effect yet**: click **Apply to my tools**, check the files it lists, and confirm. See [the menu](@/docs/cli-reference/companion.md#approvals).
+
 ## Modes
 
 - **`ask`** is the default. Your tool shows its own prompts.
@@ -104,7 +106,7 @@ approvals:
   companion: true
 ```
 
-Run `agnostic-ai sync --scope user` once, then open the companion. When Claude Code asks to run `touch a.txt`, the row shows the whole command with **Approve** and **Deny**. **Approve** runs that one call. **Deny** blocks it, and Claude Code reads "Denied in the agnostic-ai companion". The terminal prompt stays open the whole time, so you can still answer there.
+Run `agnostic-ai sync --scope user` once, then open the companion. Or turn on **Approve and deny from this list** in the companion's ⋯ menu, which offers the sync for you. When Claude Code asks to run `touch a.txt`, the row shows the whole command with **Approve** and **Deny**. **Approve** runs that one call. **Deny** blocks it, and Claude Code reads "Denied in the agnostic-ai companion". The terminal prompt stays open the whole time, so you can still answer there.
 
 - The hook waits for a click only when the request is left to you: mode `ask`, a match in the always-ask rules in `yolo`, or a prompt in `review`. A request the hook approves never waits.
 - It waits only while the companion is open, and only for calls it can show in full: `Bash`, `Read`, `Write`, `Edit` and `MultiEdit`, and Codex `apply_patch` with the whole patch, under 8 KB, with nothing that looks like a credential. A call with an option the row does not show, such as a command run outside the sandbox or an edit that replaces every match, keeps the terminal prompt alone, and so do MCP tools, web tools and questions.
@@ -124,7 +126,7 @@ Run `agnostic-ai sync --scope user` once, then open the companion. When Claude C
 
 Any of these stops hook approvals from the next request, without syncing or restarting.
 
-1. Run `agnostic-ai approvals ask` or select **Ask me** on the approvals chip in the companion list. Both write `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
+1. Run `agnostic-ai approvals ask`, or select **Ask me** on the approvals chip or in the ⋯ menu of the companion list. Each writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
 2. Set `AGNOSTIC_AI_APPROVALS=ask` for a session or `approvals.mode: ask` in the project's config.
 
 To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A user-level sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
