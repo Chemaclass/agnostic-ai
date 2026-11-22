@@ -3,6 +3,7 @@ package preview
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -22,10 +23,11 @@ var (
 // before the command. shown keeps each flag with Redacted for its value;
 // rest drops the flag and value, so a credential check reads the rest of
 // the command without finding the flag's name. A reference such as
-// $DB_PASSWORD stays, and a value it cannot read whole, such as one with
-// a backslash or text glued after its closing quote, is left for the
-// check to withhold. words are separated by single spaces.
-func MaskCommandPasswords(line string) (shown, rest string) {
+// $DB_PASSWORD stays. ok is false when a password is passed in a way it
+// could not mask, such as a value with a backslash or a program behind
+// a wrapper it does not read, so the caller withholds the whole command.
+// words are separated by single spaces.
+func MaskCommandPasswords(line string) (shown, rest string, ok bool) {
 	words := strings.Split(line, " ")
 	var out, kept []string
 	program := ""
@@ -78,7 +80,60 @@ func MaskCommandPasswords(line string) (shown, rest string) {
 			program = ""
 		}
 	}
-	return strings.Join(out, " "), strings.Join(kept, " ")
+	rest = strings.Join(kept, " ")
+	return strings.Join(out, " "), rest, !passesPasswordIn(rest)
+}
+
+var (
+	segmentSeparator = regexp.MustCompile(`[;&|]`)
+	// redirection is a word that starts a shell redirection, such as
+	// `>`, `<`, or `2>&1`, which is no password.
+	redirection = regexp.MustCompile(`^[0-9]*[<>]`)
+)
+
+// passesPasswordIn reports whether text, a command with the passwords
+// it masked taken out, still passes one: a MySQL client or sshpass with
+// a literal after -p or --password anywhere, or a password variable set
+// to a literal.
+func passesPasswordIn(text string) bool {
+	for _, segment := range segmentSeparator.Split(text, -1) {
+		args := strings.Fields(segment)
+		for i, arg := range args {
+			args[i] = strings.Trim(arg, "'\"`")
+		}
+		for i, arg := range args {
+			if name, value, ok := strings.Cut(arg, "="); ok && passwordEnvNames[name] && strings.Trim(value, "'\"") != "" && !notLiteral(strings.Trim(value, "'\"")) {
+				return true
+			}
+			base := filepath.Base(arg)
+			if base == "sshpass" && sshpassPasswordAt(args[i:]) > 0 {
+				return true
+			}
+			if strings.HasPrefix(base, "mysql") || strings.HasPrefix(base, "mariadb") {
+				if slices.ContainsFunc(args[i+1:], mysqlPasswordArg) || mysqlSpacedPassword(args[i+1:]) {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// mysqlSpacedPassword reports whether args hold --password=, or -p or
+// --password followed by a literal word.
+func mysqlSpacedPassword(args []string) bool {
+	for i, arg := range args {
+		if value, ok := strings.CutPrefix(arg, "--password="); ok && value != "" && !notLiteral(value) {
+			return true
+		}
+		if (arg == "-p" || arg == "--password") && i+1 < len(args) {
+			next := args[i+1]
+			if !strings.HasPrefix(next, "-") && !redirection.MatchString(next) && !notLiteral(next) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // passwordAt is where a password may start: words[at][offset:]. at is
@@ -147,7 +202,7 @@ func passwordSpan(words []string, p passwordAt) (end, start int, after string, o
 	}
 	offset := p.offset
 	value := words[p.at][offset:]
-	if value == "" || commandSeparators[value] || !p.anyValue && p.offset == 0 && strings.HasPrefix(value, "-") || notLiteral(value) {
+	if value == "" || commandSeparators[value] || !p.anyValue && p.offset == 0 && strings.HasPrefix(value, "-") || notLiteral(value) || redirection.MatchString(value) {
 		return 0, 0, "", false
 	}
 	quote := byte(0)

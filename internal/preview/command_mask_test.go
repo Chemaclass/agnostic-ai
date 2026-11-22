@@ -1,6 +1,9 @@
 package preview
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestMaskCommandPasswords_MasksKnownPasswordArgumentsOnly(t *testing.T) {
 	r := Redacted
@@ -8,9 +11,6 @@ func TestMaskCommandPasswords_MasksKnownPasswordArgumentsOnly(t *testing.T) {
 		{"glued -p", "mysql -uroot -phunter2pass app", "mysql -uroot -p" + r + " app", "mysql -uroot app"},
 		{"mysqldump path", "/usr/bin/mysqldump -p hunter2pass app", "/usr/bin/mysqldump -p " + r + " app", "/usr/bin/mysqldump hunter2pass app"},
 		{"sshpass password starting with a dash", "sshpass -p -hunter2pass ssh host", "sshpass -p " + r + " ssh host", "sshpass ssh host"},
-		{"backslash in the value", `mysql --password=hunter2\ tail9word app`, `mysql --password=hunter2\ tail9word app`, `mysql --password=hunter2\ tail9word app`},
-		{"text glued after the quote", "mysql -p'hunter2'tail9word app", "mysql -p'hunter2'tail9word app", "mysql -p'hunter2'tail9word app"},
-		{"ANSI-C quoting", "mysql -p$'hunter2 tail9word' app", "mysql -p$'hunter2 tail9word' app", "mysql -p$'hunter2 tail9word' app"},
 		{"command substitution", `sshpass -p "$(cat pw.txt)" ssh host`, `sshpass -p "$(cat pw.txt)" ssh host`, `sshpass -p "$(cat pw.txt)" ssh host`},
 		{"quoted with a space", `mysql --password="hunter2 pass" app`, `mysql --password="` + r + `" app`, "mysql app"},
 		{"unclosed quote", `mysql --password='hunter2 pass`, `mysql --password='` + r, "mysql"},
@@ -23,16 +23,42 @@ func TestMaskCommandPasswords_MasksKnownPasswordArgumentsOnly(t *testing.T) {
 		{"curl proxy user", "curl --proxy-user bob:hunter2pass https://x.example.com", "curl --proxy-user bob:" + r + " https://x.example.com", "curl https://x.example.com"},
 		{"variable password", `PGPASSWORD="$PW" psql; curl -u "alice:$PW" x`, `PGPASSWORD="$PW" psql; curl -u "alice:$PW" x`, `PGPASSWORD="$PW" psql; curl -u "alice:$PW" x`},
 		{"port flags", "ssh -p 2222 host && docker run -p 8080:80 nginx", "ssh -p 2222 host && docker run -p 8080:80 nginx", "ssh -p 2222 host && docker run -p 8080:80 nginx"},
-		{"password variable named as an argument", "echo PGPASSWORD=x", "echo PGPASSWORD=x", "echo PGPASSWORD=x"},
 		{"bare -p before an option", "mysql -p -u root", "mysql -p -u root", "mysql -p -u root"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			shown, rest := MaskCommandPasswords(tc.line)
-			if shown != tc.shown || rest != tc.rest {
-				t.Errorf("MaskCommandPasswords(%q) = %q, %q; want %q, %q", tc.line, shown, rest, tc.shown, tc.rest)
+			shown, rest, ok := MaskCommandPasswords(tc.line)
+			if shown != tc.shown || rest != tc.rest || !ok {
+				t.Errorf("MaskCommandPasswords(%q) = %q, %q, %v; want %q, %q, true", tc.line, shown, rest, ok, tc.shown, tc.rest)
 			}
 		})
+	}
+}
+
+func TestMaskCommandPasswords_WithholdsAPasswordItCannotMask(t *testing.T) {
+	for _, line := range []string{
+		`mysql --password=hunter2\ tail9word app`,
+		"mysql -p'hunter2'tail9word app",
+		"mysql -p$'hunter2 tail9word' app",
+		`sshpass -p hunter2\ pass ssh host`,
+		`sshpass -p 'it'\''s' ssh host`,
+		"timeout 30 sshpass -p hunter2pass ssh host",
+		"timeout 30 mysql -p hunter2pass app",
+		"sshpass -e ssh host mysql -u root -phunter2pass app",
+		"sshpass -phunter2pass ssh host mysql -phunter3pass",
+		"bash -c 'sshpass -p hunter2pass ssh-copy-id host'",
+		"cd /srv;sshpass -p hunter2pass ssh host",
+		"docker run -e MYSQL_PWD=hunter2pass mysql",
+		"echo PGPASSWORD=hunter2pass",
+	} {
+		if shown, _, ok := MaskCommandPasswords(line); ok {
+			t.Errorf("MaskCommandPasswords(%q) = %q, want it withheld", line, shown)
+		}
+	}
+	for _, line := range []string{"mysqldump -u root -p > dump.sql", "mysql -u root -p < schema.sql", "mysql -p 2>&1", "sshpass -p hunter2pass ssh -p 2222 host"} {
+		if shown, _, ok := MaskCommandPasswords(line); !ok || strings.Contains(shown, "<redacted> ") && !strings.HasPrefix(line, "sshpass") {
+			t.Errorf("MaskCommandPasswords(%q) = %q, %v; want a redirection kept", line, shown, ok)
+		}
 	}
 }
 
@@ -52,7 +78,7 @@ func TestPassesPasswordArg_ReadsSSHPassAsWellAsMySQL(t *testing.T) {
 			t.Errorf("%q is found as a password", prose)
 		}
 	}
-	for _, prose := range []string{"Run sshpass -p hunter2pass ssh host.", "Try mysql.exe -u root -phunter2pass app", `bash -c "mysql -u root -phunter2pass app"`, "cd /srv&&mysql -phunter2pass"} {
+	for _, prose := range []string{"Run sshpass -p hunter2pass ssh host.", "Try mysql.exe -u root -phunter2pass app", `bash -c "mysql -u root -phunter2pass app"`, "cd /srv&&mysql -phunter2pass", "sshpass -e ssh host mysql -u root -phunter2pass app", "sshpass -phunter2pass ssh host mysql -phunter3pass"} {
 		if !ProseSensitive(prose) {
 			t.Errorf("%q is not found as a password", prose)
 		}

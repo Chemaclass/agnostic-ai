@@ -46,33 +46,37 @@ var (
 	plainAssignedValue = regexp.MustCompile(`(?i)^\s*["']?(?:null|~|true|false|-?[0-9]+(?:\.[0-9]+)?|\$\{?[A-Za-z_][A-Za-z0-9_]*\}?)["']?\s*(?:[,}\])]|$)`)
 )
 
-// passwordCommandInText is a MySQL client or sshpass named in prose
-// with the rest of its line, also inside a quoted `sh -c` command or
-// glued to a shell separator.
-var passwordCommandInText = regexp.MustCompile(`(?:^|[\s` + "`" + `("';&|])((?:mysql|mysqldump|mysqladmin|mysqlimport|mysqlcheck|mysqlshow|mysqlslap|mariadb(?:-[a-z]+)?|sshpass)[^\n` + "`" + `]*)`)
+// passwordCommandInText is a MySQL client or sshpass named in prose,
+// also inside a quoted `sh -c` command or glued to a shell separator.
+var passwordCommandInText = regexp.MustCompile(`(?:^|[\s` + "`" + `("';&|])((?:mysql|mariadb|sshpass)[^\s` + "`" + `"';&|]*)`)
 
 // sshpassCommands are the commands sshpass runs, after which a word
 // following -p in prose reads as a password and not as a sentence.
-var sshpassCommands = map[string]bool{"ssh": true, "scp": true, "sftp": true, "rsync": true}
+var sshpassCommands = map[string]bool{"ssh": true, "scp": true, "sftp": true, "rsync": true, "ssh-copy-id": true}
 
 // passesPasswordInText reports whether text runs a MySQL client with a
 // literal password glued to -p, or sshpass with one after -p, outside a
-// fenced shell block too. In prose a word after a spaced sshpass -p
-// counts only before the command sshpass runs, so "avoid sshpass -p in
-// scripts" does not.
+// fenced shell block too. Each name is read with the rest of its line.
+// In prose a word after a spaced sshpass -p counts only before the
+// command sshpass runs, so "avoid sshpass -p in scripts" does not.
 func passesPasswordInText(text string) bool {
-	for _, m := range passwordCommandInText.FindAllStringSubmatch(text, -1) {
-		args := strings.Fields(m[1])
+	for _, m := range passwordCommandInText.FindAllStringSubmatchIndex(text, -1) {
+		line := text[m[3]:]
+		if end := strings.IndexAny(line, "\n`"); end >= 0 {
+			line = line[:end]
+		}
+		args := strings.Fields(line)
 		for i, arg := range args {
 			args[i] = strings.Trim(arg, `"'.,;:)`)
 		}
-		if !strings.HasPrefix(args[0], "sshpass") {
-			if slices.ContainsFunc(args[1:], mysqlPasswordArg) {
+		name := text[m[2]:m[3]]
+		if name != "sshpass" {
+			if slices.ContainsFunc(args, mysqlPasswordArg) {
 				return true
 			}
 			continue
 		}
-		args[0] = "sshpass"
+		args = append([]string{name}, args...)
 		if at := sshpassPasswordAt(args); at > 0 && (args[at-1] != "-p" || at+1 < len(args) && sshpassCommands[filepath.Base(args[at+1])]) {
 			return true
 		}
