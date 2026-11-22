@@ -25,10 +25,14 @@ func TestOpenDashboard_ReportsStartupFailureAndAllowsRetry(t *testing.T) {
 		t.Fatalf("startup failure = %v; opened %q", err, opened)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/health" {
+		switch r.URL.Path {
+		case "/api/health":
+			_, _ = fmt.Fprint(w, `{"ok":true,"global":true,"ui":true}`)
+		case "/api/session/offer":
+			http.NotFound(w, r)
+		default:
 			t.Errorf("unexpected request %s", r.URL.Path)
 		}
-		_, _ = fmt.Fprint(w, `{"ok":true,"global":true,"ui":true}`)
 	}))
 	defer srv.Close()
 	fakeCommand(t, "echo '"+srv.URL+"/'")
@@ -95,5 +99,42 @@ func TestFindBinary_CLIManagedLaunchUsesRecordedCommand(t *testing.T) {
 	fakeBundledCommand(t)
 	if got, err := findBinary(); err != nil || got == command {
 		t.Errorf("packaged launch used the recorded command: %q, %v", got, err)
+	}
+}
+
+// TestOpenDashboard_OpensTheUnlockFileTheServerOffers: the page the
+// companion opens gets the session key, and a file outside the unlock
+// folder is never opened.
+func TestOpenDashboard_OpensTheUnlockFileTheServerOffers(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	config, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	offered := ""
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/health":
+			_, _ = fmt.Fprint(w, `{"ok":true,"global":true,"ui":true}`)
+		case "/api/session/offer":
+			_, _ = fmt.Fprintf(w, `{"file":%q}`, offered)
+		}
+	}))
+	defer srv.Close()
+	port := srv.URL[strings.LastIndex(srv.URL, ":")+1:]
+	ours := filepath.Join(config, "agnostic-ai", "unlock", "unlock-"+port+"-0123456789ab.html")
+	for _, c := range []struct{ file, want string }{
+		{ours, ours},
+		{"/Users/Shared/x.command", srv.URL + "/"},
+		{filepath.Join(config, "agnostic-ai", "unlock", "unlock-1-0123456789ab.html"), srv.URL + "/"},
+	} {
+		offered = c.file
+		opened := ""
+		fakeCommand(t, "echo '"+srv.URL+"/'")
+		if err := openDashboard(t.Context(), exec.Command(os.Getenv("AGNOSTIC_AI_BIN")), func(target string) error { opened = target; return nil }); err != nil || opened != c.want {
+			t.Errorf("offer %q: opened %q, %v; want %q", c.file, opened, err, c.want)
+		}
 	}
 }
