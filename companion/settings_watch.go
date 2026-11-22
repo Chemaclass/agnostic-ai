@@ -51,7 +51,12 @@ func (s *shell) watchSettings(ctx context.Context) {
 func (s *shell) takeOutsideSettings() {
 	s.mu.Lock()
 	// Own writes hold mu through the save, so the file read here is never
-	// older than the companion's copy.
+	// older than the companion's copy. A missing file is not a change: the
+	// next save writes it again.
+	if _, err := os.Stat(s.settingsPath); err != nil {
+		s.mu.Unlock()
+		return
+	}
 	read, err := readSettings(s.settingsPath)
 	if err != nil {
 		s.mu.Unlock()
@@ -98,6 +103,8 @@ func (s *shell) writeState() {
 	if s.settingsPath == "" {
 		return
 	}
+	s.writingState.Lock()
+	defer s.writingState.Unlock()
 	if err := writeCompanionState(statePath(s.settingsPath), companionState{PID: os.Getpid(), preferences: s.preferences()}); err != nil {
 		log.Print(err)
 	}
@@ -127,6 +134,8 @@ func (s *shell) removeState() {
 	if s.settingsPath == "" {
 		return
 	}
+	s.writingState.Lock()
+	defer s.writingState.Unlock()
 	if err := os.Remove(statePath(s.settingsPath)); err != nil && !errors.Is(err, fs.ErrNotExist) {
 		log.Printf("remove the companion state: %v", err)
 	}

@@ -58,6 +58,10 @@ func TestSettings_CompanionLiveRowsOnlyWhileItRuns(t *testing.T) {
 	if app := doc.CompanionApp; !app.Running || app.Live == nil || app.Live.Shortcut != "Ctrl+Alt+Space" || !app.Live.StartAtLogin {
 		t.Errorf("running companion = %+v", app)
 	}
+	writeFile(t, state, `{"pid":2147483646,"shortcut":"Ctrl+Alt+Space"}`)
+	if _, doc := getSettings(t, h, ""); doc.CompanionApp.Running {
+		t.Errorf("a state file left by a crash counts as running: %+v", doc.CompanionApp)
+	}
 	if err := os.Remove(state); err != nil {
 		t.Fatal(err)
 	}
@@ -69,4 +73,18 @@ func TestSettings_CompanionLiveRowsOnlyWhileItRuns(t *testing.T) {
 func jsonInt(n int) string {
 	raw, _ := json.Marshal(n)
 	return string(raw)
+}
+
+func TestSettings_CompanionSwitchWaitsForTheCompanionsLock(t *testing.T) {
+	h, _ := settingsFixture(t, "")
+	dir, _ := h.companionDir()
+	held, err := lockCompanionSettings(filepath.Join(dir, companionSettingsFile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer held()
+	rec, _ := postSetting(t, h, `{"key":"companion.dimWhenIdle","value":true}`, nil)
+	if _, statErr := os.Stat(filepath.Join(dir, companionSettingsFile)); rec.Code != http.StatusConflict || statErr == nil {
+		t.Errorf("write under a held lock = %d %s; file %v", rec.Code, rec.Body, statErr)
+	}
 }

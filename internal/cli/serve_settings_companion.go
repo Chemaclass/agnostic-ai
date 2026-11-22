@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
@@ -99,7 +99,7 @@ func (a *settingsCompanionApp) switchFor(key string) *bool {
 // runningCompanion reads the state file a running companion keeps. A
 // file left by a companion that crashed names a process that is gone.
 func runningCompanion(path string) (*settingsCompanionLive, bool) {
-	raw, err := os.ReadFile(path)
+	raw, err := readShared(path)
 	if err != nil {
 		return nil, false
 	}
@@ -110,8 +110,7 @@ func runningCompanion(path string) (*settingsCompanionLive, bool) {
 	if json.Unmarshal(raw, &state) != nil {
 		return nil, false
 	}
-	// Windows cannot ask whether a process runs this way; the companion removes the file as it quits.
-	if runtime.GOOS != "windows" && !pidAlive(state.PID) {
+	if !companionProcessRuns(state.PID) {
 		return nil, false
 	}
 	return &state.settingsCompanionLive, true
@@ -120,7 +119,7 @@ func runningCompanion(path string) (*settingsCompanionLive, bool) {
 // readCompanionSettings returns the file's top-level fields; a missing
 // file has none.
 func readCompanionSettings(path string) (map[string]json.RawMessage, error) {
-	raw, err := os.ReadFile(path)
+	raw, err := readShared(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return map[string]json.RawMessage{}, nil
 	}
@@ -132,6 +131,17 @@ func readCompanionSettings(path string) (map[string]json.RawMessage, error) {
 		return nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	return fields, nil
+}
+
+// readShared reads a file the companion replaces, without holding it
+// in a way that makes the companion's replace fail on Windows.
+func readShared(path string) ([]byte, error) {
+	file, err := atomicfile.OpenShared(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = file.Close() }()
+	return io.ReadAll(io.LimitReader(file, 1<<20))
 }
 
 // lockCompanionSettings takes the lock file every writer of the
@@ -147,8 +157,13 @@ func lockCompanionSettings(path string) (func(), error) {
 	release := func() { _ = file.Close() }
 	for try := 1; ; try++ {
 		err := tryLockProjectFile(file)
-		if err == nil || !projectLockContended(err) {
+		if err == nil {
 			return release, nil
+		}
+		// The companion refuses to save without the lock, so this side does too.
+		if !projectLockContended(err) {
+			release()
+			return nil, fmt.Errorf("lock %s.lock: %w", path, err)
 		}
 		if try == companionLockTries {
 			release()

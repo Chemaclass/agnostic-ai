@@ -131,6 +131,8 @@ type shell struct {
 	// changingShortcut runs one shortcut change at a time, so two changes
 	// cannot both pass the check that the shortcuts differ. Take it before mu.
 	changingShortcut sync.Mutex
+	// writingState keeps two writes of the state file from sharing its temp file.
+	writingState sync.Mutex
 	// login is the system's start at login setting.
 	login           autostart
 	tell            func(appearance)
@@ -316,6 +318,8 @@ func (s *shell) quit() {
 	}
 	s.mu.Unlock()
 	s.restBriefly()
+	// On macOS the app ends inside end, before Run returns.
+	s.removeState()
 	s.endOnce.Do(s.end)
 }
 

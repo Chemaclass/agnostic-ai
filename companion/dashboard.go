@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -173,10 +174,12 @@ func openReadyDashboard(ctx context.Context, raw string, open func(string) error
 	if !health.OK || !health.Global || !health.UI {
 		return fmt.Errorf("%s did not serve the global dashboard", raw)
 	}
-	if file, err := offerUnlockFile(ctx, client, address); err == nil {
+	file, err := offerUnlockFile(ctx, client, address)
+	if err == nil {
 		return open(file)
 	}
 	// An older CLI or a server without sessions, such as on Windows, opens locked.
+	log.Printf("open the dashboard locked: %v", err)
 	return open(raw)
 }
 
@@ -228,7 +231,12 @@ func (s *shell) dashboard(w http.ResponseWriter, r *http.Request) {
 		defer cancel()
 		view := exec.Command(binary, "view", "--global")
 		view.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_VIEW=1")
-		err = openDashboard(ctx, view, s.app.Browser.OpenURL)
+		err = openDashboard(ctx, view, func(target string) error {
+			if filepath.IsAbs(target) {
+				return s.app.Browser.OpenFile(target)
+			}
+			return s.app.Browser.OpenURL(target)
+		})
 	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})

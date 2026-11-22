@@ -252,6 +252,7 @@ func readBody[T any](w http.ResponseWriter, r *http.Request, shape string) (T, b
 func (s *shell) getPreferences(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, s.preferences())
 	s.refreshNative()
+	s.writeState()
 }
 
 // setShortcut answers POST /api/preferences/shortcut and
