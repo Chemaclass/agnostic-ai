@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // errKittyRemoteControlOff means kitty listens on no socket the server
@@ -182,11 +181,11 @@ func (k kittyTab) typeIn(ctx context.Context, tty, text string) (bool, error) {
 			value += `\e[201~`
 		}
 		if _, err := k.at(ctx, to, "send-text", "--match", "id:"+window, "--", value); err != nil {
-			if i > 0 {
-				// An open paste would swallow the next keys typed in the tab, so it closes even after a timeout.
-				closing, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
-				_, _ = k.at(closing, to, "send-text", "--match", "id:"+window, "--", `\e[201~`)
-				cancel()
+			if len(parts) > 1 {
+				closePaste(ctx, func(ctx context.Context) error {
+					_, err := k.at(ctx, to, "send-text", "--match", "id:"+window, "--", `\e[201~`)
+					return err
+				})
 			}
 			return false, err
 		}

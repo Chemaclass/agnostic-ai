@@ -117,7 +117,7 @@ func (w weztermTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err := w.activate(ctx, pane); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
-	// Each part goes as a paste of its own, which WezTerm closes itself.
+	// Each part goes in its own send-text call in paste mode.
 	for _, part := range textParts(text, sendPart) {
 		if _, err := w.cli(ctx, weztermSendArgs(pane, part, true)...); err != nil {
 			return false, err

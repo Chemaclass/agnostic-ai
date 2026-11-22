@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -169,12 +170,26 @@ func (k konsoleTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err != nil || !ok {
 		return false, err
 	}
-	for _, part := range textParts("\x1b[200~"+text+"\x1b[201~", sendPart) {
+	for i, part := range textParts("\x1b[200~"+text+"\x1b[201~", sendPart) {
 		if _, err := k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.sendText", "string:"+part); err != nil {
+			if i > 0 {
+				closePaste(ctx, func(ctx context.Context) error {
+					_, err := k.call(ctx, service, "/Sessions/"+session, "org.kde.konsole.Session.sendText", "string:\x1b[201~")
+					return err
+				})
+			}
 			return false, err
 		}
 	}
 	return true, nil
+}
+
+// closePaste ends a paste a failed part left open, which would swallow
+// the next keys typed in the tab, even after the send timed out.
+func closePaste(ctx context.Context, send func(context.Context) error) {
+	closing, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+	defer cancel()
+	_ = send(closing)
 }
 
 // sendPart bounds each piece of sent text: Linux refuses a single

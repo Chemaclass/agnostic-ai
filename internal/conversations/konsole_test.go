@@ -227,3 +227,16 @@ func TestNotOpened_KonsoleRefusingTheCommandSaysTheTabOpened(t *testing.T) {
 		t.Errorf("err %v", err)
 	}
 }
+
+func TestKonsole_ClosesThePasteWhenALaterPartFails(t *testing.T) {
+	send := konsoleDBus + "/Sessions/2 org.kde.konsole.Session.sendText string:"
+	text := strings.Repeat("a", sendPart) + "second"
+	commands := &fakeCommands{out: konsoleReplies(), errs: map[string]error{send + "aaaaaasecond": errors.New("refused")}}
+
+	if ok, err := testKonsole(commands).typeIn(context.Background(), "/dev/pts/0", text); ok || err == nil {
+		t.Fatalf("ok %v err %v", ok, err)
+	}
+	if last := commands.calls[len(commands.calls)-1]; last != send+"\x1b[201~" {
+		t.Errorf("last call = %q, want the paste closed", last)
+	}
+}
