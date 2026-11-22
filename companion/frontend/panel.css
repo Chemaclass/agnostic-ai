@@ -343,6 +343,22 @@ body {
   flex: none;
 }
 
+/* The subagent that left the shell, set apart from the command it ran. On a narrow row it shrinks first: flex
+   shrinks every item in proportion, and any share left to the command, even a fraction of a pixel, cuts its end. */
+.shell-owner {
+  flex: 0 100000 auto;
+  display: flex;
+  min-width: 3ch;
+  color: var(--paper-dim);
+  white-space: pre;
+}
+
+.shell-owner-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .shell-age {
   font-variant-numeric: tabular-nums;
   font-weight: 620;
@@ -468,9 +484,11 @@ body {
   opacity: 0.6;
 }
 
-/* Why a row sits under Needs you, under its title: shells still running, a question, no activity, a new reply. */
+/* Why a row sits under Needs you, under its title: shells still running, a question, no activity, a new reply.
+   The same look says what a row's orange shell lines are, when its reason does not. */
 
-.needs-reason {
+.needs-reason,
+.shells-lead {
   margin-top: 1px;
   overflow: hidden;
   color: var(--action);
