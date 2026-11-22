@@ -86,7 +86,8 @@ function settingsDocOf(state) {
     from: mode === 'ask' ? 'default' : 'approvals.mode',
     ...(mode !== 'ask' && !hookInstalled ? { reason } : {}),
   }))
-  const reasons = loose && !hookInstalled ? tools.filter((tool) => tool.reason).map((tool) => `${tool.tool}: ${tool.reason}`) : []
+  // Like serve: a looser mode, or the companion buttons, need the hook a sync installs.
+  const reasons = loose && !hookInstalled ? tools.map((tool) => `${tool.tool}: ${reason}`) : []
   return {
     schemaVersion: 'settings/v1',
     configRoot: SETTINGS_ROOT,

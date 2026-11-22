@@ -34,8 +34,6 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('switch', { name: 'Small companion' }),
     menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('radio', { name: 'Ask me', exact: true }),
-    menu.getByRole('radio', { name: "Let the tool's reviewer decide" }),
-    menu.getByRole('radio', { name: 'Approve routine calls for me' }),
     menu.getByRole('switch', { name: 'Approve and deny from this list' }),
     menu.getByRole('switch', { name: 'Ask me before an agent sends a message' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
@@ -683,4 +681,32 @@ test('the approvals rows hide when the settings cannot be read, and the rest of 
   await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toBeHidden()
   await menu.getByRole('switch', { name: 'Dim when idle' }).click()
   await expect(menu.getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'true')
+})
+
+test('the mode radios take one Tab stop, the arrows move between them, and Cancel returns the focus', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  const ask = menu.getByRole('radio', { name: 'Ask me', exact: true })
+  await menu.getByRole('switch', { name: 'Start at login' }).focus()
+  await page.keyboard.press('Tab')
+  await expect(ask).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  const yolo = menu.getByRole('radio', { name: 'Approve routine calls for me' })
+  await expect(yolo).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(menu.getByRole('button', { name: 'Cancel' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(ask).toBeFocused()
+  await expect(ask).toHaveAttribute('aria-checked', 'true')
+})
+
+test('turning on the companion buttons without the hook offers Apply to my tools', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  await menu.getByRole('switch', { name: 'Approve and deny from this list' }).click()
+  await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toHaveAttribute('aria-checked', 'true')
+  await expect(menu.getByRole('button', { name: 'Apply to my tools' })).toBeVisible()
 })

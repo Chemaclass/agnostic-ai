@@ -23,7 +23,7 @@ function button(className, text) {
  * draws the rows; `listChanged(version)` reads the list a change made, so the header chip follows.
  */
 export function approvalsMenu({ changed, listChanged }) {
-  const state = { doc: undefined, tag: undefined, timer: undefined, busy: false, said: undefined, pending: undefined }
+  const state = { doc: undefined, tag: undefined, timer: undefined, busy: false, said: undefined, pending: undefined, back: undefined, shown: 0, taken: 0 }
 
   const box = element('div', 'menu-approvals')
   const lines = element('div', 'menu-approvals-lines')
@@ -57,6 +57,7 @@ export function approvalsMenu({ changed, listChanged }) {
   }
 
   function take(doc, tag) {
+    state.taken += 1
     state.doc = doc
     if (tag !== undefined) state.tag = tag
     changed(doc)
@@ -65,18 +66,23 @@ export function approvalsMenu({ changed, listChanged }) {
 
   /** Reads the settings; a document the tag still names changes nothing. One that cannot be read hides the rows. */
   async function read() {
+    // A save or read that finished meanwhile holds a newer document than this answer.
+    const taken = state.taken
     try {
       const answer = await readSettings(state.tag)
-      if (answer) take(answer.settings, answer.tag)
+      if (answer && taken === state.taken) take(answer.settings, answer.tag)
     } catch (error) {
       if (!(error instanceof CallError)) throw error
+      if (taken !== state.taken) return
       state.tag = undefined
       take(undefined)
     }
   }
 
-  function ask(question, go) {
+  /** Shows a question; Cancel takes the focus, so a repeated key does not answer it. */
+  function ask(question, go, back) {
     state.pending = go
+    state.back = back
     confirmTitle.textContent = question.title
     confirmBody.textContent = question.body
     confirmFiles.replaceChildren(...(question.files ?? []).map((file) => element('li', '', file)))
@@ -84,24 +90,28 @@ export function approvalsMenu({ changed, listChanged }) {
     confirmGo.hidden = !question.go
     confirmGo.textContent = question.go ?? ''
     draw()
-    ;(question.go ? confirmGo : confirmCancel).focus()
+    confirmCancel.focus()
   }
 
-  function dismiss() {
+  /** Closes the question and puts the focus back where it was asked from. */
+  function answered() {
+    const back = state.back
     state.pending = undefined
+    state.back = undefined
     draw()
+    back?.()?.focus()
   }
 
-  confirmCancel.addEventListener('click', dismiss)
+  confirmCancel.addEventListener('click', answered)
   confirmGo.addEventListener('click', () => {
     const go = state.pending
-    state.pending = undefined
-    draw()
+    answered()
     go?.()
   })
 
   /** Saves one setting with the value the menu showed; a refusal shows why, and the server's current value. */
   async function save(key, value, expected) {
+    if (state.busy) return
     state.busy = true
     state.said = undefined
     draw()
@@ -122,7 +132,7 @@ export function approvalsMenu({ changed, listChanged }) {
   }
 
   /** Ask me saves at once; a mode that answers prompts asks first. */
-  function choose(mode) {
+  function choose(mode, back) {
     const current = state.doc?.approvals?.mode
     if (!mode || mode === current || state.busy) return
     const question = approvalsConfirmOf(mode)
@@ -130,11 +140,13 @@ export function approvalsMenu({ changed, listChanged }) {
       save('approvals.mode', mode, current)
       return
     }
-    ask(question, () => save('approvals.mode', mode, current))
+    ask(question, () => save('approvals.mode', mode, current), back)
   }
 
   /** Apply to my tools: shows what a sync would change, then runs it. */
   async function sync() {
+    if (state.busy) return
+    const shown = state.shown
     state.busy = true
     state.said = 'Checking what a sync would change…'
     draw()
@@ -149,11 +161,14 @@ export function approvalsMenu({ changed, listChanged }) {
       state.busy = false
       draw()
     }
+    // The menu closed while the plan was read: nobody asked any more.
+    if (shown !== state.shown) return
     state.said = undefined
-    ask(syncConfirmOf(plan), () => run(plan.id))
+    ask(syncConfirmOf(plan), () => run(plan.id), () => apply)
   }
 
   async function run(id) {
+    const shown = state.shown
     state.busy = true
     state.said = 'Applying to your tools…'
     draw()
@@ -165,8 +180,9 @@ export function approvalsMenu({ changed, listChanged }) {
       if (!(error instanceof CallError)) throw error
       if (error.plan) {
         state.busy = false
+        if (shown !== state.shown) return
         state.said = error.message
-        ask(syncConfirmOf(error.plan), () => run(error.plan.id))
+        ask(syncConfirmOf(error.plan), () => run(error.plan.id), () => apply)
         return
       }
       state.said = syncFailureOf(error)
@@ -194,7 +210,9 @@ export function approvalsMenu({ changed, listChanged }) {
     closed() {
       clearInterval(state.timer)
       state.timer = undefined
+      state.shown += 1
       state.pending = undefined
+      state.back = undefined
       state.said = undefined
       draw()
     },
