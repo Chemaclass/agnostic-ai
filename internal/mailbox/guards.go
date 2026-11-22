@@ -156,6 +156,9 @@ func checkSender(req SendRequest, by string) *Refusal {
 	if !statedModel.MatchString(req.Model) {
 		return &Refusal{"format", "A model name uses letters, digits, spaces and . _ : / - only.", "Remove the other characters or leave the model out."}
 	}
+	if strings.TrimSpace(req.Model) == "" {
+		return &Refusal{"format", "A model name is only spaces.", "Write the model name or leave it out."}
+	}
 	return nil
 }
 

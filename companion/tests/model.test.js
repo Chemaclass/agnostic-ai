@@ -4,6 +4,8 @@ import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
+import { arrivalOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
+
 import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
 const row = (id, state, extra = {}) => ({
@@ -125,7 +127,7 @@ test('offers Mark as read only on a row that needs the person, and Rename and Co
   )
 })
 
-test('offers Send to session only on local top-level Claude Code and Codex rows', () => {
+test('offers Message another session only on local top-level Claude Code and Codex rows', () => {
   assert.ok(rowMenuOf(row('local-codex', 'active', { tool: 'codex' })).includes('send-to'))
   assert.ok(rowMenuOf(row('shared', 'active', { cloud: { id: 'cse_1' } })).includes('send-to'))
   for (const conversation of [
@@ -1061,4 +1063,93 @@ test('a full list ends the records of shells gone from a live chat', async () =>
   assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, stuckShells: undefined }] }, [record, elsewhere]), [])
   assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, live: false, stuckShells: undefined }] }, [record]), [])
   assert.deepEqual(finishedKeepsOf({ conversations: [{ ...live, state: 'working', stuckShells: undefined }] }, [record]), [])
+})
+
+const receiverNow = Date.parse('2026-11-09T12:00:00Z')
+const flat = (groups) => groups.flatMap((group) => group.options)
+
+test('lists local Claude Code and Codex sessions as receivers, without the sender, cloud, chat, Cowork or Cursor rows', () => {
+  const from = row('sender', 'active')
+  const groups = receiversOf([
+    from,
+    row('codex', 'active', { tool: 'codex' }),
+    row('continued', 'active', { parent: { tool: 'claude', id: 'codex' } }),
+    row('cloud', 'active', { app: 'cloud' }),
+    row('chat', 'active', { app: 'chat' }),
+    row('cowork', 'active', { app: 'cowork' }),
+    row('cursor', 'active', { tool: 'cursor' }),
+  ], from, receiverNow)
+  assert.deepEqual(flat(groups).map((option) => option.to), [{ tool: 'codex', id: 'codex' }, { tool: 'claude', id: 'continued' }])
+  assert.deepEqual(flat(groups).map((option) => option.value), ['codex:codex', 'claude:continued'])
+})
+
+test('groups receivers in list order, drops empty groups, labels Archived and puts the most recent first', () => {
+  const from = row('sender', 'active')
+  const groups = receiversOf([
+    row('old-dormant', 'dormant', { updatedAt: '2026-11-01T12:00:00Z' }),
+    row('busy', 'working'),
+    row('waits', 'blocked', { updatedAt: '2026-11-08T12:00:00Z' }),
+    row('replied', 'unread'),
+    row('done', 'completed', { updatedAt: '2026-11-05T12:00:00Z' }),
+  ], from, receiverNow)
+  assert.deepEqual(groups.map((group) => [group.label, group.options.map((option) => option.to.id)]), [
+    ['Needs you', ['replied', 'waits']],
+    ['Working', ['busy']],
+    ['Archived · gets it when resumed', ['done', 'old-dormant']],
+  ])
+})
+
+test('labels a receiver by title, tool and folder, and adds the age, then the short ID, only where two read the same', () => {
+  const from = row('sender', 'active')
+  const folder = '/Users/you/Code/shop'
+  const groups = receiversOf([
+    row('plain', 'active', { title: 'Fix login', tool: 'codex', folder }),
+    row('aaaaaaaa-1', 'active', { title: 'Same', folder, updatedAt: '2026-11-07T12:00:00Z' }),
+    row('bbbbbbbb-1', 'active', { title: 'Same', folder, updatedAt: '2026-11-08T12:00:00Z' }),
+    row('cccccccc-1', 'active', { title: 'Twin', folder, updatedAt: '2026-11-07T12:00:00Z' }),
+    row('dddddddd-1', 'active', { title: 'Twin', folder, updatedAt: '2026-11-07T12:00:00Z' }),
+  ], from, receiverNow)
+  assert.deepEqual(flat(groups).map((option) => option.label), [
+    'Fix login · Codex · shop',
+    'Same · Claude Code · shop · 1d',
+    'Same · Claude Code · shop · 2d',
+    'Twin · Claude Code · shop · 2d · cccccccc',
+    'Twin · Claude Code · shop · 2d · dddddddd',
+  ])
+  assert.equal(sessionLabelOf(row('x', 'active', { title: 'Companion rebuild' })), 'Companion rebuild · Claude Code')
+})
+
+test('the type help line names the receiver, or the other session without one', () => {
+  assert.deepEqual(['question', 'finding', 'review_request', 'handoff'].map((type) => typeHelpOf(type, 'Draft the tests')), [
+    'Ask Draft the tests something. Its reply comes back to this thread.',
+    'Tell Draft the tests what you found. It can reply or close the thread.',
+    "Ask Draft the tests to review the changes in this chat's worktree.",
+    'Offer Draft the tests the files you claimed, so it can take them over.',
+  ])
+  assert.equal(typeHelpOf('question', undefined), 'Ask the other session something. Its reply comes back to this thread.')
+})
+
+test('the arrival line follows the receiver group and is empty without a receiver', () => {
+  const lead = 'This waits in the thread. With the mailbox built-in on, Draft gets it'
+  assert.deepEqual(['needs-you', 'active', 'working', 'archived'].map((group) => arrivalOf(group, 'Draft')), [
+    `${lead} with its next prompt.`,
+    `${lead} with its next prompt.`,
+    `${lead} with its next prompt, after its current work.`,
+    `${lead} when it is resumed.`,
+  ])
+  assert.equal(arrivalOf('working', undefined), '')
+  assert.equal(arrivalOf(undefined, 'Draft'), '')
+})
+
+test('a typed session ID finds one receiver, none, two tools or the sender', () => {
+  const from = row('sender', 'active')
+  const receivers = flat(receiversOf([from, row('one', 'active', { title: 'Draft' }), row('both', 'active'), row('both', 'active', { tool: 'codex' })], from, receiverNow))
+  const found = typedReceiverOf(receivers, from, ' one ')
+  assert.equal(found.status, 'found')
+  assert.deepEqual(found.receiver.to, { tool: 'claude', id: 'one' })
+  assert.equal(found.note, 'Found: Draft · Claude Code.')
+  assert.deepEqual(typedReceiverOf(receivers, from, 'missing'), { status: 'unknown', note: 'No session in the list has this ID. It may not be loaded yet.' })
+  assert.deepEqual(typedReceiverOf(receivers, from, 'both'), { status: 'two', note: 'Two sessions use this ID. Choose from the list.' })
+  assert.deepEqual(typedReceiverOf(receivers, from, 'sender'), { status: 'sender', note: 'That is the sending session.' })
+  assert.deepEqual(typedReceiverOf(receivers, from, '  '), { status: 'empty' })
 })
