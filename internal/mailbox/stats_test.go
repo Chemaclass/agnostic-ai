@@ -14,6 +14,9 @@ import (
 
 var statsStart = time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
 
+// statsWorktree is absolute on every OS, so handoff messages stay valid.
+var statsWorktree = filepath.Join(os.TempDir(), "private", "worktree")
+
 func near(got, want float64) bool { return math.Abs(got-want) < 1e-9 }
 
 func statsAt(seconds int) time.Time { return statsStart.Add(time.Duration(seconds) * time.Second) }
@@ -25,10 +28,10 @@ func statsMessage(n int, kind, state, by string, from, to conversations.Ref, at 
 		m.Body = "secret body text " + kind
 	}
 	if kind == ReviewRequest {
-		m.Refs = &ReviewRefs{Worktree: "/Users/me/private/worktree", Commit: strings.Repeat("1", 40), Base: strings.Repeat("2", 40), Paths: []string{"internal/hidden.go"}}
+		m.Refs = &ReviewRefs{Worktree: statsWorktree, Commit: strings.Repeat("1", 40), Base: strings.Repeat("2", 40), Paths: []string{"internal/hidden.go"}}
 	}
 	if kind == Handoff {
-		m.Gives = &Gives{Worktree: "/Users/me/private/worktree", Paths: []string{"internal/hidden"}}
+		m.Gives = &Gives{Worktree: statsWorktree, Paths: []string{"internal/hidden"}}
 		m.Handoff = Offered
 	}
 	if state != Held {
@@ -212,7 +215,7 @@ func TestStats_HoldsNoMessageTextPathsOrSessionIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, leak := range []string{"secret body text", "/Users/me", "internal/hidden", claude.ID, codex.ID, "claude-opus", "gpt-5.5"} {
+	for _, leak := range []string{"secret body text", "private", "internal/hidden", claude.ID, codex.ID, "claude-opus", "gpt-5.5"} {
 		if strings.Contains(string(data), leak) {
 			t.Errorf("stats hold %q: %s", leak, data)
 		}

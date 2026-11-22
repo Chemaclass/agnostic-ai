@@ -51,7 +51,7 @@ func replace(target string, data []byte, mode fs.FileMode, chmod bool) error {
 		_ = os.Remove(tmp.Name())
 		return err
 	}
-	if err := os.Rename(tmp.Name(), target); err != nil {
+	if err := rename(tmp.Name(), target); err != nil {
 		_ = os.Remove(tmp.Name())
 		return err
 	}

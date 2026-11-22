@@ -397,7 +397,7 @@ func readJSON(path string, dst any) error {
 	if !info.Mode().IsRegular() {
 		return fmt.Errorf("%s: expected a regular file", path)
 	}
-	file, err := openShared(path)
+	file, err := atomicfile.OpenShared(path)
 	if err != nil {
 		return err
 	}
