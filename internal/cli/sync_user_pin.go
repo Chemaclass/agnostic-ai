@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -158,10 +159,10 @@ func userHookTargetLines(target string, hook spec.Entry) []string {
 		switch kind, _ := resolved["type"].(string); kind {
 		case "http":
 			url, _ := resolved["url"].(string)
-			return []string{preview.RedactURL(strings.TrimSpace(url))}
+			return []string{preview.RedactURL(strings.TrimSpace(url)) + httpHookSends(resolved)}
 		case "prompt":
 			prompt, _ := resolved["prompt"].(string)
-			return []string{strings.TrimSpace(prompt)}
+			return []string{oneLine(preview.RedactText(prompt))}
 		}
 	}
 	args := stringSliceFromAny(resolved["args"])
@@ -172,7 +173,10 @@ func userHookTargetLines(target string, hook spec.Entry) []string {
 		for _, command := range userHookCommands(raw) {
 			line := strings.TrimSpace(adapters.ExecFormCommand(command, args))
 			if line != "" && target == "copilot" {
-				line = withEnvAndCwd(line, resolved)
+				// Copilot writes only text env values.
+				meta := maps.Clone(resolved)
+				meta["env"] = textValues(resolved["env"])
+				line = withEnvAndCwd(line, meta)
 			}
 			lines = append(lines, line)
 		}
@@ -180,32 +184,71 @@ func userHookTargetLines(target string, hook spec.Entry) []string {
 	return lines
 }
 
+// httpHookSends names the env variables and headers an http hook sends
+// along, without the header values.
+func httpHookSends(meta map[string]any) string {
+	var parts []string
+	if vars := stringSliceFromAny(meta["allowedEnvVars"]); len(vars) > 0 {
+		parts = append(parts, "env "+strings.Join(slices.Sorted(slices.Values(vars)), ", "))
+	}
+	if headers, ok := meta["headers"].(map[string]any); ok && len(headers) > 0 {
+		parts = append(parts, "headers "+strings.Join(slices.Sorted(maps.Keys(headers)), ", "))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return " (sends " + strings.Join(parts, "; ") + ")"
+}
+
+func textValues(raw any) map[string]any {
+	env, _ := raw.(map[string]any)
+	out := map[string]any{}
+	for name, value := range env {
+		if text, ok := value.(string); ok {
+			out[name] = text
+		}
+	}
+	return out
+}
+
+func oneLine(text string) string { return strings.Join(strings.Fields(text), " ") }
+
+// plainShellWord matches a value that reads the same unquoted.
+var plainShellWord = regexp.MustCompile(`^[A-Za-z0-9_./:=,@+%{}$-]+$`)
+
+func shownWord(value string) string {
+	if value == preview.Redacted || plainShellWord.MatchString(value) {
+		return value
+	}
+	return adapters.ShellQuote(value)
+}
+
 // withEnvAndCwd puts meta's env before line and its cwd after, masking
-// an env value that looks like a secret.
+// an env value that looks like a secret. A value that is not a plain
+// word is quoted, so it cannot read as another command.
 func withEnvAndCwd(line string, meta map[string]any) string {
 	if env, ok := meta["env"].(map[string]any); ok && len(env) > 0 {
 		pairs := make([]string, 0, len(env))
 		for name, value := range env {
-			text := fmt.Sprint(value)
-			if secretEnvValue(name, text) {
-				text = preview.Redacted
-			}
-			pairs = append(pairs, name+"="+text)
+			pairs = append(pairs, name+"="+shownWord(shownEnvValue(name, fmt.Sprint(value))))
 		}
 		slices.Sort(pairs)
 		line = strings.Join(pairs, " ") + " " + line
 	}
 	if cwd, _ := meta["cwd"].(string); cwd != "" {
-		line += " (in " + cwd + ")"
+		line += " (in " + shownWord(cwd) + ")"
 	}
 	return line
 }
 
-// secretEnvValue reports whether an env value named key reads as a
-// secret, by the test import uses for MCP env values.
-func secretEnvValue(key, value string) bool {
-	named := preview.CredentialKey(key) && !preview.RefOnly(value) && preview.SecretValue(preview.DetectorText(value), false, preview.WeakCredential)
-	return named || preview.CredentialDetected(value)
+// shownEnvValue masks the whole value of a variable named as a
+// credential, unless it only references other variables; any other
+// value keeps what the shared redaction leaves of it.
+func shownEnvValue(key, value string) string {
+	if preview.CredentialKey(key) && !preview.RefOnly(value) {
+		return preview.Redacted
+	}
+	return preview.RedactText(value)
 }
 
 // mcpCommandLine is a server's command with its args, cwd and env, or
