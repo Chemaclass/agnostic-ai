@@ -365,7 +365,7 @@ func TestMailboxHTTP_TypesOnceAcrossServerInstances(t *testing.T) {
 	}}
 	h.launcher = launcher
 
-	another := &conversationsHandler{userLevel: true, root: project, openReplyWait: h.openReplyWait, launcher: launcher,
+	another := &conversationsHandler{userLevel: true, root: project, openReplyWait: h.openReplyWait, launcher: launcher, companion: testCompanionSecret,
 		scanner: &conversations.Scanner{
 			Stores: h.scanner.Stores, SQLite: h.scanner.SQLite, MarksPath: h.scanner.MarksPath, Now: h.scanner.Now,
 			Processes: mailboxTerminalProcesses{runningProcesses: runningProcesses{pid: 77}},

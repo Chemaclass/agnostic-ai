@@ -70,6 +70,10 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	if mailboxNeedsCompanion(r.URL.Path) && !h.companion.allows(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Change the mailbox from the companion that started this server."})
+		return
+	}
 	switch r.URL.Path {
 	case mailboxSendPath:
 		h.sendMailboxMessage(w, r, store)
@@ -86,12 +90,25 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 	case mailboxHandoffPath:
 		h.answerMailboxHandoff(w, r, store)
 	case mailboxApprovePath:
-		approveMailboxMessage(w, r, store, h.companion)
+		approveMailboxMessage(w, r, store)
 	case mailboxQueuePath:
 		queueMailboxMessage(w, r, store)
 	case mailboxSettingsPath:
 		saveMailboxSettings(w, r, store, h.companion)
 	}
+}
+
+// mailboxNeedsCompanion reports whether a route records a person's action,
+// so only a request with the companion's secret may call it. A send
+// without it counts as an agent's, and settings check the secret only
+// for the change that loosens them.
+func mailboxNeedsCompanion(path string) bool {
+	switch path {
+	case mailboxThreadPath, mailboxStagePath, mailboxClaimPath, mailboxReleasePath, mailboxDismissPath,
+		mailboxHandoffPath, mailboxApprovePath, mailboxQueuePath:
+		return true
+	}
+	return false
 }
 
 func writeMailboxError(w http.ResponseWriter, err error) {
@@ -464,9 +481,7 @@ func mailboxSummary(thread mailbox.Thread, with conversations.Ref) conversations
 	return summary
 }
 
-// approveMailboxMessage rejects a held message, or approves one only with
-// the companion's secret.
-func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.Store, secret companionSecret) {
+func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
 	var req struct {
 		Thread string `json:"thread"`
 		N      int    `json:"n"`
@@ -474,10 +489,6 @@ func approveMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox
 	}
 	if refusal := readMailboxFields(w, r, &req, "thread", "n", "action"); refusal != nil {
 		writeMailboxError(w, refusal)
-		return
-	}
-	if req.Action == "approve" && !secret.allows(r) {
-		writeEditJSON(w, http.StatusForbidden, editError{Error: "Approve a held message from the companion that started this server."})
 		return
 	}
 	writeMailboxChange(w, store.Approve(r.Context(), req.Thread, req.N, req.Action))

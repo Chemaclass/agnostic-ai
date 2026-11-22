@@ -124,7 +124,7 @@ Run `agnostic-ai sync --scope user` once, then open the companion. Or turn on **
 - Only Claude Code and Codex on macOS and Linux support it. Codex in `review` never waits, so its reviewer is not delayed. Kiro, Qwen Code and Qoder keep their prompts as they are.
 - Only the home config can turn it on. A project file that sets `approvals.companion` is ignored and reported.
 - The companion never approves on its own. A click sends the request's id and a digest of what the row showed; the hook acts only when both match the request it holds, and the server checks again that the row still shows that request.
-- Only the companion that started the server can answer a request or see it. The companion makes a new secret each launch and hands it to the server in its environment, never on the command line, and the server drops it so no program it starts inherits it. Any program on the machine, under any account, can reach the server's local port; without the secret it gets 403 for an answer, and the list it reads carries no held request. A server started without the companion has no answer route.
+- Only the companion that started the server can answer a request or see it. The companion makes a new secret each launch and hands it to the server in its environment, never on the command line, and the server drops it so no program it starts inherits it. Any program on the machine, under any account, can reach the server's local port; without the secret it gets 403 for an answer, and the list it reads carries no held request. A server started without the companion has no answer route. [What the secret does not stop](#who-can-change-this) applies here too.
 - A held request is saved for the wait in `$AGNOSTIC_AI_HOME/local/approvals/pending/`, which only you can read. A program that runs as you can already write there, or change your tool settings; this feature does not change that limit.
 - Each held request leaves one log line with `by: companion`: `approved`, `denied`, or `asked` with rule `companion` when no click came. These lines do not count in **N approved for you**.
 
@@ -142,9 +142,12 @@ To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user
 Any program on the machine can reach the server's local port, including an agent that runs with automatic approvals. So a change that makes approvals less strict needs proof that you asked for it. A change that makes them stricter does not.
 
 - Stricter, from any page of the server's own origin: `ask`, turning off **Approve and Deny** in the list, and turning approval of agent messages back on.
-- Less strict, only from the companion: `review`, `yolo`, turning on **Approve and Deny** in the list, turning off approval of agent messages, approving a held agent message, and running a sync from a page. So does any change other than `ask` to an approvals block that does not load: fixing it could turn on the `yolo` it holds. The companion proves it with the secret it hands its server at launch. Any other request gets 403 and no file changes.
+- Less strict, only from the companion: `review`, `yolo`, turning on **Approve and Deny** in the list, turning off approval of agent messages, and running a sync from a page. So does any change other than `ask` to an approvals block that does not load: fixing it could turn on the `yolo` it holds. The companion proves it with the secret it hands its server at launch. Any other request gets 403 and no file changes.
 - The companion's server, the web page's server and `agnostic-ai approvals ask` take turns on one lock file, `local/approvals/write.lock`, so a check of the shown value and its write happen together.
-- Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`. An approved mailbox message is recorded in its thread instead.
+- Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`.
+- The same secret guards each [mailbox](@/docs/mailbox.md#approve-agent-messages) action recorded as yours, such as approving a held agent message. Those are recorded in the thread, not this log.
+
+The secret stops web pages, other accounts on the machine, and agents that only use the local routes. It does not stop code that runs as you and sets out to forge your answers: such code can start its own server with its own secret, or edit the files under `$AGNOSTIC_AI_HOME` directly.
 
 The home config stays the place to change anything by hand. See the [settings routes](@/docs/cli-reference/serve-api.md#post-api-settings).
 

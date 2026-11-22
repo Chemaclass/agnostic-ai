@@ -66,22 +66,48 @@ func TestMailboxHTTP_ApproveAndRejectHeldMessages(t *testing.T) {
 		fmt.Sprintf(`{"thread":%q,"n":%d,"action":"approve"}`, second.Thread, second.N)), "rejected")
 }
 
-func TestMailboxHTTP_ApproveNeedsTheCompanionSecret(t *testing.T) {
+func TestMailboxHTTP_PersonActionsNeedTheCompanionSecret(t *testing.T) {
 	h, _ := mailboxHTTPFixture(t)
 	held := mailboxAgentSend(t, h, "")
-	approve := fmt.Sprintf(`{"thread":%q,"n":%d,"action":"approve"}`, held.Thread, held.N)
+	at := func(action string) string {
+		return fmt.Sprintf(`{"thread":%q,"n":%d,"action":%q}`, held.Thread, held.N, action)
+	}
+	owner := fmt.Sprintf(`{"tool":"claude","id":%q,"worktree":%q,"paths":["src/a.go"]}`, inWorktree, h.root)
+	calls := []struct{ path, body string }{
+		{"/api/mailbox/approve", at("approve")},
+		{"/api/mailbox/approve", at("reject")},
+		{"/api/mailbox/handoff", at("accept")},
+		{"/api/mailbox/handoff", at("decline")},
+		{"/api/mailbox/queue", fmt.Sprintf(`{"thread":%q,"n":%d}`, held.Thread, held.N)},
+		{"/api/mailbox/stage", fmt.Sprintf(`{"thread":%q,"n":%d,"how":"copy"}`, held.Thread, held.N)},
+		{"/api/mailbox/claim", owner},
+		{"/api/mailbox/release", owner},
+		{"/api/mailbox/conflict/dismiss", fmt.Sprintf(`{"tool":"claude","id":%q,"conflict":"c1"}`, inWorktree)},
+	}
+	for _, action := range []string{"pause", "resume", "stop", "raise-cap"} {
+		calls = append(calls, struct{ path, body string }{"/api/mailbox/thread", fmt.Sprintf(`{"thread":%q,"action":%q}`, held.Thread, action)})
+	}
+	before := mailboxThreadJSON(t, h)
+	claims := func() string {
+		return mailboxHTTP(t, h, http.MethodGet, "/api/mailbox/claims", "").Body.String()
+	}
+	claimsBefore := claims()
 	secret := string(testCompanionSecret)
 	for name, as := range map[string]string{"no secret": "", "a wrong secret": strings.Repeat("0", len(secret))} {
-		if rec := mailboxHTTPAs(t, h, as, http.MethodPost, "/api/mailbox/approve", approve); rec.Code != http.StatusForbidden {
-			t.Errorf("approve with %s = %d %s, want 403", name, rec.Code, rec.Body)
+		for _, call := range calls {
+			if rec := mailboxHTTPAs(t, h, as, http.MethodPost, call.path, call.body); rec.Code != http.StatusForbidden {
+				t.Errorf("%s %s with %s = %d %s, want 403", call.path, call.body, name, rec.Code, rec.Body)
+			}
 		}
 	}
-	if body := mailboxThreadJSON(t, h); !strings.Contains(body, `"state":"held"`) {
-		t.Fatalf("a refused approve released the message: %s", body)
+	if after := mailboxThreadJSON(t, h); after != before {
+		t.Errorf("refused calls changed the thread:\nbefore %s\nafter  %s", before, after)
 	}
-	reject := fmt.Sprintf(`{"thread":%q,"n":%d,"action":"reject"}`, held.Thread, held.N)
-	if rec := mailboxHTTPAs(t, h, "", http.MethodPost, "/api/mailbox/approve", reject); rec.Code != http.StatusNoContent {
-		t.Errorf("reject without the secret = %d %s", rec.Code, rec.Body)
+	if after := claims(); after != claimsBefore {
+		t.Errorf("refused calls changed the claims:\nbefore %s\nafter  %s", claimsBefore, after)
+	}
+	if rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/approve", at("reject")); rec.Code != http.StatusNoContent {
+		t.Errorf("reject with the secret = %d %s", rec.Code, rec.Body)
 	}
 
 	h.companion = ""
