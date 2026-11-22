@@ -21,6 +21,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The session mailbox lets Claude Code and Codex sessions send, review and hand off files, with agent messages held for you (#3832-#3837, #3872, #3891, #3898).
 - Companion updates check the signer, show each step, keep the earlier app until the new one starts, and keep Accessibility access (#3601, #3850, #3874, #3888). On macOS, grant Accessibility once more after this first update.
 - The companion opens chats on Windows and Linux and switches to the exact iTerm2, WezTerm, kitty, tmux or Konsole tab (#3221, #3222, #3843-#3848, #3870, #3900, #3904).
+- Each companion row under Needs you says why, stuck shells read apart with passwords masked, and the approvals mode is a small chip (#3912, #3917, #3921).
 
 ### By tool
 
