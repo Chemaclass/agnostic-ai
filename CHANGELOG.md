@@ -25,6 +25,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - Each companion row under Needs you says why, stuck shells say how many still run and which subagent left each, with passwords masked, and the approvals mode is a small chip (#3912, #3917, #3921, #3923).
 - Click a chat's name in the companion to rename it. The Rename button is gone, so row text uses the full width, and the other buttons show over the title only on hover (#3924).
 - The companion's ⋯ menu and a new **Settings > Approvals and companion** tab in `view --scope user` set the approvals mode and the Approve button. **Apply to my tools** lists the files and every hook or MCP command before it syncs. Only the companion, its **Dashboard** or a tab `view` opened can loosen approvals (#3913, #3916, #3922, #3935).
+- The web settings tab also sets the companion's Animate, Dim when idle, Small companion and Check for updates switches; a running companion applies them within 5 seconds (#3913, #3934).
 - File claims show only while one exists, as a chip on the chat that holds them, with a "?" to the docs. Gone sessions' claims release in one step, and a path two sessions want puts both under Needs you until it is released or dismissed (#3914, #3919, #3920).
 
 ### By tool
