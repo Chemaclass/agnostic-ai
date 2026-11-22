@@ -5,7 +5,7 @@ conversations need you. Click it for a searchable list of your Claude Code,
 Codex and Cursor chats, and open any of them where it lives.
 
 It is a window on the `agnostic-ai` command and reads no chat itself. It
-starts its own `agnostic-ai serve --scope user --api-only --cloud-sessions`, and
+starts its own `agnostic-ai serve` at user scope, with cloud sessions, and
 that server reads, opens and marks the conversations. So the companion and the
 web interface always agree,
 and an upgrade of agnostic-ai is an upgrade of what the companion shows.
@@ -164,8 +164,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   - A click on a subagent row sends the text to the chat it runs in.
   - A live chat in a Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab gets the text typed in, and the
     list hides. For any other chat, the companion switches to it and says to
-    paste with Cmd+V: the clipboard still holds the text. Konsole types text
-    only with [one setting on](https://agnostic-ai.org/docs/cli-reference/conversations/#konsole-on-linux).
+    paste with Cmd+V: the clipboard still holds the text. On Linux the window
+    may stay behind, so switch to it before you press Enter. Konsole 26.04
+    types text only with [one setting on](https://agnostic-ai.org/docs/cli-reference/conversations/#konsole-on-linux).
   - A chat that ended is never resumed and typed into. A Cursor chat or a
     working Codex chat is not typed into either. Nor is a chat waiting for
     your answer, where a typed letter could answer it, or one whose state

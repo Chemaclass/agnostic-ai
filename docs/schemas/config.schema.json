@@ -37,7 +37,7 @@
         },
         "companion": {
           "type": "boolean",
-          "description": "Show Approve and Deny buttons in the companion for a Claude Code request that approvals leave to you. The hook waits up to 300 seconds for a click while the tool's own prompt stays open. Default false. Home config only."
+          "description": "Show Approve and Deny buttons in the companion for a Claude Code or Codex request that approvals leave to you. The hook waits up to 300 seconds for Claude Code, whose prompt stays open, and up to 60 seconds for Codex, which shows its prompt after. Default false. Home config only."
         }
       },
       "additionalProperties": false,

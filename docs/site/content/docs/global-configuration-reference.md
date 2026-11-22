@@ -216,7 +216,8 @@ approvals:
 - A config without `approvals` behaves as `ask`. `$AGNOSTIC_AI_HOME` must be an absolute path for approvals to read it.
 - `companion: true` shows **Approve** and **Deny** in the companion for a Claude Code or Codex request left to you. Home config only. See [Answer from the companion](@/docs/approvals.md#answer-from-the-companion).
   - Claude Code: the hook waits up to 300 seconds for a click while the terminal prompt stays open. Its hook timeout is 310 seconds.
-  - Codex: the hook waits up to 60 seconds, since Codex shows its prompt only after the hook ends. The row adds **Answer in terminal** to show the prompt at once.
+  - Codex: the hook waits up to 60 seconds, since Codex shows its prompt only after the hook ends. Its hook timeout is 70 seconds. The row adds **Answer in terminal** to show the prompt at once. Codex gets no buttons while its mode is `review`, set by `tools.codex` or by `mode`, since a hold would delay its reviewer.
+  - After you turn it on, run `sync --scope user`. If Codex shows **Hooks need review**, trust the hook in `/hooks`.
 - Only Claude Code, Codex, Kiro, Qwen Code and Qoder carry out `yolo`, through a hook that `builtins: [approvals]` and `sync --scope user` install ([Approvals](@/docs/approvals.md)). Only the tools in [the review table](#global-approvals-review) carry out `review`. Every other tool falls back to `ask`, and [`approvals status`](@/docs/cli-reference/approvals.md#approvals-status) says so.
 
 ### Review through the tool's own reviewer {#global-approvals-review}

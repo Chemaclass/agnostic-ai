@@ -79,13 +79,13 @@ Send text you copied to any chat without switching apps.
 
 | Chat | What happens |
 |------|--------------|
-| Live Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab | It comes forward with the text in its input. Press Enter. Konsole needs [one setting](@/docs/cli-reference/conversations.md#konsole-on-linux). |
+| Live Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab | It comes forward with the text in its input. Press Enter. On Linux, switch to its window first. Konsole 26.04 needs [one setting](@/docs/cli-reference/conversations.md#konsole-on-linux). |
 | Any other chat | It comes forward. Paste with Cmd+V. |
 
 Only one chat can take text? It goes straight there. Change the shortcut under **Send copied text** in the list's ⋯ menu or the circle's right-click menu.
 
 {% <details summary="Details: which chats, search, Markdown, permissions, errors"> %}
-- Offered chats: this machine's chats under Needs you, Working and Active. Archived chats are never offered, even in a search; a search narrows the rest.
+- Offered chats: this machine's chats under Needs you, Working and Active. Archived chats are never offered, even in a search.
 - With the list already open, Cmd+Shift+V opens the same picker but keeps your search, and never sends by itself.
 - While a search is on its way, Enter does nothing. Its answer keeps the selected chat when it still matches, else selects the first.
 - "Straight there" means: exactly one chat can take typed text and its row is visible (not inside a folded group). The banner names the chat, the text flies into its row, and the list hides.
@@ -270,7 +270,7 @@ On macOS the notice shows at once: the list comes up beside the circle without t
 
 ## Stop a forgotten shell {#stop-a-forgotten-shell}
 
-On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. A password passed in a [known way](@/docs/cli-reference/conversations-shell-api.md) shows as `<redacted>`. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
+On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. The server masks passwords passed in [known ways](@/docs/cli-reference/conversations-shell-api.md), but may miss some. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
 
 Each warning line has two buttons, for Claude Code on macOS and Linux:
 

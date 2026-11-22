@@ -116,7 +116,7 @@ These flags are deprecated. The old spellings still work and print a warning:
 | `new rule --scope <dir>` | `new rule --dir <dir>` |
 | `doctor --scope` | `doctor --checks` |
 
-`new rule --scope <dir>` still reads the value as a folder only when it has a slash or names an existing folder, and is not `project`, `local`, `user` or `global`. Use `--dir` to be sure.
+`new rule --scope project`, `local` or `user` now picks where the spec lives, not a folder of that name. `global`, and those words in other letter case, always fail. Any other value is read as a folder only when it has a slash or names an existing folder; otherwise the command fails. Replace `--scope <folder>` with `--dir <folder>` in your scripts.
 
 See [Scopes](@/docs/scopes.md#older-names).
 
