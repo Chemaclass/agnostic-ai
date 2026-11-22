@@ -119,7 +119,7 @@ test('a click on the name starts the rename and opens nothing; Escape cancels it
   const title = target.locator('.title')
   await title.hover()
   await expect(title).toHaveCSS('cursor', 'text')
-  await expect(tooltip(page)).toHaveText(`${await target.getAttribute('data-tooltip')}\nClick to rename`)
+  await expect(tooltip(page)).toHaveText(`${await target.getAttribute('data-tooltip')}\nClick to rename, or press F2`)
   await title.click()
 
   const field = page.getByLabel('New name')
@@ -140,6 +140,50 @@ test('a click on the name starts the rename and opens nothing; Escape cancels it
   expect(calls).not.toContain('/api/open')
   expect(calls).not.toContain('/api/panel/hide')
   expect(calls).not.toContain('/api/rename')
+})
+
+test('the name is a keyboard control: Enter on it renames, and F2 on a row button renames that row', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Plan the sync dry run')
+  const title = target.getByRole('button', { name: 'Plan the sync dry run', exact: true })
+  await expect(title).toHaveAccessibleDescription('Rename')
+  await expect(title).toHaveAttribute('aria-keyshortcuts', 'F2')
+  await expect(target).toHaveAccessibleName(/^Plan the sync dry run /)
+  await title.focus()
+  await expect(target).toHaveAttribute('aria-selected', 'true')
+  // A redraw keeps the keys on the name.
+  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  await expect(row(page, 'Answer the review comments')).toBeVisible()
+  await expect(title).toBeFocused()
+  await title.press('Enter')
+  const field = page.getByLabel('New name')
+  await expect(field).toBeFocused()
+  await field.press('Escape')
+
+  await target.locator('.meta').hover({ position: { x: 4, y: 4 } })
+  await completeButton(target).focus()
+  await page.keyboard.press('F2')
+  await expect(field).toBeFocused()
+  await expect(field).toHaveValue('Plan the sync dry run')
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test.describe('with motion on', () => {
+  // With reduced motion the buttons show at once, so there is no fade to click through.
+  test.use({ contextOptions: { reducedMotion: 'no-preference' } })
+
+  test('a click where a row button is still fading in opens the row and presses nothing', async ({ page }) => {
+    await openPanel(page)
+    await page.mouse.move(0, 0)
+    const target = row(page, 'Plan the sync dry run')
+    const box = (await completeButton(target).boundingBox())!
+    const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.up()
+    await opened
+    expect(await calledPaths(page)).not.toContain('/api/mark')
+  })
 })
 
 test('a click on the name renames and Enter saves it', async ({ page }) => {
@@ -196,6 +240,8 @@ test('a hovered row\'s buttons cover only its title line, so the shell and chip 
   const shells = row(page, 'Preview the reports page')
   await shells.locator('.meta').hover({ position: { x: 4, y: 4 } })
   await expect(completeButton(shells)).toBeVisible()
+  const button = (await completeButton(shells).boundingBox())!
+  expect(button.y + button.height).toBeLessThanOrEqual((await shells.locator('.title').boundingBox())!.y + 19)
   const stop = shells.getByRole('button', { name: /^Stop/ }).first()
   expect(await topmost((await stop.boundingBox())!)).toBe(await stop.textContent())
 
@@ -315,10 +361,18 @@ test('a click on the meta line or beside the name opens the chat', async ({ page
   }
 })
 
-test('a chat the server cannot rename keeps a plain name that opens it', async ({ page }) => {
+test('a chat the server cannot rename keeps a plain name that opens it, and offers no rename', async ({ page }) => {
   await openPanel(page, 'approvals')
-  const title = row(page, 'Release notes draft').locator('.title')
+  const cloud = row(page, 'Release notes draft')
+  const title = cloud.locator('.title')
   await expect(title).not.toHaveAttribute('data-tooltip')
+  await expect(title).not.toHaveAttribute('role')
+  await cloud.click({ button: 'right', position: { x: 4, y: 4 } })
+  await expect(page.getByRole('menuitem', { name: 'Copy session ID' })).toBeVisible()
+  await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeHidden()
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('F2')
+  await expect(page.getByLabel('New name')).toHaveCount(0)
   const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
   await title.click()
   expect((await opened).postDataJSON()).toMatchObject({ tool: 'codex', id: 'approve-cloud' })

@@ -208,11 +208,11 @@ export function startsRename(event) {
   return event.key === 'F2' && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
 }
 
-/** Kinds the server says it cannot rename yet: their title stays a plain click that opens the chat. */
+/** Kinds the server says it cannot rename yet. */
 const NOT_RENAMABLE = { claude: ['chat', 'cowork'], codex: ['cloud'] }
 
-/** Whether a click on the row's name starts a rename. */
-export function renamesByTitle(conversation) {
+/** Whether the list offers a rename: by a click on the name, F2 or the row menu. */
+export function renames(conversation) {
   return !NOT_RENAMABLE[conversation.tool]?.includes(conversation.app)
 }
 
@@ -659,7 +659,9 @@ export function rowActionOf(conversation) {
  * Mark complete and Hide match the row's own button. Only a chat under Archived that no process holds can be deleted.
  */
 export function rowMenuOf(conversation) {
-  const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read', 'rename', 'copy-session-id'] : ['rename', 'copy-session-id']
+  const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read'] : []
+  if (renames(conversation)) offered.push('rename')
+  offered.push('copy-session-id')
   if (!conversation.parent && mailboxSessionOf(conversation)) offered.push('send-to', 'claim-files')
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')

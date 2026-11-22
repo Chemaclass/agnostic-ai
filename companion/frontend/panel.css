@@ -977,6 +977,12 @@ body {
   max-width: 100%;
 }
 
+.row .title[data-tooltip]:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 1px;
+  border-radius: 3px;
+}
+
 .card:not(.is-picking, .is-mailbox-composing) .row .title[data-tooltip]:hover {
   cursor: text;
   text-decoration: underline;
@@ -1093,7 +1099,7 @@ body {
 /* The buttons sit over the end of the title line only while they show, so a resting row gives its text the full width. */
 .actions {
   position: absolute;
-  top: -4px;
+  top: -1px;
   right: 0;
   isolation: isolate;
   display: flex;
@@ -1105,11 +1111,11 @@ body {
   transition: opacity 120ms ease, transform 160ms var(--ease-out);
 }
 
-/* The fade covers the title line alone; the lines under it stay readable and clickable. */
+/* The fade and the buttons keep to the title line; the lines under it stay readable and clickable. */
 .actions::before {
   content: "";
   position: absolute;
-  inset: 4px 0;
+  inset: 1px 0;
   z-index: -1;
   background: linear-gradient(to right, transparent, var(--row-lit) 16px);
 }
@@ -1118,16 +1124,22 @@ body {
 .row.is-active .actions,
 .actions:focus-within {
   opacity: 1;
-  pointer-events: auto;
   transform: none;
+}
+
+/* Only the buttons take clicks; the fade and the gaps between them pass a click to the row. */
+.row:hover .action,
+.row.is-active .action,
+.actions:focus-within .action {
+  pointer-events: auto;
 }
 
 .action {
   display: grid;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  width: 24px;
+  height: 20px;
+  border-radius: 7px;
   background: rgba(242, 237, 229, 0.08);
   transition: background 120ms ease, transform 120ms var(--ease-spring);
 }
