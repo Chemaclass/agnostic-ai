@@ -40,9 +40,24 @@ func TestOpenDashboard_ReportsStartupFailureAndAllowsRetry(t *testing.T) {
 	if err := openDashboard(ctx, view(), open); err != nil || opened != srv.URL+"/" {
 		t.Errorf("retry = %v; opened %q", err, opened)
 	}
-	fakeCommand(t, "echo 'Using agnostic-ai at "+srv.URL+"/'")
-	if err := openDashboard(ctx, view(), func(string) error { t.Error("opened a second browser for the older CLI"); return nil }); err != nil {
-		t.Errorf("older CLI failed: %v", err)
+	for _, line := range []string{"Using agnostic-ai at ", "Serving agnostic-ai at "} {
+		fakeCommand(t, "echo '"+line+srv.URL+"/'")
+		if err := openDashboard(ctx, view(), func(string) error { t.Error("opened the dashboard of an older CLI"); return nil }); !errors.Is(err, errMismatchedAgnosticAI) {
+			t.Errorf("older CLI printing %q: err = %v; want errMismatchedAgnosticAI", line, err)
+		}
+	}
+}
+
+func TestMatchesCompanion_RejectsAnAgnosticAIWithoutTheSecretFlag(t *testing.T) {
+	fakeCommand(t, "echo 'Error: unknown flag: --require-companion-secret' >&2; exit 1")
+	if err := matchesCompanion(t.Context(), os.Getenv("AGNOSTIC_AI_BIN")); !errors.Is(err, errMismatchedAgnosticAI) {
+		t.Errorf("older CLI: err = %v; want errMismatchedAgnosticAI", err)
+	}
+	fakeCommand(t, `[ -z "$AGNOSTIC_AI_COMPANION_SECRET" ] || { echo 'unknown flag: the probe passed on a secret' >&2; exit 1; }
+echo 'Error: --require-companion-secret needs a secret of at least 32 characters in AGNOSTIC_AI_COMPANION_SECRET' >&2; exit 1`)
+	t.Setenv(secretEnv, "inherited")
+	if err := matchesCompanion(t.Context(), os.Getenv("AGNOSTIC_AI_BIN")); err != nil {
+		t.Errorf("matching CLI: err = %v", err)
 	}
 }
 
@@ -176,5 +191,22 @@ func TestOpenDashboard_OpensTheUnlockFileTheServerOffers(t *testing.T) {
 		if err := openDashboard(t.Context(), exec.Command(os.Getenv("AGNOSTIC_AI_BIN")), func(target string) error { opened = target; return nil }); err != nil || opened != c.want {
 			t.Errorf("offer %q: opened %q, %v; want %q", c.file, opened, err, c.want)
 		}
+	}
+}
+
+func TestDashboard_DoesNotRunViewWithAnOlderAgnosticAI(t *testing.T) {
+	ran := filepath.Join(t.TempDir(), "ran")
+	fakeCommand(t, `echo "$1" >> "`+ran+`"
+[ "$1" = view ] && exit 0
+echo 'Error: unknown flag: --require-companion-secret' >&2; exit 1`)
+	rec := httptest.NewRecorder()
+
+	(&shell{}).dashboard(rec, httptest.NewRequest(http.MethodPost, "/api/dashboard", nil))
+
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "does not match this companion") {
+		t.Errorf("dashboard = %d %s; want the mismatch", rec.Code, rec.Body.String())
+	}
+	if got, _ := os.ReadFile(ran); strings.TrimSpace(string(got)) != "serve" {
+		t.Errorf("ran %q; want only the serve probe", got)
 	}
 }

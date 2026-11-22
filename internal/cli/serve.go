@@ -109,6 +109,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				uiDir = abs
 			}
 			companion := takeCompanionSecret()
+			// Only a companion older than this agnostic-ai starts a server
+			// this way without a secret; its sends would all be refused.
+			if apiOnly && stopWithStdin && cloudSessions && companion == "" && !requireCompanionSecret {
+				return errors.New("This companion is older than agnostic-ai. Run: agnostic-ai companion install") //nolint:staticcheck // shown to the user as a full sentence
+			}
 			if requireCompanionSecret && companion == "" {
 				return fmt.Errorf("--require-companion-secret needs a secret of at least %d characters in %s", minCompanionSecret, companionSecretEnv)
 			}

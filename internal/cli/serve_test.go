@@ -46,6 +46,20 @@ func TestServe_RequireCompanionSecretRefusesToStartWithoutOne(t *testing.T) {
 	}
 }
 
+func TestServe_TellsAnOlderCompanionToReinstall(t *testing.T) {
+	t.Setenv(companionSecretEnv, "")
+	t.Setenv(envUserRoot, t.TempDir())
+	cmd := newServeCmd()
+	cmd.SetArgs([]string{"--scope", "user", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions"})
+	cmd.SetIn(strings.NewReader(""))
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	want := "This companion is older than agnostic-ai. Run: agnostic-ai companion install"
+	if err := cmd.Execute(); err == nil || err.Error() != want || strings.Contains(out.String(), "Serving") {
+		t.Errorf("error = %v, output %q; want %q before listening", err, out.String(), want)
+	}
+}
+
 func TestServe_RequireCompanionSecretStartsWithOne(t *testing.T) {
 	t.Setenv(companionSecretEnv, string(testCompanionSecret))
 	cmd := newServeCmd()

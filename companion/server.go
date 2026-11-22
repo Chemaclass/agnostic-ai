@@ -136,6 +136,24 @@ var errResting = errors.New("the companion is quitting and asks agnostic-ai noth
 
 var errMismatchedAgnosticAI = errors.New("The installed agnostic-ai does not match this companion. Run: agnostic-ai upgrade, then agnostic-ai companion install") //nolint:staticcheck // shown to the user as a full sentence; server_test.go pins the text
 
+// mismatchedBinary is errMismatchedAgnosticAI for binary. When
+// AGNOSTIC_AI_BIN chose it, upgrading the agnostic-ai on PATH fixes
+// nothing, so the message names the override instead.
+type mismatchedBinary struct{ binary string }
+
+func mismatched(binary string) error {
+	return mismatchedBinary{binary: binary}
+}
+
+func (m mismatchedBinary) Error() string {
+	if named := os.Getenv("AGNOSTIC_AI_BIN"); named != "" && named == m.binary {
+		return "The agnostic-ai at " + m.binary + ", chosen by AGNOSTIC_AI_BIN, does not match this companion. Update it or clear AGNOSTIC_AI_BIN, then restart the companion"
+	}
+	return errMismatchedAgnosticAI.Error()
+}
+
+func (mismatchedBinary) Is(target error) bool { return target == errMismatchedAgnosticAI }
+
 func newServer() *server {
 	// Each call sets its own time limit; see callWithin.
 	return &server{client: &http.Client{}, secret: newSecret(), callWait: callTimeout, openWait: openTimeout, sendWait: sendTimeout, openLateWait: openLateTimeout, startWait: serverStartWait, healthWait: healthTimeout}
@@ -272,7 +290,7 @@ func (s *server) start() (string, error) {
 			said := problems.String()
 			if strings.Contains(said, "unknown flag") {
 				log.Printf("agnostic-ai serve stopped before it listened: %s", said)
-				return "", errMismatchedAgnosticAI
+				return "", mismatched(binary)
 			}
 			return "", fmt.Errorf("agnostic-ai serve stopped before it listened: %s", said)
 		}

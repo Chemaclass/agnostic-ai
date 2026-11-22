@@ -92,6 +92,13 @@ func TestServer_SaysTheInstalledAgnosticAIDoesNotMatchAndWaitsBeforeTryingAgain(
 			t.Fatalf("address = %v; want errMismatchedAgnosticAI", err)
 		}
 	}
+	bin := os.Getenv("AGNOSTIC_AI_BIN")
+	if _, err := s.address(); err == nil || err.Error() != "The agnostic-ai at "+bin+", chosen by AGNOSTIC_AI_BIN, does not match this companion. Update it or clear AGNOSTIC_AI_BIN, then restart the companion" {
+		t.Errorf("with AGNOSTIC_AI_BIN, message = %v", err)
+	}
+	if got := mismatched("/elsewhere/agnostic-ai").Error(); got != errMismatchedAgnosticAI.Error() {
+		t.Errorf("for a binary AGNOSTIC_AI_BIN did not choose, message = %q", got)
+	}
 
 	if got := startsIn(starts); got != 2 {
 		t.Errorf("started %d servers; want a pause after the second failed start", got)

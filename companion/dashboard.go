@@ -142,21 +142,37 @@ func openDashboard(ctx context.Context, view *exec.Cmd, open func(string) error)
 			}
 			return errors.New("the command exited without a dashboard address. Try opening it again")
 		}
-		// Older CLI-managed launches open the browser themselves and print its address.
-		for _, prefix := range []string{servedLinePrefix, "Using agnostic-ai at "} {
-			if legacy, found := strings.CutPrefix(raw, prefix); found {
-				raw = legacy
-				open = func(string) error { return nil }
-				break
-			}
+		// Only an agnostic-ai older than this companion prints its own lines here.
+		if strings.HasPrefix(raw, servedLinePrefix) || strings.HasPrefix(raw, "Using agnostic-ai at ") {
+			err = mismatched(view.Path)
+		} else {
+			err = openReadyDashboard(ctx, raw, open)
 		}
-		err = openReadyDashboard(ctx, raw, open)
 	case <-ctx.Done():
 		err = ctx.Err()
+	}
+	if errors.Is(err, errMismatchedAgnosticAI) {
+		_ = view.Process.Kill()
+		return err
 	}
 	if err != nil {
 		_ = view.Process.Kill()
 		return fmt.Errorf("open the dashboard: %w. Try opening it again", err)
+	}
+	return nil
+}
+
+// matchesCompanion asks binary whether it knows --require-companion-secret
+// before the dashboard runs it: an older agnostic-ai would serve the
+// dashboard without the checks this companion relies on. The new one
+// refuses at once without a secret, before it reads or listens.
+func matchesCompanion(ctx context.Context, binary string) error {
+	probe := exec.CommandContext(ctx, binary, "serve", "--require-companion-secret")
+	probe.Env = append(os.Environ(), secretEnv+"=")
+	withoutConsoleWindow(probe)
+	said, _ := probe.CombinedOutput()
+	if strings.Contains(string(said), "unknown flag") {
+		return mismatched(binary)
 	}
 	return nil
 }
@@ -243,14 +259,17 @@ func (s *shell) dashboard(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		ctx, cancel := context.WithTimeout(r.Context(), serverStartWait)
 		defer cancel()
-		view := exec.Command(binary, "view", "--global")
-		view.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_VIEW=1")
-		err = openDashboard(ctx, view, func(target string) error {
-			if filepath.IsAbs(target) {
-				return s.app.Browser.OpenFile(target)
-			}
-			return s.app.Browser.OpenURL(target)
-		})
+		err = matchesCompanion(ctx, binary)
+		if err == nil {
+			view := exec.Command(binary, "view", "--global")
+			view.Env = append(os.Environ(), "AGNOSTIC_AI_COMPANION_VIEW=1")
+			err = openDashboard(ctx, view, func(target string) error {
+				if filepath.IsAbs(target) {
+					return s.app.Browser.OpenFile(target)
+				}
+				return s.app.Browser.OpenURL(target)
+			})
+		}
 	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, apiError{Error: err.Error()})
