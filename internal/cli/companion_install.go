@@ -303,7 +303,7 @@ const (
 // that does not stay up is asked to quit, in case it is only slow, so the
 // earlier one can take its place.
 func launchUpdatedCompanion(ctx context.Context, out io.Writer, tools companionTools, program string, start func() error) error {
-	for try := 0; try < companionStartTries; try++ {
+	for range companionStartTries {
 		if listed, err := tools.running(ctx, program); err != nil || !listed {
 			break
 		}
