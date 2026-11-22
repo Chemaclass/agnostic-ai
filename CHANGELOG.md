@@ -9,6 +9,7 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 ### General
 
 - Send a task handoff with `mailbox send` using the sender's worktree, branch, commit and saved note (#3944, #3945).
+- Start a companion handoff by choosing a receiver, with an optional note and claimed files (#3944, #3946).
 
 ## v0.97.0 - 2026-11-23
 
