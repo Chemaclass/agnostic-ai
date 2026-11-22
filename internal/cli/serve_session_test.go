@@ -2,12 +2,14 @@ package cli
 
 import (
 	"encoding/json"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -97,19 +99,44 @@ func TestWebSession_CodeWorksOnceAndRemovesTheFile(t *testing.T) {
 	}
 }
 
-func TestWebSession_CodeExpiresAndANewOfferReplacesIt(t *testing.T) {
+func TestWebSession_OffersStayLiveSideBySideAndExpire(t *testing.T) {
 	s := sessionFixture(t)
-	_, old := offeredCode(t, s)
-	_, fresh := offeredCode(t, s)
-	if _, ok := s.unlock(old); ok {
-		t.Error("a replaced code unlocked")
+	_, first := offeredCode(t, s)
+	_, second := offeredCode(t, s)
+	if _, ok := s.unlock(first); !ok {
+		t.Error("a second offer ended the first code")
 	}
+	if _, ok := s.unlock(second); !ok {
+		t.Error("the second code did not unlock")
+	}
+	_, late := offeredCode(t, s)
 	s.now = func() time.Time { return time.Now().Add(sessionCodeLife + time.Second) }
-	if _, ok := s.unlock(fresh); ok {
+	if _, ok := s.unlock(late); ok {
 		t.Error("an expired code unlocked")
 	}
 	if _, ok := s.unlock(""); ok {
 		t.Error("an empty code unlocked")
+	}
+}
+
+func TestWebSession_KeepsAtMostEightCodes(t *testing.T) {
+	s := sessionFixture(t)
+	oldest, code := offeredCode(t, s)
+	for range sessionCodesKept {
+		offeredCode(t, s)
+	}
+	if _, ok := s.unlock(code); ok {
+		t.Error("the oldest code outlived the cap")
+	}
+	if _, err := os.Stat(oldest); !os.IsNotExist(err) {
+		t.Errorf("the oldest file is still there: %v", err)
+	}
+	if len(s.pending) != sessionCodesKept {
+		t.Errorf("pending = %d", len(s.pending))
+	}
+	s.close()
+	if entries, _ := os.ReadDir(s.dir); len(entries) != 0 {
+		t.Errorf("close left %d unlock files", len(entries))
 	}
 }
 
@@ -152,10 +179,12 @@ func TestSessionHandler_UnlockAndOfferRoutes(t *testing.T) {
 	if rec := postEdit(t, h, sessionUnlockPath, `{"code":"`+code+`"}`, nil); rec.Code != http.StatusForbidden {
 		t.Errorf("second unlock = %d %s", rec.Code, rec.Body)
 	}
-	if rec := postEdit(t, h, sessionOfferPath, `{}`, nil); rec.Code != http.StatusNoContent {
+	rec = postEdit(t, h, sessionOfferPath, `{}`, nil)
+	var offered sessionOfferReply
+	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &offered) != nil {
 		t.Fatalf("offer = %d %s", rec.Code, rec.Body)
 	}
-	if _, err := os.Stat(sessionFilePath(s.dir, s.addr)); err != nil {
+	if _, err := os.Stat(offered.File); err != nil {
 		t.Errorf("offer wrote no file: %v", err)
 	}
 	if rec := postEdit(t, sessionHandler{}, sessionOfferPath, `{}`, nil); rec.Code != http.StatusNotFound {
@@ -215,5 +244,25 @@ func TestUnlockHop_ServesAPageWithoutDataToAFileNavigation(t *testing.T) {
 	}
 	if rec := navigate(sessionHopPath, "evil.example:4310"); rec.Code == http.StatusOK {
 		t.Errorf("hop on a foreign host = %d", rec.Code)
+	}
+}
+
+func TestOfferSession_OpensOnlyAnUnlockFileOfOurs(t *testing.T) {
+	sessionFixture(t)
+	reply := `{"file":"/Users/Shared/x.command"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(reply))
+	}))
+	defer srv.Close()
+	addr := strings.TrimPrefix(srv.URL, "http://")
+	if file, err := offerSession(t.Context(), addr); err == nil {
+		t.Errorf("offerSession opened %q from another program", file)
+	}
+	dir, _ := sessionDir()
+	_, port, _ := net.SplitHostPort(addr)
+	reply = `{"file":` + strconv.Quote(sessionFilePath(dir, "127.0.0.1:"+port, "0123456789ab")) + `}`
+	if _, err := offerSession(t.Context(), addr); err != nil {
+		t.Errorf("an unlock file of ours was refused: %v", err)
 	}
 }

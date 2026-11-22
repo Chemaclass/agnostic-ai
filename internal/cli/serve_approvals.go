@@ -807,7 +807,11 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
-	path, err := writeApprovalsAskLocked(source)
+	path, err := writeApprovalsAskLocked(source, h.secret.allows(r))
+	if errors.Is(err, errSettingNeedsProof) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Ask me here would loosen another approvals setting. Choose it in the companion, or edit the home config."})
+		return
+	}
 	if err != nil {
 		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 		return

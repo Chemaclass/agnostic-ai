@@ -13,6 +13,7 @@ import { normalizeContextView, normalizeConversationsView, normalizeOverviewView
 import { parsePermissionPreview } from './model/permission-edit'
 import { parseProtectedPreview } from './model/protected-edit'
 import { USER_SETUP_MISSING } from './model/spec-move'
+import { sessionHeaders } from './settings-api'
 import { staticOverviewUrl, type DataSource } from './model/url'
 
 export interface Loaded<T> {
@@ -296,7 +297,7 @@ export async function importMCPSpec(action: 'preview' | 'apply', audience: 'shar
   try {
     res = await fetch(API.editMCP, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...sessionHeaders() },
       body: JSON.stringify({ action, audience, name, target: holder.target, path: holder.path, scope: holder.scope, expected }),
     })
   } catch {
@@ -309,7 +310,7 @@ export async function importMCPSpec(action: 'preview' | 'apply', audience: 'shar
 export async function addHookSpec(request: HookSpecRequest): Promise<HookSpecPreview> {
   let res: Response
   try {
-    res = await fetch(API.editHook, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request) })
+    res = await fetch(API.editHook, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...sessionHeaders() }, body: JSON.stringify(request) })
   } catch {
     throw new EditError('Could not reach the server. Try again when it is running.')
   }

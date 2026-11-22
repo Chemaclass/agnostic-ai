@@ -1247,6 +1247,8 @@ export interface SettingsSyncFile {
 export interface SettingsSyncPlan {
   id: string
   files: SettingsSyncFile[]
+  /** The hook and MCP server commands the tools run after the sync. */
+  commands: string[]
   notes: string[]
 }
 

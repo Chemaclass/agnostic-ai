@@ -37,12 +37,14 @@ export function approvalsMenu({ changed, listChanged, row }) {
   const confirmTitle = element('p', 'menu-confirm-title')
   const confirmBody = element('p', 'menu-confirm-body')
   const confirmFiles = element('ul', 'menu-confirm-files')
+  const confirmCommandsLabel = element('p', 'menu-confirm-body', 'Your tools will then run these commands:')
+  const confirmCommands = element('ul', 'menu-confirm-files menu-confirm-commands')
   const confirmNotes = element('div', 'menu-confirm-notes')
   const confirmGo = button('menu-confirm-go', '')
   const confirmCancel = button('menu-confirm-cancel', 'Cancel')
   const confirmActions = element('div', 'menu-confirm-actions')
   confirmActions.append(confirmCancel, confirmGo)
-  confirm.append(confirmTitle, confirmBody, confirmFiles, confirmNotes, confirmActions)
+  confirm.append(confirmTitle, confirmBody, confirmFiles, confirmCommandsLabel, confirmCommands, confirmNotes, confirmActions)
   confirm.setAttribute('aria-labelledby', 'menu-confirm-title')
   confirmTitle.id = 'menu-confirm-title'
   box.append(lines, apply, said, confirm)
@@ -89,6 +91,8 @@ export function approvalsMenu({ changed, listChanged, row }) {
     confirmBody.textContent = question.body
     confirmFiles.replaceChildren(...(question.files ?? []).map((file) => element('li', '', file)))
     confirmFiles.hidden = !question.files?.length
+    confirmCommands.replaceChildren(...(question.commands ?? []).map((command) => element('li', '', command)))
+    confirmCommands.hidden = confirmCommandsLabel.hidden = !question.commands?.length
     confirmNotes.replaceChildren(...(question.notes ?? []).map((note) => element('p', '', note)))
     confirmNotes.hidden = !question.notes?.length
     confirmGo.hidden = !question.go

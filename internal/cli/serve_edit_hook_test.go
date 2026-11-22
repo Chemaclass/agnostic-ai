@@ -28,6 +28,14 @@ func hookEditRequest(t *testing.T, h http.Handler, request map[string]any) *http
 	return postEdit(t, h, editHookPath, string(body), nil)
 }
 
+// provenUserEdits is a user-level edit handler whose requests all carry
+// proof, as the companion's or an unlocked page's do.
+func provenUserEdits(source string) *editHandler {
+	h := newEditHandler(source, true).(*editHandler)
+	h.proven = func(*http.Request) bool { return true }
+	return h
+}
+
 func hookEditBody(name, on, command string) map[string]any {
 	return map[string]any{"action": "preview", "audience": "shared", "name": name, "on": on, "command": command}
 }
@@ -147,7 +155,7 @@ func TestServeEditHook_UsesTheProjectsConfiguredHookSource(t *testing.T) {
 func TestServeEditHook_UserSavesUnderTheUserSource(t *testing.T) {
 	silence(t)
 	source := editHome(t)
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := hookEditBody("note-start", "session-start", "echo hi")
 	preview := hookEditPreview(t, h, request)
 	if preview.File != "hooks/note-start.yaml" || preview.SyncCommand != "agnostic-ai sync --scope user" {
@@ -156,6 +164,25 @@ func TestServeEditHook_UserSavesUnderTheUserSource(t *testing.T) {
 	hookEditApply(t, h, request, preview)
 	if got := readOptional(t, filepath.Join(source, "hooks", "note-start.yaml")); got != preview.Spec {
 		t.Errorf("user-level spec = %q", got)
+	}
+}
+
+func TestServeEditHook_UserApplyNeedsProof(t *testing.T) {
+	silence(t)
+	source := editHome(t)
+	h := newEditHandler(source, true).(*editHandler)
+	request := hookEditBody("note-start", "session-start", "echo hi")
+	preview := hookEditPreview(t, h, request)
+	request["action"], request["expected"] = "apply", preview.Expected
+	if rec := hookEditRequest(t, h, request); rec.Code != http.StatusForbidden {
+		t.Fatalf("apply without proof = %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(source, "hooks", "note-start.yaml")); !os.IsNotExist(err) {
+		t.Errorf("a refused apply wrote the hook: %v", err)
+	}
+	mcp := `{"action":"apply","audience":"shared","name":"x","target":"claude","path":"~/.claude.json","scope":"user","expected":"e"}`
+	if rec := postEdit(t, h, editMCPPath, mcp, nil); rec.Code != http.StatusForbidden {
+		t.Errorf("MCP apply without proof = %d %s", rec.Code, rec.Body)
 	}
 }
 
@@ -469,7 +496,7 @@ func TestServeEditHook_UserAcceptsAToolTheUserSetupWritesNoHooksFor(t *testing.T
 	silence(t)
 	source := editHome(t)
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets:\n  - claude\n  - windsurf\n")
-	h := newEditHandler(source, true)
+	h := provenUserEdits(source)
 	request := hookEditBody("note-start", "session-start", "echo hi")
 	request["targetsExclude"] = []string{"windsurf"}
 	got := hookEditPreview(t, h, request)

@@ -44,8 +44,24 @@ export function unlockSession(): Promise<void> {
   const match = UNLOCK_FRAGMENT.exec(window.location.hash)
   if (!match) return unlocking
   window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`)
+  // A service worker left on this address by an earlier program could
+  // watch the exchange, so the page removes it and stays locked.
+  if (navigator.serviceWorker?.controller) {
+    unlockRefused = SERVICE_WORKER_REFUSAL
+    unlocking = navigator.serviceWorker.getRegistrations().then((all) => Promise.all(all.map((one) => one.unregister()))).then(() => undefined, () => undefined)
+    return unlocking
+  }
   unlocking = exchange(match[1])
   return unlocking
+}
+
+export const SERVICE_WORKER_REFUSAL = 'A service worker controlled this page, so it stayed locked. It is removed now: close this tab and run agnostic-ai view --scope user again.'
+
+let unlockRefused: string | undefined
+
+/** Why this tab did not unlock, when the reason is worth showing. */
+export function unlockProblem(): string | undefined {
+  return unlockRefused
 }
 
 /** Settings calls wait for a code exchange in flight, so the first read already counts as unlocked. */
@@ -60,6 +76,12 @@ async function exchange(code: string): Promise<void> {
   } catch {
     // The page stays locked; tightening still works.
   }
+}
+
+/** The session key header, when this tab has the key; hook and MCP server saves at user level need it. */
+export function sessionHeaders(): Record<string, string> {
+  const key = sessionKey()
+  return key ? { [SESSION_HEADER]: key } : {}
 }
 
 function headers(): Record<string, string> {

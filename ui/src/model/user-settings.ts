@@ -79,10 +79,10 @@ function syncReasons(reasons: string[], toolName: (target: string) => string): s
 }
 
 /** What the sync dialog shows before it runs. */
-export function syncConfirm(plan: SettingsSyncPlan): { title: string; body: string; files: string[]; notes: string[]; go?: string } {
+export function syncConfirm(plan: SettingsSyncPlan): { title: string; body: string; files: string[]; commands: string[]; notes: string[]; go?: string } {
   const files = plan.files.map((file) => `${file.change} ${file.path}`)
-  if (files.length === 0) return { title: 'Nothing to apply', body: 'Your tools already match your user configuration.', files, notes: plan.notes }
-  return { title: 'Apply to my tools?', body: 'This applies all pending changes of your user configuration, not only approvals:', files, notes: plan.notes, go: 'Apply' }
+  if (files.length === 0) return { title: 'Nothing to apply', body: 'Your tools already match your user configuration.', files, commands: [], notes: plan.notes }
+  return { title: 'Apply to my tools?', body: 'This applies all pending changes of your user configuration, not only approvals:', files, commands: plan.commands ?? [], notes: plan.notes, go: 'Apply' }
 }
 
 /** What the page says after a sync. */

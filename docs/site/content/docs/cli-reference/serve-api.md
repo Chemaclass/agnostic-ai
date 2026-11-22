@@ -148,7 +148,7 @@ Body: `{action, audience, name, target, path, scope, expected?}`.
 
 - `name`, `target`, `path`, and `scope` identify one native row from the overview. Here `scope` is its source scope (`project` or `user`).
 - `action: "preview"` returns `file`, `spec`, `variables`, `targets`, `syncCommand`, and `expected`.
-- `action: "apply"` requires that `expected`, writes only the spec, and returns those fields with `ok: true`.
+- `action: "apply"` requires that `expected`, writes only the spec, and returns those fields with `ok: true`. On a user-level server it also needs the companion's secret or the [session key](#post-api-session-unlock); without it the answer is 403.
 - A changed preview or existing spec stops apply.
 - A credential that import cannot rewrite is refused with its import message.
 - Personal saves use the same Git-ignore check as other edits.
@@ -164,7 +164,7 @@ Body: `{action, audience, name, on, match?, command, timeout?, description?, exp
 - `targetsExclude` lists tools to leave out, written as `targets-exclude`. The page sends the configured tools that have no event for `on`. Each must be a configured tool, listed once, and at least one tool that writes hooks must remain. A tool that writes no hooks in the scope is accepted and left out of the file.
 - A `command` or `description` that holds a recognized literal credential, such as a token, a `Bearer` value, or a password, returns 400, and so does a `name` that is a token. The text inside `$(...)` and backticks is checked too. Read the secret at run time instead: `$GITHUB_TOKEN`, `${GITHUB_TOKEN}`, `$(gh auth token)`, or a backtick command. A quoted assignment such as `AUTH="Bearer $TOKEN"` is still refused.
 - `action: "preview"` returns `file`, `spec`, `syncCommand`, and `expected`. It answers 422 with `problems` when `validate` would report the hook.
-- `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`.
+- `action: "apply"` requires that `expected`, writes only the new hook file, and returns those fields with `ok: true`. On a user-level server it also needs the companion's secret or the [session key](#post-api-session-unlock); without it the answer is 403.
 - An existing hook name returns 409. So does a changed preview.
 - Local saves (`audience: personal`) use the Git-ignore check.
 
@@ -279,10 +279,11 @@ Takes no input. Returns the [approvals](@/docs/cli-reference/companion.md#approv
 
 Body: `{"mode": "ask"}` with `Content-Type: application/json`. It only tightens. To loosen, see [`POST /api/settings`](#post-api-settings).
 
-- Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. That block replaces the shared one and keeps its `always-ask` patterns. The agnostic-ai approvals hook stops answering prompts immediately. A native reviewer stays active until its settings change.
+- Writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. That block replaces the shared one and keeps its `always-ask` patterns and a `companion` key set to true or false. When the home approvals do not load and the shared block turns the companion buttons on, it writes `companion: false` too. The agnostic-ai approvals hook stops answering prompts immediately. A native reviewer stays active until its settings change.
 - It works from the next request, with no sync and no restart.
 - Replies `{"mode": "ask", "path": "<the file it wrote>"}`.
 - Any other mode, any other field, or a body that is not JSON is a 400. A request from another origin is a 403.
+- Before it writes, it checks the policy the new block gives. One looser than before is a 403 unless the request carries the companion's secret.
 - A file it cannot edit safely, such as one with two YAML documents or an anchor on `approvals`, is a 409 that says to set it by hand.
 
 ## `GET /api/views/settings`
@@ -325,7 +326,7 @@ Body: `{"key", "value", "expected"}` with `Content-Type: application/json`. A us
 
 Body: `{"action": "plan"}` or `{"action": "apply", "id"}`. A user-level server only, and it needs the companion's secret or the session key: a sync installs hooks. Without it the answer is 403.
 
-- `plan` runs `sync --scope user --plan --json` and replies `{id, files: [{path, change, target, keys}], notes}`. The list holds every pending user-level change, not only approvals.
+- `plan` runs `sync --scope user --plan --json` and replies `{id, files: [{path, change, target, keys}], commands, notes}`. `commands` lists every user hook and MCP server command, as `hook <name>: <command>` or `MCP server <name>: <env> <command and args> (in <cwd>)`, or the server's `url`, so a page can show what will run. The list holds every pending user-level change, not only approvals.
 - `apply` plans again. The `id` covers the content of every change, not only the file list, so a source edit after the plan, even one that leaves the same files, answers 409 with the new plan. The sync then writes only the changes that plan holds. Otherwise it runs `sync --scope user` and replies `{written, notes, settings}`. When the sync wrote the Codex hooks file, `notes` says to trust it in Codex's `/hooks`.
 - A sync that fails answers 422 with `{error, command}`, where `command` is the one to run by hand.
 
@@ -333,8 +334,10 @@ Body: `{"action": "plan"}` or `{"action": "apply", "id"}`. A user-level server o
 
 Body: `{"code"}`. Every user-level server with the web page has a session; a project or `--api-only` server answers 404. The server's own origin only.
 
-- At start the server draws a 256-bit key and keeps it in memory. `view` asks the server for a one-time code (`POST /api/session/offer`, 204), which writes an HTML file with mode 0600 in a 0700 `agnostic-ai/unlock` folder under the user config folder, then opens that file. The file sends the browser to `/unlock#unlock=<code>`, a page with no data that moves to `/#unlock=<code>`.
-- The page posts the code here and gets `{"key"}`. A code works once, and a new offer replaces the old one. The file is removed after use or after 60 seconds. A used, replaced or expired code answers 403.
+- At start the server draws a 256-bit key and keeps it in memory. `view` asks the server for a one-time code (`POST /api/session/offer`, which replies `{"file"}`), and the server writes an HTML file with mode 0600 in a 0700 `agnostic-ai/unlock` folder under the user config folder, then opens that file. The file sends the browser to `/unlock#unlock=<code>`, a page with no data that moves to `/#unlock=<code>`.
+- The page posts the code here and gets `{"key"}`. Each code works once and has its own file, removed after use or after 60 seconds. Up to 8 codes wait at once; a ninth offer ends the oldest. A used or expired code answers 403.
+- On Windows the server has no session, since a file mode would not keep other accounts out of the file.
+- A page under a service worker removes it and does not trade its code. A worker that serves its own pages can still read the code.
 - The page sends the key in `X-Agnostic-Ai-Session` on settings writes and syncs.
 
 ## When `path` is omitted

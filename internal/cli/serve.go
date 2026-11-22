@@ -144,7 +144,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			// through a file only this account can read. A later view run
 			// asks for one, so a server that opened none still has a key.
 			var session *webSession
-			if userLevel && !apiOnly {
+			if userLevel && !apiOnly && unlockFilesPrivate {
 				if session, err = newWebSession(ln.Addr().String()); err != nil {
 					_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "! the page opens locked: %v\n", err)
 				}
@@ -271,6 +271,9 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	mux.Handle(approvalsDecidePath, approvalsRoutes)
 	settings := newSettingsHandler(opts.UserLevel, conversationsHandler.approvals, func() string { return conversationsHandler.scanner.MarksPath }, muxOpts.companion, opts.Version)
 	settings.session = muxOpts.session
+	if userEdits, ok := edits.(*editHandler); ok {
+		userEdits.proven = settings.proven
+	}
 	sessions := sessionHandler{session: muxOpts.session}
 	mux.Handle(sessionUnlockPath, sessions)
 	mux.Handle(sessionOfferPath, sessions)

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { SettingKey, SettingsSyncPlan, SettingsView } from '../contract'
-import { applySync, planSync, readSettings, saveSetting, SettingsError } from '../settings-api'
+import { applySync, planSync, readSettings, saveSetting, SettingsError, unlockProblem } from '../settings-api'
 import { approvalsStatus, canChange, LOCKED_HINT, MODE_CHOICES, modeConfirm, syncConfirm, syncFailure, syncResult } from '../model/user-settings'
 import { useApp } from './app-context'
 import { ConfigSwitch } from './ConfigSwitch'
@@ -15,6 +15,7 @@ interface Question {
   title: string
   body: string
   files?: string[]
+  commands?: string[]
   notes?: string[]
   go?: string
   run?: () => void | Promise<void>
@@ -175,7 +176,7 @@ function UserSettingsPage() {
       <SectionHeading id="settings-user" focusable>Approvals and companion</SectionHeading>
       <p className="muted">Saved in your home config, the same settings the companion's menu shows. A change in either place shows in the other within seconds.</p>
       {unread && <p className="edit-error" role="alert">The settings could not be read again: {unread}</p>}
-      {locked && <p className="user-settings-locked">{LOCKED_HINT} Changes that make approvals stricter work here.</p>}
+      {locked && <p className="user-settings-locked">{unlockProblem() ?? LOCKED_HINT} Changes that make approvals stricter work here.</p>}
 
       <fieldset className="user-settings-group" disabled={busy || question !== undefined}>
         <legend>When a tool asks permission</legend>
@@ -213,6 +214,12 @@ function UserSettingsPage() {
           <p id={`${id}-question`} className="user-settings-confirm-title">{question.title}</p>
           <p>{question.body}</p>
           {question.files && question.files.length > 0 && <ul className="user-settings-files">{question.files.map((file) => <li key={file}><code>{file}</code></li>)}</ul>}
+          {question.commands && question.commands.length > 0 && (
+            <>
+              <p>Your tools will then run these commands:</p>
+              <ul className="user-settings-files">{question.commands.map((command) => <li key={command}><code>{command}</code></li>)}</ul>
+            </>
+          )}
           {question.notes?.map((note) => <p key={note} className="muted">{note}</p>)}
           <div className="user-settings-actions">
             <button type="button" className="button button-quiet" autoFocus onClick={() => setQuestion(undefined)}>Cancel</button>

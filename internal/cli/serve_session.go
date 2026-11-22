@@ -7,13 +7,19 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
+	"runtime"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -31,7 +37,15 @@ const (
 	sessionHeader = "X-Agnostic-Ai-Session"
 	// sessionCodeLife is how long an unlock file and its code work.
 	sessionCodeLife = 60 * time.Second
+	// sessionCodesKept caps the codes waiting at once; a new offer past it
+	// ends the oldest, so offers from another program cannot pile up.
+	sessionCodesKept = 8
 )
+
+// unlockFilesPrivate says whether a file mode keeps an unlock file from
+// other accounts. On Windows the file would keep its folder's access
+// rules, so no unlock file is written and the page stays locked.
+var unlockFilesPrivate = runtime.GOOS != "windows"
 
 // webSession is the proof a browser tab gives that the person opened it
 // with view: the server draws a key, and only a page opened through the
@@ -43,10 +57,16 @@ type webSession struct {
 	dir string
 	now func() time.Time
 
-	mu      sync.Mutex
-	code    string
-	expires time.Time
-	timer   *time.Timer
+	mu sync.Mutex
+	// pending holds the live codes, oldest first. Each works once, with
+	// its own file and expiry, so a stray offer cannot end a real launch.
+	pending []*pendingCode
+}
+
+type pendingCode struct {
+	code, file string
+	expires    time.Time
+	timer      *time.Timer
 }
 
 // newWebSession draws a key for the server at addr. Nothing is written
@@ -59,6 +79,12 @@ func newWebSession(addr string) (*webSession, error) {
 	key, err := randomHex(32)
 	if err != nil {
 		return nil, err
+	}
+	// Files a server on this port left when it was killed hold dead codes.
+	if stale, err := filepath.Glob(filepath.Join(dir, filepath.Base(sessionFilePath(dir, addr, "*")))); err == nil {
+		for _, file := range stale {
+			_ = os.Remove(file)
+		}
 	}
 	return &webSession{key: key, addr: addr, dir: dir, now: time.Now}, nil
 }
@@ -73,14 +99,15 @@ func sessionDir() (string, error) {
 	return filepath.Join(config, "agnostic-ai", "unlock"), nil
 }
 
-// sessionFilePath is the unlock file of the server at addr, so a later
-// view finds it after asking that server for a new one.
-func sessionFilePath(dir, addr string) string {
+var unlockFileName = regexp.MustCompile(`^unlock-[0-9]+-[0-9a-f]{12}\.html$`)
+
+// sessionFilePath names one unlock file of the server at addr.
+func sessionFilePath(dir, addr, id string) string {
 	_, port, err := net.SplitHostPort(addr)
 	if err != nil || port == "" {
 		port = "0"
 	}
-	return filepath.Join(dir, "unlock-"+port+".html")
+	return filepath.Join(dir, "unlock-"+port+"-"+id+".html")
 }
 
 func randomHex(n int) (string, error) {
@@ -101,10 +128,13 @@ func (s *webSession) allows(r *http.Request) bool {
 }
 
 // offer writes a new unlock file with a fresh one-time code and returns
-// its path. A code it replaces stops working. The file goes away once
-// used, or after sessionCodeLife.
+// its path. The file goes away once used, or after sessionCodeLife.
 func (s *webSession) offer() (string, error) {
 	code, err := randomHex(32)
+	if err != nil {
+		return "", err
+	}
+	id, err := randomHex(6)
 	if err != nil {
 		return "", err
 	}
@@ -115,61 +145,67 @@ func (s *webSession) offer() (string, error) {
 	if err := os.Chmod(s.dir, 0o700); err != nil {
 		return "", fmt.Errorf("%s: %w", s.dir, err)
 	}
-	path := sessionFilePath(s.dir, s.addr)
+	path := sessionFilePath(s.dir, s.addr, id)
 	target := html.EscapeString("http://" + s.addr + sessionHopPath + "#unlock=" + code)
 	page := "<!doctype html>\n<meta charset=\"utf-8\">\n<meta name=\"referrer\" content=\"no-referrer\">\n" +
 		"<meta http-equiv=\"refresh\" content=\"0;url=" + target + "\">\n<title>agnostic-ai</title>\n" +
 		"<a href=\"" + target + "\">Open agnostic-ai</a>\n"
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// Replace, not Write: a leftover file keeps no looser mode and no link.
 	if err := atomicfile.Replace(path, []byte(page), 0o600); err != nil {
 		return "", fmt.Errorf("write %s: %w", path, err)
 	}
-	s.code, s.expires = code, s.now().Add(sessionCodeLife)
-	if s.timer != nil {
-		s.timer.Stop()
+	if len(s.pending) >= sessionCodesKept {
+		s.drop(s.pending[0])
 	}
-	s.timer = time.AfterFunc(sessionCodeLife, func() { s.expire(code) })
+	entry := &pendingCode{code: code, file: path, expires: s.now().Add(sessionCodeLife)}
+	entry.timer = time.AfterFunc(sessionCodeLife, func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.drop(entry)
+	})
+	s.pending = append(s.pending, entry)
 	return path, nil
 }
 
-// expire ends code and removes its file, unless a newer offer replaced it.
-func (s *webSession) expire(code string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.code != code {
+// drop ends one code and removes its file. The caller holds mu.
+func (s *webSession) drop(entry *pendingCode) {
+	i := slices.Index(s.pending, entry)
+	if i < 0 {
 		return
 	}
-	s.code = ""
-	_ = os.Remove(sessionFilePath(s.dir, s.addr))
+	s.pending = slices.Delete(s.pending, i, i+1)
+	entry.timer.Stop()
+	_ = os.Remove(entry.file)
 }
 
 // unlock trades a live code for the key, once.
 func (s *webSession) unlock(code string) (string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	live := s.code != "" && s.now().Before(s.expires)
-	if !live || len(code) != len(s.code) || subtle.ConstantTimeCompare([]byte(code), []byte(s.code)) != 1 {
-		return "", false
+	now := s.now()
+	for _, entry := range s.pending {
+		if len(code) == len(entry.code) && subtle.ConstantTimeCompare([]byte(code), []byte(entry.code)) == 1 {
+			s.drop(entry)
+			if !now.Before(entry.expires) {
+				return "", false
+			}
+			return s.key, true
+		}
 	}
-	s.code = ""
-	_ = os.Remove(sessionFilePath(s.dir, s.addr))
-	return s.key, true
+	return "", false
 }
 
-// close removes an unlock file that is still waiting.
+// close removes the unlock files still waiting.
 func (s *webSession) close() {
 	if s == nil {
 		return
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.code = ""
-	if s.timer != nil {
-		s.timer.Stop()
+	for len(s.pending) > 0 {
+		s.drop(s.pending[0])
 	}
-	_ = os.Remove(sessionFilePath(s.dir, s.addr))
 }
 
 type sessionUnlockRequest struct {
@@ -178,6 +214,10 @@ type sessionUnlockRequest struct {
 
 type sessionUnlockReply struct {
 	Key string `json:"key"`
+}
+
+type sessionOfferReply struct {
+	File string `json:"file"`
 }
 
 // sessionHandler serves the unlock exchange and the offer of a new
@@ -212,18 +252,19 @@ func (h sessionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		writeEditJSON(w, http.StatusOK, sessionUnlockReply{Key: key})
 	case sessionOfferPath:
-		if _, err := h.session.offer(); err != nil {
+		file, err := h.session.offer()
+		if err != nil {
 			writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 			return
 		}
-		w.WriteHeader(http.StatusNoContent)
+		writeEditJSON(w, http.StatusOK, sessionOfferReply{File: file})
 	default:
 		http.NotFound(w, r)
 	}
 }
 
 // unlockHopScript forwards a well-formed code to the app and nothing else.
-const unlockHopScript = `if(/^#unlock=[0-9a-f]{64}$/.test(location.hash))location.replace("/"+location.hash);else document.body.textContent="Run agnostic-ai view --scope user to open agnostic-ai."`
+const unlockHopScript = `var w=navigator.serviceWorker;if(w&&w.controller){w.getRegistrations().then(function(r){r.forEach(function(x){x.unregister()})});document.body.textContent="A service worker controlled this address, so the page stays locked. It is removed now: close this tab and run agnostic-ai view --scope user again."}else if(/^#unlock=[0-9a-f]{64}$/.test(location.hash))location.replace("/"+location.hash);else document.body.textContent="Run agnostic-ai view --scope user to open agnostic-ai."`
 
 var unlockHopPage = []byte("<!doctype html>\n<meta charset=\"utf-8\">\n<title>agnostic-ai</title>\n<body>\n<script>" + unlockHopScript + "</script>\n")
 
@@ -252,10 +293,6 @@ func unlockHop(next http.Handler) http.Handler {
 // offerSession asks the view server at addr for a new unlock file and
 // returns its path. An older server without sessions returns an error.
 func offerSession(ctx context.Context, addr string) (string, error) {
-	dir, err := sessionDir()
-	if err != nil {
-		return "", err
-	}
 	ctx, cancel := context.WithTimeout(ctx, viewProbeTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+addr+sessionOfferPath, http.NoBody)
@@ -267,9 +304,23 @@ func offerSession(ctx context.Context, addr string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	_ = resp.Body.Close()
-	if resp.StatusCode != http.StatusNoContent {
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
 		return "", errors.New(resp.Status)
 	}
-	return sessionFilePath(dir, addr), nil
+	var reply sessionOfferReply
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<10)).Decode(&reply); err != nil || reply.File == "" {
+		return "", errors.New("the server sent no unlock file")
+	}
+	// Another program may hold the port; open only an unlock file of ours.
+	dir, err := sessionDir()
+	if err != nil {
+		return "", err
+	}
+	_, port, _ := net.SplitHostPort(addr)
+	file := filepath.Clean(reply.File)
+	if filepath.Dir(file) != filepath.Clean(dir) || !unlockFileName.MatchString(filepath.Base(file)) || !strings.HasPrefix(filepath.Base(file), "unlock-"+port+"-") {
+		return "", errors.New("the server sent a file outside the unlock folder")
+	}
+	return file, nil
 }

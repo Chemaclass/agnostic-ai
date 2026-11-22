@@ -46,7 +46,10 @@ type settingsSyncFile struct {
 type settingsSyncPlan struct {
 	ID    string             `json:"id"`
 	Files []settingsSyncFile `json:"files"`
-	Notes []string           `json:"notes"`
+	// Commands are the hook and MCP server commands the tools run after
+	// the sync, so nothing staged by another program installs unseen.
+	Commands []string `json:"commands"`
+	Notes    []string `json:"notes"`
 	// fingerprint sums the content of the planned changes.
 	fingerprint string
 }
@@ -163,11 +166,17 @@ func (h *settingsHandler) syncPlan(ctx context.Context) (settingsSyncPlan, error
 	if err != nil {
 		return settingsSyncPlan{}, err
 	}
-	plan := settingsSyncPlan{Files: []settingsSyncFile{}, Notes: report.shortNotes()}
+	plan := settingsSyncPlan{Files: []settingsSyncFile{}, Commands: pin.commands, Notes: report.shortNotes()}
+	if plan.Commands == nil {
+		plan.Commands = []string{}
+	}
 	for _, write := range report.Writes {
 		plan.Files = append(plan.Files, settingsSyncFile{Path: write.Path, Change: write.Action, Target: write.Target, Keys: write.Keys})
 	}
-	files, err := json.Marshal(plan.Files)
+	files, err := json.Marshal(struct {
+		Files    []settingsSyncFile
+		Commands []string
+	}{plan.Files, plan.Commands})
 	if err != nil {
 		return settingsSyncPlan{}, fmt.Errorf("encode the sync plan: %w", err)
 	}

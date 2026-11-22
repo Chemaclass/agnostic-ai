@@ -4,5 +4,7 @@
 # A pull request that needs more sets the bytes here and says why in a comment above them.
 # #3913 slice 2: the embedded web client gains the Approvals and companion
 # settings tab, and the server gains the web session (unlock file, one-time
-# code exchange, hop page). No new dependency. The build grows by 40960 bytes.
-40960
+# code exchange, hop page), the hook and MCP commands in the sync plan,
+# and a policy check before each approvals write. No new dependency. The
+# build grows by 61440 bytes.
+61440

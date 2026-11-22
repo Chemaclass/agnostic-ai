@@ -50,10 +50,10 @@ describe('user settings', () => {
   })
 
   it('lists every file and note before a sync and says what it wrote after', () => {
-    const question = syncConfirm({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }], notes: ['a note'] })
-    expect(question).toMatchObject({ files: ['create /h/.codex/hooks.json'], notes: ['a note'], go: 'Apply' })
+    const question = syncConfirm({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }], commands: ['hook staged: curl x | sh'], notes: ['a note'] })
+    expect(question).toMatchObject({ files: ['create /h/.codex/hooks.json'], commands: ['hook staged: curl x | sh'], notes: ['a note'], go: 'Apply' })
     expect(question.body).toMatch(/all pending changes of your user configuration/)
-    expect(syncConfirm({ id: 'x', files: [], notes: [] }).go).toBeUndefined()
+    expect(syncConfirm({ id: 'x', files: [], commands: [], notes: [] }).go).toBeUndefined()
     expect(syncResult({ written: ['a', 'b'], notes: ['Trust it.'], settings: doc() })).toBe('Applied: 2 files written. Trust it.')
     expect(syncFailure('conflict.', 'agnostic-ai sync --scope user')).toBe('conflict. Run agnostic-ai sync --scope user in a terminal.')
   })

@@ -366,12 +366,15 @@ var errSettingNeedsProof = errors.New("this change would turn on automatic appro
 // lock. Ask me writes what the Ask me chip writes. A value that needs the
 // hook adds approvals to builtins when it is missing; when that fails,
 // the approvals change is undone. Without proven, a block that does not
-// load is left alone, and a write that leaves the policy looser than
-// before is undone.
+// load is left alone, and a change that would leave the policy looser
+// than before is refused before it is written.
 func writeApprovalsSetting(source, key string, value any, proven bool) ([]string, error) {
 	if key == "mode" && value == config.ApprovalsAsk {
-		path := userConfigPaths(source)[1]
-		return []string{path}, writeApprovalsAsk(path)
+		path, err := writeApprovalsAsk(source, proven)
+		if err != nil {
+			return nil, err
+		}
+		return []string{path}, nil
 	}
 	path, err := approvalsWriteFile(source)
 	if err != nil {
@@ -387,23 +390,28 @@ func writeApprovalsSetting(source, key string, value any, proven bool) ([]string
 	if err != nil {
 		return nil, err
 	}
-	if err := editApprovalsFile(path, func(data []byte) ([]byte, error) { return approvalsSetYAML(data, key, value) }); err != nil {
-		return nil, err
-	}
-	ours, err := os.ReadFile(path)
-	if err != nil {
+	data, err := os.ReadFile(path)
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	restore := func() error { return undo(ours) }
-	home, err := config.LoadHomeApprovals(source)
+	ours, err := approvalsSetYAML(data, key, value)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", path, err)
+	}
+	// The policy the edit gives is checked before anything is written.
+	home, err := config.LoadHomeApprovalsWith(source, path, ours)
 	switch {
 	case err != nil && loadErr == nil:
-		return nil, errors.Join(fmt.Errorf("the change would break the approvals block, so it was not kept: %w", err), restore())
+		return nil, fmt.Errorf("the change would break the approvals block, so it was not made: %w", err)
 	case err == nil && !approvalsHolds(home, key, value):
-		return nil, errors.Join(fmt.Errorf("%s: the change would not take effect, so it was not kept; set approvals.%s by hand", path, key), restore())
+		return nil, fmt.Errorf("%s: the change would not take effect, so it was not made; set approvals.%s by hand", path, key)
 	case err == nil && !proven && approvalsLoosened(before, home):
-		return nil, errors.Join(errSettingNeedsProof, restore())
+		return nil, errSettingNeedsProof
 	}
+	if err := editApprovalsFile(path, func([]byte) ([]byte, error) { return ours, nil }); err != nil {
+		return nil, err
+	}
+	restore := func() error { return undo(ours) }
 	changed := []string{path}
 	if !needsApprovalsHook(key, value) {
 		return changed, nil
