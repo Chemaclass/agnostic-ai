@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -171,7 +173,52 @@ func openReadyDashboard(ctx context.Context, raw string, open func(string) error
 	if !health.OK || !health.Global || !health.UI {
 		return fmt.Errorf("%s did not serve the global dashboard", raw)
 	}
+	if file, err := offerUnlockFile(ctx, client, address); err == nil {
+		return open(file)
+	}
+	// An older CLI or a server without sessions, such as on Windows, opens locked.
 	return open(raw)
+}
+
+// unlockFileName is how the server names an unlock file: its port and a
+// random id.
+var unlockFileName = regexp.MustCompile(`^unlock-([0-9]+)-[0-9a-f]{12}\.html$`)
+
+// offerUnlockFile asks the dashboard server for an unlock file, as a
+// later agnostic-ai view does, so the page it opens gets the key that
+// lets it loosen approvals. It returns the file only when it sits in this
+// account's unlock folder and names the server's port: another program
+// holding the port must not choose what the companion opens.
+func offerUnlockFile(ctx context.Context, client *http.Client, address *url.URL) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, address.JoinPath("api", "session", "offer").String(), http.NoBody)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("unlock offer answered %s", resp.Status)
+	}
+	var reply struct {
+		File string `json:"file"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&reply); err != nil {
+		return "", fmt.Errorf("read the unlock offer: %w", err)
+	}
+	config, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+	file := filepath.Clean(reply.File)
+	name := unlockFileName.FindStringSubmatch(filepath.Base(file))
+	if filepath.Dir(file) != filepath.Join(config, "agnostic-ai", "unlock") || name == nil || name[1] != address.Port() {
+		return "", fmt.Errorf("the unlock offer named %q, outside the unlock folder", reply.File)
+	}
+	return file, nil
 }
 
 func (s *shell) dashboard(w http.ResponseWriter, r *http.Request) {

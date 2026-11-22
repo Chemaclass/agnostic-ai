@@ -94,7 +94,7 @@ func serveView(cmd *cobra.Command, browser func(string) error, addr, root string
 	serve.SilenceUsage = true
 	args := []string{"--open", "--addr", addr}
 	if !unlock {
-		// The companion opens the address it reads, so it gets the plain one.
+		// The companion reads the address, then asks the server for its own unlock file.
 		args = append(args, "--no-unlock")
 	}
 	if userLevel {
