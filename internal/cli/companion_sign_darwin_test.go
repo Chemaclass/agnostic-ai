@@ -204,9 +204,22 @@ func TestCompanionSigner_PreservesTheIdentityWhenLookupFails(t *testing.T) {
 	assertCompanionSignerFiles(t, cert, keychain)
 }
 
+func TestSignCompanion_SignsWhileTheInstallHoldsTheFolderLock(t *testing.T) {
+	folder := t.TempDir()
+	unlock, err := lockCompanionFolder(folder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unlock()
+	mockCompanionSecurity(t, "echo 'keychain unavailable' >&2; exit 1")
+	if err := signCompanion(context.Background(), folder, "unused.app"); err == nil || projectLockContended(err) {
+		t.Errorf("signer error = %v, want the keychain error, not lock contention", err)
+	}
+}
+
 func TestSignCompanion_RejectsAConcurrentSigner(t *testing.T) {
 	folder := t.TempDir()
-	lock, err := os.Open(folder)
+	lock, err := os.OpenFile(filepath.Join(folder, companionSignerLock), os.O_RDONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		t.Fatal(err)
 	}

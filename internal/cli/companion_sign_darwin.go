@@ -26,10 +26,13 @@ const (
 	companionSignerKeychain = "signer.keychain-db"
 	companionSignerCert     = "signer.cer"
 	companionSignerScratch  = "signer-"
+	// The install locks the companion folder itself, so the signer locks a
+	// file of its own: a second flock on the folder would refuse the install.
+	companionSignerLock = "signer.lock"
 )
 
 func signCompanion(ctx context.Context, folder, app string) error {
-	lock, err := os.Open(folder)
+	lock, err := os.OpenFile(filepath.Join(folder, companionSignerLock), os.O_RDONLY|os.O_CREATE, 0o600)
 	if err != nil {
 		return fmt.Errorf("lock the companion signer: %w", err)
 	}
