@@ -341,6 +341,10 @@ export const FIXTURES = {
   mailbox: { label: 'Mailbox sessions', conversations: mailboxSessions, mailboxTypingRefused: true },
   'mailbox-handoff': {
     label: 'Sessions for a handoff',
+    handoffResume: {
+      worktree: reviewRefs.worktree, project: reviewRefs.worktree + '/app', branch: reviewRefs.branch, head: reviewRefs.commit,
+      note: reviewRefs.worktree + '/app/.agnostic-ai/local/handoffs/feat-mailbox.md', noteKind: 'manual',
+    },
     conversations: (now) => [
       ...mailboxSessions(now),
       conversation(now, MAILBOX_THIRD.tool, MAILBOX_THIRD.id, 'Handle the conflict', 'active'),

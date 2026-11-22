@@ -2152,6 +2152,21 @@ button:focus-visible {
   overflow-wrap: anywhere;
 }
 
+#mailbox-handoff summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--paper-dim);
+}
+
+#mailbox-handoff summary:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 1px;
+}
+
+#mailbox-handoff .mailbox-path-fields {
+  margin-block-start: 6px;
+}
+
 .mailbox-path-fields {
   display: grid;
   gap: 6px;

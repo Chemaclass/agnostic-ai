@@ -1,5 +1,5 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, keyOf, mailboxSessionOf, messageActionsOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
+import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
 
 const MESSAGE_ACTIONS = {
   approve: 'Approve',
@@ -38,13 +38,18 @@ function button(label, action, clicked, className = 'confirm-cancel') {
   return control
 }
 
-function refDetails(refs) {
+function referenceDetails(fields) {
   const details = element('dl', 'mailbox-ref-details')
-  for (const [label, value] of [['Worktree', refs.worktree], ['Commit', refs.commit], ['Base', refs.base]]) {
+  for (const [label, value] of fields) {
     const data = element('dd')
     data.append(element('code', '', value))
     details.append(element('dt', '', label), data)
   }
+  return details
+}
+
+function refDetails(refs) {
+  const details = referenceDetails([['Worktree', refs.worktree], ['Commit', refs.commit], ['Base', refs.base]])
   const count = refs.paths?.length ?? 0
   const changes = element('p', 'mailbox-muted', `${count} changed ${count === 1 ? 'path' : 'paths'}`)
   if (!refs.uncommitted) return [details, changes]
@@ -126,6 +131,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   const arrival = byId('mailbox-arrival')
   const body = byId('mailbox-body')
   const bodyField = byId('mailbox-body-field')
+  const bodyLabel = byId('mailbox-body-label')
   const handoff = byId('mailbox-handoff')
   const handoffWorktree = byId('mailbox-handoff-worktree')
   const handoffStatus = byId('mailbox-handoff-status')
@@ -278,10 +284,11 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     const pending = Boolean(draft?.pending)
     for (const field of fields) field.disabled = pending
     if (draft && !draft.thread) toSelect.disabled = pending || toSelect.dataset.empty === 'true'
-    const missingWorktree = type.value === HANDOFF && !handoffWorktree.value.trim()
+    const missingWorktree = !handoffWorktree.value.trim()
     claimOffer.disabled = pending || missingWorktree
     const { to, name, group } = receiverOf()
-    send.disabled = pending || !to || missingWorktree || (type.value === REVIEW && !draft?.refs)
+    const pathsNeedWorktree = type.value === HANDOFF && handoff.open && handoffPaths.value.trim() && missingWorktree
+    send.disabled = pending || !to || pathsNeedWorktree || (type.value === REVIEW && !draft?.refs)
     send.textContent = name ? `Send to ${name}` : 'Send'
     typeHelp.textContent = typeHelpOf(type.value, name)
     arrival.textContent = arrivalOf(group, name)
@@ -343,7 +350,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
 
   async function previewWorktree() {
     const current = draft
-    if (!current || current.worktreeEdited || handoffWorktree.value) return
+    if (!current || current.pending || current.worktreeEdited || handoffWorktree.value) return
     const reading = new AbortController()
     current.reading = reading
     handoffStatus.textContent = 'Reading Git worktree…'
@@ -368,14 +375,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     const reviewing = type.value === REVIEW
     review.hidden = !reviewing
     handoff.hidden = type.value !== HANDOFF
+    if (handoff.hidden) handoff.open = false
     bodyField.hidden = reviewing
+    bodyLabel.textContent = messageLabelOf(type.value)
     if (reviewing) {
       compareModels()
       previewRefs(0)
     } else {
       stopPreview()
       renderReview()
-      if (!handoff.hidden) previewWorktree()
     }
   }
 
@@ -385,6 +393,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     closeClaims(false)
     stopPreview()
     composer.reset()
+    handoff.open = false
+    type.value = thread ? 'question' : HANDOFF
     draft = { from: refOf(from), to, thread, toTitle }
     handoffStatus.textContent = ''
     targetStatus.textContent = ''
@@ -443,7 +453,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     if (draft.typing) showTyping(false)
     else fillReceivers()
     updateComposerControls()
-    const field = type.value === REVIEW ? base : type.value === HANDOFF ? handoffPaths : body
+    const field = type.value === REVIEW ? base : type.value === HANDOFF ? send : body
     field.focus()
     return true
   }
@@ -472,6 +482,13 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     changeType()
     updateComposerControls()
   })
+  handoff.addEventListener('toggle', () => {
+    if (!draft || handoff.hidden) return
+    if (handoff.open) previewWorktree()
+    else stopPreview()
+    updateComposerControls()
+  })
+  handoffPaths.addEventListener('input', updateComposerControls)
   handoffWorktree.addEventListener('input', () => {
     if (!draft) return
     draft.worktreeEdited = true
@@ -508,6 +525,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     event.preventDefault()
     const current = draft
     const reviewing = type.value === REVIEW
+    const handingOff = type.value === HANDOFF
     if (!current || send.disabled) return
     current.pending = true
     updateComposerControls()
@@ -520,16 +538,20 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       const from = sendingModel.value.trim()
       const to = reviewingModel.value.trim()
       if (from || to) request.models = { ...(from && { from }), ...(to && { to }) }
+    } else if (handingOff) {
+      if (body.value.trim()) request.body = body.value
+      if (handoff.open && handoffPaths.value.trim()) request.gives = pathsOf(handoffWorktree.value, handoffPaths.value)
     } else {
       request.body = body.value
-      if (type.value === HANDOFF) request.gives = pathsOf(handoffWorktree.value, handoffPaths.value)
     }
     if (current.thread) request.thread = current.thread
     try {
-      const { version } = await sendMessage(request)
+      const { body: receipt, version } = await sendMessage(request)
       current.pending = false
       closeComposer()
-      say(receiver.name ? `Message waiting in the thread with ${receiver.name}.` : 'Message waiting in the thread.')
+      say(handingOff
+        ? handoffSentOf(receipt, receiver.name, nameOf(current.from))
+        : receiver.name ? `Message waiting in the thread with ${receiver.name}.` : 'Message waiting in the thread.')
       await afterChange(version)
       if (opened) await load(opened)
     } catch (error) {
@@ -773,6 +795,13 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
         const refs = element('div', 'mailbox-review-refs')
         refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(modelLabelOf(models, message.from), modelLabelOf(models, message.to))))
         entry.append(refs)
+      }
+      if (message.resume) {
+        const { worktree, project, branch, head, note } = message.resume
+        const fields = [['Worktree', worktree]]
+        if (project) fields.push(['Project', project])
+        fields.push(['Branch', branch || 'Detached HEAD'], ['Commit', head], ['Note', note || 'No note saved when sent'])
+        entry.append(referenceDetails(fields))
       }
       if (message.gives) {
         entry.append(...pathDetails(message.gives))
