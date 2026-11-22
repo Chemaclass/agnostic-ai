@@ -58,7 +58,8 @@ func waitingIn(list json.RawMessage, kept []keptShell, at time.Time) (waiting, b
 			Waiting struct {
 				For string `json:"for"`
 			} `json:"waiting"`
-			StuckShells []shellRef `json:"stuckShells"`
+			StuckShells    []shellRef        `json:"stuckShells"`
+			ClaimConflicts []json.RawMessage `json:"claimConflicts"`
 		} `json:"conversations"`
 	}
 	if len(list) == 0 || json.Unmarshal(list, &view) != nil {
@@ -69,7 +70,8 @@ func waitingIn(list json.RawMessage, kept []keptShell, at time.Time) (waiting, b
 		now.health[tool.Tool] = strconv.FormatBool(tool.Found) + ":" + tool.Note
 	}
 	for _, conversation := range view.Conversations {
-		if conversation.State != "blocked" && conversation.State != "unread" {
+		// A path conflict puts any row under Needs you, as the page draws it.
+		if conversation.State != "blocked" && conversation.State != "unread" && len(conversation.ClaimConflicts) == 0 {
 			continue
 		}
 		if conversation.State == "blocked" && conversation.Waiting.For == "shell" && conversation.Live && len(conversation.StuckShells) > 0 &&

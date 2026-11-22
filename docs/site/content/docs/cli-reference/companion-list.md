@@ -17,7 +17,7 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 
 | Group | What it holds |
 |-------|---------------|
-| Needs you | Chats waiting for a permission, then an answer, then unread replies. Newest first. |
+| Needs you | Chats waiting for a permission, then an answer or a path conflict, then unread replies. Newest first. |
 | Working | The agent is busy. |
 | Active | Open chats, and app or cloud chats until you archive them. |
 | Archived | Closed chats, and chats you archived in their app. |
@@ -105,7 +105,7 @@ Right-click a chat and choose **Copy session ID**. The clipboard gets the exact 
 
 Right-click a local Claude Code or Codex chat and choose **Message another session…**. Pick the receiver under **To**, click its row, or enter its session ID. The [mailbox](@/docs/mailbox.md) shows the thread under both chats and gives you controls to pause, close or stop it.
 
-Choose **Claim files…** to note which files a session works on. A claim does not block edits. See [hand off files](@/docs/mailbox.md#hand-off-files).
+[Claim files…](@/docs/mailbox.md#hand-off-files) notes which files a session works on. It does not block edits.
 
 ## Rename a chat {#rename-a-chat}
 
@@ -181,7 +181,7 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 | Part | What it shows |
 |------|---------------|
 | Reason line | Under the title in Needs you: why the chat needs you. See the reasons below. |
-| Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age. |
+| Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age, paths claimed. |
 | Reply line | The agent's question, or the start of its last message. |
 | Approval pill | Orange, replaces the reply line while a call waits for approval. |
 | Approval reason | Under the pill, why [approvals](@/docs/cli-reference/companion.md#approvals) left the request to you. |
@@ -191,6 +191,7 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 |--------|------|
 | The approval pill | A tool call waits for your approval. |
 | Waiting on 2 shells still running | A [forgotten shell](#stop-a-forgotten-shell) is the only work left. |
+| a.go is claimed by Fix the parser | A [path conflict](@/docs/mailbox.md#hand-off-files), on both rows. |
 | Asks you a question | The agent asked you something. |
 | No activity for 7m | The server read the wait from silence. |
 | Waiting for you | The tool says it waits, but not for what. |

@@ -241,6 +241,11 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	// The worktree lookup starts git, so a 304 skips it.
 	opts := h.scanOptions(query.Get("editor"))
 	opts.Before, opts.Query, opts.Tool = before, search, tool
+	var mail mailboxSnapshot
+	if hasMailbox {
+		mail = readMailboxSnapshot(r.Context(), store)
+		opts.NeedsYou = mail.conflicted()
+	}
 	view := h.scanner.ScanStamped(r.Context(), opts, stamp)
 	if h.approvals != nil {
 		folder := ""
@@ -253,7 +258,7 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if hasMailbox {
-		h.addMailboxSummaries(r.Context(), store, &view, opts)
+		h.addMailboxSummaries(mail, &view, opts)
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }
