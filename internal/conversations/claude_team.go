@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 )
@@ -56,16 +55,28 @@ type claudeTeamMember struct {
 	IsActive *bool `json:"isActive"`
 }
 
-// teamNamePattern keeps a team name inside the teams folder.
-var teamNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-][A-Za-z0-9._-]{0,127}$`)
+// plainName reports whether name is 1 to limit letters, digits, dots,
+// hyphens or underscores, not starting with a dot: it stays inside a
+// folder and is safe to show in a command.
+func plainName(name string, limit int) bool {
+	if name == "" || len(name) > limit || name[0] == '.' {
+		return false
+	}
+	return strings.IndexFunc(name, func(r rune) bool {
+		return (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') && r != '.' && r != '-' && r != '_'
+	}) < 0
+}
 
-// tmuxPanePattern is a tmux pane id, such as %12.
-var tmuxPanePattern = regexp.MustCompile(`^%[0-9]+$`)
+// tmuxPaneID reports whether id is a tmux pane id, such as %12.
+func tmuxPaneID(id string) bool {
+	digits := strings.TrimPrefix(id, "%")
+	return len(digits) > 0 && len(digits) < len(id) && strings.Trim(digits, "0123456789") == ""
+}
 
 // claudeTeamPath is a team's config file, or "" for a name that could
 // reach outside the teams folder.
 func (s *Scanner) claudeTeamPath(team string) string {
-	if !teamNamePattern.MatchString(team) || team == ".." {
+	if !plainName(team, 128) {
 		return ""
 	}
 	return filepath.Join(s.Stores.ClaudeDir, "teams", team, "config.json")
@@ -117,7 +128,7 @@ func (s *Scanner) claudeTeammateStateOf(lead string, teammate claudeTeammate, sa
 	case !listed:
 	case teammate.pane:
 		state.working = member.IsActive == nil || *member.IsActive
-		if member.BackendType == "tmux" && tmuxPanePattern.MatchString(member.TmuxPaneID) {
+		if member.BackendType == "tmux" && tmuxPaneID(member.TmuxPaneID) {
 			state.paneID = member.TmuxPaneID
 		}
 	default:
@@ -202,15 +213,12 @@ func argValue(command, flag string) string {
 	return ""
 }
 
-// tmuxSocketNamePattern is a socket name safe to show in a command.
-var tmuxSocketNamePattern = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
-
 // tmuxAttachCommand is the command that shows a tmux server no client
 // shows, from the -L name its server started with. Empty when the server
 // names no socket that way.
 func tmuxAttachCommand(command string) string {
 	name := argValue(command, "-L")
-	if !tmuxSocketNamePattern.MatchString(name) {
+	if !plainName(name, 64) {
 		return ""
 	}
 	return "tmux -L " + name + " attach"

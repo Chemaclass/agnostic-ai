@@ -2,8 +2,8 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3888 follow-ups: the companion update watches the new app in the process
-# list and puts the earlier one back, one folder lock covers every companion
-# writer, and the update check keeps the newer of two answers.
-# The linux/amd64 release build grows by 20480 bytes.
-20480
+# #3905: the conversations scan reads Claude Code agent teams (team
+# configs, teammate turns, pane teammates found by their process), nests
+# subagents, and says how to reach each one on open.
+# The linux/amd64 release build grows by 53248 bytes.
+53248
