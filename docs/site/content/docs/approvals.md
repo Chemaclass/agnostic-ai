@@ -144,7 +144,7 @@ Any program on the machine can reach the server's local port, including an agent
 - Stricter, from any page of the server's own origin: `ask`, turning off **Approve and Deny** in the list, and turning approval of agent messages back on.
 - Less strict, only from the companion: `review`, `yolo`, turning on **Approve and Deny** in the list, turning off approval of agent messages, approving a held agent message, and running a sync from a page. So does any change other than `ask` to an approvals block that does not load: fixing it could turn on the `yolo` it holds. The companion proves it with the secret it hands its server at launch. Any other request gets 403 and no file changes.
 - The companion's server, the web page's server and `agnostic-ai approvals ask` take turns on one lock file, `local/approvals/write.lock`, so a check of the shown value and its write happen together.
-- Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`.
+- Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`. An approved mailbox message is recorded in its thread instead.
 
 The home config stays the place to change anything by hand. See the [settings routes](@/docs/cli-reference/serve-api.md#post-api-settings).
 

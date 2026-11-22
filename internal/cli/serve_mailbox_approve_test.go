@@ -94,14 +94,17 @@ func TestMailboxHTTP_ApproveNeedsTheCompanionSecret(t *testing.T) {
 
 func TestMailboxHTTP_SendWithoutTheSecretIsAnAgentSend(t *testing.T) {
 	h, _ := mailboxHTTPFixture(t)
-	rec := mailboxHTTPAs(t, h, "", http.MethodPost, "/api/mailbox/send", mailboxSendBody(inWorktree, "question", "Ready to merge?", ""))
-	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"held"`) {
-		t.Fatalf("send without the secret = %d %s, want a held receipt", rec.Code, rec.Body)
+	secret := string(testCompanionSecret)
+	for name, as := range map[string]string{"no secret": "", "a wrong secret": strings.Repeat("0", len(secret))} {
+		rec := mailboxHTTPAs(t, h, as, http.MethodPost, "/api/mailbox/send", mailboxSendBody(inWorktree, "question", "Ready to merge?", ""))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"held"`) {
+			t.Fatalf("send with %s = %d %s, want a held receipt", name, rec.Code, rec.Body)
+		}
 	}
 	if body := mailboxThreadJSON(t, h); !strings.Contains(body, `"by":"agent"`) || strings.Contains(body, `"by":"human"`) {
 		t.Errorf("a send without the secret was recorded as human: %s", body)
 	}
-	rec = mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/send", mailboxSendBody(inWorktree, "question", "Did the tests pass?", ""))
+	rec := mailboxHTTP(t, h, http.MethodPost, "/api/mailbox/send", mailboxSendBody(inWorktree, "question", "Did the tests pass?", ""))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"state":"waiting"`) {
 		t.Errorf("send with the secret = %d %s, want a waiting receipt", rec.Code, rec.Body)
 	}
