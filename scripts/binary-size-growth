@@ -4,6 +4,7 @@
 # A pull request that needs more sets the bytes here and says why in a comment above them.
 # #3913: user-level servers serve the settings document, a settings write
 # route with a proof gate, a YAML setter for the approvals block, and a sync
-# route that runs sync --scope user in process. No new dependency. The build
-# grows by 61440 bytes.
-61440
+# route that runs sync --scope user in process, pinned to the confirmed plan's
+# content, and a lock file shared by approvals writers. No new dependency.
+# The build grows by 77824 bytes.
+77824

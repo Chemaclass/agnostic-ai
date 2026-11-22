@@ -5,11 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 )
@@ -17,6 +19,10 @@ import (
 // settingsSyncCommand is what a person runs when the sync from a page
 // fails.
 const settingsSyncCommand = "agnostic-ai sync --scope user"
+
+// settingsSyncReplyTimeout is how long a sync may take to answer, beyond
+// the companion's minute-long wait.
+const settingsSyncReplyTimeout = 90 * time.Second
 
 // settingsCodexNote follows a sync that wrote the Codex hooks file.
 const settingsCodexNote = "Codex will show Hooks need review once. Open /hooks in Codex and trust it."
@@ -41,6 +47,8 @@ type settingsSyncPlan struct {
 	ID    string             `json:"id"`
 	Files []settingsSyncFile `json:"files"`
 	Notes []string           `json:"notes"`
+	// fingerprint sums the content of the planned changes.
+	fingerprint string
 }
 
 type settingsSyncReply struct {
@@ -77,6 +85,8 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, status, editError{Error: message})
 		return
 	}
+	// A sync can outlast the server's write timeout; the companion waits a minute for it.
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(h.syncReplyWait))
 	if !h.proven(r) {
 		writeEditJSON(w, http.StatusForbidden, editError{Error: "A sync installs hooks, so only the companion can run it here. Run " + settingsSyncCommand + " in a terminal."})
 		return
@@ -95,11 +105,21 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusOK, plan)
 		return
 	}
-	if plan.ID != req.ID {
+	moved := func(plan settingsSyncPlan) {
 		writeEditJSON(w, http.StatusConflict, settingsSyncRefusal{Error: "The pending changes changed since you checked them. Check them again.", Plan: &plan})
+	}
+	if plan.ID != req.ID {
+		moved(plan)
 		return
 	}
-	out, err := h.runSync(r.Context(), "sync", "--scope", "user", "--json")
+	// The apply writes only when its writes and removals match the plan.
+	out, err := h.runSync(withUserSyncPin(r.Context(), &userSyncPin{want: plan.fingerprint}), "sync", "--scope", "user", "--json")
+	if errors.Is(err, errUserSyncMoved) {
+		if again, planErr := h.syncPlan(r.Context()); planErr == nil {
+			moved(again)
+			return
+		}
+	}
 	report, parseErr := parseUserSyncReport(out)
 	if err != nil || parseErr != nil {
 		if err == nil {
@@ -134,7 +154,8 @@ func (r userSyncReport) shortNotes() []string {
 
 // syncPlan runs sync --scope user --plan --json.
 func (h *settingsHandler) syncPlan(ctx context.Context) (settingsSyncPlan, error) {
-	out, err := h.runSync(ctx, "sync", "--scope", "user", "--plan", "--json")
+	pin := &userSyncPin{}
+	out, err := h.runSync(withUserSyncPin(ctx, pin), "sync", "--scope", "user", "--plan", "--json")
 	if err != nil {
 		return settingsSyncPlan{}, err
 	}
@@ -150,8 +171,10 @@ func (h *settingsHandler) syncPlan(ctx context.Context) (settingsSyncPlan, error
 	if err != nil {
 		return settingsSyncPlan{}, fmt.Errorf("encode the sync plan: %w", err)
 	}
-	sum := sha256.Sum256(files)
+	// The id covers what the person sees and the content of every change.
+	sum := sha256.Sum256(append(files, pin.got...))
 	plan.ID = hex.EncodeToString(sum[:16])
+	plan.fingerprint = pin.got
 	return plan, nil
 }
 

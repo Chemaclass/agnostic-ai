@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/codex"
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
@@ -143,5 +146,86 @@ func TestSettingsSync_InstallsTheHookOnACleanHome(t *testing.T) {
 	}
 	if reply.Settings.Sync.Needed {
 		t.Errorf("sync still needed: %v", reply.Settings.Sync.Reasons)
+	}
+}
+
+// TestSettingsSync_RefusesAContentChangeAfterThePlan changes a rule after
+// the plan: the file list stays the same, but the apply writes nothing.
+func TestSettingsSync_RefusesAContentChangeAfterThePlan(t *testing.T) {
+	silence(t)
+	h, source := settingsFixture(t, "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	rec := postEdit(t, h, settingsSyncPath, `{"action":"plan"}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("plan = %d %s", rec.Code, rec.Body)
+	}
+	plan := decodeSyncReply[settingsSyncPlan](t, rec.Body.Bytes())
+
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe careless.\n")
+	rec = postEdit(t, h, settingsSyncPath, `{"action":"apply","id":"`+plan.ID+`"}`, withSecret(settingsTestSecret))
+	refusal := decodeSyncReply[settingsSyncRefusal](t, rec.Body.Bytes())
+	if rec.Code != http.StatusConflict || refusal.Plan == nil || refusal.Plan.ID == plan.ID {
+		t.Fatalf("apply after a content change = %d %s", rec.Code, rec.Body)
+	}
+	if len(refusal.Plan.Files) != len(plan.Files) {
+		t.Errorf("the file list changed too, so this does not test content: %v vs %v", refusal.Plan.Files, plan.Files)
+	}
+	home, err := userHomeDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".claude", "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Errorf("the refused apply wrote CLAUDE.md: %v", err)
+	}
+}
+
+// TestSettingsSync_PinStopsAMovedApply runs the apply under a pin that
+// wants another plan: the sync writes nothing and says why.
+func TestSettingsSync_PinStopsAMovedApply(t *testing.T) {
+	silence(t)
+	h, source := settingsFixture(t, "version: 1\ntargets: [claude]\n")
+	writeFile(t, filepath.Join(source, "rules", "safe.md"), "---\nname: safe\n---\nBe safe.\n")
+	_, err := h.runInProcess(withUserSyncPin(context.Background(), &userSyncPin{want: "another plan"}), "sync", "--scope", "user", "--json")
+	if !errors.Is(err, errUserSyncMoved) {
+		t.Fatalf("pinned apply = %v; want errUserSyncMoved", err)
+	}
+	home, _ := userHomeDir()
+	if _, err := os.Stat(filepath.Join(home, ".claude", "CLAUDE.md")); !os.IsNotExist(err) {
+		t.Errorf("the refused apply wrote CLAUDE.md: %v", err)
+	}
+}
+
+// TestSettingsSync_AnswersASyncSlowerThanTheServerWriteTimeout runs a real
+// server: a sync that takes longer than its write timeout still answers.
+func TestSettingsSync_AnswersASyncSlowerThanTheServerWriteTimeout(t *testing.T) {
+	const unit = 10 * time.Millisecond
+	h, _ := settingsFixture(t, "")
+	h.syncReplyWait = 90 * unit
+	h.runSync = func(context.Context, ...string) ([]byte, error) {
+		time.Sleep(45 * unit)
+		return []byte(`{"writes":[]}`), nil
+	}
+	srv := newServeServer(h)
+	srv.ReadTimeout, srv.WriteTimeout = 10*unit, 30*unit
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _ = srv.Serve(ln) }()
+	t.Cleanup(func() { _ = srv.Close() })
+	req, err := http.NewRequest(http.MethodPost, "http://"+ln.Addr().String()+settingsSyncPath, strings.NewReader(`{"action":"plan"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(companionSecretHeader, string(settingsTestSecret))
+	resp, err := (&http.Client{Timeout: h.syncReplyWait}).Do(req)
+	if err != nil {
+		t.Fatalf("sync got no answer: %v", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"id"`) {
+		t.Errorf("sync = %d %s; want it answered", resp.StatusCode, body)
 	}
 }
