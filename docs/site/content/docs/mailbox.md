@@ -89,7 +89,7 @@ Codex runs a new hook only after you review and trust it. Open `/hooks` in Codex
 
 A message an agent sends waits as **Held for you** until you approve it. **Approve** checks the thread again: a paused thread refuses it, and a handoff whose paths changed owner is refused. A stopped thread has already cancelled it. **Reject** records the refusal in the thread, and the message no longer counts toward the limit. Messages you write in the companion are never held.
 
-Approval is on by default. Turn off **Ask me before an agent sends a message** in the companion settings to let agent messages queue at once. A missing or unreadable setting keeps approval on.
+Approval is on by default. Turn off **Ask me before an agent sends a message** in the companion settings to let agent messages queue at once. A missing or unreadable setting keeps approval on. Only the companion can turn it off: the server refuses that change from any other program, [as it does for approvals](@/docs/approvals.md#who-can-change-this).
 
 ## Let agents send
 
@@ -157,7 +157,7 @@ The local user-level server provides these routes to the companion. The conversa
 | `POST /api/mailbox/handoff` | Send `{thread, n, action}` with `accept` or `decline`. |
 | `POST /api/mailbox/approve` | Send `{thread, n, action}` with `approve` or `reject` for a held message. |
 | `POST /api/mailbox/queue` | Send `{thread, n}` to turn a staged message back into a waiting one. |
-| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. |
+| `GET /api/mailbox/settings` and `POST /api/mailbox/settings` | Read or write `{approveAgentSends}`. Writing `false` needs the companion's secret; without it the answer is 403. |
 
 Questions and findings take `body`. A `review_request` takes `refs: {worktree, base, commit?, paths?}` and optional `models: {from?, to?}`. Pass the preview’s commit, base and paths to keep the selection pinned. The server checks the worktree against the source chat and verifies any supplied paths against Git. A review request with a `body`, verdict or unknown field is refused with `echo`. An invalid base, commit or path selection is refused with `refs`.
 

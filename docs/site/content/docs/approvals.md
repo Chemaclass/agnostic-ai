@@ -37,6 +37,14 @@ agnostic-ai approvals status
 
 A user-level sync installs the `PermissionRequest` hook. Each tool's [setup and limits](#per-tool) still apply. The hook reads the mode on every request. Changing it needs no sync for the hook to respond.
 
+### Change it from the companion {#change-it-from-the-companion}
+
+Open the companion list's ⋯ menu and choose a mode under **When a tool asks permission**: **Ask me**, **Let the tool's reviewer decide** or **Approve routine calls for me**. The two looser modes ask once. The menu writes the mode in the file the [settings reference](@/docs/global-configuration-reference.md#global-approvals) names, and adds `approvals` to `builtins` when it is missing.
+
+- A status line under the rows says why a tool still asks, how many tools and folders have their own mode, and which shared keys a local block hides.
+- **Not in effect yet** means a sync would put the setting in effect, such as on a machine without the hook. **Apply to my tools** lists every file `agnostic-ai sync --scope user` would change, including changes that are not about approvals, and runs it after you confirm. After it writes the Codex hooks file, open `/hooks` in Codex once and trust it.
+- A change made in the home config or another page shows in the open menu within 2 seconds. When the server cannot be read, the approvals rows hide and the rest of the menu works.
+
 ## Modes
 
 - **`ask`** is the default. Your tool shows its own prompts.
@@ -104,7 +112,7 @@ approvals:
   companion: true
 ```
 
-Run `agnostic-ai sync --scope user` once, then open the companion. When Claude Code asks to run `touch a.txt`, the row shows the whole command with **Approve** and **Deny**. **Approve** runs that one call. **Deny** blocks it, and Claude Code reads "Denied in the agnostic-ai companion". The terminal prompt stays open the whole time, so you can still answer there.
+Run `agnostic-ai sync --scope user` once, then open the companion. Or turn on **Approve and deny from this list** in the companion's ⋯ menu, which offers the sync for you. When Claude Code asks to run `touch a.txt`, the row shows the whole command with **Approve** and **Deny**. **Approve** runs that one call. **Deny** blocks it, and Claude Code reads "Denied in the agnostic-ai companion". The terminal prompt stays open the whole time, so you can still answer there.
 
 - The hook waits for a click only when the request is left to you: mode `ask`, a match in the always-ask rules in `yolo`, or a prompt in `review`. A request the hook approves never waits.
 - It waits only while the companion is open, and only for calls it can show in full: `Bash`, `Read`, `Write`, `Edit` and `MultiEdit`, and Codex `apply_patch` with the whole patch, under 8 KB, with nothing that looks like a credential. A call with an option the row does not show, such as a command run outside the sandbox or an edit that replaces every match, keeps the terminal prompt alone, and so do MCP tools, web tools and questions.
@@ -124,10 +132,21 @@ Run `agnostic-ai sync --scope user` once, then open the companion. When Claude C
 
 Any of these stops hook approvals from the next request, without syncing or restarting.
 
-1. Run `agnostic-ai approvals ask` or select **Ask me** on the approvals chip in the companion list. Both write `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
+1. Run `agnostic-ai approvals ask`, or select **Ask me** on the approvals chip or in the ⋯ menu of the companion list. Each writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
 2. Set `AGNOSTIC_AI_APPROVALS=ask` for a session or `approvals.mode: ask` in the project's config.
 
 To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A user-level sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
+
+## Who can change this {#who-can-change-this}
+
+Any program on the machine can reach the server's local port, including an agent that runs with automatic approvals. So a change that makes approvals less strict needs proof that you asked for it. A change that makes them stricter does not.
+
+- Stricter, from any page of the server's own origin: `ask`, turning off **Approve and Deny** in the list, and turning approval of agent messages back on.
+- Less strict, only from the companion: `review`, `yolo`, turning on **Approve and Deny** in the list, turning off approval of agent messages, and running a sync from a page. So does any change other than `ask` to an approvals block that does not load: fixing it could turn on the `yolo` it holds. The companion proves it with the secret it hands its server at launch. Any other request gets 403 and no file changes.
+- The companion's server, the web page's server and `agnostic-ai approvals ask` take turns on one lock file, `local/approvals/write.lock`, so a check of the shown value and its write happen together.
+- Each less strict change and each sync from a page adds a log line with `decision: changed` and `by: companion`.
+
+The home config stays the place to change anything by hand. See the [settings routes](@/docs/cli-reference/serve-api.md#post-api-settings).
 
 ## The decision log
 
@@ -136,7 +155,7 @@ In `yolo`, the hook logs each request to `$AGNOSTIC_AI_HOME/local/approvals/deci
 `agnostic-ai approvals log` prints oldest first. Use `--since 1h` for the last hour or `--json` for an array.
 
 {% <details summary="Log fields and rotation"> %}
-Each line has `time`, `tool`, `session`, `cwd`, `call` (tool name), `detail`, `mode`, `decision` (`approved`, `asked`, or `denied`), `rule` (what made it ask), and `by` (`companion` for a request held for the companion). The detail leaves out text that might hold a credential. For Codex `apply_patch`, it lists the affected files.
+Each line has `time`, `tool`, `session`, `cwd`, `call` (tool name), `detail`, `mode`, `decision` (`approved`, `asked`, `denied`, or `changed` for a settings change made from the companion), `rule` (what made it ask), and `by` (`companion` for a request held for the companion). The detail leaves out text that might hold a credential. For Codex `apply_patch`, it lists the affected files.
 
 At 5 MB the log rotates to `decisions.jsonl.1`. It keeps one older file and asks if it cannot write.
 {% </details> %}

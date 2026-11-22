@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"path/filepath"
 	"regexp"
-	"slices"
 	"strings"
 	"unicode"
 
@@ -372,7 +371,7 @@ func commandCredentialDetected(command string, depth int) bool {
 			credential = true
 			return false
 		}
-		if len(args) > 0 && mysqlClient(args[0]) && slices.ContainsFunc(args[1:], mysqlPasswordArg) {
+		if passesPasswordArg(args) {
 			credential = true
 			return false
 		}

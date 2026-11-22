@@ -243,7 +243,7 @@ Dry-run, render, import, and migration previews hide literal credential values. 
 - A hidden-value change still reports drift.
 - JSON, JSON with comments, YAML, and TOML previews keep valid syntax. A recognized document or sensitive command that cannot be shown safely is withheld.
 - API-key helper paths stay visible. Helper commands with literal arguments or shell operations are hidden, since they can contain the key.
-- Markdown and other prose previews are withheld whole when a credential label carries a value: `password:` or `token =` with a literal, a table cell or XML tag named `token`, `session`, or `password`, a sentence such as "the password is ...", `mysql -psecret`, or a private key block.
+- Markdown and other prose previews are withheld whole when a credential label carries a value: `password:` or `token =` with a literal, a table cell or XML tag named `token`, `session`, or `password`, a sentence such as "the password is ...", `mysql -psecret` or `sshpass -p secret`, or a private key block.
 - Text that only names the words ("never commit secrets", "token budget") still shows, as does a label set to `null`, a boolean, a number, or an environment reference.
 - The web interface's file view is stricter. It withholds a whole file that names a strong credential word (password, secret, credential, or a key such as API key), even in guidance. See [the source endpoint](@/docs/cli-reference/serve-api.md#get-api-views-source).
 - Not detected: secrets in freeform prompts, prose with no label, URL path segments made only of letters, unknown scripts, and binary assets.

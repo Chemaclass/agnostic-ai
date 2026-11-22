@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestSettings_AnimateIsOnWhenTheFileHasNoKey(t *testing.T) {
@@ -198,5 +199,89 @@ func TestWebviewDataPath_IsInsideTheCompanionFolder(t *testing.T) {
 
 	if want := filepath.Join(config, "agnostic-ai", "companion", "webview"); got != want {
 		t.Errorf("got %q, want %q", got, want)
+	}
+}
+
+// A drag of the circle saves its place after a web page turned the small
+// circle on: the save must not write the companion's older copy back.
+func TestChangeSettings_KeepsAValueAnotherProcessWrote(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	if err := s.changeSettings(func(saved *settings) { saved.Shortcut = "Cmd+Shift+K" }); err != nil {
+		t.Fatal(err)
+	}
+	outside, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	outside.SmallCompanion = true
+	if err := writeSettings(s.settingsPath, outside); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.changeSettings(func(saved *settings) { saved.Bubble = &point{X: 3, Y: 4} }); err != nil {
+		t.Fatal(err)
+	}
+
+	saved, err := readSettings(s.settingsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !saved.SmallCompanion || saved.Bubble == nil || *saved.Bubble != (point{X: 3, Y: 4}) || saved.Shortcut != "Cmd+Shift+K" {
+		t.Errorf("saved %+v; want the outside value, the new place and the shortcut", saved)
+	}
+}
+
+func TestSaveSettingsChange_WaitsForTheLock(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "companion.json")
+	release, err := lockSettings(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- saveSettingsChange(path, settings{Shortcut: "Cmd+Shift+K"}, func(saved *settings) { saved.DimWhenIdle = true })
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("the save did not wait for the lock: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	release()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if saved, err := readSettings(path); err != nil || !saved.DimWhenIdle || saved.Shortcut != "Cmd+Shift+K" {
+		t.Errorf("saved %+v, %v", saved, err)
+	}
+}
+
+// TestLoadSettings_WaitsForASaveInProgress holds the settings lock while
+// a broken file is replaced with a good one: recovery waits, then reads
+// the good file and moves nothing aside.
+func TestLoadSettings_WaitsForASaveInProgress(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "companion.json")
+	if err := os.WriteFile(path, []byte("{cut short"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	release, err := lockSettings(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan settings)
+	go func() {
+		saved, _ := loadSettings(path)
+		done <- saved
+	}()
+	time.Sleep(50 * time.Millisecond)
+	if err := os.WriteFile(path, []byte(`{"animate": false}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	release()
+	saved := <-done
+	if saved.Animate == nil || *saved.Animate {
+		t.Errorf("loadSettings = %+v; want the file saved while it waited", saved)
+	}
+	if _, err := os.Stat(path + ".bad"); !os.IsNotExist(err) {
+		t.Errorf("a good file was moved aside: %v", err)
 	}
 }

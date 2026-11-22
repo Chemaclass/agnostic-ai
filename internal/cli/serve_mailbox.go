@@ -90,7 +90,7 @@ func (h *conversationsHandler) serveMailbox(w http.ResponseWriter, r *http.Reque
 	case mailboxQueuePath:
 		queueMailboxMessage(w, r, store)
 	case mailboxSettingsPath:
-		saveMailboxSettings(w, r, store)
+		saveMailboxSettings(w, r, store, h.companion)
 	}
 }
 
@@ -452,7 +452,9 @@ func queueMailboxMessage(w http.ResponseWriter, r *http.Request, store mailbox.S
 	writeMailboxChange(w, store.Queue(r.Context(), req.Thread, req.N))
 }
 
-func saveMailboxSettings(w http.ResponseWriter, r *http.Request, store mailbox.Store) {
+// saveMailboxSettings turns approval of agent sends on, or off only with
+// the companion's secret.
+func saveMailboxSettings(w http.ResponseWriter, r *http.Request, store mailbox.Store, secret companionSecret) {
 	var req struct {
 		ApproveAgentSends *bool `json:"approveAgentSends"`
 	}
@@ -462,6 +464,10 @@ func saveMailboxSettings(w http.ResponseWriter, r *http.Request, store mailbox.S
 	}
 	if req.ApproveAgentSends == nil {
 		writeMailboxError(w, mailbox.NewRefusal("format"))
+		return
+	}
+	if !*req.ApproveAgentSends && !secret.allows(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Only the companion can turn off approval of agent messages."})
 		return
 	}
 	writeMailboxChange(w, store.SaveSettings(r.Context(), mailbox.Settings{ApproveAgentSends: *req.ApproveAgentSends}))

@@ -32,6 +32,9 @@ const (
 	Asked Outcome = "asked"
 	// Denied blocks the call: the person denied it in the companion.
 	Denied Outcome = "denied"
+	// Changed is a settings change that loosened approvals or ran a
+	// sync, not a tool call.
+	Changed Outcome = "changed"
 )
 
 // ByCompanion marks a log line for a request the hook held for the

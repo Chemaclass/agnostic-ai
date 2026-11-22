@@ -748,17 +748,11 @@ func (h approvalsHandler) view(w http.ResponseWriter, r *http.Request) {
 	}
 	snap := h.reader.snapshot()
 	out := approvalsView{Mode: config.ApprovalsAsk, Tools: []approvalsToolStatus{}, Sessions: []*approvalSession{}}
-	if status, err := readApprovalsStatus(io.Discard); err != nil {
+	if status, err := h.reader.status(); err != nil {
 		out.Problem = err.Error()
 	} else {
 		out.Tools = status.Tools
-		home, _ := h.reader.home()
-		for i := range out.Tools {
-			tool := &out.Tools[i]
-			if tool.Effective == config.ApprovalsReview && !h.reader.activated(tool.Tool, tool.Effective, home) {
-				tool.Effective, tool.Route = config.ApprovalsAsk, ""
-				tool.Reason = "the tool's reviewer is inactive"
-			}
+		for _, tool := range out.Tools {
 			out.Mode = looserApprovalsMode(out.Mode, tool.Effective)
 		}
 	}
@@ -772,6 +766,24 @@ func (h approvalsHandler) view(w http.ResponseWriter, r *http.Request) {
 		return strings.Compare(approvalSessionKey(a.Tool, a.Session), approvalSessionKey(b.Tool, b.Session))
 	})
 	writeEditJSON(w, http.StatusOK, out)
+}
+
+// status is approvals status for the server's working directory, with
+// a review mode whose reviewer is not active read as ask.
+func (a *approvalsReader) status() (approvalsStatusOutput, error) {
+	status, err := readApprovalsStatus(io.Discard)
+	if err != nil {
+		return status, err
+	}
+	home, _ := a.home()
+	for i := range status.Tools {
+		tool := &status.Tools[i]
+		if tool.Effective == config.ApprovalsReview && !a.activated(tool.Tool, tool.Effective, home) {
+			tool.Effective, tool.Route = config.ApprovalsAsk, ""
+			tool.Reason = "the tool's reviewer is inactive"
+		}
+	}
+	return status, nil
 }
 
 // ask sets approvals.mode: ask in the home config's local file. It takes
@@ -795,8 +807,8 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
-	path := userConfigPaths(source)[1]
-	if err := writeApprovalsAsk(path); err != nil {
+	path, err := writeApprovalsAskLocked(source)
+	if err != nil {
 		writeEditJSON(w, http.StatusConflict, editError{Error: err.Error()})
 		return
 	}

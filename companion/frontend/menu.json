@@ -3,6 +3,8 @@
   { "id": "dimWhenIdle", "label": "Dim when idle", "kind": "switch" },
   { "id": "smallCompanion", "label": "Small companion", "kind": "switch" },
   { "id": "startAtLogin", "label": "Start at login", "kind": "switch" },
+  { "id": "approvalsMode", "label": "When a tool asks permission", "kind": "choice", "page": true, "choices": [{ "value": "ask", "label": "Ask me" }, { "value": "review", "label": "Let the tool's reviewer decide" }, { "value": "yolo", "label": "Approve routine calls for me" }] },
+  { "id": "approvalsCompanion", "label": "Approve and deny from this list", "kind": "switch", "page": true, "hint": "Shows Approve and Deny on a row when a Claude Code or Codex request is left to you. The terminal prompt stays open." },
   { "id": "approveAgentSends", "label": "Ask me before an agent sends a message", "kind": "switch", "page": true, "hint": "Holds each message an agent sends until you approve it in the thread." },
   { "id": "shortcut", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
   { "id": "sendShortcut", "label": "Send copied text", "kind": "shortcut", "hint": "Change the shortcut that opens the list to send what you copied" },
