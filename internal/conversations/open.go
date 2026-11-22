@@ -261,14 +261,17 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 // and may land in another window.
 func openLink(ctx context.Context, c Conversation, launcher Launcher) OpenReply {
 	app := strings.TrimPrefix(c.Open.Label, "Open in ")
-	folderShown := true
+	var folderErr error
 	if c.editor != nil && c.Folder != "" {
-		folderShown = launcher.OpenFolder(ctx, c.editor.app, c.Folder) == nil
+		folderErr = launcher.OpenFolder(ctx, c.editor.app, c.Folder)
 	}
 	if err := launcher.OpenLink(ctx, c.Open.Link); err != nil {
 		return OpenReply{Message: fmt.Sprintf("Could not hand the conversation to %s. Open this link instead: %s", app, c.Open.Link)}
 	}
-	if !folderShown {
+	if errors.Is(folderErr, errNotHere) {
+		return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s. On this system agnostic-ai cannot open its folder first, so it may show in another window.", app)}
+	}
+	if folderErr != nil {
 		return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s, but its folder %s could not be opened, so it may show in another window.", app, c.Folder)}
 	}
 	return OpenReply{Opened: true, Message: fmt.Sprintf("Opened in %s.", app)}

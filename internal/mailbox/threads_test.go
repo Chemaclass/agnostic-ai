@@ -175,3 +175,16 @@ func TestStore_ReportsTypingEvenWhenTheReceiptCannotBeSaved(t *testing.T) {
 		t.Errorf("typing with failed receipt = %t, %v", typed, err)
 	}
 }
+
+func TestRecordModel_KeepsTheLabelAPersonEntered(t *testing.T) {
+	var thread Thread
+	thread.recordModel(claude, "opus", "human")
+	thread.recordModel(claude, "gpt", "agent")
+	if got := thread.Models["claude:"+claude.ID]; got != (Model{Name: "opus", StatedBy: "human"}) {
+		t.Errorf("model after an agent statement = %+v", got)
+	}
+	thread.recordModel(claude, "sonnet", "human")
+	if got := thread.Models["claude:"+claude.ID]; got != (Model{Name: "sonnet", StatedBy: "human"}) {
+		t.Errorf("model after a new label = %+v", got)
+	}
+}

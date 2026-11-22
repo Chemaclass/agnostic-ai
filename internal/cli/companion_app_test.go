@@ -400,3 +400,30 @@ func TestCompanionUpdateApp_RestoresAndRelaunchesOldAppWhenOpenFails(t *testing.
 		})
 	}
 }
+
+func TestCompanionUpdateApp_RefusesASecondUpdateOfTheSameApp(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("update-app runs on macOS; Windows takes no folder lock")
+	}
+	app := testDownloadableApp(t, t.TempDir())
+	release, err := lockCompanionUpdate(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deps := companionAppDeps{prepare: func(context.Context, io.Writer, string, string) (string, error) {
+		t.Error("downloaded while another update ran")
+		return "", errors.New("unreachable")
+	}}
+
+	err = updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", builtTools(t), deps)
+
+	if err == nil || !strings.Contains(err.Error(), "another update of "+app+" is running") {
+		t.Errorf("err = %v; want the second update refused", err)
+	}
+	release()
+	again, err := lockCompanionUpdate(app)
+	if err != nil {
+		t.Fatalf("the refused update kept the lock: %v", err)
+	}
+	again()
+}

@@ -117,8 +117,13 @@ func (w weztermTab) typeIn(ctx context.Context, tty, text string) (bool, error) 
 	if err := w.activate(ctx, pane); err != nil && !errors.Is(err, errNotInFront) {
 		return false, err
 	}
-	_, err = w.cli(ctx, weztermSendArgs(pane, text, true)...)
-	return err == nil, err
+	// Each part goes in its own send-text call in paste mode.
+	for _, part := range textParts(text, sendPart) {
+		if _, err := w.cli(ctx, weztermSendArgs(pane, part, true)...); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 // newTab spawns a shell in a new tab of the window of WEZTERM_PANE, set

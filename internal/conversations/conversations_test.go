@@ -589,6 +589,12 @@ func TestOpen_FollowsEachRoute(t *testing.T) {
 			reply:        OpenReply{Opened: true, Message: "Opened in Cursor, but its folder /tmp/gone could not be opened, so it may show in another window."},
 			calls:        "folder Cursor /tmp/gone; link cursor://openai.chatgpt/local/x",
 		},
+		"editor extension, no folder step on this system": {
+			conversation: Conversation{Folder: "/tmp/app", editor: &editorApps[0], Open: Route{Kind: RouteLink, Label: "Open in Cursor", Link: "cursor://openai.chatgpt/local/x"}},
+			launcher:     fakeLauncher{folderErr: errNotHere},
+			reply:        OpenReply{Opened: true, Message: "Opened in Cursor. On this system agnostic-ai cannot open its folder first, so it may show in another window."},
+			calls:        "folder Cursor /tmp/app; link cursor://openai.chatgpt/local/x",
+		},
 		"new terminal": {
 			conversation: Conversation{Open: Route{Kind: RouteTerminal, Command: "codex resume x"}},
 			reply:        OpenReply{Opened: true, Message: "Resumed in a new Terminal window."},

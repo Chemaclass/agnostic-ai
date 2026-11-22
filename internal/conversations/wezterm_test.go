@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 // weztermList is `wezterm cli list --format json` with two windows, the
@@ -147,5 +148,42 @@ func TestWezTermArgs_KeepTheValueLastAfterTheEndOfOptions(t *testing.T) {
 		if len(args) < 2 || args[len(args)-1] != hostile || args[len(args)-2] != "--" {
 			t.Errorf("%s: %q", name, args)
 		}
+	}
+}
+
+// linuxArgMax is the largest single argument Linux passes to a program.
+const linuxArgMax = 128 << 10
+
+// sentParts are the values after "-- " of every send-text call, in order.
+func sentParts(calls []string) []string {
+	var parts []string
+	for _, call := range calls {
+		if strings.Contains(call, " send-text ") {
+			_, value, _ := strings.Cut(call, " -- ")
+			parts = append(parts, value)
+		}
+	}
+	return parts
+}
+
+func TestWezTerm_TypesALargeTextInPartsThatFitOneArgument(t *testing.T) {
+	text := strings.Repeat("aé\\", MaxSendBytes/4)
+	commands := &fakeCommands{out: map[string]string{"wezterm cli --no-auto-start list": weztermList}}
+
+	if ok, err := testWezTerm(commands).typeIn(context.Background(), "/dev/ttys041", text); !ok || err != nil {
+		t.Fatalf("ok %v err %v", ok, err)
+	}
+
+	parts := sentParts(commands.calls)
+	if len(parts) < 2 {
+		t.Fatalf("parts = %d, want the text cut", len(parts))
+	}
+	for _, part := range parts {
+		if len(part) >= linuxArgMax || !utf8.ValidString(part) {
+			t.Errorf("part of %d bytes, valid UTF-8 %v", len(part), utf8.ValidString(part))
+		}
+	}
+	if got := strings.Join(parts, ""); got != text {
+		t.Errorf("joined parts differ from the pasted text")
 	}
 }

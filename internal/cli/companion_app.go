@@ -141,6 +141,11 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return fmt.Errorf("update %s: version %q is not a stable release; use X.Y.Z, such as 1.4.0", app, version)
 	}
 	version = release
+	unlock, err := lockCompanionUpdate(app)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	staging, err := os.MkdirTemp(filepath.Dir(app), ".companion-update-")
 	if err != nil {
 		return fmt.Errorf("%s cannot be updated where it is (%w). Move the app to Applications, open it from there, then update", app, err)

@@ -158,7 +158,7 @@ func TestApprove_HandoffChecksOwnershipAgainAndCannotBeAcceptedWhileHeld(t *test
 	ctx := t.Context()
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
-	if err := s.Claim(ctx, claude, Gives{root, []string{"scope"}}, root); err != nil {
+	if err := s.Claim(ctx, claude, Gives{root, []string{"scope"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	gives := Gives{root, []string{"scope/a.go"}}
@@ -224,7 +224,7 @@ func TestApprove_AHeldOrRejectedHandoffCannotBeAnswered(t *testing.T) {
 	ctx := t.Context()
 	s := Store{Dir: t.TempDir()}
 	root := claimRepo(t)
-	if err := s.Claim(ctx, claude, Gives{root, []string{"scope"}}, root); err != nil {
+	if err := s.Claim(ctx, claude, Gives{root, []string{"scope"}}, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	gives := Gives{root, []string{"scope/a.go"}}

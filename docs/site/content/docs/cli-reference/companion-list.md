@@ -38,7 +38,7 @@ Click a row to reach its chat.
 
 | Chat | What a click does |
 |------|-------------------|
-| Running in Terminal, Ghostty, iTerm, WezTerm or kitty | Selects its tab. |
+| Running in Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole | Selects its tab. |
 | Running in tmux | Selects its pane, then the tab that shows its tmux session. |
 | Ended terminal chat | Resumes it in a new tab. |
 | Claude Code `--bg` session | Selects the tab that runs `claude attach`, or opens one. |
@@ -80,7 +80,7 @@ Send text you copied to any chat without switching apps.
 
 | Chat | What happens |
 |------|--------------|
-| Live Terminal, Ghostty, iTerm, WezTerm or kitty tab | It comes forward with the text in its input. Press Enter. |
+| Live Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab | It comes forward with the text in its input. Press Enter. |
 | Any other chat | It comes forward. Paste with Cmd+V. |
 
 Only one chat can take text? It goes straight there. Change the shortcut under **Send copied text** in the list's ⋯ menu or the circle's right-click menu.
@@ -131,7 +131,7 @@ The chat's own tool takes the name first. Only then is it saved, so every `serve
 - A new message keeps the name.
 - Right-clicking does not open the chat or mark it as read.
 - A click on the name still opens the chat.
-- A running chat's Terminal, Ghostty, WezTerm or kitty tab takes the name as its title, and keeps it after the session ends. In iTerm the name goes on the chat's pane.
+- A running chat's Terminal, Ghostty, WezTerm, kitty or Konsole tab takes the name as its title, and keeps it after the session ends. In iTerm the name goes on the chat's pane.
 - Claude Code: a session that is still running may write its old name back.
 - Cursor editor chat: the name changes in the chat list and in the chat's own data, and nowhere else. Cursor may write the old name back if it has the chat loaded.
 - cursor-agent chat: the name changes in its `store.db`, only when a look at the open files just before the write finds the chat not running.

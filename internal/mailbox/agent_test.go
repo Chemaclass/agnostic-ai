@@ -121,6 +121,33 @@ func TestAnswerHandoffFromAgent_OnlyTheOfferedSessionAnswers(t *testing.T) {
 	if len(thread.Refusals) != 2 {
 		t.Errorf("refusals = %+v, want both recorded", thread.Refusals)
 	}
+	expectedClaimBy(t, s, codex, "agent")
+}
+
+func TestClaim_RecordsWhetherAPersonOrAnAgentClaimed(t *testing.T) {
+	s := Store{Dir: t.TempDir()}
+	root := claimRepo(t)
+	if err := s.Claim(t.Context(), claude, Gives{root, []string{"scope/a.go"}}, root, "human"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Claim(t.Context(), codex, Gives{root, []string{"scope/b.go"}}, root, "agent"); err != nil {
+		t.Fatal(err)
+	}
+	expectedClaimBy(t, s, claude, "human")
+	expectedClaimBy(t, s, codex, "agent")
+}
+
+func expectedClaimBy(t *testing.T, s Store, owner conversations.Ref, by string) {
+	t.Helper()
+	view, err := s.ClaimsOf(t.Context(), owner)
+	if err != nil || len(view.Claims) == 0 {
+		t.Fatalf("claims of %v = %+v, %v", owner, view, err)
+	}
+	for _, claim := range view.Claims {
+		if claim.By != by {
+			t.Errorf("claim %+v, want by %s", claim, by)
+		}
+	}
 }
 
 func TestAnswerHandoffFromAgent_DeclineIsRecordedAsTheAgent(t *testing.T) {

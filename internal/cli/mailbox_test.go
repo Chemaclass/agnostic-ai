@@ -533,7 +533,7 @@ func TestMailboxAccept_MovesPathsOnlyWithoutAConflict(t *testing.T) {
 		t.Errorf("accepted thread = %+v", thread)
 	}
 	view, err := f.store.ClaimsOf(context.Background(), agentCodex)
-	if err != nil || len(view.Claims) != 1 {
+	if err != nil || len(view.Claims) != 1 || view.Claims[0].By != "agent" {
 		t.Errorf("codex claims = %+v, %v", view, err)
 	}
 
