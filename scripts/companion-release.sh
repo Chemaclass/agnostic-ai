@@ -41,7 +41,7 @@ image_diagnostics() {
 # helper that holds the new, unattached image to stop; verify checks the
 # checksums right after. Elsewhere, only report who holds it.
 release_image() {
-  local image="$1" pid pids attached helpers="" waited=0
+  local image="$1" pid pids attached helper_pids helpers="" waited=0
   pids="$(lsof -t -- "$image" 2>/dev/null)" || true
   [ -z "$pids" ] && return 0
   echo "hdiutil create left $image open" >&2
@@ -49,13 +49,17 @@ release_image() {
   if [ "${GITHUB_ACTIONS:-}" != true ]; then
     return 0
   fi
-  attached="$(hdiutil info -plist 2>/dev/null)" || return 0
+  if ! attached="$(hdiutil info -plist 2>/dev/null)"; then
+    echo "could not check whether $image is attached; leaving its holder alone" >&2
+    return 0
+  fi
   if grep -qF -e "<string>$image</string>" -e "<string>/private$image</string>" <<< "$attached"; then
     echo "$image is attached; leaving its helper alone" >&2
     return 0
   fi
+  helper_pids="$(pgrep -f '^/System/Library/PrivateFrameworks/DiskImages\.framework/Resources/diskimages-helper([[:space:]]|$)')" || true
   for pid in $pids; do
-    if [[ "$(ps -o comm= -p "$pid" 2>/dev/null)" == *diskimages-helper ]]; then
+    if grep -qxF -- "$pid" <<< "$helper_pids"; then
       helpers="$helpers $pid"
     fi
   done

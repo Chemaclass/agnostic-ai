@@ -117,7 +117,7 @@ function test_it_fails_at_once_on_any_other_error() {
 }
 
 # lsof reports $1 as holding the image until it is signalled, then for
-# $HOLDER_LINGERS more checks. ps names it $2, signals are recorded in $3,
+# $HOLDER_LINGERS more checks. Its full command is $2, signals go to $3,
 # and hdiutil info lists $HOLDER_ATTACHED as attached.
 function stub_image_holder() {
   HOLDER_PID="$1"
@@ -139,9 +139,17 @@ function stub_image_holder() {
     echo "lsof $*"
   }
   # shellcheck disable=SC2329
-  function ps() { echo "$HOLDER_NAME"; }
+  function ps() { echo "diskimages-help"; }
   # shellcheck disable=SC2329
-  function pgrep() { echo "pgrep $*"; }
+  function pgrep() {
+    if [ "$1" = -lf ]; then
+      echo "$HOLDER_PID $HOLDER_NAME"
+    elif [ "$1" = -f ] && [[ "$HOLDER_NAME" =~ $2 ]]; then
+      echo "$HOLDER_PID"
+    else
+      return 1
+    fi
+  }
   # shellcheck disable=SC2329
   function hdiutil() {
     if [ "$*" = "info -plist" ]; then
@@ -175,7 +183,7 @@ function test_release_image_asks_the_helper_once_to_stop_on_ci() {
   local tmp output killed slept status
   tmp="$(mktemp -d)"
   export GITHUB_ACTIONS=true
-  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  run_release_image "$tmp" 4242 "/System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper -uuid fixture -post-exec 4"
   rm -rf "$tmp"
 
   assert_contains "hdiutil create left image.dmg open" "$output"
