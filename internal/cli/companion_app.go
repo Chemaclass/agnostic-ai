@@ -173,23 +173,47 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if _, err := endCompanion(ctx, tools, filepath.Join(app, "Contents", "MacOS", companionName)); err != nil {
 		return err
 	}
-	err = replaceCompanionApp(tools.rename, built, app, staging)
-	if _, ok := errors.AsType[companionKeptAside](err); ok {
-		keep = true
-		return err
+	aside := filepath.Join(staging, companionAsideName)
+	if err := replaceCompanionApp(tools.rename, built, app, staging); err != nil {
+		_, _ = fmt.Fprintln(out, "Could not replace the companion app.")
+		if _, kept := errors.AsType[companionKeptAside](err); kept {
+			keep = true
+			_, _ = fmt.Fprintf(out, "Could not restore the earlier companion. %v\n", err)
+			return err
+		}
+		return errors.Join(fmt.Errorf("replace %s: %w", app, err), restartEarlierCompanion(out, app, deps.start))
 	}
-	if err == nil {
-		// The restarted companion reads this line to tell a finished swap from a rollback.
-		_, _ = fmt.Fprintln(out, "Replaced the companion app.")
+	_, _ = fmt.Fprintln(out, "Swapped the companion app.")
+	if err := deps.start(app); err != nil {
+		launchErr := fmt.Errorf("start %s: %w", app, err)
+		_, _ = fmt.Fprintln(out, "Could not start the updated companion.")
+		// Move the failed app out of the way before putting the original back.
+		restoreErr := tools.rename(app, built)
+		if restoreErr == nil {
+			restoreErr = tools.rename(aside, app)
+		}
+		if restoreErr != nil {
+			keep = true
+			kept := companionKeptAside{err: errors.Join(launchErr, restoreErr), aside: aside, installed: app}
+			_, _ = fmt.Fprintf(out, "Could not restore the earlier companion. %v\n", kept)
+			return kept
+		}
+		_, _ = fmt.Fprintln(out, "Restored the earlier companion.")
+		return errors.Join(launchErr, restartEarlierCompanion(out, app, deps.start))
 	}
-	if startErr := deps.start(app); startErr != nil {
-		return errors.Join(err, fmt.Errorf("start %s: %w", app, startErr))
-	}
-	if err != nil {
-		return fmt.Errorf("replace %s: %w", app, err)
-	}
+	// Only mark completion after open accepts the launch.
+	_, _ = fmt.Fprintln(out, "Replaced the companion app.")
 	_, err = fmt.Fprintf(out, "Updated %s to %s and started it again.\n", app, version)
 	return err
+}
+
+func restartEarlierCompanion(out io.Writer, app string, start func(string) error) error {
+	if err := start(app); err != nil {
+		_, _ = fmt.Fprintln(out, "Could not start the earlier companion.")
+		return fmt.Errorf("start the earlier companion at %s: %w", app, err)
+	}
+	_, _ = fmt.Fprintln(out, "Started the earlier companion.")
+	return nil
 }
 
 func downloadVerifiedCompanionAsset(ctx context.Context, out io.Writer, client *http.Client, baseURL, version, asset string, verify provenanceCheck) ([]byte, error) {

@@ -141,7 +141,7 @@ func withVersion(t *testing.T, running string) {
 }
 
 func TestAppMenu_TerminalInstallChecksForUpdatesWithoutTheInstallItem(t *testing.T) {
-	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.96.0","method":"homebrew","oneClick":true}`, "")
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.96.0","method":"homebrew","oneClick":true,"confirmsRelease":true}`, "")
 	s, _, _, menu := menuShell(t)
 
 	if s.appCommands == nil || menu.FindByLabel("Check for updates") == nil {
@@ -176,7 +176,7 @@ func TestTerminalUpdate_OffersTheLatestReleaseTheCommandReports(t *testing.T) {
 			previous := terminalOneClick
 			t.Cleanup(func() { terminalOneClick = previous })
 			terminalOneClick = tc.oneClick
-			calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+			calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true,"confirmsRelease":true}`, "")
 			s, _, _, _ := menuShell(t)
 
 			s.appCommands.checkUpdates(t.Context())
@@ -208,7 +208,7 @@ func TestTerminalUpdate_ShowsTheCommandWhenItCannotRunFromTheApp(t *testing.T) {
 
 func TestTerminalUpdate_SaysWhenUpgradeLeftTheCompanionRunning(t *testing.T) {
 	withVersion(t, "0.96.0")
-	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true,"confirmsRelease":true}`, "")
 	s, _, _, _ := menuShell(t)
 	s.appCommands.checkUpdates(t.Context())
 	script := "#!/bin/sh\nexit 0\n"
@@ -229,7 +229,7 @@ func TestTerminalUpdate_RunsUpgradeAndNamesThePackageManagerDelay(t *testing.T) 
 	t.Cleanup(func() { terminalOneClick = previous })
 	terminalOneClick = true
 	withVersion(t, "0.96.0")
-	calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`,
+	calls := fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true,"confirmsRelease":true}`,
 		"Error: the CLI is still 0.96.0: Homebrew does not serve 0.97.0 yet. Run agnostic-ai upgrade again later")
 	s, _, _, _ := menuShell(t)
 	s.appCommands.checkUpdates(t.Context())
@@ -247,7 +247,7 @@ func TestTerminalUpdate_RunsUpgradeAndNamesThePackageManagerDelay(t *testing.T) 
 	if got.Reason != "the package manager does not serve the new version yet. Try again later" || got.Command != upgradeCommand {
 		t.Errorf("failed status = %+v", got)
 	}
-	if raw, _ := os.ReadFile(calls); !strings.HasSuffix(strings.TrimSpace(string(raw)), "\nupgrade") {
+	if raw, _ := os.ReadFile(calls); !strings.HasSuffix(strings.TrimSpace(string(raw)), "\nupgrade --companion-confirmed-release 0.97.0") {
 		t.Errorf("calls = %q; want upgrade last", raw)
 	}
 }
@@ -528,7 +528,7 @@ func TestCLIRelease_OnlyTheDiskImageAppFailsOnAnUnreadableImageList(t *testing.T
 		t.Skip("the fake command is a shell script")
 	}
 	command := filepath.Join(t.TempDir(), "agnostic-ai")
-	status := `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true,"image":false,"imageError":"checksums.txt: 502"}`
+	status := `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true,"confirmsRelease":true,"image":false,"imageError":"checksums.txt: 502"}`
 	if err := os.WriteFile(command, []byte(fmt.Sprintf("#!/bin/sh\necho %q\n", status)), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -587,10 +587,10 @@ func TestFailedUpdateAfterRestart_ShowsARollbackOnceOnTheNextStart(t *testing.T)
 				tc.want.Log = path
 			}
 
-			if got := failedUpdateAfterRestart(path); got != tc.want {
+			if got := failedUpdateAfterRestart(path, false); got != tc.want {
 				t.Errorf("first start = %+v; want %+v", got, tc.want)
 			}
-			if got := failedUpdateAfterRestart(path); got.State != updateIdle {
+			if got := failedUpdateAfterRestart(path, false); got.State != updateIdle {
 				t.Errorf("second start = %+v; want idle", got)
 			}
 		})
@@ -604,7 +604,7 @@ func TestFailedUpdateAfterRestart_StaysThroughTheAutomaticCheckAtStart(t *testin
 	if err := os.WriteFile(s.appCommands.logPath(), []byte(log), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	s.appCommands.current = failedUpdateAfterRestart(s.appCommands.logPath())
+	s.appCommands.current = failedUpdateAfterRestart(s.appCommands.logPath(), s.appCommands.app == "")
 
 	s.appCommands.checkUpdates(t.Context())
 
@@ -621,9 +621,87 @@ func TestFailedUpdateAfterRestart_IgnoresAnUpdateNotNewerThanThisVersion(t *test
 			if err := os.WriteFile(path, []byte("Downloading agnostic-ai 0.97.0.\nRestarting the companion.\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if got := failedUpdateAfterRestart(path); got.State != updateIdle {
+			if got := failedUpdateAfterRestart(path, false); got.State != updateIdle {
 				t.Errorf("status = %+v; want idle", got)
 			}
 		})
+	}
+}
+
+func TestTerminalUpdate_DoesNotOfferAReleaseOlderThanTheInstalledCLI(t *testing.T) {
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{"installed":"0.98.0","latest":"0.97.0","method":"binary","oneClick":true}`, "")
+	s, _, _, _ := menuShell(t)
+	s.appCommands.check(t.Context(), false)
+	if got := s.updateStatus(); got.State != updateIdle {
+		t.Errorf("status = %+v; want no downgrade offered", got)
+	}
+}
+
+func TestFailedUpdateAfterRestart_UsesExplicitOutcomes(t *testing.T) {
+	withVersion(t, "0.97.0")
+	for _, tc := range []struct {
+		name, log, reason, command string
+	}{
+		{"failed DMG restore", "Downloading agnostic-ai 0.97.0.\nRestarting the companion.\nSwapped the companion app.\nCould not start the updated companion.\nCould not restore the earlier companion.\n", "the earlier companion could not be restored. See the log for its saved location", ""},
+		{"terminal launch failed", "Updating the terminal companion to 0.97.0.\nTerminal update failed: CLI upgrade succeeded, but companion update failed: start the companion: open failed\n", "the CLI was upgraded, but the companion could not restart", upgradeCommand},
+		{"terminal upgrade finished", "Updating the terminal companion to 0.97.0.\nTerminal update completed.\n", "", ""},
+		{"terminal upgrade in progress", "Updating the terminal companion to 0.97.0.\n", "", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "companion-update.log")
+			if err := os.WriteFile(path, []byte(tc.log), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			terminal := strings.HasPrefix(tc.log, terminalTarget)
+			if wrong := failedUpdateAfterRestart(path, !terminal); wrong.State != updateIdle {
+				t.Errorf("other install type got status %+v; want idle", wrong)
+			}
+			got := failedUpdateAfterRestart(path, terminal)
+			if tc.reason == "" {
+				if got.State != updateIdle {
+					t.Errorf("status = %+v; want idle", got)
+				}
+			} else if got.State != updateFailed || got.Reason != tc.reason || got.Log != path || got.Command != tc.command {
+				t.Errorf("status = %+v; want %q, log path and command %q", got, tc.reason, tc.command)
+			}
+		})
+	}
+}
+
+func TestStartUpdate_RefusesAReleaseThatReplacedTheConfirmedOffer(t *testing.T) {
+	s, _, _ := updateShell(t, "0.98.0", nil)
+	s.appCommands.checkUpdates(t.Context())
+	rec := post(s, "/api/update/start?version=0.97.0")
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "the offered release changed") {
+		t.Errorf("start = %d %s; want a stale confirmation conflict", rec.Code, rec.Body)
+	}
+}
+
+func TestTerminalUpdate_LegacyCLIUsesCopyCommand(t *testing.T) {
+	wasOneClick := terminalOneClick
+	terminalOneClick = true
+	t.Cleanup(func() { terminalOneClick = wasOneClick })
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"homebrew","oneClick":true}`, "")
+	s, _, _, _ := menuShell(t)
+	s.appCommands.check(t.Context(), false)
+	if got := s.updateStatus(); got.State != updateAvailable || got.Command != upgradeCommand {
+		t.Errorf("status = %+v; want the copy command for an older CLI", got)
+	}
+}
+
+func TestTerminalUpdate_ClearsTheOfferWhenTheReleaseChanges(t *testing.T) {
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{}`, "Terminal update failed: release changed since confirmation: approved 0.97.0, latest 0.98.0")
+	s, _, _, _ := menuShell(t)
+	var last updateStatus
+	s.tellUpdate = func(status updateStatus) { last = status }
+	s.appCommands.update("0.97.0")
+	if last.State != updateIdle || last.Version != "" || last.Result != updateReleaseChanged || last.Log == "" {
+		t.Errorf("status = %+v; want an expired offer and a log", last)
+	}
+	if got := failedUpdateAfterRestart(s.appCommands.logPath(), s.appCommands.app == ""); got.State != updateIdle {
+		t.Errorf("after restart = %+v; want the handled refusal cleared", got)
 	}
 }

@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"iter"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 )
 
@@ -145,7 +147,45 @@ func fakeSeparateCommand(t *testing.T, path, reports string) string {
 
 func useSeparateCommand(t *testing.T, path string) {
 	t.Helper()
-	previous := separateCommand
-	t.Cleanup(func() { separateCommand = previous })
-	separateCommand = func() (string, error) { return path, nil }
+	previous := separateCommands
+	t.Cleanup(func() { separateCommands = previous })
+	separateCommands = func() iter.Seq[string] { return slices.Values([]string{path}) }
+}
+
+func TestOlderCLI_FindsStandaloneCommandBehindTheAppLink(t *testing.T) {
+	withVersion(t, "0.97.0")
+	dir := t.TempDir()
+	s, _ := bundledScript(t, `{"installed":"0.97.0","latest":"0.97.0","image":false}`)
+	link := filepath.Join(dir, binaryName)
+	if err := os.Symlink(s.appCommands.command, link); err != nil {
+		t.Fatal(err)
+	}
+	fallback := fakeSeparateCommand(t, filepath.Join(t.TempDir(), "shell's bin", binaryName), "0.96.0")
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+filepath.Dir(fallback))
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	config, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	record := filepath.Join(config, "agnostic-ai", commandPathFile)
+	if err := os.MkdirAll(filepath.Dir(record), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(record, []byte(link), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	separateCommands = standaloneCandidates
+	previousFolders := usualSystemFolders
+	t.Cleanup(func() { usualSystemFolders = previousFolders })
+	usualSystemFolders = nil
+	if found, err := separateBinary(); err != nil || found != link {
+		t.Errorf("normal command = %q, %v; want the recorded link", found, err)
+	}
+
+	s.appCommands.noteOlderCLI(t.Context())
+
+	if got := s.appCommands.olderCLI; got == nil || got.Path != fallback || got.Command != shellQuote(fallback)+" upgrade" {
+		t.Errorf("older CLI = %+v; want the quoted standalone path %q", got, fallback)
+	}
 }

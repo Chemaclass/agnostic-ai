@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"runtime"
 	"time"
 
@@ -22,6 +23,8 @@ type companionUpdateStatus struct {
 	Command   string `json:"command,omitempty"`
 	// OneClick says agnostic-ai upgrade knows how to upgrade this install.
 	OneClick bool `json:"oneClick"`
+	// ConfirmsRelease says upgrade can refuse a release that differs from the one accepted in the companion.
+	ConfirmsRelease bool `json:"confirmsRelease"`
 	// Image says checksums.txt of a newer latest release lists this Mac's companion disk image.
 	Image bool `json:"image"`
 	// ImageError says why checksums.txt could not tell whether it lists the disk image.
@@ -47,7 +50,7 @@ func companionUpdateStatusOf(info upgradeInfo, image companionImage) (companionU
 		return companionUpdateStatus{}, fmt.Errorf("check latest release: %q is not a stable release", info.Latest)
 	}
 	oneClick := info.Method != installUnknown && (info.Method != installBinary || standalonePlatformError(runtime.GOOS) == nil)
-	status := companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: oneClick, Image: image.Listed}
+	status := companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: oneClick, ConfirmsRelease: true, Image: image.Listed}
 	if image.Err != nil {
 		status.ImageError = image.Err.Error()
 	}
@@ -71,8 +74,15 @@ func companionImageListed(version string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("checksums.txt: %w", err)
 	}
-	_, err = releaseChecksum(checksums, fmt.Sprintf("%s_darwin_%s.dmg", companionName, machineArch()))
-	return err == nil, nil
+	return companionImageInChecksums(checksums, fmt.Sprintf("%s_darwin_%s.dmg", companionName, machineArch()))
+}
+
+func companionImageInChecksums(checksums []byte, asset string) (bool, error) {
+	_, err := releaseChecksum(checksums, asset)
+	if _, missing := errors.AsType[releaseAssetMissing](err); missing {
+		return false, nil
+	}
+	return err == nil, err
 }
 
 // detectCompanionUpdate is what update-status reports: the install, and
@@ -87,10 +97,13 @@ func detectCompanionUpdate(current string, refresh bool) (upgradeInfo, companion
 		return upgradeInfo{}, companionImage{}, err
 	}
 	var image func(string) (bool, error)
-	if runtime.GOOS == "darwin" {
+	// A terminal companion only needs the latest release. Keep image
+	// checks enabled for direct update-status calls.
+	if runtime.GOOS == "darwin" && os.Getenv("AGNOSTIC_AI_COMPANION_SKIP_IMAGE") != "1" {
 		image = companionImageListed
 	}
-	latest, listed, err := companionUpdateCacheAt(path, info.Version, time.Now(), refresh, fetchUpgradeOffer, image)
+	keepImageOffer := os.Getenv("AGNOSTIC_AI_COMPANION_KEEP_IMAGE_OFFER") == "1"
+	latest, listed, err := companionUpdateCacheAt(path, info.Version, time.Now(), refresh, keepImageOffer, fetchUpgradeOffer, image)
 	info.Latest = latest
 	if latest == "" {
 		info.LatestError = err
