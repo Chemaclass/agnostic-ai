@@ -42,6 +42,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 		addr, dir, uiDir, switchBack          string
 		open, userLevel, noInstalled, apiOnly bool
 		stopWithStdin, cloudSessions          bool
+		secretFromStdin                       bool
 		allowedOrigins                        []string
 	)
 	cmd := &cobra.Command{
@@ -107,7 +108,11 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 				}
 				uiDir = abs
 			}
-			companion := takeCompanionSecret()
+			var companion companionSecret
+			stdin := cmd.InOrStdin()
+			if secretFromStdin {
+				companion, stdin = readCompanionSecret(stdin)
+			}
 			stuckShellAfter := servedShellThreshold(cmd.ErrOrStderr())
 			src, err := openAuthoritySource(dir, userLevel)
 			if err != nil {
@@ -153,7 +158,7 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 			defer switches.close()
 			ctx := cmd.Context()
 			if stopWithStdin {
-				ctx = endedWith(ctx, cmd.InOrStdin())
+				ctx = endedWith(ctx, stdin)
 			}
 			if stopWithStdin && userLevel && companion != "" {
 				// Only a companion starts a user-level server this way, and
@@ -180,6 +185,8 @@ func newServeCmdWithBrowser(browser func(string) error) *cobra.Command {
 	_ = cmd.Flags().MarkHidden("switch-back")
 	cmd.Flags().BoolVar(&stopWithStdin, "stop-with-stdin", false, "Stop when standard input closes: a program that started this server ends it by closing the pipe, or by ending itself.")
 	_ = cmd.Flags().MarkHidden("stop-with-stdin")
+	cmd.Flags().BoolVar(&secretFromStdin, "secret-from-stdin", false, "Read the companion's per-launch secret from the first line of standard input.")
+	_ = cmd.Flags().MarkHidden("secret-from-stdin")
 	cmd.Flags().BoolVar(&cloudSessions, "cloud-sessions", false, "Also list Claude Code cloud sessions and Codex cloud threads: reads each tool's own sign-in on this machine and asks its cloud at most once a minute. Needs --scope user.")
 	return cmd
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"cmp"
 	"context"
 	"crypto/subtle"
@@ -31,11 +32,6 @@ const (
 	approvalsDecidePath = "/api/approvals/decide"
 )
 
-// companionSecretEnv carries the per-launch secret of the companion
-// that starts a server. serve reads it once and removes it from its
-// environment, so no process the server starts inherits it.
-const companionSecretEnv = "AGNOSTIC_AI_COMPANION_SECRET"
-
 // companionSecretHeader carries that secret on each companion request.
 const companionSecretHeader = "X-Agnostic-Ai-Companion-Secret"
 
@@ -48,15 +44,25 @@ const minCompanionSecret = 32
 // read one: the loopback guard alone lets any local account in.
 type companionSecret string
 
-// takeCompanionSecret reads the secret from the environment and removes
-// it there. A missing or short secret is none.
-func takeCompanionSecret() companionSecret {
-	secret := os.Getenv(companionSecretEnv)
-	_ = os.Unsetenv(companionSecretEnv)
-	if len(secret) < minCompanionSecret {
-		return ""
+// maxCompanionSecretLine bounds the first line read for the secret.
+const maxCompanionSecretLine = 256
+
+// readCompanionSecret reads the secret from the first line of in and
+// returns the rest of in. The companion writes it to the server's stdin:
+// the environment and arguments of a process are readable by any
+// process of the same user (ps eww). A missing, short or non-hex line
+// is no secret.
+func readCompanionSecret(in io.Reader) (companionSecret, io.Reader) {
+	lines := bufio.NewReaderSize(in, maxCompanionSecretLine)
+	line, err := lines.ReadSlice('\n')
+	if err != nil {
+		return "", lines
 	}
-	return companionSecret(secret)
+	secret := strings.TrimRight(string(line), "\r\n")
+	if len(secret) < minCompanionSecret || strings.Trim(secret, "0123456789abcdefABCDEF") != "" {
+		return "", lines
+	}
+	return companionSecret(secret), lines
 }
 
 // allows reports whether r carries the secret. No secret allows nothing.

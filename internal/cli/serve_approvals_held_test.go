@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -113,17 +114,24 @@ func TestApprovals_DecideNeedsTheCompanionSecret(t *testing.T) {
 	}
 }
 
-func TestTakeCompanionSecret_ReadsOnceAndClearsTheEnvironment(t *testing.T) {
-	t.Setenv(companionSecretEnv, string(testCompanionSecret))
-	if got := takeCompanionSecret(); got != testCompanionSecret {
-		t.Errorf("secret = %q", got)
+func TestReadCompanionSecret_TakesTheFirstStdinLineAndKeepsTheRest(t *testing.T) {
+	secret, rest := readCompanionSecret(strings.NewReader(string(testCompanionSecret) + "\r\nstill open"))
+	if secret != testCompanionSecret {
+		t.Errorf("secret = %q", secret)
 	}
-	if _, set := os.LookupEnv(companionSecretEnv); set {
-		t.Error("the secret stays in the environment a started process inherits")
+	if left, _ := io.ReadAll(rest); string(left) != "still open" {
+		t.Errorf("rest of stdin = %q", left)
 	}
-	t.Setenv(companionSecretEnv, "short")
-	if got := takeCompanionSecret(); got != "" {
-		t.Errorf("a short secret = %q, want none", got)
+	for name, input := range map[string]string{
+		"empty":             "",
+		"no line end":       string(testCompanionSecret),
+		"short":             "abc123\n",
+		"not hex":           strings.Repeat("z", minCompanionSecret) + "\n",
+		"an over-long line": strings.Repeat("a", maxCompanionSecretLine+1) + "\n",
+	} {
+		if secret, _ := readCompanionSecret(strings.NewReader(input)); secret != "" {
+			t.Errorf("%s: secret = %q, want none", name, secret)
+		}
 	}
 }
 
@@ -216,5 +224,60 @@ func TestApprovals_HiddenCodexRequestIsReleasedAfterTheGraceWithoutAListRead(t *
 
 	if d, ok := approvals.ReadDecision(dir, id); !ok || d.Decision != approvals.DecideRelease {
 		t.Errorf("after the grace, decision = %+v, %v; want release with no list read", d, ok)
+	}
+}
+
+func TestServe_SecretFromStdinGatesTheDecideRouteAndStillStopsWithStdin(t *testing.T) {
+	for name, first := range map[string]string{"secret": string(testCompanionSecret) + "\n", "malformed": "not-a-secret\n"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv(envUserRoot, t.TempDir())
+			t.Setenv("HOME", t.TempDir())
+			stdin, write := io.Pipe()
+			out := &lockedBuffer{}
+			cmd := newServeCmd()
+			cmd.SetArgs([]string{"--scope", "user", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--secret-from-stdin"})
+			cmd.SetIn(stdin)
+			cmd.SetOut(out)
+			cmd.SetErr(io.Discard)
+			done := make(chan error, 1)
+			go func() { done <- cmd.Execute() }()
+			if _, err := io.WriteString(write, first); err != nil {
+				t.Fatal(err)
+			}
+			address := ""
+			for deadline := time.Now().Add(10 * time.Second); address == ""; time.Sleep(20 * time.Millisecond) {
+				if time.Now().After(deadline) {
+					t.Fatalf("serve did not say its address: %q", out.String())
+				}
+				if _, rest, ok := strings.Cut(out.String(), "Serving agnostic-ai at "); ok {
+					address, _, _ = strings.Cut(rest, "\n")
+				}
+			}
+			req, _ := http.NewRequest(http.MethodPost, address+"api/approvals/decide", strings.NewReader(`{}`))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set(companionSecretHeader, string(testCompanionSecret))
+			resp, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = resp.Body.Close()
+			// A server with the secret reads the body; one without it has no decide route.
+			want := http.StatusBadRequest
+			if name == "malformed" {
+				want = http.StatusNotFound
+			}
+			if resp.StatusCode != want {
+				t.Errorf("decide with the companion secret = %d, want %d", resp.StatusCode, want)
+			}
+			_ = write.Close()
+			select {
+			case err := <-done:
+				if err != nil {
+					t.Errorf("serve = %v", err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("serve did not stop when stdin closed")
+			}
+		})
 	}
 }

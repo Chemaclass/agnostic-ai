@@ -67,10 +67,10 @@ const openLateTimeout = 95 * time.Second
 // maxReplyBytes bounds a reply from the server: a list of conversations.
 const maxReplyBytes = 32 << 20
 
-// secretEnv hands the server this launch's secret; agnostic-ai serve
-// reads it once and removes it from its environment. Arguments would
-// show it to every account on the machine.
-const secretEnv = "AGNOSTIC_AI_COMPANION_SECRET"
+// secretFlag has the server read this launch's secret from the first
+// line of its stdin. Arguments and the environment of a process are
+// readable by other processes (ps eww), so neither carries it.
+const secretFlag = "--secret-from-stdin"
 
 // secretHeader carries the secret on each call. Without it the server
 // lists no held request and answers none: any local account reaches
@@ -211,11 +211,12 @@ func (s *server) start() (string, error) {
 	// `agnostic-ai view` uses. --stop-with-stdin ends the server with
 	// this process, however this process ends. --cloud-sessions adds
 	// the Claude Code sessions that run at claude.ai/code.
-	process := exec.Command(binary, "serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions")
-	withoutConsoleWindow(process)
+	args := []string{"serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions"}
 	if s.secret != "" {
-		process.Env = append(os.Environ(), secretEnv+"="+s.secret)
+		args = append(args, secretFlag)
 	}
+	process := exec.Command(binary, args...)
+	withoutConsoleWindow(process)
 	input, err := process.StdinPipe()
 	if err != nil {
 		return "", fmt.Errorf("start agnostic-ai serve: %w", err)
@@ -228,6 +229,14 @@ func (s *server) start() (string, error) {
 	process.Stderr = problems
 	if err := process.Start(); err != nil {
 		return "", fmt.Errorf("start agnostic-ai serve: %w", err)
+	}
+	if s.secret != "" {
+		if _, err := io.WriteString(input, s.secret+"\n"); err != nil {
+			_ = input.Close()
+			_ = process.Process.Kill()
+			_ = process.Wait()
+			return "", fmt.Errorf("start agnostic-ai serve: hand over the secret: %w", err)
+		}
 	}
 
 	served := make(chan string, 1)

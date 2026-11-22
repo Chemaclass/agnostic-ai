@@ -273,7 +273,7 @@ func TestServer_KeepsAServerThatAnswersBetweenLateReads(t *testing.T) {
 	}
 }
 
-func TestServer_HandsItsSecretOverTheEnvironmentAndSendsItOnEachCall(t *testing.T) {
+func TestServer_HandsItsSecretOverStdinAndSendsItOnEachCall(t *testing.T) {
 	got := make(chan string, 1)
 	api := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/conversations" {
@@ -284,7 +284,9 @@ func TestServer_HandsItsSecretOverTheEnvironmentAndSendsItOnEachCall(t *testing.
 	t.Cleanup(api.Close)
 	seen := filepath.Join(t.TempDir(), "seen")
 	fakeCommand(t, `echo "$@" > "`+seen+`.args"
-echo "$`+secretEnv+`" > "`+seen+`.env"
+env > "`+seen+`.env"
+read -r line
+echo "$line" > "`+seen+`.stdin"
 echo "Serving agnostic-ai at `+api.URL+`/"
 cat > /dev/null`)
 	s := newServer()
@@ -300,9 +302,13 @@ cat > /dev/null`)
 	if header := <-got; header != s.secret {
 		t.Errorf("the call carried %q, want the launch secret", header)
 	}
+	stdin, _ := os.ReadFile(seen + ".stdin")
 	env, _ := os.ReadFile(seen + ".env")
 	args, _ := os.ReadFile(seen + ".args")
-	if strings.TrimSpace(string(env)) != s.secret || strings.Contains(string(args), s.secret) {
-		t.Errorf("the server got the secret in env %q and args %q; want env only", env, args)
+	if strings.TrimSpace(string(stdin)) != s.secret {
+		t.Errorf("the first stdin line = %q, want the launch secret", stdin)
+	}
+	if strings.Contains(string(env), s.secret) || strings.Contains(string(args), s.secret) || !strings.Contains(string(args), secretFlag) {
+		t.Errorf("the server got env %q and args %q; want the secret on stdin only, asked for with %s", env, args, secretFlag)
 	}
 }
