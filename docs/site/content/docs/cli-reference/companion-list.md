@@ -174,15 +174,27 @@ The chat leaves Needs you in the companion and the web interface, and moves wher
 
 ## Rows and order {#rows}
 
-A row shows the title, the agent's latest reply in one line, and a meta line.
+A row shows the title, the agent's latest reply in one line, and a meta line. A row under Needs you also says why it is there.
 
 | Part | What it shows |
 |------|---------------|
+| Reason line | Under the title in Needs you: why the chat needs you. See the reasons below. |
 | Meta line | Tool, where it runs when not here (Cloud, Chat, Cowork or Shared), folder, age. |
 | Reply line | The agent's question, or the start of its last message. |
 | Approval pill | Orange, replaces the reply line while a call waits for approval. |
 | Approval reason | Under the pill, why [approvals](@/docs/cli-reference/companion.md#approvals) left the request to you. |
 | Approved for you | "▸ 3 approved for you" under the meta line, while approvals answer prompts. |
+
+| Reason | When |
+|--------|------|
+| The approval pill | A tool call waits for your approval. |
+| Waiting on 2 shells still running | A [forgotten shell](#stop-a-forgotten-shell) is the only work left. |
+| Asks you a question | The agent asked you something. |
+| No activity for 7m | The server read the wait from silence. |
+| Waiting for you | The tool says it waits, but not for what. |
+| New reply | Something was written since you last looked. "Hidden because it may hold a password or key" is added when the reply is left out. |
+
+Hover a row, a shell line or an approval pill for a tooltip. It opens after a short pause, or when the arrow keys select a row. It sits above the row, or below it when there is no room, and never covers the row. It closes when you press a key, scroll or click, and it follows the row under a still pointer when the list changes.
 
 A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits under its parent in the same group.
 
@@ -254,7 +266,7 @@ On macOS the notice shows at once: the list comes up beside the circle without t
 
 ## Stop a forgotten shell {#stop-a-forgotten-shell}
 
-On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the command, how long it has run, and the subagent that started it when known. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
+On macOS and Linux, a local Claude Code row can warn about a background shell that is still running. Each warning shows the subagent that started it when known, how long it has run, then the command, cut in the middle so two commands that differ only at the end still read apart. A command the server hid, or two that still read the same, add the process ID, as in "Command hidden · pid 14476". Hover the line for the whole command, the start time, the process ID and the number of processes. A shell that is the only work left puts the chat in **Needs you**. If the turn or a subagent is still working, the warning stays visible under **Working**.
 
 Each warning line has two buttons, for Claude Code on macOS and Linux:
 
@@ -290,14 +302,14 @@ Archiving here never changes the chat in its app. Click an archived chat to resu
 
 {% <details summary="Details: unread replies, resuming, working chats, silent Codex chats"> %}
 - A process that ends shows as archived within a minute. Quitting an app archives none of its chats.
-- The tooltip of an archived chat says **Resume in Terminal**, or the app it last ran in.
+- The row's tooltip on an archived chat says **Resume in Terminal**, or the app it last ran in.
 - An archived chat has no read or unread state, even when it closed with a reply you have not read. It shows no ring, adds nothing to the Archived header, and does not count in the circle. You can delete it without reading it first.
 - If you resume such a chat by hand, its old reply does not bring it to Needs you. It shows under Active with its mark ringed in the Needs you orange until you open it or mark it read. The tooltip says "Resumed with a reply from before that you have not read". A later reply does bring it to Needs you.
 - An editor panel or background job archives after a day because nothing reliable says when it closes.
 - An archived or hidden chat that starts working moves to Working as soon as its tool reports the work, before it writes a new message. For local Claude Code that is the next poll; a cloud session can take up to a minute.
 - That clears the archive in `conversation-marks.json`, so the web interface agrees and the chat does not go back to Archived when the work ends.
 - A local Codex chat that wrote nothing for 5 minutes moves to Needs you. Codex does not say when it waits, so the silence is all the server knows.
-- Its tooltip and the age on its meta line say "No activity for 7m". The web interface says that in place of "Waiting for you".
+- Its reason line, its tooltip and the age on its meta line say "No activity for 7m". The web interface says that in place of "Waiting for you".
 - **Delete permanently…** removes an archived chat. See [Delete an archived chat](#delete-an-archived-chat).
 {% </details> %}
 
@@ -322,7 +334,7 @@ The server restarting, or resuming without Remote Control, shows two rows again.
 
 ## What a chat waits for {#waiting}
 
-In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. A chat whose only wait is a forgotten shell has a terminal icon in place of the lock. An unread reply has a plain orange dot, and so does a wait you already read while its subagents still work under Working.
+In Needs you, a chat that waits for you has an orange dot with a lock, the same lock the circle shows next to its count. A chat whose only wait is a forgotten shell has a terminal icon in place of the lock, and when every waiting chat waits on a shell, the circle shows the terminal too. An unread reply has a plain orange dot, and so does a wait you already read while its subagents still work under Working.
 
 A row that waits for you can carry [`waiting`](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) with `{for, tool?, detail?}`. `for` is `permission` (approve a tool call), `answer` (a question), or `shell` (a [forgotten shell](#stop-a-forgotten-shell) is the only work left). It is omitted when unknown.
 

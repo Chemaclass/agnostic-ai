@@ -144,7 +144,8 @@ body {
   display: none;
 }
 
-.lock {
+.lock,
+.terminal {
   display: none;
   width: 11px;
   height: 11px;
@@ -155,8 +156,9 @@ body {
   stroke-linejoin: round;
 }
 
-/* A chat waits for a permission or an answer: solid orange, a lock, and an
-   orange halo, so it reads apart from unread replies without color alone. */
+/* A chat waits for the person: solid orange, a lock (a terminal when every wait
+   is on a shell), and an orange halo, so it reads apart from unread replies
+   without color alone. */
 .badge.is-blocked {
   grid-auto-flow: column;
   gap: 2px;
@@ -165,8 +167,13 @@ body {
   box-shadow: 0 0 0 2px var(--ink), 0 0 0 3.5px var(--action), 0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
-.badge.is-blocked .lock {
+.badge.is-blocked .lock,
+.badge.is-blocked.is-terminal .terminal {
   display: block;
+}
+
+.badge.is-blocked.is-terminal .lock {
+  display: none;
 }
 
 .badge.is-new {
@@ -218,7 +225,8 @@ body {
     box-shadow: 0 0 0 1.5px var(--ink), 0 0 0 2.5px var(--action), 0 1px 3px rgba(0, 0, 0, 0.45);
   }
 
-  .lock {
+  .lock,
+  .terminal {
     width: 8px;
     height: 8px;
   }

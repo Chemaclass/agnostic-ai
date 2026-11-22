@@ -21,16 +21,18 @@ function show(reply) {
   lastReply = reply
   const { note } = reply
   const view = keptViewOf(reply.view, keptShells, Date.now())
-  const count = view.needsYou
+  // The rows the list shows under Needs you with no search and place All, so the badge never counts a row it hides.
+  const waiting = waitingOf(view)
+  const count = waiting.blocked + waiting.unread
   const working = view.conversations.some((conversation) => conversation.state === 'working')
   bubble.classList.toggle('is-working', working)
   const troubled = Boolean(view.marksNote || note)
   bubble.classList.toggle('is-troubled', troubled)
   bubble.classList.toggle('is-idle', count === 0 && !troubled)
-  const waiting = waitingOf(view)
   bubble.setAttribute('aria-label', circleLabelOf(waiting))
   badge.hidden = count === 0
   badge.classList.toggle('is-blocked', waiting.blocked > 0)
+  badge.classList.toggle('is-terminal', waiting.icon === 'terminal')
   badgeCount.textContent = badgeText(waiting.blocked || waiting.unread)
   if (count > shownCount && document.documentElement.dataset.motion !== 'off') {
     // Restart the pop, so each new arrival is noticed.
@@ -107,7 +109,8 @@ window.addEventListener('contextmenu', () => {
 bubble.addEventListener('click', (event) => {
   if (press.dragged || event.ctrlKey) return
   // A working click reads the list again, since the shell sends no new one while it is unchanged.
-  togglePanel().then(refresh, (error) => {
+  // While a row waits, the list opens on it.
+  togglePanel(shownCount > 0).then(refresh, (error) => {
     if (!(error instanceof CallError)) throw error
     showTrouble(error.message)
   })

@@ -286,10 +286,21 @@ function mostUrgentFirst({ rows, under }) {
   return { rows: families.flatMap((family) => family.rows), under }
 }
 
-/** What the circle counts: the rows that wait for the person to act, and the rest of the server's count, the unread replies. */
+/**
+ * What the circle counts, from the rows the list shows under Needs you: the rows that wait for the person to act, the
+ * unread replies, and the icon of the waits: a lock when one waits on a permission or a question, else a terminal.
+ */
 export function waitingOf(view) {
-  const blocked = view.conversations.filter((conversation) => conversation.state === 'blocked').length
-  return { blocked, unread: view.needsYou - blocked }
+  const waits = view.conversations.filter((conversation) => conversation.state === 'blocked')
+  const unread = view.conversations.filter((conversation) => conversation.state === 'unread').length
+  const icon = waits.some((conversation) => conversation.waiting?.for !== 'shell') ? 'lock' : 'terminal'
+  return { blocked: waits.length, unread, icon }
+}
+
+/** The key of the first row under Needs you, where a click on the circle opens the list; undefined when none waits. */
+export function firstWaitingOf(view) {
+  const needsYou = grouped(view?.conversations ?? []).find((group) => group.id === 'needs-you')
+  return needsYou ? keyOf(needsYou.rows[0]) : undefined
 }
 
 /** What the circle tells a screen reader, such as "Conversations: 2 waiting for you, 4 unread". */
@@ -550,19 +561,42 @@ export function approvedToggleOf(conversation, open) {
   return label === undefined ? undefined : `${open ? '▾' : '▸'} ${label}`
 }
 
-/** The active approvals modes the header names. */
+/** The active approvals modes the header chip names: a short label, and the sentence its tooltip says. */
 const APPROVALS_MODE_LABELS = {
-  review: 'Approvals: your tools\' reviewers answer routine prompts',
-  yolo: 'Approvals: routine prompts are approved for you',
+  review: { label: 'Reviewers answer', title: 'Approvals: your tools\' reviewers answer routine prompts' },
+  yolo: { label: 'Auto-approve on', title: 'Approvals: routine prompts are approved for you' },
 }
 
 /**
- * The header line while approvals answer prompts: `{ mode, label }`. Undefined when every prompt reaches
- * the person, as in ask. The Ask me button beside it turns approvals off.
+ * The header chip while approvals answer prompts: `{ mode, label, title }`. Undefined when every prompt reaches
+ * the person, as in ask. The chip's Ask me turns approvals off.
  */
 export function approvalsHeaderOf(view) {
-  const label = APPROVALS_MODE_LABELS[view?.approvalsMode]
-  return label === undefined ? undefined : { mode: view.approvalsMode, label }
+  const labels = APPROVALS_MODE_LABELS[view?.approvalsMode]
+  return labels === undefined ? undefined : { mode: view.approvalsMode, ...labels }
+}
+
+/**
+ * Why a row sits under Needs you, as `{ kind, text }`: a permission (the row draws its approval pill), shells still
+ * running, a question, no activity, a wait of unknown kind, or a new reply. Undefined outside Needs you.
+ */
+export function needsReasonOf(conversation, now) {
+  if (!NEEDS_PERSON[conversation.state]) return undefined
+  if (conversation.state === 'unread') {
+    const hidden = conversation.withheld?.includes('reply')
+    return { kind: 'reply', text: hidden ? 'New reply, hidden because it may hold a password or key' : 'New reply' }
+  }
+  const approval = approvalOf(conversation)
+  if (approval) return { kind: 'permission', text: approval.text }
+  const waitingFor = conversation.waiting?.for
+  if (waitingFor === 'shell') {
+    const count = stuckShellsOf(conversation).length
+    return { kind: 'shell', text: count > 1 ? `Waiting on ${count} shells still running` : 'Waiting on a shell still running' }
+  }
+  if (waitingFor === 'answer') return { kind: 'question', text: 'Asks you a question' }
+  const quiet = quietNoteOf(conversation, now)
+  if (quiet) return { kind: 'quiet', text: quiet }
+  return { kind: 'waiting', text: 'Waiting for you' }
 }
 
 /**
@@ -836,9 +870,61 @@ export function shellCommandOf(shell) {
   return shell.command || 'Command hidden'
 }
 
+function shellOwnerOf(shell) {
+  return shell.helperName ? shell.helperName + ' left a shell' : 'Shell'
+}
+
 export function shellWarningOf(shell, now) {
-  const owner = shell.helperName ? shell.helperName + ' left a shell' : 'Shell'
-  return `${owner} running for ${shellAge(shell, now)}: ${shellCommandOf(shell)}`
+  return `${shellOwnerOf(shell)} running for ${shellAge(shell, now)}: ${shellCommandOf(shell)}`
+}
+
+/** How much of a command a shell line shows, what fits beside its run time: the start and the end, cut in the middle. */
+export const SHELL_COMMAND_SHOWN = 30
+
+function middleCut(text, limit) {
+  const chars = Array.from(text)
+  if (chars.length <= limit) return text
+  const head = Math.ceil((limit - 1) / 2)
+  const tail = limit - 1 - head
+  return chars.slice(0, head).join('').trimEnd() + '…' + chars.slice(chars.length - tail).join('').trimStart()
+}
+
+function runTimeOf(ms) {
+  if (ms < MINUTE) return 'less than a minute'
+  const minutes = Math.floor(ms / MINUTE)
+  if (minutes < 60) return `${minutes} min`
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
+}
+
+function clockOf(stamp) {
+  const date = new Date(stamp)
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * What each stuck shell's line shows, as `{ command, age, detail, full }`: the command cut in the middle, so shells that
+ * differ only at the end differ on screen, with its PID when hidden or still equal to another; the run time; the
+ * subagent that left it; and the hover text: the whole command the server sent, the start time, the PID, the processes.
+ */
+export function shellLabelsOf(shells, now) {
+  // A subagent's name before the command takes from the command's room.
+  const cut = shells.map((shell) => middleCut(shellCommandOf(shell), Math.max(16, SHELL_COMMAND_SHOWN - Array.from(shell.helperName ?? '').length)))
+  return shells.map((shell, index) => {
+    const same = cut.some((other, at) => at !== index && other === cut[index])
+    const command = !shell.command || same ? `${cut[index]} · pid ${shell.pid}` : cut[index]
+    const age = ago(shell.since, now) === 'now' ? '<1m' : ago(shell.since, now)
+    const processes = shell.processCount === 1 ? '1 process' : `${shell.processCount} processes`
+    const full = [
+      shell.command || 'Command hidden: it may hold a password or key',
+      `Running for ${runTimeOf(now - Date.parse(shell.since))}, since ${clockOf(shell.since)}`,
+      `PID ${shell.pid}`,
+      processes,
+      ...(shell.helperName ? [`Left by ${shell.helperName}`] : []),
+    ].join('\n')
+    return { command, age, detail: shell.helperName ?? '', full }
+  })
 }
 
 export function currentShellOf(conversation, selected) {
@@ -903,9 +989,14 @@ function waitText(ms) {
   return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`
 }
 
+/** What a kept shell's grey line says before its command, until its wake time. */
+export function keptShellNoteOf(shell, now) {
+  return `Kept running · asks again in ${waitText(Date.parse(shell.keptUntil) - now)}`
+}
+
 /** A kept shell's grey line, until its wake time. */
 export function keptShellLineOf(shell, now) {
-  return `Kept running · asks again in ${waitText(Date.parse(shell.keptUntil) - now)}: ${shellCommandOf(shell)}`
+  return `${keptShellNoteOf(shell, now)}: ${shellCommandOf(shell)}`
 }
 
 /**

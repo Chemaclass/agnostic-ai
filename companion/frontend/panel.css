@@ -318,19 +318,55 @@ body {
 
 .shell-warning {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
+  gap: 2px 6px;
   min-width: 0;
   color: var(--action);
   font-size: 11px;
 }
 
+/* The words keep their whole width; the buttons wrap under them when both do not fit on one line. */
 .shell-text {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
+  max-width: 100%;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+}
+
+.shell-note,
+.shell-age {
+  flex: none;
+}
+
+.shell-age {
+  font-variant-numeric: tabular-nums;
+  font-weight: 620;
+}
+
+.shell-command {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px;
+}
+
+.shell-actions {
+  flex: none;
+  display: inline-flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+/* Several shells in a row: each one's buttons sit under its words, so the words keep the whole width. */
+.shell-warning.is-stacked .shell-text {
+  flex-basis: 100%;
 }
 
 .shell-action {
@@ -396,32 +432,31 @@ body {
   color: var(--alert);
 }
 
-/* While approvals answer routine prompts: the mode, and the one switch that turns them off. */
+/* While approvals answer routine prompts: a chip in the header with the mode, and the one switch that turns them off. */
 
-.approvals-bar {
-  display: flex;
+.approvals-chip {
+  flex: none;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 12px 8px;
-  padding: 6px 6px 6px 10px;
-  border-radius: 8px;
+  gap: 6px;
+  height: 36px;
+  padding: 0 4px 0 9px;
+  border-radius: 10px;
   background: var(--action-soft);
   color: var(--paper);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 11.5px;
+  white-space: nowrap;
 }
 
 .approvals-mode {
-  flex: 1 1 auto;
   min-width: 0;
-  margin: 0;
 }
 
 .approvals-ask {
   flex: none;
-  padding: 3px 10px;
+  padding: 3px 8px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 7px;
   background: var(--action);
   color: var(--ink);
   font: inherit;
@@ -431,6 +466,41 @@ body {
 
 .approvals-ask:disabled {
   opacity: 0.6;
+}
+
+/* Why a row sits under Needs you, under its title: shells still running, a question, no activity, a new reply. */
+
+.needs-reason {
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--action);
+  font-size: 11px;
+  line-height: 14px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.needs-reason.is-reply {
+  color: var(--paper-dim);
+}
+
+/* The page's own tooltip: never takes a click or a key, and never covers the row it describes. */
+
+.tooltip {
+  position: fixed;
+  z-index: 50;
+  max-width: min(360px, calc(100vw - 16px));
+  padding: 5px 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--ink);
+  box-shadow: 0 0 0 1px var(--hairline-strong), 0 4px 14px rgba(0, 0, 0, 0.45);
+  color: var(--paper);
+  font-size: 11px;
+  line-height: 15px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }
 
 /* Why a permission wait reached the person, under its pill. */
@@ -484,7 +554,8 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-.approvals-bar[hidden],
+.approvals-chip[hidden],
+.tooltip[hidden],
 .note[hidden],
 .notice[hidden],
 .notice [hidden],
@@ -1168,6 +1239,11 @@ body {
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* With the approvals chip beside it, the dashboard button keeps its icon and gives the search the room. */
+.head:has(.approvals-chip:not([hidden])) .dashboard-label {
+  display: none;
 }
 
 .dashboard:hover {

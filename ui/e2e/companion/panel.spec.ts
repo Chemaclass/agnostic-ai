@@ -77,7 +77,7 @@ test('Escape clears a search first and then closes the list', async ({ page }) =
 test('a row shows the agent\'s latest reply under its title, and a row without one shows none', async ({ page }) => {
   await openPanel(page)
   const waiting = row(page, 'Approve the database migration')
-  await expect(waiting.locator('.text > *')).toHaveClass(['title', 'reply', /meta/])
+  await expect(waiting.locator('.text > *')).toHaveClass(['title', 'needs-reason is-waiting', 'reply', /meta/])
   await expect(waiting.locator('.reply')).toHaveText('Should I run the migration on the staging copy first?')
   await expect(row(page, 'Fix the login redirect').locator('.reply')).toHaveCount(0)
 })
@@ -1644,7 +1644,7 @@ test('only Needs you offers mark all as read, and its rows do not repeat the hea
   await expect(groupTitle(page, 'Active').locator('..')).toContainText('Mark all complete')
   await expect(groupTitle(page, 'Active').locator('..')).not.toContainText('Mark all as read')
 
-  await expect(page.locator('#list')).not.toContainText('New reply')
+  await expect(row(page, 'Draft the release notes').locator('.needs-reason')).toHaveText('New reply')
   await expect(row(page, 'Approve the database migration').locator('.meta')).toHaveText('Claude Code · shop · 2m')
   await expect(row(page, 'Draft the release notes').locator('.meta')).toHaveText('Codex · agnostic-ai · 12m')
   await expect(row(page, 'Refactor the search index').locator('.meta')).toHaveText('Claude Code · agnostic-ai · now')
@@ -1757,7 +1757,7 @@ test('folders with the same name show their parent, and the full path on hover',
   await expect(row(page, 'Add rate limits')).toContainText(' · shop/api · ')
   await expect(row(page, 'Split the user routes')).toContainText(' · billing/api · ')
   await expect(row(page, 'Fix the health check')).toContainText(' · Work/api · ')
-  await expect(row(page, 'Add rate limits')).toHaveAttribute('title', 'Resume in Terminal\n/Users/you/Code/shop/api')
+  await expect(row(page, 'Add rate limits')).toHaveAttribute('data-tooltip', 'Resume in Terminal\n/Users/you/Code/shop/api')
   await expect(row(page, 'Add rate limits')).toHaveAccessibleDescription('Resume in Terminal /Users/you/Code/shop/api')
 })
 
@@ -1818,7 +1818,7 @@ test('a permission the gate left to the person names why, and a tool approvals d
   const push = row(page, 'Ship the parser fix')
   await expect(push.locator('.text > *')).toHaveClass(['title', 'reply is-approval', 'approval-reason', 'meta', 'approved'])
   await expect(push.locator('.approval-reason')).toHaveText('Always asks: publishing')
-  await expect(push).toHaveAttribute('title', /Always asks: publishing/)
+  await expect(push).toHaveAttribute('data-tooltip', /Always asks: publishing/)
   await expect(row(page, 'Rename the config keys').locator('.approval-reason')).toHaveText('Approvals not supported for Cursor')
 })
 
@@ -1852,18 +1852,24 @@ test('folding a group by key keeps the keys on its title', async ({ page }) => {
   await expect(groupTitle(page, 'Needs you')).toHaveAttribute('aria-expanded', 'false')
 })
 
-test('the header names the approvals mode and Ask me switches agnostic-ai to ask', async ({ page }) => {
-  await openPanel(page, 'auto-approvals')
-  const bar = page.getByRole('region', { name: 'Approvals' })
-  await expect(bar).toContainText('Approvals: routine prompts are approved for you')
-  const asked = page.waitForRequest((request) => request.url().endsWith('/api/approvals/ask'))
-  await bar.getByRole('button', { name: 'Ask me' }).click()
-  expect((await asked).postDataJSON()).toEqual({ mode: 'ask' })
-  await expect(bar).toBeHidden()
-  await expect(page.locator('#toast-text')).toHaveText('Approvals set to ask. Your tool may still use its own reviewer.')
-
+test('the header names the approvals mode in a chip and Ask me switches agnostic-ai to ask', async ({ page }) => {
   await openPanel(page, 'mixed')
-  await expect(page.getByRole('region', { name: 'Approvals' })).toBeHidden()
+  const listTop = (await page.locator('#list').boundingBox())!.y
+  await expect(page.locator('#approvals-bar')).toBeHidden()
+
+  await openPanel(page, 'auto-approvals')
+  const sentence = 'Approvals: routine prompts are approved for you'
+  const chip = page.getByRole('group', { name: sentence })
+  await expect(chip).toContainText('Auto-approve on')
+  await expect(chip).toHaveAttribute('title', sentence)
+  // The chip sits in the header row: the list starts where it starts with no chip.
+  expect((await chip.boundingBox())!.y).toBeLessThan((await page.locator('.search').boundingBox())!.y + 20)
+  expect((await page.locator('#list').boundingBox())!.y).toBe(listTop)
+  const asked = page.waitForRequest((request) => request.url().endsWith('/api/approvals/ask'))
+  await chip.getByRole('button', { name: 'Ask me' }).click()
+  expect((await asked).postDataJSON()).toEqual({ mode: 'ask' })
+  await expect(chip).toBeHidden()
+  await expect(page.locator('#toast-text')).toHaveText('Approvals set to ask. Your tool may still use its own reviewer.')
 })
 
 test('under Needs you, permission waits come before a question', async ({ page }) => {
@@ -1876,10 +1882,10 @@ const deleteDialog = (page: Page) => page.getByRole('alertdialog')
 
 test('warns about forgotten shells and only stops the shell confirmed in the row menu', async ({ page }) => {
   await openPanel(page, 'stuck-shells')
-  await expect(row(page, 'Preview the reporting changes')).toContainText('Faramir left a shell running for 15h: bash scripts/run-preview.bash')
+  await expect(row(page, 'Preview the reporting changes').locator('.shell-text')).toHaveText('Faramir 15h bash script…review.bash')
   await expect(row(page, 'Preview the reporting changes')).toHaveClass(/needs-you/)
   const working = row(page, 'Refactor the search index')
-  await expect(working.locator('.shell-text')).toHaveText(['Shell running for 1h: npm run dev', 'Shell running for 45m: npm run watch'])
+  await expect(working.locator('.shell-text')).toHaveText(['1h npm run dev', '45m npm run watch'])
 
   const dialog = page.getByRole('alertdialog', { name: 'Stop shell?' })
   const stop = dialog.getByRole('button', { name: 'Stop shell' })
@@ -1903,7 +1909,7 @@ test('warns about forgotten shells and only stops the shell confirmed in the row
   await stop.click()
   expect((await request).postDataJSON()).toEqual({ tool: 'claude', id: 'shells-working', pid: 840, procStart: '2026-11-07T14:00:00.000Z' })
   await expect(dialog).toBeHidden()
-  await expect(working.locator('.shell-text')).toHaveText(['Shell running for 45m: npm run watch', 'Shell stop sent. Processes still running (PIDs 841).'])
+  await expect(working.locator('.shell-text')).toHaveText(['45m npm run watch', 'Shell stop sent. Processes still running (PIDs 841).'])
   await expectInfoNotice(page, 'Processes still running')
   await expect(noticeCard(page)).toContainText('Processes still running (PIDs 841).')
 })
@@ -2006,8 +2012,8 @@ test('Keep running quiets a shell for 30 minutes, then doubles the wait up to 4 
   const request = page.waitForRequest((request) => request.url().endsWith('/api/kept-shells/keep'))
   await waiting.getByRole('button', { name: 'Keep running: bash scripts/run-preview.bash' }).click()
   expect((await request).postDataJSON()).toEqual({ tool: 'claude', id: 'shell-blocked', pid: 531, procStart: '2026-11-07T00:30:00.000Z', wakeAt: expect.stringMatching(/^2026-11-07T16:00:00/), keeps: 1 })
-  const line = shellLine(waiting, 'run-preview')
-  await expect(line.locator('.shell-text')).toHaveText('Kept running · asks again in 30 min: bash scripts/run-preview.bash')
+  const line = shellLine(waiting, 'review.bash')
+  await expect(line.locator('.shell-text')).toHaveText('Kept running · asks again in 30 min: bash script…review.bash')
   await expect(line).toHaveCSS('color', 'rgba(242, 237, 229, 0.62)')
   await expect(line.getByRole('button', { name: /^Keep running/ })).toHaveCount(0)
   await expect(line.getByRole('button', { name: 'Stop shell: bash scripts/run-preview.bash' })).toBeVisible()
@@ -2019,7 +2025,7 @@ test('Keep running quiets a shell for 30 minutes, then doubles the wait up to 4 
     await page.clock.fastForward(waited)
     await expect(waiting).toHaveClass(/needs-you/)
     await waiting.getByRole('button', { name: 'Keep running: bash scripts/run-preview.bash' }).click()
-    await expect(line.locator('.shell-text')).toHaveText(`Kept running · asks again in ${next}: bash scripts/run-preview.bash`)
+    await expect(line.locator('.shell-text')).toHaveText(`Kept running · asks again in ${next}: bash script…review.bash`)
   }
   expect((await keptShells(page))[0].keeps).toBe(5)
 })
@@ -2050,7 +2056,7 @@ test('stopping a kept shell drops its record', async ({ page }) => {
 
   const waiting = row(page, 'Preview the reporting changes')
   await waiting.getByRole('button', { name: 'Keep running: bash scripts/run-preview.bash' }).click()
-  await expect(shellLine(waiting, 'run-preview')).toHaveClass(/is-kept/)
+  await expect(shellLine(waiting, 'review.bash')).toHaveClass(/is-kept/)
   await waiting.getByRole('button', { name: 'Stop shell: bash scripts/run-preview.bash' }).click()
   await shellDialog(page).getByRole('button', { name: 'Stop shell' }).click()
   await expect.poll(async () => (await keptShells(page)).map((shell) => shell.pid)).toEqual([])
@@ -2249,7 +2255,7 @@ test('a local chat also open on claude.ai is one row that opens here, and its se
   const shared = row(page, 'Review the payment retries')
   await expect(page.getByRole('option')).toHaveCount(3)
   await expect(shared.locator('.meta')).toContainText('Claude Code · Shared · agnostic-ai')
-  await expect(shared.locator('.meta')).toHaveAttribute('title', 'Also open on claude.ai')
+  await expect(shared.locator('.meta')).toHaveAttribute('data-tooltip', 'Also open on claude.ai')
   await expect(shared).toHaveAccessibleDescription(/Also open on claude\.ai/)
 
   for (const place of ['Local', 'Cloud']) {
@@ -2366,7 +2372,7 @@ test('a pending approval takes the reply line\'s place, and the reply moves to t
   await expect(bash.locator('.approval-code')).toHaveText('git push origin…')
   await expect(bash.locator('.approval svg')).toHaveCount(1)
   await expect(bash).not.toContainText('The seed fix')
-  await expect(bash).toHaveAttribute('title', 'Open in Terminal\n/Users/you/Code/shop\nThe seed fix and the flag rename are still running.')
+  await expect(bash).toHaveAttribute('data-tooltip', 'Open in Terminal\n/Users/you/Code/shop\nThe seed fix and the flag rename are still running.')
   await expect(bash.locator('.meta')).toHaveText('Claude Code · shop · 2m')
   await expect(bash.locator('.approval')).toHaveCSS('color', await page.locator('.group-title').first().evaluate((element) => getComputedStyle(element).color))
 
@@ -2377,7 +2383,7 @@ test('a pending approval takes the reply line\'s place, and the reply moves to t
   await expect(mcp.locator('.approval-code')).toHaveCount(0)
   await expect(mcp).not.toContainText('bfe9f18c')
   // A long detail stays inside the row, cut with an ellipsis, and reads whole on hover.
-  await expect(mcp.locator('.approval')).toHaveAttribute('title', 'Approve Notion fetch')
+  await expect(mcp.locator('.approval')).toHaveAttribute('data-tooltip', 'Approve Notion fetch')
   await mcp.locator('.approval-label').evaluate((element) => { element.textContent = 'Approve Google Calendar list events in every calendar' })
   const fits = await mcp.locator('.approval').evaluate((pill) => pill.getBoundingClientRect().right <= pill.closest('.text')!.getBoundingClientRect().right + 0.5)
   expect(fits).toBe(true)
@@ -2399,7 +2405,7 @@ test('a permission whose call is unknown shows a lock, and a question keeps its 
 test('working subagents get their own line under the meta line, and it still folds them out', async ({ page }) => {
   await openPanel(page, 'approvals')
   const question = row(page, 'SFTP write: discussion')
-  await expect(question.locator('.text > *')).toHaveClass(['title', 'reply', 'meta', 'subagents'])
+  await expect(question.locator('.text > *')).toHaveClass(['title', 'needs-reason is-question', 'reply', 'meta', 'subagents'])
   await expect(question.locator('.meta')).not.toContainText('subagent')
   await question.getByRole('button', { name: '▸ 1 subagent' }).click()
   await expect(page.locator('.helper-row .title')).toHaveText(['Check the SFTP folder'])
@@ -2701,7 +2707,7 @@ test('the send shortcut with a clipboard that cannot be read says so and opens n
 
 test('the header has no clipboard button', async ({ page }) => {
   await openPanel(page)
-  await expect(page.locator('.head button')).toHaveCount(2)
+  await expect(page.locator('.head button:not(.approvals-ask)')).toHaveCount(2)
   await expect(page.locator('.head').getByRole('button', { name: /copied text/i })).toHaveCount(0)
 })
 
@@ -2773,7 +2779,7 @@ test('Archived has no read state: a chat that closed unread shows no ring, no co
   await expect(archived).not.toContainText('unread')
   await expect(page.locator('.group-head').filter({ hasText: 'Archived' }).getByRole('button', { name: 'Mark all as read' })).toHaveCount(0)
   const closed = row(page, 'Port the billing job')
-  await expect(closed).not.toHaveAttribute('title', /not read/)
+  await expect(closed).not.toHaveAttribute('data-tooltip', /not read/)
   await expect(closed.locator('.state.has-unread')).toHaveCount(0)
   await closed.click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Delete permanently…' })).toBeVisible()
@@ -3006,7 +3012,7 @@ test('confirming Stop chat ends the selected process and archives the chat for r
   const stopped = row(page, 'Approve the database migration')
   await expect(stopped).toBeHidden()
   await groupTitle(page, 'Archived').click()
-  await expect(stopped).toHaveAttribute('title', /^Resume in Terminal/)
+  await expect(stopped).toHaveAttribute('data-tooltip', /^Resume in Terminal/)
   await stopped.click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Stop chat…' })).toBeHidden()
 })
@@ -3256,4 +3262,108 @@ test('queue for delivery puts a staged message back', async ({ page }) => {
   await staged.getByRole('button', { name: 'Queue for delivery' }).click()
   await expect(staged).toContainText('Waiting')
   await expect(staged.getByRole('button', { name: 'Queue for delivery' })).toHaveCount(0)
+})
+
+const tooltip = (page: Page) => page.locator('#tooltip')
+const boxesOverlap = (a: { x: number, y: number, width: number, height: number }, b: { x: number, y: number, width: number, height: number }) =>
+  a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+
+test('two shells whose commands share a long start read apart, and the hover shows each whole command', async ({ page }) => {
+  await openPanel(page, 'needs-reasons')
+  const twins = row(page, 'Preview the reports page')
+  const lines = twins.locator('.shell-text')
+  await expect(lines).toHaveCount(2)
+  const [first, second] = await lines.allTextContents()
+  expect(first).not.toBe(second)
+  expect(first).toMatch(/^44m npm run preview.*….*\/reports\/$/)
+  expect(second).toMatch(/^32m npm run preview.*….*127\.0\.0\.1$/)
+  await expect(row(page, 'Deploy the staging stack').locator('.shell-command')).toHaveText(['Command hidden · pid 14477', 'Command hidden · pid 38984'])
+
+  await lines.nth(1).hover()
+  await expect(tooltip(page)).toBeVisible()
+  await expect(tooltip(page)).toContainText('--base /reports/ --host 127.0.0.1')
+  await expect(tooltip(page)).toContainText(/Running for 32 min, since \d\d:\d\d/)
+  await expect(tooltip(page)).toContainText('PID 38983')
+  await expect(tooltip(page)).toContainText('2 processes')
+  await expect(tooltip(page)).toHaveCSS('pointer-events', 'none')
+})
+
+test('every row under Needs you says why, even one whose reply is withheld', async ({ page }) => {
+  await openPanel(page, 'needs-reasons')
+  const reasons = page.locator('.row.needs-you').locator('.needs-reason, .approval')
+  await expect(page.locator('.row.needs-you')).toHaveCount(7)
+  await expect(reasons).toHaveText([
+    'Waiting on 2 shells still running',
+    'Waiting on 2 shells still running',
+    'Asks you a question',
+    'No activity for 7m',
+    'Waiting for you',
+    'New reply, hidden because it may hold a password or key',
+    'New reply',
+  ])
+  await openPanel(page, 'approvals')
+  for (const needing of await page.locator('.row.needs-you').all()) {
+    await expect(needing.locator('.needs-reason, .approval')).toHaveCount(1)
+  }
+})
+
+test('the row tooltip names the hovered row, never covers it, and follows a redraw under a still pointer', async ({ page }) => {
+  await openPanel(page, 'needs-reasons')
+  const hovered = row(page, 'Pick a chart library')
+  await hovered.locator('.title').hover()
+  await expect(tooltip(page)).toBeVisible()
+  await expect(tooltip(page)).toHaveText('Open in Terminal\n/Users/you/Code/agnostic-ai')
+  expect(await tooltip(page).textContent()).toBe(await hovered.getAttribute('data-tooltip'))
+  expect(boxesOverlap((await tooltip(page).boundingBox())!, (await hovered.boundingBox())!)).toBe(false)
+
+  const under = row(page, 'Rotate the API keys')
+  await under.locator('.title').scrollIntoViewIfNeeded()
+  const title = (await under.locator('.title').boundingBox())!
+  const pointer = { x: title.x + 10, y: title.y + title.height / 2 }
+  await page.mouse.move(pointer.x, pointer.y)
+  await expect(tooltip(page)).toHaveText((await under.getAttribute('data-tooltip'))!)
+  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  await expect(row(page, 'Answer the review comments')).toBeVisible()
+  // Another row now sits under the still pointer: the tooltip shows that row's text, or it closed.
+  const now = await page.evaluate(({ x, y }) => {
+    const tip = document.getElementById('tooltip')!
+    const pointed = document.elementFromPoint(x, y)!.closest('.row')!
+    const box = (element: Element) => {
+      const { top, bottom } = element.getBoundingClientRect()
+      return { top, bottom }
+    }
+    return { hidden: tip.hidden, text: tip.textContent, pointedTitle: pointed.querySelector('.title')!.textContent, pointedText: pointed.getAttribute('data-tooltip'), tip: box(tip), row: box(pointed) }
+  }, pointer)
+  expect(now.pointedTitle).toBe('Answer the review comments')
+  expect(now.hidden).toBe(false)
+  expect(now.text).toBe(now.pointedText)
+  const gap = now.tip.bottom <= now.row.top ? now.row.top - now.tip.bottom : now.tip.top - now.row.bottom
+  expect(gap).toBeGreaterThanOrEqual(0)
+  expect(gap).toBeLessThan(10)
+  await page.keyboard.press('Shift')
+  await expect(tooltip(page)).toBeHidden()
+  await page.mouse.move(pointer.x, pointer.y + 1)
+  await expect(tooltip(page)).toBeVisible()
+  await page.mouse.wheel(0, 40)
+  await expect(tooltip(page)).toBeHidden()
+})
+
+test('a click on the circle opens the list on the first waiting row, past a search, a place and a folded group', async ({ page }) => {
+  await openPanel(page, 'needs-reasons')
+  await page.getByRole('button', { name: 'Cloud', exact: true }).click()
+  await page.getByLabel('Search every conversation').fill('nothing matches this')
+  await expect(page.locator('.row')).toHaveCount(0)
+  expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
+
+  expect((await page.request.post('/api/panel/toggle', { data: { jump: true } })).ok()).toBe(true)
+  await expect(page.getByLabel('Search every conversation')).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'All', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(selected(page)).toContainText('Preview the reports page')
+  await expect(selected(page)).toBeInViewport()
+
+  await groupTitle(page, 'Needs you').click()
+  await expect(page.locator('.row.needs-you')).toHaveCount(0)
+  expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
+  expect((await page.request.post('/api/panel/toggle', { data: { jump: true } })).ok()).toBe(true)
+  await expect(selected(page)).toContainText('Preview the reports page')
 })

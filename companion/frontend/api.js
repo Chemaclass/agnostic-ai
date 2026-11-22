@@ -168,7 +168,8 @@ export async function saveMailboxSettings(settings) {
   return settings
 }
 
-export const togglePanel = () => post('/api/panel/toggle')
+/** Shows or hides the panel; with jump, a panel it shows opens on the first waiting row. */
+export const togglePanel = (jump = false) => post('/api/panel/toggle', { jump })
 export const hidePanel = () => post('/api/panel/hide')
 export const showPanel = () => post('/api/panel/show')
 /** Shows the panel beside the circle without taking the keys from the app in front; answers {shown}. */

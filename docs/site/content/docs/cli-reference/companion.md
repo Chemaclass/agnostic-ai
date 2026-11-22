@@ -199,7 +199,8 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
-- The circle shows a solid orange count with a lock and a halo for chats waiting for permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
+- The circle shows a solid orange count with a lock and a halo for chats waiting for you. When every one of them waits on a [forgotten shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell), a terminal icon takes the lock's place. Unread replies alone keep the softer count. The count is the number of rows of that kind the list shows under Needs you with no search and **All** chosen.
+- While a chat needs you, a click on the circle opens the list with the first row under Needs you selected and in view. It clears the search, switches to **All** when no chat in the chosen place needs you, and unfolds Needs you. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
 - The circle and the list's ⋯ menu hold the same items in the same order, except the mailbox approval switch, which only the ⋯ menu shows.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
@@ -247,9 +248,9 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 
 - **N approved for you** folds out the latest approved requests under the row, newest first. It opens nothing.
 - The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
-- The header names the loosest active mode when it is `review` or `yolo`.
+- A chip beside the search names the loosest active mode when it is `review` or `yolo`: **Auto-approve on** for `yolo`, **Reviewers answer** for `review`. Its tooltip and accessible name give the full sentence.
 - With [`approvals.companion: true`](@/docs/approvals.md#answer-from-the-companion), a held Claude Code request shows in full under the pill, with **Approve** and **Deny**.
-- **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --scope user` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
+- **Ask me** on the chip writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --scope user` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
 
 {% <details summary="Details: the brief Claude Code prompt, counts, limits"> %}
 - With the `yolo` hook active, Claude Code can show its prompt while the hook runs. The companion lists the permission wait when the log says `asked` or after 10 seconds with no decision. Until then the row shows as working.

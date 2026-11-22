@@ -11,7 +11,7 @@ group = "Reference"
 
 ## `stuckShells` {#stuck-shells}
 
-In the [conversations response](@/docs/cli-reference/conversations-api.md#get-api-views-conversations), `stuckShells` lists the background shells that passed [`conversations.stuckShellAfter`](@/docs/global-configuration-reference.md#global-conversations) in a live local Claude Code session. Each entry is `{pid, procStart, command, since, helperId?, helperName?, processCount}`. Use `pid` and the exact `procStart` string to request a stop. `since` is an RFC 3339 time for the displayed age. The server filters the command for credentials. `helperId` and `helperName` identify a matched subagent when available. `processCount` counts the processes in the shell's group at scan time.
+In the [conversations response](@/docs/cli-reference/conversations-api.md#get-api-views-conversations), `stuckShells` lists the background shells that passed [`conversations.stuckShellAfter`](@/docs/global-configuration-reference.md#global-conversations) in a live local Claude Code session. Each entry is `{pid, procStart, command, since, helperId?, helperName?, processCount}`. Use `pid` and the exact `procStart` string to request a stop. `since` is an RFC 3339 time for the displayed age. The server withholds the command (an empty string) when it may hold a password or key, and otherwise masks any credential in a URL, as in `https://<redacted>@host/`. The page never redacts on its own. A command is sent on one line, cut at 2,000 characters. `helperId` and `helperName` identify a matched subagent when available. `processCount` counts the processes in the shell's group at scan time.
 
 ## `POST /api/conversations/stop-shell` {#post-api-conversations-stop-shell}
 
