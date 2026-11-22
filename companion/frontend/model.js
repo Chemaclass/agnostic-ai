@@ -469,17 +469,18 @@ export function pendingOf(conversation) {
   if (!Array.isArray(held) || held.length === 0 || conversation.waiting?.for !== 'permission') return undefined
   const [first] = held
   const input = first.input ?? {}
-  const blocks = pendingBlocksOf(first.call, input)
+  const blocks = pendingBlocksOf(first.call, input, first.cwd)
   if (blocks.length === 0 || typeof first.id !== 'string' || typeof first.digest !== 'string') return undefined
   return { id: first.id, digest: first.digest, blocks, more: held.length - 1, inTerminal: conversation.tool === 'codex' }
 }
 
 const PENDING_VERBS = { Read: 'Read', Write: 'Write', Edit: 'Edit', MultiEdit: 'Edit' }
 
-function pendingBlocksOf(call, input) {
+function pendingBlocksOf(call, input, cwd) {
   const block = (label, text) => (typeof text === 'string' && text !== '' ? [{ label, text }] : [])
   if (call === 'Bash') return block('Run', input.command)
-  if (call === 'apply_patch') return block('Patch', input.patch)
+  // A patch's paths start from the folder Codex runs in, which the row does not otherwise show.
+  if (call === 'apply_patch') return typeof input.patch === 'string' && input.patch !== '' ? [...block('In', cwd), ...block('Patch', input.patch)] : []
   const verb = PENDING_VERBS[call]
   if (!verb || !input.file_path) return []
   if (input.old) return [...block(verb, input.file_path), ...block('Replace', input.old), ...block('With', input.new)]

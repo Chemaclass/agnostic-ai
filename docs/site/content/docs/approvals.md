@@ -111,7 +111,8 @@ Run `agnostic-ai sync --scope user` once, then open the companion. When Claude C
 - The row shows the request from the hook's own copy, never from the chat. A click answers at once; no key does. When the request changed before the click, the row says "This request changed. Check it again." and shows the new one.
 - Claude Code: the hook waits up to 300 seconds, then leaves the request to the terminal prompt. An answer in the terminal removes the buttons by the next list read.
 - Codex shows its prompt only after the hook ends. So the hook waits at most 60 seconds, the terminal shows "Waiting for your answer in the agnostic-ai companion, then asks here", and the row adds **Answer in terminal**, which shows the Codex prompt at once. Esc in the terminal stops the turn, and the row drops the request. The row counts under **Needs you** from the moment the hook holds the request.
-- After the update, Codex shows **Hooks need review** once, because the approvals hook changed. Trust it to keep hook approvals.
+- After this update and `sync --scope user`, Codex shows **Hooks need review** once, because the approvals hook changed, whether or not you use the companion. Trust it to keep hook approvals.
+- A patch shows with the folder its paths start from.
 - Only Claude Code and Codex on macOS and Linux support it. Codex in `review` never waits, so its reviewer is not delayed. Kiro, Qwen Code and Qoder keep their prompts as they are.
 - Only the home config can turn it on. A project file that sets `approvals.companion` is ignored and reported.
 - The companion never approves on its own. A click sends the request's id and a digest of what the row showed; the hook acts only when both match the request it holds.

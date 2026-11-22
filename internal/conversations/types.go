@@ -106,6 +106,8 @@ type PendingRequest struct {
 	Call    string       `json:"call"`
 	Input   PendingInput `json:"input"`
 	Expires string       `json:"expires"`
+	// Cwd is the folder a Codex patch's relative paths start from.
+	Cwd string `json:"cwd,omitempty"`
 }
 
 // PendingInput is what a pending request runs or writes: the command,

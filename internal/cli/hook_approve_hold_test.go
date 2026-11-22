@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
+	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/hookrun"
 )
 
@@ -233,6 +234,10 @@ func TestHookApproveHold_DoesNotHold(t *testing.T) {
 			}
 		}},
 		{name: "codex in review", home: "version: 1\ntargets: [codex]\napprovals:\n  mode: ask\n  companion: true\n  tools:\n    codex: review\n", target: "codex", command: "touch a.txt"},
+		{name: "codex reviewer on while the session asks", home: "version: 1\ntargets: [codex]\napprovals:\n  mode: review\n  companion: true\n", target: "codex", command: "touch a.txt", setup: func(t *testing.T, _ string, _ string) {
+			t.Helper()
+			t.Setenv(config.EnvApprovals, config.ApprovalsAsk)
+		}},
 		{name: "kiro", home: companionAskHome, target: "kiro", command: "touch a.txt"},
 		{name: "qwen", home: companionAskHome, target: "qwen", command: "touch a.txt"},
 		{name: "qoder", home: companionAskHome, target: "qoder", command: "touch a.txt"},

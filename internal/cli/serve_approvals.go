@@ -9,6 +9,7 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -616,7 +617,7 @@ func (a *approvalsReader) snapshot() approvalsSnapshot {
 func (a *approvalsReader) decorate(view *conversations.View, folder, query string) {
 	snap := a.snapshot()
 	now := a.now()
-	snap.pending = a.pendingRequests(view, folder, now)
+	snap.pending = a.pendingRequests(view, folder, unfilteredFirstPage(query), now)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.firstSeen == nil {
@@ -742,8 +743,11 @@ func (h approvalsHandler) ask(w http.ResponseWriter, r *http.Request) {
 // hook that is gone, or for a Claude Code session that no longer waits,
 // which the person answered in the terminal. A withdrawn request whose
 // hook still runs gets release, so the hook exits without a reply. Only
-// a list of every folder can tell that a session does not wait.
-func (a *approvalsReader) pendingRequests(view *conversations.View, folder string, now time.Time) map[string][]heldRequest {
+// a list of every folder can tell that a session does not wait. A Codex
+// request whose session has no live row in the unfiltered first page,
+// such as a hidden chat or a subagent, gets release too: no row can
+// show it, and Codex shows its own prompt only once the hook lets go.
+func (a *approvalsReader) pendingRequests(view *conversations.View, folder string, whole bool, now time.Time) map[string][]heldRequest {
 	source, err := a.source()
 	if err != nil {
 		return nil
@@ -753,7 +757,12 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 	if err != nil || len(held) == 0 {
 		return nil
 	}
-	waiting := map[string]bool{}
+	waiting, liveCodex := map[string]bool{}, map[string]bool{}
+	for _, c := range view.Conversations {
+		if c.Tool == conversations.ToolCodex && c.Live {
+			liveCodex[approvalSessionKey(string(c.Tool), c.ID)] = true
+		}
+	}
 	for _, list := range [][]conversations.Conversation{view.PermissionWaits, view.Conversations} {
 		for _, c := range list {
 			if _, waits := c.PermissionWait(); waits && c.Live {
@@ -770,15 +779,25 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 			continue
 		case p.Decided:
 			continue
-		case folder == "" && p.Tool == string(conversations.ToolClaude) && !waiting[key] && now.Sub(p.Created) > pendingGrace:
+		case folder == "" && p.Tool == string(conversations.ToolClaude) && !waiting[key] && now.Sub(p.Created) > pendingGrace,
+			whole && folder == "" && p.Tool == string(conversations.ToolCodex) && !liveCodex[key] && now.Sub(p.Created) > pendingGrace:
 			_ = approvals.WriteDecision(dir, p.ID, approvals.PendingDecision{Decision: approvals.DecideRelease, Digest: p.Digest})
 			continue
 		}
-		out[key] = append(out[key], heldRequest{PendingRequest: conversations.PendingRequest{
-			ID: p.ID, Digest: p.Digest, Call: p.Call, Input: p.Input, Expires: p.Expires.UTC().Format(time.RFC3339),
-		}, created: p.Created})
+		request := conversations.PendingRequest{ID: p.ID, Digest: p.Digest, Call: p.Call, Input: p.Input, Expires: p.Expires.UTC().Format(time.RFC3339)}
+		if p.Input.Patch != "" {
+			request.Cwd = p.Cwd
+		}
+		out[key] = append(out[key], heldRequest{PendingRequest: request, created: p.Created})
 	}
 	return out
+}
+
+// unfilteredFirstPage reports whether a conversations list query reads
+// every folder's first page, with no search or tool filter.
+func unfilteredFirstPage(rawQuery string) bool {
+	query, err := url.ParseQuery(rawQuery)
+	return err == nil && query.Get("q") == "" && query.Get("tool") == "" && query.Get("before") == ""
 }
 
 // heldRequest is a request held for the companion, with when the hook

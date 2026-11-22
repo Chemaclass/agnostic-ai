@@ -209,7 +209,7 @@ function companionApprove(now) {
       activity: 'waiting',
       live: true,
       waiting: { for: 'permission', tool: 'apply_patch', detail: 'config.go' },
-      approvals: { pending: [held('a7b8', 'apply_patch', { patch: '*** Begin Patch\n*** Update File: config.go\n@@\n-Retries int\n+MaxRetries int\n*** End Patch' })] },
+      approvals: { pending: [{ ...held('a7b8', 'apply_patch', { patch: '*** Begin Patch\n*** Update File: config.go\n@@\n-Retries int\n+MaxRetries int\n*** End Patch' }), cwd: '/Users/you/Code/kombo' }] },
     },
   ]
 }

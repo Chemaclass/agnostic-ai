@@ -392,3 +392,47 @@ func TestApplyApprovals_HeldCodexRequestIsTheRowsWait(t *testing.T) {
 		}
 	}
 }
+
+// A Codex request no row can show is let go after the grace, so Codex
+// shows its own prompt instead of waiting out the hold.
+func TestApprovals_CodexRequestWithoutALiveRowIsReleased(t *testing.T) {
+	home := t.TempDir()
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	a := &approvalsReader{source: func() (string, error) { return home, nil }, alive: func(int) bool { return true }}
+	dir := approvals.PendingDir(home)
+	write := func(session string, created time.Time) string {
+		t.Helper()
+		id, _ := approvals.NewPendingID()
+		if err := approvals.WritePending(dir, approvals.Pending{ID: id, Tool: "codex", Session: session, Call: "Bash", Input: approvals.PendingInput{Command: "ls"}, Digest: "d", Created: created, Expires: now.Add(time.Minute), PID: 1}); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	shown := write("live", now.Add(-time.Minute))
+	young := write("gone", now.Add(-time.Second))
+	orphan := write("gone", now.Add(-time.Minute))
+	view := conversations.View{Conversations: []conversations.Conversation{{Tool: conversations.ToolCodex, ID: "live", Live: true}}}
+
+	if got := a.pendingRequests(&view, "", false, now); len(got[approvalSessionKey("codex", "gone")]) != 2 {
+		t.Errorf("a filtered list let a request go: %v", got)
+	}
+	got := a.pendingRequests(&view, "", true, now)
+
+	if len(got[approvalSessionKey("codex", "live")]) != 1 || len(got[approvalSessionKey("codex", "gone")]) != 1 {
+		t.Errorf("pending = %v, want the live row's request and the young one", got)
+	}
+	for id, want := range map[string]bool{shown: false, young: false, orphan: true} {
+		d, ok := approvals.ReadDecision(dir, id)
+		if ok != want || (ok && d.Decision != approvals.DecideRelease) {
+			t.Errorf("%s decision = %+v, %v; want release %v", id, d, ok, want)
+		}
+	}
+}
+
+func TestUnfilteredFirstPage(t *testing.T) {
+	for query, want := range map[string]bool{"": true, "editor=cursor": true, "q=fix": false, "tool=codex": false, "before=2026-11-01T00:00:00Z": false} {
+		if got := unfilteredFirstPage(query); got != want {
+			t.Errorf("unfilteredFirstPage(%q) = %v, want %v", query, got, want)
+		}
+	}
+}

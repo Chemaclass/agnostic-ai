@@ -452,9 +452,10 @@ End to end:
 - No click: the Codex prompt showed 60.2 s after the record, the folder was empty, and the log read `asked (companion)`.
 - Esc: the hook was killed and left its record; the next list read removed it, since its process was gone, and the row was no longer blocked.
 - An `apply_patch` edit showed as the whole patch, with the row naming `README.md`, and Approve applied it.
+- Upgrade: with the old entry (`timeout: 10`, no status line) trusted in a temporary `CODEX_HOME`, the new entry made Codex stop at startup with `Hooks need review` and `1 hook is new or changed`.
 
 **Why:** A Codex terminal user waits for the whole hold, so it is short, the hook entry says why in the status line, and **Answer in terminal** ends it at once. Codex writes nothing to its rollout while the hook holds, so without the record the row would read as working for 5 minutes; the record is the wait signal. Codex kills the hook on Esc without a signal it can catch, so the server's process check is what removes the record.
 
-**Accepted limits:** One run per case on one account, macOS only. Not measured: Linux, Codex in `review` (the hook does not hold there, by design), network and MCP prompts (not shown, so not held), a Codex hook in a project `.codex/hooks.json`, several prompts of one session at once, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). A held Codex request on a row outside the current page or search does not add to **Needs you**.
+**Accepted limits:** One run per case on one account, macOS only. Not measured: Linux, Codex in `review` (the hook does not hold there, by design), network and MCP prompts (not shown, so not held), a Codex hook in a project `.codex/hooks.json`, several prompts of one session at once, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). A held Codex request on a row outside the current page or search does not add to **Needs you**. A Codex request that no live row on the unfiltered first page can show (a hidden chat, a subagent, a thread not read as live) is released after 5 s, so Codex shows its own prompt.
 
 **Revisit when:** Codex shows its prompt while a hook runs, writes a wait to its rollout, or adds a per-request id to the hook input.

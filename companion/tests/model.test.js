@@ -1225,8 +1225,8 @@ test('a held Codex patch shows the whole patch and offers the terminal', async (
   const { pendingOf } = await import('../frontend/model.js')
   const patch = '*** Begin Patch\n*** Update File: a.go\n@@\n-a\n+b\n*** End Patch'
   const codex = { ...row('a', 'blocked', { waiting: { for: 'permission', tool: 'apply_patch' } }), tool: 'codex' }
-  codex.approvals = { pending: [{ id: 'i1', digest: 'd1', call: 'apply_patch', input: { patch } }] }
-  assert.deepEqual(pendingOf(codex), { id: 'i1', digest: 'd1', blocks: [{ label: 'Patch', text: patch }], more: 0, inTerminal: true })
+  codex.approvals = { pending: [{ id: 'i1', digest: 'd1', call: 'apply_patch', input: { patch }, cwd: '/p/app' }] }
+  assert.deepEqual(pendingOf(codex), { id: 'i1', digest: 'd1', blocks: [{ label: 'In', text: '/p/app' }, { label: 'Patch', text: patch }], more: 0, inTerminal: true })
 })
 
 test('a row without a held request, or that no longer waits, gets no buttons', async () => {
