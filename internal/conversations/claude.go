@@ -168,7 +168,8 @@ func (r *claudeReplies) visit(line claudeLine) {
 		var parts []string
 		for _, block := range blocks {
 			if block.Type == "tool_use" && block.ID != "" {
-				r.pending = append(r.pending, toolCall{id: block.ID, name: block.Name, input: callInput(block.Name, block.Input)})
+				called, _ := time.Parse(time.RFC3339Nano, line.Timestamp)
+				r.pending = append(r.pending, toolCall{id: block.ID, name: block.Name, input: callInput(block.Name, block.Input), at: called})
 			}
 			switch {
 			case block.Type == "text" && strings.TrimSpace(block.Text) != "":

@@ -1208,17 +1208,32 @@ test('a typed session ID finds one receiver, none, two tools or the sender', () 
   assert.deepEqual(typedReceiverOf(receivers, from, '  '), { status: 'empty' })
 })
 
-test('a held request shows what it runs or writes, from the hook input', async () => {
+test('a held request shows its folder and what it runs or writes, from the hook input', async () => {
   const { pendingOf } = await import('../frontend/model.js')
-  const held = (call, input, extra = []) => row('a', 'blocked', {
+  const held = (call, input, extra = [], cwd = '/p') => row('a', 'blocked', {
     waiting: { for: 'permission', tool: call },
-    approvals: { pending: [{ id: 'i1', digest: 'd1', call, input, expires: '2026-11-22T08:05:00Z' }, ...extra] },
+    approvals: { pending: [{ id: 'i1', digest: 'd1', call, input, cwd, expires: '2026-11-22T08:05:00Z' }, ...extra] },
   })
-  assert.deepEqual(pendingOf(held('Bash', { command: 'touch a.txt' })), { id: 'i1', digest: 'd1', blocks: [{ label: 'Run', text: 'touch a.txt' }], more: 0, inTerminal: false })
-  assert.deepEqual(pendingOf(held('Edit', { file_path: '/p/a.go', old: 'a', new: 'b' })).blocks, [{ label: 'Edit', text: '/p/a.go' }, { label: 'Replace', text: 'a' }, { label: 'With', text: 'b' }])
-  assert.deepEqual(pendingOf(held('Write', { file_path: '/p/a.go', new: 'package a' })).blocks, [{ label: 'Write', text: '/p/a.go' }, { label: 'Content', text: 'package a' }])
-  assert.deepEqual(pendingOf(held('Read', { file_path: '/p/a.go' })).blocks, [{ label: 'Read', text: '/p/a.go' }])
+  const folder = { label: 'In', text: '/p' }
+  assert.deepEqual(pendingOf(held('Bash', { command: 'touch a.txt' })), { id: 'i1', digest: 'd1', blocks: [folder, { label: 'Run', text: 'touch a.txt' }], more: 0, inTerminal: false })
+  assert.deepEqual(pendingOf(held('Edit', { file_path: '/p/a.go', old: 'a', new: 'b' })).blocks, [folder, { label: 'Edit', text: '/p/a.go' }, { label: 'Replace', text: 'a' }, { label: 'With', text: 'b' }])
+  assert.deepEqual(pendingOf(held('Write', { file_path: '/p/a.go', new: 'package a' })).blocks, [folder, { label: 'Write', text: '/p/a.go' }, { label: 'Content', text: 'package a' }])
+  assert.deepEqual(pendingOf(held('Read', { file_path: '/p/a.go' })).blocks, [folder, { label: 'Read', text: '/p/a.go' }])
   assert.equal(pendingOf(held('Bash', { command: 'ls' }, [{ id: 'i2', digest: 'd2', call: 'Bash', input: { command: 'pwd' } }])).more, 1)
+  assert.equal(pendingOf(held('Bash', { command: 'ls' }, [], '')), undefined, 'a request without its folder gets no buttons')
+})
+
+test('a held command shows how it runs, and one with an option the panel cannot read gets no buttons', async () => {
+  const { pendingOf } = await import('../frontend/model.js')
+  const held = (input) => row('a', 'blocked', {
+    waiting: { for: 'permission', tool: 'Bash' },
+    approvals: { pending: [{ id: 'i1', digest: 'd1', call: 'Bash', input: { command: 'make test', ...input }, cwd: '/p' }] },
+  })
+  assert.deepEqual(pendingOf(held({ background: true, timeout: 120000 })).blocks, [{ label: 'In', text: '/p' }, { label: 'Run', text: 'make test' }, { label: 'Options', text: 'In the background, time limit 120 s' }])
+  assert.deepEqual(pendingOf(held({ timeout: 1500 })).blocks.at(-1), { label: 'Options', text: 'Time limit 1.5 s' })
+  assert.equal(pendingOf(held({ background: 'yes' })), undefined)
+  assert.equal(pendingOf(held({ timeout: -1 })), undefined)
+  assert.equal(pendingOf(held({ timeout: '60' })), undefined)
 })
 
 test('a held Codex patch shows the whole patch and offers the terminal', async () => {

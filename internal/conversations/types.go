@@ -106,7 +106,7 @@ type PendingRequest struct {
 	Call    string       `json:"call"`
 	Input   PendingInput `json:"input"`
 	Expires string       `json:"expires"`
-	// Cwd is the folder a Codex patch's relative paths start from.
+	// Cwd is the folder the call runs in, where a relative path starts.
 	Cwd string `json:"cwd,omitempty"`
 }
 
@@ -118,6 +118,10 @@ type PendingInput struct {
 	Old      string `json:"old,omitempty"`
 	New      string `json:"new,omitempty"`
 	Patch    string `json:"patch,omitempty"`
+	// Background and Timeout are how a command runs: in the background,
+	// and the time limit in milliseconds Claude Code gives it.
+	Background bool  `json:"background,omitempty"`
+	Timeout    int64 `json:"timeout,omitempty"`
 }
 
 // ApprovedCall is one request the approvals hook approved.

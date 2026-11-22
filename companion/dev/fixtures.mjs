@@ -179,18 +179,18 @@ function approvals(now) {
 
 /**
  * Requests the approvals hook holds for the companion (issue #3906): a command and an edit to approve or deny, the
- * second with one more request behind it.
+ * second with one more request behind it. Each names its folder; the command has a time limit.
  */
 function companionApprove(now) {
   const expires = new Date(now + 5 * MINUTE).toISOString()
-  const held = (id, call, input) => ({ id, digest: 'digest-' + id, call, input, expires })
+  const held = (id, call, input, cwd) => ({ id, digest: 'digest-' + id, call, input, cwd, expires })
   return [
     {
       ...conversation(now, 'claude', 'held-bash', 'Clean the build folder', 'blocked', { folder: '/Users/you/Code/shop', minutesAgo: 0 }),
       activity: 'waiting',
       live: true,
       waiting: { for: 'permission', tool: 'Bash', detail: 'rm -rf dist && npm run build' },
-      approvals: { reason: 'Approvals are set to ask here', pending: [held('a1b2', 'Bash', { command: 'rm -rf dist && npm run build -- --mode production' })] },
+      approvals: { reason: 'Approvals are set to ask here', pending: [held('a1b2', 'Bash', { command: 'rm -rf dist && npm run build -- --mode production', timeout: 600000 }, '/Users/you/Code/shop')] },
     },
     {
       ...conversation(now, 'claude', 'held-edit', 'Webhooks v2 dashboard', 'blocked', { folder: '/Users/you/Code/kombo', minutesAgo: 1 }),
@@ -199,8 +199,8 @@ function companionApprove(now) {
       waiting: { for: 'permission', tool: 'Edit', detail: 'dashboard.tsx' },
       approvals: {
         pending: [
-          held('c3d4', 'Edit', { file_path: '/Users/you/Code/kombo/src/dashboard.tsx', old: 'const retries = 3', new: 'const retries = 5' }),
-          held('e5f6', 'Bash', { command: 'npm test' }),
+          held('c3d4', 'Edit', { file_path: '/Users/you/Code/kombo/src/dashboard.tsx', old: 'const retries = 3', new: 'const retries = 5' }, '/Users/you/Code/kombo'),
+          held('e5f6', 'Bash', { command: 'npm test' }, '/Users/you/Code/kombo'),
         ],
       },
     },
@@ -209,7 +209,7 @@ function companionApprove(now) {
       activity: 'waiting',
       live: true,
       waiting: { for: 'permission', tool: 'apply_patch', detail: 'config.go' },
-      approvals: { pending: [{ ...held('a7b8', 'apply_patch', { patch: '*** Begin Patch\n*** Update File: config.go\n@@\n-Retries int\n+MaxRetries int\n*** End Patch' }), cwd: '/Users/you/Code/kombo' }] },
+      approvals: { pending: [held('a7b8', 'apply_patch', { patch: '*** Begin Patch\n*** Update File: config.go\n@@\n-Retries int\n+MaxRetries int\n*** End Patch' }, '/Users/you/Code/kombo')] },
     },
   ]
 }

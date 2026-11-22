@@ -16,17 +16,17 @@ async function openPanel(page: Page) {
 const row = (page: Page, title: string) => page.locator('#list').getByRole('option').filter({ hasText: title })
 const calls = async (page: Page) => (await (await page.request.get('/dev/calls')).json()) as { path: string; body?: Record<string, unknown> }[]
 
-test('a held request shows the whole command before Approve and Deny', async ({ page }) => {
+test('a held request shows its folder, the whole command and its time limit before Approve and Deny', async ({ page }) => {
   await openPanel(page)
   const held = row(page, 'Clean the build folder')
-  await expect(held.locator('.held-text')).toHaveText(['rm -rf dist && npm run build -- --mode production'])
-  await expect(held.locator('.held-label')).toHaveText(['Run'])
+  await expect(held.locator('.held-text')).toHaveText(['/Users/you/Code/shop', 'rm -rf dist && npm run build -- --mode production', 'Time limit 600 s'])
+  await expect(held.locator('.held-label')).toHaveText(['In', 'Run', 'Options'])
   await expect(held.getByRole('button', { name: 'Approve' })).toBeEnabled()
   await expect(held.getByRole('button', { name: 'Deny' })).toBeEnabled()
 
   const edit = row(page, 'Webhooks v2 dashboard')
-  await expect(edit.locator('.held-label')).toHaveText(['Edit', 'Replace', 'With'])
-  await expect(edit.locator('.held-text')).toHaveText(['/Users/you/Code/kombo/src/dashboard.tsx', 'const retries = 3', 'const retries = 5'])
+  await expect(edit.locator('.held-label')).toHaveText(['In', 'Edit', 'Replace', 'With'])
+  await expect(edit.locator('.held-text')).toHaveText(['/Users/you/Code/kombo', '/Users/you/Code/kombo/src/dashboard.tsx', 'const retries = 3', 'const retries = 5'])
   await expect(edit.locator('.held-more')).toHaveText('+1 more')
 })
 
@@ -44,7 +44,7 @@ test('Deny on the first of two requests shows the next one, whose buttons come o
   await openPanel(page)
   const edit = row(page, 'Webhooks v2 dashboard')
   await edit.getByRole('button', { name: 'Deny' }).click()
-  await expect(edit.locator('.held-text')).toHaveText(['npm test'])
+  await expect(edit.locator('.held-text')).toHaveText(['/Users/you/Code/kombo', 'npm test'])
   await expect(edit.locator('.held-more')).toHaveCount(0)
   // A double click must not answer the request that just took the first one's place.
   await expect(edit.getByRole('button', { name: 'Approve' })).toBeDisabled()

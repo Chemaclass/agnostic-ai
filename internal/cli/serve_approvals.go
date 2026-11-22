@@ -3,6 +3,7 @@ package cli
 import (
 	"cmp"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +30,56 @@ const (
 	approvalsAskPath    = "/api/approvals/ask"
 	approvalsDecidePath = "/api/approvals/decide"
 )
+
+// companionSecretEnv carries the per-launch secret of the companion
+// that starts a server. serve reads it once and removes it from its
+// environment, so no process the server starts inherits it.
+const companionSecretEnv = "AGNOSTIC_AI_COMPANION_SECRET"
+
+// companionSecretHeader carries that secret on each companion request.
+const companionSecretHeader = "X-Agnostic-Ai-Companion-Secret"
+
+// minCompanionSecret is the shortest secret a server accepts; a shorter
+// one turns the decide route and the held requests off.
+const minCompanionSecret = 32
+
+// companionSecret is the secret of the companion that started this
+// server. Only a request that carries it may answer a held request or
+// read one: the loopback guard alone lets any local account in.
+type companionSecret string
+
+// takeCompanionSecret reads the secret from the environment and removes
+// it there. A missing or short secret is none.
+func takeCompanionSecret() companionSecret {
+	secret := os.Getenv(companionSecretEnv)
+	_ = os.Unsetenv(companionSecretEnv)
+	if len(secret) < minCompanionSecret {
+		return ""
+	}
+	return companionSecret(secret)
+}
+
+// allows reports whether r carries the secret. No secret allows nothing.
+func (s companionSecret) allows(r *http.Request) bool {
+	if s == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(r.Header.Get(companionSecretHeader)), []byte(s)) == 1
+}
+
+// withoutPending drops the held requests from every row, for a list
+// read without the companion's secret.
+func withoutPending(view *conversations.View) {
+	for i := range view.Conversations {
+		note := view.Conversations[i].Approvals
+		if note == nil || len(note.Pending) == 0 {
+			continue
+		}
+		stripped := *note
+		stripped.Pending = nil
+		view.Conversations[i].Approvals = &stripped
+	}
+}
 
 // pendingGrace is how long a held Claude Code request stays before the
 // server may withdraw it for a session that does not wait: the hook
@@ -453,6 +504,13 @@ type approvalsReader struct {
 	activated func(tool, mode, home string) bool
 	// alive reports whether the hook process that holds a request runs.
 	alive func(pid int) bool
+	// rows reads the unfiltered first page of the list, and the folder
+	// it is limited to: a decision rechecks its request on it, and the
+	// release after pendingGrace reads it without waiting for a list
+	// read. Nil turns both off.
+	rows func(ctx context.Context) (conversations.View, string)
+	// afterFunc runs f after d; tests replace it.
+	afterFunc func(d time.Duration, f func())
 
 	mu       sync.Mutex
 	logStamp string
@@ -464,7 +522,12 @@ type approvalsReader struct {
 	// held row shows without a write.
 	holds          map[string]time.Time
 	projectFolders []string
+	// releaseAt is when the scheduled release check runs; zero for none.
+	releaseAt time.Time
 }
+
+// rowsWait bounds the list read of a decision or a release check.
+const rowsWait = 30 * time.Second
 
 func newApprovalsReader() *approvalsReader {
 	return &approvalsReader{
@@ -662,6 +725,8 @@ type approvalsAskReply struct {
 // route, which can only turn approvals off.
 type approvalsHandler struct {
 	reader *approvalsReader
+	// secret is the companion's; decide answers only a request with it.
+	secret companionSecret
 }
 
 func (h approvalsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -757,7 +822,7 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 	if err != nil || len(held) == 0 {
 		return nil
 	}
-	waiting, liveCodex := map[string]bool{}, map[string]bool{}
+	waiting, liveCodex := map[string]conversations.Conversation{}, map[string]bool{}
 	for _, c := range view.Conversations {
 		if c.Tool == conversations.ToolCodex && c.Live {
 			liveCodex[approvalSessionKey(string(c.Tool), c.ID)] = true
@@ -766,31 +831,89 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 	for _, list := range [][]conversations.Conversation{view.PermissionWaits, view.Conversations} {
 		for _, c := range list {
 			if _, waits := c.PermissionWait(); waits && c.Live {
-				waiting[approvalSessionKey(string(c.Tool), c.ID)] = true
+				waiting[approvalSessionKey(string(c.Tool), c.ID)] = c
 			}
 		}
 	}
 	out := map[string][]heldRequest{}
 	for _, p := range held {
 		key := approvalSessionKey(p.Tool, p.Session)
+		row, waits := waiting[key]
+		claude := p.Tool == string(conversations.ToolClaude)
 		switch {
 		case !now.Before(p.Expires), a.alive != nil && !a.alive(p.PID):
 			approvals.RemovePending(dir, p.ID)
 			continue
 		case p.Decided:
 			continue
-		case folder == "" && p.Tool == string(conversations.ToolClaude) && !waiting[key] && now.Sub(p.Created) > pendingGrace,
+		case folder == "" && claude && !waits && now.Sub(p.Created) > pendingGrace,
+			claude && waits && calledBefore(row, p.Created),
 			whole && folder == "" && p.Tool == string(conversations.ToolCodex) && !liveCodex[key] && now.Sub(p.Created) > pendingGrace:
 			_ = approvals.WriteDecision(dir, p.ID, approvals.PendingDecision{Decision: approvals.DecideRelease, Digest: p.Digest})
 			continue
+		case now.Sub(p.Created) <= pendingGrace:
+			a.checkReleaseAt(p.Created.Add(pendingGrace))
 		}
-		request := conversations.PendingRequest{ID: p.ID, Digest: p.Digest, Call: p.Call, Input: p.Input, Expires: p.Expires.UTC().Format(time.RFC3339)}
-		if p.Input.Patch != "" {
-			request.Cwd = p.Cwd
-		}
+		request := conversations.PendingRequest{ID: p.ID, Digest: p.Digest, Call: p.Call, Input: p.Input, Expires: p.Expires.UTC().Format(time.RFC3339), Cwd: p.Cwd}
 		out[key] = append(out[key], heldRequest{PendingRequest: request, created: p.Created})
 	}
 	return out
+}
+
+// calledBefore reports whether a request held at created predates the
+// transcript's record of the call row c waits on.
+func calledBefore(c conversations.Conversation, created time.Time) bool {
+	called := c.Waiting.CalledAt()
+	return !called.IsZero() && created.Before(called.Add(-approvalsClockSlack))
+}
+
+// checkReleaseAt reads the list again just after at, when a request
+// passes pendingGrace: a poll that gets 304 reads nothing, and a Codex
+// request no row shows must go to Codex's own prompt then.
+func (a *approvalsReader) checkReleaseAt(at time.Time) {
+	if a.rows == nil {
+		return
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if !a.releaseAt.IsZero() && !at.Before(a.releaseAt) {
+		return
+	}
+	a.releaseAt = at
+	after := a.afterFunc
+	if after == nil {
+		after = func(d time.Duration, f func()) { time.AfterFunc(d, f) }
+	}
+	after(at.Sub(a.now())+10*time.Millisecond, func() {
+		a.mu.Lock()
+		if a.releaseAt.Equal(at) {
+			a.releaseAt = time.Time{}
+		}
+		a.mu.Unlock()
+		ctx, cancel := context.WithTimeout(context.Background(), rowsWait)
+		defer cancel()
+		view, folder := a.rows(ctx)
+		// A scan cut short lists rows out, which would release their requests.
+		if ctx.Err() != nil {
+			return
+		}
+		a.pendingRequests(&view, folder, true, a.now())
+	})
+}
+
+// heldBefore reports whether a request held at created belongs to a
+// call before the one Claude Code row c waits on, which the terminal
+// answered: Claude Code leaves that hook running (decision 028). The
+// hook writes its record after the transcript records its call, and
+// shortly before Claude Code records the wait.
+// Only the call's own time releases a request: a status rewrite while
+// one hook still waits could otherwise release a request that waits.
+func heldBefore(c conversations.Conversation, created time.Time) bool {
+	if calledBefore(c, created) {
+		return true
+	}
+	since, _ := c.PermissionWait()
+	return !since.IsZero() && created.Before(since.Add(-pendingGrace))
 }
 
 // unfilteredFirstPage reports whether a conversations list query reads
@@ -807,10 +930,10 @@ type heldRequest struct {
 	created time.Time
 }
 
-// pendingShown are the held requests row c can answer: for a Claude
-// Code row whose transcript names the call that waits, only requests
-// for that call. A Codex row waits on its held requests, so it shows
-// them all.
+// pendingShown are the held requests row c can answer. A Codex row
+// waits on its held requests, so it shows them all. A Claude Code row
+// shows one request: the only one held for the call that waits, never
+// one of an earlier call; when more than one could be it, none.
 func pendingShown(c conversations.Conversation, held []heldRequest) []conversations.PendingRequest {
 	if len(held) == 0 || c.Waiting == nil {
 		return nil
@@ -818,6 +941,9 @@ func pendingShown(c conversations.Conversation, held []heldRequest) []conversati
 	var out []conversations.PendingRequest
 	for _, p := range held {
 		if c.Tool != conversations.ToolCodex {
+			if heldBefore(c, p.created) {
+				continue
+			}
 			if c.Waiting.Tool != "" && c.Waiting.Tool != p.Call {
 				continue
 			}
@@ -826,6 +952,9 @@ func pendingShown(c conversations.Conversation, held []heldRequest) []conversati
 			}
 		}
 		out = append(out, p.PendingRequest)
+	}
+	if c.Tool != conversations.ToolCodex && len(out) > 1 {
+		return nil
 	}
 	return out
 }
@@ -867,12 +996,21 @@ type approvalsDecideRequest struct {
 }
 
 // decide writes the companion's answer to one held request. It needs
-// the request's id and the digest of what the panel showed, and can do
-// nothing else: no record, no mode, no rule.
+// the companion's secret, the request's id and the digest of what the
+// panel showed, and can do nothing else: no record, no mode, no rule.
+// The request must still be the one its row shows.
 func (h approvalsHandler) decide(w http.ResponseWriter, r *http.Request) {
+	if h.secret == "" {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: "no endpoint at " + r.URL.Path + ": only a server the companion started answers requests"})
+		return
+	}
 	// Only the server's own origin, not one --allow-origin added.
 	if status, message := editRequestGuard(r.WithContext(context.Background())); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
+		return
+	}
+	if !h.secret.allows(r) {
+		writeEditJSON(w, http.StatusForbidden, editError{Error: "Requests are answered from the companion only."})
 		return
 	}
 	var req approvalsDecideRequest
@@ -900,6 +1038,10 @@ func (h approvalsHandler) decide(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusConflict, editError{Error: "This request changed. Check it again."})
 		return
 	}
+	if !h.offered(r.Context(), held) {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: pendingGone})
+		return
+	}
 	err = approvals.WriteDecision(dir, req.ID, approvals.PendingDecision{Decision: req.Decision, Digest: held.Digest})
 	if errors.Is(err, approvals.ErrDecided) {
 		writeEditJSON(w, http.StatusNotFound, editError{Error: pendingGone})
@@ -910,6 +1052,34 @@ func (h approvalsHandler) decide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeEditJSON(w, http.StatusOK, map[string]string{"decision": req.Decision})
+}
+
+// offered reports whether a fresh read of the list still shows request
+// p on its row: a Claude Code session may have moved on to another call
+// since the panel read it.
+func (h approvalsHandler) offered(ctx context.Context, p approvals.Pending) bool {
+	if h.reader.rows == nil {
+		return false
+	}
+	view, folder := h.reader.rows(ctx)
+	if ctx.Err() != nil {
+		return false
+	}
+	pending := h.reader.pendingRequests(&view, folder, true, h.reader.now())
+	key := approvalSessionKey(p.Tool, p.Session)
+	isP := func(r conversations.PendingRequest) bool { return r.ID == p.ID }
+	for _, list := range [][]conversations.Conversation{view.Conversations, view.PermissionWaits} {
+		for _, c := range list {
+			if approvalSessionKey(string(c.Tool), c.ID) != key || !c.Live {
+				continue
+			}
+			if c.Tool == conversations.ToolCodex {
+				return slices.ContainsFunc(pending[key], func(r heldRequest) bool { return r.ID == p.ID })
+			}
+			return slices.ContainsFunc(pendingShown(c, pending[key]), isP)
+		}
+	}
+	return false
 }
 
 // keepCompanionLive keeps companion.live fresh every

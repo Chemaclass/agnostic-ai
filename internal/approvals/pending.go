@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -178,7 +179,7 @@ func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 	switch call {
 	case "Bash":
 		in.Command = text("command")
-		if strings.TrimSpace(in.Command) == "" {
+		if strings.TrimSpace(in.Command) == "" || !shellOptions(input, &in) {
 			return PendingInput{}, false
 		}
 	case "Read":
@@ -230,6 +231,30 @@ func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 		return PendingInput{}, false
 	}
 	return in, true
+}
+
+// maxShellTimeout bounds a timeout the panel shows: a larger number
+// has no exact value in milliseconds.
+const maxShellTimeout = 1 << 53
+
+// shellOptions reads how a command runs into in. It is false for an
+// option of a shape the panel could not show as the tool reads it.
+func shellOptions(input map[string]any, in *PendingInput) bool {
+	if value, set := input["run_in_background"]; set {
+		on, isBool := value.(bool)
+		if !isBool {
+			return false
+		}
+		in.Background = on
+	}
+	if value, set := input["timeout"]; set {
+		ms, isNumber := value.(float64)
+		if !isNumber || ms <= 0 || ms != math.Trunc(ms) || ms > maxShellTimeout {
+			return false
+		}
+		in.Timeout = int64(ms)
+	}
+	return true
 }
 
 func pendingPath(dir, id string) string  { return filepath.Join(dir, id+".json") }

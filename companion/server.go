@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,6 +67,26 @@ const openLateTimeout = 95 * time.Second
 // maxReplyBytes bounds a reply from the server: a list of conversations.
 const maxReplyBytes = 32 << 20
 
+// secretEnv hands the server this launch's secret; agnostic-ai serve
+// reads it once and removes it from its environment. Arguments would
+// show it to every account on the machine.
+const secretEnv = "AGNOSTIC_AI_COMPANION_SECRET"
+
+// secretHeader carries the secret on each call. Without it the server
+// lists no held request and answers none: any local account reaches
+// its loopback port.
+const secretHeader = "X-Agnostic-Ai-Companion-Secret"
+
+// newSecret is 256 random bits in hex; empty when none can be drawn,
+// which leaves the server without the decide route.
+func newSecret() string {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b[:])
+}
+
 // maxProblemBytes is how much of the server's error output is kept to explain a failed start.
 const maxProblemBytes = 2 << 10
 
@@ -83,6 +105,8 @@ type server struct {
 	startWait, healthWait time.Duration
 	// openLateWait bounds an open the page stopped waiting for.
 	openLateWait time.Duration
+	// secret is this launch's secret, given to each server it starts.
+	secret string
 
 	mu sync.Mutex
 	// resting is set once the companion quits: no call starts a server
@@ -114,7 +138,7 @@ var errMismatchedAgnosticAI = errors.New("The installed agnostic-ai does not mat
 
 func newServer() *server {
 	// Each call sets its own time limit; see callWithin.
-	return &server{client: &http.Client{}, callWait: callTimeout, openWait: openTimeout, sendWait: sendTimeout, openLateWait: openLateTimeout, startWait: serverStartWait, healthWait: healthTimeout}
+	return &server{client: &http.Client{}, secret: newSecret(), callWait: callTimeout, openWait: openTimeout, sendWait: sendTimeout, openLateWait: openLateTimeout, startWait: serverStartWait, healthWait: healthTimeout}
 }
 
 // address returns the running server's address, starting one first when
@@ -189,6 +213,9 @@ func (s *server) start() (string, error) {
 	// the Claude Code sessions that run at claude.ai/code.
 	process := exec.Command(binary, "serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions")
 	withoutConsoleWindow(process)
+	if s.secret != "" {
+		process.Env = append(os.Environ(), secretEnv+"="+s.secret)
+	}
 	input, err := process.StdinPipe()
 	if err != nil {
 		return "", fmt.Errorf("start agnostic-ai serve: %w", err)
@@ -375,6 +402,9 @@ func (s *server) callWithin(ctx context.Context, wait time.Duration, method, pat
 	}
 	if ifNoneMatch != "" {
 		request.Header.Set("If-None-Match", ifNoneMatch)
+	}
+	if s.secret != "" {
+		request.Header.Set(secretHeader, s.secret)
 	}
 	listRead := method == http.MethodGet && strings.HasPrefix(path, serverListPath)
 	response, err := s.client.Do(request)

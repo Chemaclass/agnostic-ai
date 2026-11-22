@@ -249,6 +249,12 @@ func TestHookApproveHold_DoesNotHold(t *testing.T) {
 		{name: "MCP tool", home: companionAskHome, target: "claude", payload: func(project string) string {
 			return `{"hook_event_name":"PermissionRequest","session_id":"s","cwd":` + strconvQuote(project) + `,"tool_name":"mcp__notion__fetch","tool_input":{"id":"x"}}`
 		}},
+		{name: "no folder", home: companionAskHome, target: "claude", payload: func(string) string {
+			return `{"hook_event_name":"PermissionRequest","session_id":"s","tool_name":"Bash","tool_input":{"command":"touch a.txt"}}`
+		}},
+		{name: "timeout as text", home: companionAskHome, target: "claude", payload: func(project string) string {
+			return `{"hook_event_name":"PermissionRequest","session_id":"s","cwd":` + strconvQuote(project) + `,"tool_name":"Bash","tool_input":{"command":"touch a.txt","timeout":"60000"}}`
+		}},
 		{name: "project settings move HOME", home: companionAskHome, target: "claude", command: "touch a.txt", setup: func(t *testing.T, _, project string) {
 			t.Helper()
 			writeFile(t, filepath.Join(project, ".claude", "settings.json"), `{"env":{"HOME":"/elsewhere"}}`)

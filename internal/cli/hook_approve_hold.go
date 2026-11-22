@@ -44,7 +44,8 @@ type companionHold struct {
 // a click with a matching digest, nil in every other case.
 func (h companionHold) wait(now time.Time) []byte {
 	holdFor, held := companionHoldTimes[h.target]
-	if !held || !h.on || len(h.rawInput) == 0 {
+	// The panel shows the folder a call runs in; without one, ask.
+	if !held || !h.on || len(h.rawInput) == 0 || h.payload.Cwd == "" {
 		return nil
 	}
 	if h.target == "codex" && h.reviewer {
