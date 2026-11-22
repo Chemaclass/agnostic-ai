@@ -148,6 +148,8 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	target := companionFile(dir, build.goos)
 	place := func() error { return tools.rename(built, target) }
 	var restore func() error
+	// earlier is where the swap moves an earlier app, the one restore puts back.
+	earlier := ""
 	if build.goos == "darwin" {
 		app := filepath.Join(staging, companionAppName+".app")
 		if err := assembleCompanionApp(ctx, tools, dir, built, app, build.version); err != nil {
@@ -156,6 +158,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		target = companionBundle(dir)
 		place = func() error { return replaceCompanionApp(tools.rename, app, target, staging) }
 		restore = func() error { return restoreCompanionApp(tools.rename, app, target, staging) }
+		earlier = filepath.Join(staging, companionAsideName)
 	}
 	// An interrupt stops here, before anything installed changes. Past
 	// this point the install finishes, so a stopped companion starts again.
@@ -178,7 +181,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		_, _ = fmt.Fprintln(out, "Start it with: agnostic-ai companion")
 		return nil
 	}
-	keepStaging, err = replaceInstalledCompanion(ctx, out, tools, dir, build, installed, target, place, restore, loginEntries)
+	keepStaging, err = replaceInstalledCompanion(ctx, out, tools, dir, build, installed, target, earlier, place, restore, loginEntries)
 	return err
 }
 
@@ -228,7 +231,7 @@ func obtainCompanion(ctx context.Context, out io.Writer, live bool, tools compan
 // keepStaging reports that the staging folder holds the only copy of the
 // app place could not put back. restore, when set, puts the earlier app
 // back after the new one fails to start.
-func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools companionTools, dir string, build companionBuild, installed, target string, place, restore func() error, loginEntries []string) (keepStaging bool, err error) {
+func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools companionTools, dir string, build companionBuild, installed, target, earlier string, place, restore func() error, loginEntries []string) (keepStaging bool, err error) {
 	// Windows does not replace the file of a program that runs.
 	ran, err := endCompanion(ctx, tools, installed)
 	alone := err == nil
@@ -273,7 +276,8 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 		_, _ = fmt.Fprintf(out, "Could not install the updated companion: %v\n", err)
 	}
 	start := func() error { return startInstalledCompanion(tools, installed) }
-	if !swapped || restore == nil {
+	// Without an earlier app to put back, a slow new one is better left running.
+	if _, statErr := os.Stat(earlier); !swapped || restore == nil || statErr != nil {
 		if startErr := start(); startErr != nil {
 			return keepStaging, errors.Join(err, startErr)
 		}
@@ -298,10 +302,10 @@ const (
 )
 
 // launchUpdatedCompanion starts the updated companion with start and waits
-// until it stays up. The earlier companion can stay listed a moment after
-// it lets go of its lock, so it is first given time to leave the list. One
-// that does not stay up is asked to quit, in case it is only slow, so the
-// earlier one can take its place.
+// until it stays up. It first waits up to companionStartTries looks for a
+// companion still listed to leave the list, so that one is not taken for
+// the new one. One that does not stay up is asked to quit, in case it is
+// only slow, so the earlier one can take its place.
 func launchUpdatedCompanion(ctx context.Context, out io.Writer, tools companionTools, program string, start func() error) error {
 	for range companionStartTries {
 		if listed, err := tools.running(ctx, program); err != nil || !listed {

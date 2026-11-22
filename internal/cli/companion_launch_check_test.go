@@ -324,3 +324,33 @@ func TestInstallCompanion_DoesNotWatchTheStartOffMacOS(t *testing.T) {
 		})
 	}
 }
+
+func TestInstallCompanion_LeavesASlowNewAppRunningWhenNoEarlierAppCanComeBack(t *testing.T) {
+	dir := t.TempDir()
+	bareCompanion(t, dir)
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	started := false
+	tools.start = func(string, []string) error { started = true; return nil }
+	tools.running = func(context.Context, string) (bool, error) {
+		if started {
+			t.Error("watched a start with no earlier app to put back")
+		}
+		return false, nil
+	}
+	stopped := tools.quit
+	tools.quit = func(ctx context.Context, path string) (bool, error) {
+		if started {
+			t.Error("asked the new companion to quit with no earlier app to put back")
+		}
+		return stopped(ctx, path)
+	}
+
+	if err := installCompanion(context.Background(), io.Discard, false, tools, dir, macBuild(), nil); err != nil {
+		t.Fatal(err)
+	}
+	if !started {
+		t.Error("the new companion was not started")
+	}
+}

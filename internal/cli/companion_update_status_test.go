@@ -460,3 +460,40 @@ func TestUpgradeCache_TheCompanionCheckUsesTheImageALaterCheckFoundWhenItsOwnFai
 		t.Errorf("answer = %q, %t, %v; want the image the later check found", latest, image, err)
 	}
 }
+
+func TestUpgradeCache_ALateCheckWithANewerReleaseReplacesALaterCheckWithAnOlderOne(t *testing.T) {
+	now := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+	for name, check := range map[string]func(path string, fetch func(string) (upgradeOffer, error)) (string, error){
+		"guided": func(path string, fetch func(string) (upgradeOffer, error)) (string, error) {
+			offer, err := cachedUpgradeOfferAt(path, "0.96.0", now, fetch)
+			return offer.Latest, err
+		},
+		"companion": func(path string, fetch func(string) (upgradeOffer, error)) (string, error) {
+			latest, _, err := companionUpdateCacheAt(path, "0.96.0", now, false, false, fetch, nil)
+			return latest, err
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "update-check.json")
+			if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(-48 * time.Hour), Current: "0.96.0", Offer: upgradeOffer{Latest: "0.96.0"}}); err != nil {
+				t.Fatal(err)
+			}
+			fetch := func(string) (upgradeOffer, error) {
+				// A check that started later read the release list first and saved 0.97.0.
+				if err := writeUpgradeCache(path, upgradeCheckCache{CheckedAt: now.Add(time.Nanosecond), Current: "0.96.0", Offer: upgradeOffer{Latest: "0.97.0"}}); err != nil {
+					t.Fatal(err)
+				}
+				return upgradeOffer{Latest: "0.98.0"}, nil
+			}
+
+			latest, err := check(path, fetch)
+
+			if err != nil || latest != "0.98.0" {
+				t.Errorf("answer = %q, %v; want the newer release", latest, err)
+			}
+			if cache := readUpgradeCache(path); cache.Offer.Latest != "0.98.0" {
+				t.Errorf("cache = %+v; want the newer release saved", cache)
+			}
+		})
+	}
+}

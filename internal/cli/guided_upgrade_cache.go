@@ -45,6 +45,13 @@ func savedLater(stored, ours time.Time, waited time.Duration) bool {
 	return stored.After(ours) && stored.Sub(ours) <= waited
 }
 
+// keepStoredCheck reports whether stored is a later check ours must not
+// replace. A later check that found an older release still loses to ours,
+// since it can only have read the release list before ours did.
+func keepStoredCheck(stored, ours upgradeCheckCache, waited time.Duration) bool {
+	return savedLater(stored.CheckedAt, ours.CheckedAt, waited) && !newerStableRelease(ours.Offer.Latest, stored.Offer.Latest)
+}
+
 // wallSince is the wall clock time since started. The monotonic clock
 // stops while a Mac sleeps, and the saved times it is compared with do not.
 func wallSince(started time.Time) time.Duration {
@@ -104,7 +111,7 @@ func companionUpdateCacheAt(path, current string, now time.Time, refresh, keepIm
 	var later *upgradeCheckCache
 	if changed || imageChanged {
 		_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-			late := changed && savedLater(stored.CheckedAt, cache.CheckedAt, wallSince(started))
+			late := changed && keepStoredCheck(*stored, cache, wallSince(started))
 			if changed && !late {
 				if stored.Offer.Latest != cache.Offer.Latest {
 					stored.OfferedAt = time.Time{}
@@ -173,7 +180,7 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
 	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
 		read = true
-		if fetched && !savedLater(stored.CheckedAt, cache.CheckedAt, wallSince(started)) {
+		if fetched && !keepStoredCheck(*stored, cache, wallSince(started)) {
 			if stored.Offer.Latest != cache.Offer.Latest {
 				stored.OfferedAt = time.Time{}
 			}
