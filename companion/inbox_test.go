@@ -388,7 +388,7 @@ touch "`+stopped+`"`)
 		t.Fatalf("address = %q, %v", address, err)
 	}
 	args, _ := os.ReadFile(stopped + ".args")
-	if strings.TrimSpace(string(args)) != "serve --global --api-only --no-installed --addr 127.0.0.1:0 --stop-with-stdin --cloud-sessions" {
+	if strings.TrimSpace(string(args)) != "serve --global --api-only --no-installed --addr 127.0.0.1:0 --stop-with-stdin --cloud-sessions --require-companion-secret" {
 		t.Errorf("started with %q", args)
 	}
 
@@ -400,6 +400,25 @@ touch "`+stopped+`"`)
 	})
 	if _, err := server.address(); err == nil || err.Error() != "the companion is quitting and asks agnostic-ai nothing" {
 		t.Errorf("a resting companion started a server: %v", err)
+	}
+}
+
+func TestServer_HandsTheServerOnlyItsOwnSecret(t *testing.T) {
+	t.Setenv(secretEnv, "a secret this companion does not know")
+	seen := filepath.Join(t.TempDir(), "secret")
+	fakeCommand(t, `printf '%s' "$`+secretEnv+`" > "`+seen+`"
+echo "Serving agnostic-ai at http://127.0.0.1:1/"
+cat > /dev/null`)
+	server := newServer()
+	server.secret = ""
+
+	if _, err := server.address(); err != nil {
+		t.Fatal(err)
+	}
+	server.rest()
+
+	if got, _ := os.ReadFile(seen); len(got) != 0 {
+		t.Errorf("the server saw secret %q; want this companion's empty one", got)
 	}
 }
 

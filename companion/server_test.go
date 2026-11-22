@@ -84,7 +84,7 @@ func TestServer_StopsAServerWhoseAddressArrivesAfterQuit(t *testing.T) {
 }
 
 func TestServer_SaysTheInstalledAgnosticAIDoesNotMatchAndWaitsBeforeTryingAgain(t *testing.T) {
-	starts := countedCommand(t, "echo 'Error: unknown flag: --cloud-sessions' >&2\nexit 1")
+	starts := countedCommand(t, "echo 'Error: unknown flag: --require-companion-secret' >&2\nexit 1")
 	s := newServer()
 
 	for range 3 {

@@ -210,12 +210,12 @@ func (s *server) start() (string, error) {
 	// Port 0 lets the system pick a free port, away from the ports
 	// `agnostic-ai view` uses. --stop-with-stdin ends the server with
 	// this process, however this process ends. --cloud-sessions adds
-	// the Claude Code sessions that run at claude.ai/code.
-	process := exec.Command(binary, "serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions")
+	// the Claude Code sessions that run at claude.ai/code. An older
+	// agnostic-ai rejects --require-companion-secret instead of ignoring
+	// the secret and leaving its routes open.
+	process := exec.Command(binary, "serve", "--global", "--api-only", "--no-installed", "--addr", "127.0.0.1:0", "--stop-with-stdin", "--cloud-sessions", "--require-companion-secret")
 	withoutConsoleWindow(process)
-	if s.secret != "" {
-		process.Env = append(os.Environ(), secretEnv+"="+s.secret)
-	}
+	process.Env = append(os.Environ(), secretEnv+"="+s.secret)
 	input, err := process.StdinPipe()
 	if err != nil {
 		return "", fmt.Errorf("start agnostic-ai serve: %w", err)
