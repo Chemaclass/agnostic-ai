@@ -311,6 +311,7 @@ func TestUpgradeCompanion_ConfirmsReleaseBeforeChangingInstall(t *testing.T) {
 		{"changed", "1.0.0", "3.0.0", "Terminal update failed: release changed since confirmation:"},
 		{"unreachable", "1.0.0", "", "Terminal update failed: could not confirm release 2.0.0:"},
 		{"would downgrade", "3.0.0", "2.0.0", "Terminal update failed: release changed since confirmation:"},
+		{"repairs the companion", "2.0.0", "2.0.0", "Terminal update completed."},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ran := false
@@ -327,8 +328,9 @@ func TestUpgradeCompanion_ConfirmsReleaseBeforeChangingInstall(t *testing.T) {
 			cmd.SetErr(&log)
 			err := cmd.Execute()
 			wantRun := tc.name == "matched"
-			if ran != wantRun || (err == nil) != wantRun || !strings.Contains(log.String(), tc.outcome) {
-				t.Errorf("ran %t, error %v, log %q; want ran %t and %q", ran, err, &log, wantRun, tc.outcome)
+			wantOK := wantRun || tc.name == "repairs the companion"
+			if ran != wantRun || (err == nil) != wantOK || !strings.Contains(log.String(), tc.outcome) {
+				t.Errorf("ran %t, error %v, log %q; want ran %t, success %t and %q", ran, err, &log, wantRun, wantOK, tc.outcome)
 			}
 		})
 	}
