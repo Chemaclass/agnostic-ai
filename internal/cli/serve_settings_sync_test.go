@@ -18,6 +18,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/approvals"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 func decodeSyncReply[T any](t *testing.T, body []byte) T {
@@ -387,5 +388,77 @@ func TestSettingsSync_AnInactiveOverrideKeepsThePlanID(t *testing.T) {
 	writeFile(t, filepath.Join(source, "mcps", "tools.yaml"), "name: tools\ncommand: npx\nargs: [-y, changed]\n")
 	if third := syncPlanOf(t, h); third.ID == first.ID {
 		t.Error("a change sync writes kept the plan id")
+	}
+}
+
+func TestSettingsSync_PlanShowsGrokNativeHooks(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\ntargets: [grok]\n")
+	writeFile(t, filepath.Join(source, "hooks", "guard.yaml"), `name: guard
+event: PreToolUse
+target: grok
+x-grok:
+  hooks:
+    PreToolUse:
+      - hooks:
+          - type: command
+            command: echo native-hook
+`)
+	plan := syncPlanOf(t, h)
+	if !slices.Contains(plan.Commands, "hook guard: echo native-hook") {
+		t.Errorf("plan commands = %q, want the native Grok command", plan.Commands)
+	}
+	applySyncPlan(t, h, plan)
+	home, _ := userHomeDir()
+	if file := readFile(t, filepath.Join(home, ".grok", "hooks", "guard.json")); !strings.Contains(file, "echo native-hook") {
+		t.Errorf("Grok hook = %s", file)
+	}
+}
+
+func TestSettingsSync_PlanShowsKimiWindowsHookWithArgs(t *testing.T) {
+	home, source := userAgentTestHome(t)
+	hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
+		"event": "PreToolUse", "command": "guard.sh", "commandWindows": "guard.exe", "args": []string{"--check"},
+	}}
+	plan, err := runUserPlan(home, source, []string{"kimi"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, userState{Version: userStateVersion}, nil, io.Discard, "warn", "windows")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if commands := plan.syncCommands(); !slices.Equal(commands, []string{"hook guard: guard.exe '--check'"}) {
+		t.Errorf("plan commands = %q, want the Windows command with its argument", commands)
+	}
+}
+
+func TestSettingsSync_PlanShowsVibeMCPArgsUnderNativeAlias(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\ntargets: [vibe]\n")
+	home, _ := userHomeDir()
+	path := filepath.Join(home, ".vibe", "config.toml")
+	writeFile(t, path, "[[mcp_servers]]\nname='docs.api'\ntransport='stdio'\ncommand=['node', 'server.js']\nargs=['--local']\n")
+	writeFile(t, filepath.Join(source, "mcps", "docs_api.yaml"), `name: docs_api
+command: node
+x-vibe:
+  command: [node, server.js]
+  args: [--local]
+`)
+	applySyncPlan(t, h, syncPlanOf(t, h))
+	writeFile(t, filepath.Join(source, "mcps", "docs_api.yaml"), `name: docs_api
+command: node
+x-vibe:
+  command: [node, updated.js]
+  args: [--local]
+`)
+	plan := syncPlanOf(t, h)
+	if want := []string{"MCP server docs_api: node 'updated.js' '--local'"}; !slices.Equal(plan.Commands, want) {
+		t.Errorf("plan commands = %q, want %q", plan.Commands, want)
+	}
+	applySyncPlan(t, h, plan)
+	if file := readFile(t, path); !strings.Contains(file, "updated.js") || !strings.Contains(file, "docs.api") {
+		t.Errorf("Vibe config = %s", file)
+	}
+}
+
+func TestSettingsSync_PlanMasksLiteralCredentialsInHookArgs(t *testing.T) {
+	lines := nativeLines([]any{map[string]any{"command": "sshpass", "args": []string{"-p", "example-fixture-password", "ssh", "example.test"}}})
+	if !slices.Equal(lines, []string{preview.Redacted}) {
+		t.Error("the hook line did not mask a literal password")
 	}
 }

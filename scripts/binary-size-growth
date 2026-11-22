@@ -5,5 +5,6 @@
 # #3938: the Apply confirm reads the native hook and MCP records sync
 # writes (env masking, quoting, url redaction), and approvals, targets and
 # builtins edits of the home config share one lock and one snapshot read.
-# No new dependency. The build grows by 28672 bytes.
-32768
+# The preview also reads Grok and TOML hooks, keeps Vibe MCP aliases,
+# and masks credentials in command arguments. No new dependency.
+36864

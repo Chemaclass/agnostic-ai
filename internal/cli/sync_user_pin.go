@@ -110,18 +110,46 @@ func (p *userPlan) syncCommands() []string {
 		lines, order := targetLines(p.targets, func(target string) []string {
 			owned := p.next.MCP[target]
 			// A JSON file keys a server under the target's MCP key.
-			record, ok := owned[server.Name]
+			name := server.Name
+			if target == "vibe" && p.vibeMCPAliases[name] != "" {
+				name = p.vibeMCPAliases[name]
+			}
+			record, ok := owned[name]
 			if !ok {
 				record, ok = owned[userTargets[target].mcp.key+"."+server.Name]
 			}
 			if !ok {
 				return nil
 			}
+			if target == "vibe" {
+				record = vibeMCPPreviewRecord(record)
+			}
 			return nativeLines([]any{record})
 		})
 		add("MCP server "+server.Name, lines, order, len(p.targets))
 	}
 	return commands
+}
+
+func vibeMCPPreviewRecord(record any) any {
+	native, ok := record.(map[string]any)
+	if !ok {
+		return record
+	}
+	argv := stringSliceFromAny(jsonRoundTrip(native["command"]))
+	if len(argv) == 0 {
+		return record
+	}
+	native = maps.Clone(native)
+	args := argv[1:]
+	args = append(args, stringSliceFromAny(jsonRoundTrip(native["args"]))...)
+	command := shownWord(argv[0])
+	if len(args) > 0 {
+		command = adapters.ExecFormCommand(argv[0], args)
+	}
+	native["command"] = command
+	delete(native, "args")
+	return native
 }
 
 // targetLines gathers the lines each target runs, in first-seen order,
@@ -151,10 +179,10 @@ func userHookTargetLines(target string, hook spec.Entry) []string {
 	args := stringSliceFromAny(resolved["args"])
 	var lines []string
 	for _, command := range userHookCommands(resolved["command"]) {
-		lines = append(lines, strings.TrimSpace(adapters.ExecFormCommand(command, args)))
+		lines = append(lines, shownCommand(adapters.ExecFormCommand(command, args)))
 	}
 	for _, command := range userHookCommands(resolved["commandWindows"]) {
-		lines = append(lines, strings.TrimSpace(command))
+		lines = append(lines, shownCommand(command))
 	}
 	return lines
 }
@@ -246,7 +274,7 @@ func shownWord(value string) string {
 // an env value that looks like a secret. A value that is not a plain
 // word is quoted, so it cannot read as another command.
 func withEnvAndCwd(line string, meta map[string]any) string {
-	line = strings.TrimSpace(line)
+	line = shownCommand(line)
 	if env, ok := meta["env"].(map[string]any); ok && len(env) > 0 {
 		pairs := make([]string, 0, len(env))
 		for name, value := range env {
@@ -269,4 +297,12 @@ func shownEnvValue(key, value string) string {
 		return preview.Redacted
 	}
 	return preview.RedactText(value)
+}
+
+func shownCommand(command string) string {
+	command = strings.TrimSpace(command)
+	if preview.CommandCredentialDetected(command) {
+		return preview.Redacted
+	}
+	return preview.RedactText(command)
 }

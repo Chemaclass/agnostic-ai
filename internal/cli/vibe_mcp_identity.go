@@ -22,7 +22,7 @@ func validateVibeMCPDocument(path string, data []byte) error {
 	return nil
 }
 
-func reconcileVibeMCPNames(path string, want map[string]map[string]any, current map[string]tomlArrayRecord, previous map[string]any) (map[string]map[string]any, error) {
+func reconcileVibeMCPNames(path string, want map[string]map[string]any, current map[string]tomlArrayRecord, previous map[string]any, aliases map[string]string) (map[string]map[string]any, error) {
 	desired := make([]map[string]any, 0, len(want))
 	for name, r := range want {
 		if r["name"] != name {
@@ -72,6 +72,9 @@ func reconcileVibeMCPNames(path string, want map[string]map[string]any, current 
 		if !exists || actual == name {
 			reconciled[name] = desired
 			continue
+		}
+		if aliases != nil {
+			aliases[name] = actual
 		}
 		have := current[actual].value
 		if sameSetting(adapters.CanonicalUserArrayRecord("vibe", "mcp_servers", have), adapters.CanonicalUserArrayRecord("vibe", "mcp_servers", desired)) {

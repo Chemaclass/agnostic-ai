@@ -116,7 +116,7 @@ func stageUserMCPArray(path, key, target, dir string, homeRecords []map[string]a
 	for _, r := range records {
 		current[r["name"].(string)] = tomlArrayRecord{value: r}
 	}
-	if _, err := reconcileVibeMCPNames(path, nil, current, previous); err != nil {
+	if _, err := reconcileVibeMCPNames(path, nil, current, previous, nil); err != nil {
 		return nil, err
 	}
 	var user []map[string]any

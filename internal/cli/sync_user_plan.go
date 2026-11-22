@@ -101,7 +101,8 @@ type userPlan struct {
 	body, managed string
 	// shown holds, per target and hook name, the records sync writes for
 	// each spec hook; a target in it lists no hook it did not render.
-	shown map[string]map[string][]any
+	shown          map[string]map[string][]any
+	vibeMCPAliases map[string]string
 }
 
 // showHook keeps record, which target gets for the spec hook name.
@@ -429,7 +430,8 @@ func (p *userPlan) planHookFiles(target string, g userTarget) error {
 	hooks := adapters.TargetHooks(target, p.bundle.HooksFor(target))
 	adapters.NotePortableHookGaps(target, p.bundle.Hooks)
 	dir := g.path(p.home, g.hooksDir)
-	if target == "kiro" {
+	namedJSONHooks := target == "kiro" || target == "grok"
+	if namedJSONHooks {
 		p.showsHooks(target)
 	}
 	addHookFile := func(path string, data []byte, mode fs.FileMode) error {
@@ -437,8 +439,8 @@ func (p *userPlan) planHookFiles(target string, g userTarget) error {
 			return err
 		}
 		p.next.HookFiles[target] = append(p.next.HookFiles[target], path)
-		// Kiro writes one file per hook, named after it.
-		if name, ok := strings.CutSuffix(filepath.Base(path), ".json"); ok && target == "kiro" && filepath.Dir(path) == dir {
+		// Kiro and Grok write one file per hook, named after it.
+		if name, ok := strings.CutSuffix(filepath.Base(path), ".json"); ok && namedJSONHooks && filepath.Dir(path) == dir {
 			var record any
 			if json.Unmarshal(data, &record) == nil {
 				p.showHook(target, name, record)
@@ -833,16 +835,16 @@ func (p *userPlan) planHookArray(target string, g userTarget) error {
 		}
 		previous = nil
 	}
-	records, err := adapters.UserHookArrayRecordsForPlatform(target, p.bundle.HooksFor(target), filepath.Join(filepath.Dir(path), "hooks"), p.platform)
-	if err != nil {
-		return err
-	}
-	if target == "vibe" {
-		// Vibe names each record after its hook; Kimi's records carry no name.
-		p.showsHooks(target)
-		for _, record := range records {
-			name, _ := record["name"].(string)
-			p.showHook(target, name, record)
+	p.showsHooks(target)
+	var records []map[string]any
+	for _, hook := range p.bundle.HooksFor(target) {
+		native, err := adapters.UserHookArrayRecordsForPlatform(target, []spec.Entry{hook}, filepath.Join(filepath.Dir(path), "hooks"), p.platform)
+		if err != nil {
+			return err
+		}
+		records = append(records, native...)
+		for _, record := range native {
+			p.showHook(target, hook.Name, adapters.CanonicalUserArrayRecord(target, "hooks", record))
 		}
 	}
 	want, err := namedTOMLRecords(path, records)
@@ -914,7 +916,10 @@ func (p *userPlan) planArray(target, path, parent string, want map[string]map[st
 		return userSettingsMerge{}, err
 	}
 	if target == "vibe" && parent == "mcp_servers" {
-		want, err = reconcileVibeMCPNames(path, want, existing, previous)
+		if p.vibeMCPAliases == nil {
+			p.vibeMCPAliases = map[string]string{}
+		}
+		want, err = reconcileVibeMCPNames(path, want, existing, previous, p.vibeMCPAliases)
 		if err != nil {
 			return userSettingsMerge{}, err
 		}
