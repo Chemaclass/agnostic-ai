@@ -25,6 +25,44 @@ hdiutil_retrying() {
   done
 }
 
+image_diagnostics() {
+  local image="$1"
+  echo "--- processes with $image open" >&2
+  lsof -- "$image" >&2 || true
+  echo "--- disk image helpers" >&2
+  pgrep -lf diskimages-helper >&2 || true
+  echo "--- attached disk images" >&2
+  hdiutil info >&2 || true
+}
+
+# On some runners `hdiutil create` returns while its diskimages-helper keeps
+# the finished image open and locked, for as long as the job runs, so every
+# verify fails at once with "Resource temporarily unavailable". The helper
+# has nothing left to write: the verify that follows checks the checksums.
+release_image() {
+  local image="$1" pid pids helpers="" waited=0
+  pids="$(lsof -t -- "$image" 2>/dev/null)" || true
+  [ -z "$pids" ] && return 0
+  echo "hdiutil create left $image open" >&2
+  image_diagnostics "$image"
+  for pid in $pids; do
+    if [[ "$(ps -o comm= -p "$pid" 2>/dev/null)" == *diskimages-helper ]]; then
+      helpers="$helpers $pid"
+    fi
+  done
+  [ -z "$helpers" ] && return 0
+  echo "stopping the disk image helper:$helpers" >&2
+  # shellcheck disable=SC2086
+  kill $helpers 2>/dev/null || true
+  # shellcheck disable=SC2086
+  while kill -0 $helpers 2>/dev/null && [ "$waited" -lt 10 ]; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  # shellcheck disable=SC2086
+  kill -9 $helpers 2>/dev/null || true
+}
+
 download_modules() {
   local attempt=1 delay=5 output status
   while :; do
@@ -170,6 +208,10 @@ PLIST
   image="$outdir/${name}_darwin_${arch}.dmg"
   hdiutil_retrying create -ov -format UDZO -volname "$app_name" \
     -srcfolder "$work/$arch/image" "$image"
-  hdiutil_retrying verify "$image"
+  release_image "$image"
+  if ! hdiutil_retrying verify "$image"; then
+    image_diagnostics "$image"
+    exit 1
+  fi
   echo "$image"
 done

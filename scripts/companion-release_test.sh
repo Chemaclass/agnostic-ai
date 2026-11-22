@@ -116,6 +116,84 @@ function test_it_fails_at_once_on_any_other_error() {
   assert_not_contains "resource busy" "$output"
 }
 
+# lsof reports $1 as holding the image, ps names it $2, and kill is recorded.
+function stub_image_holder() {
+  HOLDER_PID="$1"
+  HOLDER_NAME="$2"
+  KILLED="$3"
+  : > "$KILLED"
+  # shellcheck disable=SC2329
+  function lsof() {
+    if [ "$1" = -t ]; then
+      [ -n "$HOLDER_PID" ] && echo "$HOLDER_PID"
+      return 0
+    fi
+    echo "lsof $*"
+  }
+  # shellcheck disable=SC2329
+  function ps() { echo "$HOLDER_NAME"; }
+  # shellcheck disable=SC2329
+  function pgrep() { echo "pgrep $*"; }
+  # shellcheck disable=SC2329
+  function hdiutil() { echo "hdiutil $*"; }
+  # shellcheck disable=SC2329
+  function kill() {
+    echo "$*" >> "$KILLED"
+    [ "$1" != -0 ]
+  }
+}
+
+function unstub_image_holder() {
+  unset -f lsof ps pgrep hdiutil kill sleep
+}
+
+function test_release_image_stops_the_helper_that_keeps_the_image_open() {
+  local tmp output
+  tmp="$(mktemp -d)"
+  stub_image_holder 4242 /System/Library/PrivateFrameworks/DiskImages2.framework/XPCServices/diskimages-helper "$tmp/killed"
+  stub_sleep "$tmp/slept"
+  output="$(release_image image.dmg 2>&1)"
+  local killed
+  killed="$(tr '\n' '|' < "$tmp/killed")"
+  unstub_image_holder
+  rm -rf "$tmp"
+
+  assert_contains "hdiutil create left image.dmg open" "$output"
+  assert_contains "lsof -- image.dmg" "$output"
+  assert_contains "hdiutil info" "$output"
+  assert_contains "stopping the disk image helper: 4242" "$output"
+  assert_same "4242|-0 4242|-9 4242|" "$killed"
+}
+
+function test_release_image_leaves_other_holders_alone() {
+  local tmp output
+  tmp="$(mktemp -d)"
+  stub_image_holder 99 /usr/libexec/mds "$tmp/killed"
+  output="$(release_image image.dmg 2>&1)"
+  local killed
+  killed="$(cat "$tmp/killed")"
+  unstub_image_holder
+  rm -rf "$tmp"
+
+  assert_contains "hdiutil create left image.dmg open" "$output"
+  assert_not_contains "stopping" "$output"
+  assert_empty "$killed"
+}
+
+function test_release_image_does_nothing_when_the_image_is_closed() {
+  local tmp output
+  tmp="$(mktemp -d)"
+  stub_image_holder "" "" "$tmp/killed"
+  output="$(release_image image.dmg 2>&1)"
+  local killed
+  killed="$(cat "$tmp/killed")"
+  unstub_image_holder
+  rm -rf "$tmp"
+
+  assert_empty "$output"
+  assert_empty "$killed"
+}
+
 function stub_go_download() {
   GO_OUTCOMES="$1"
   GO_CALLS="$2"
