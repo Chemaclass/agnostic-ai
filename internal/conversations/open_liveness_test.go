@@ -48,3 +48,35 @@ func TestOpen_CodexThreadConfirmedClosedResumes(t *testing.T) {
 		t.Errorf("a thread no process holds resumes: calls %v, reply %+v", launcher.calls, reply)
 	}
 }
+
+func TestOpen_CodexWithoutALockFolderStillResumes(t *testing.T) {
+	const id = "55555555-5555-4555-8555-555555555555"
+	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
+		"state_5.sqlite|FROM threads": `[{"id":"` + id + `","cwd":"/tmp/app","created_at_ms":1762500000000,"updated_at_ms":1762510000000,"originator":"codex-tui","source":"cli","name":"Parser fix"}]`,
+	}), fakeProcesses{readFails: true})
+	scanner.Now = func() time.Time { return time.UnixMilli(1762520000000) }
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	launcher := &fakeLauncher{focusOK: true}
+
+	reply := Open(context.Background(), byID(t, view, id), scanner.Processes, launcher)
+
+	if len(launcher.calls) != 1 || !reply.Opened {
+		t.Errorf("a Codex that keeps no lock folder leaves nothing to check, so it resumes: calls %v, reply %+v", launcher.calls, reply)
+	}
+}
+
+func TestOpen_ClaudeSessionWhoseProcessReadFailedIsNotResumed(t *testing.T) {
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	write(t, filepath.Join(stores.ClaudeDir, "sessions", "77.json"), `{"pid":77,"sessionId":"`+id+`","status":"idle"}`)
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	launcher := &fakeLauncher{focusOK: true}
+
+	reply := Open(context.Background(), byID(t, view, id), scanner.Processes, launcher)
+
+	if len(launcher.calls) != 0 || reply.Opened || !strings.Contains(reply.Message, "Could not check") || !strings.Contains(reply.Command, "--resume") {
+		t.Errorf("a session whose process could not be read must launch nothing: calls %v, reply %+v", launcher.calls, reply)
+	}
+}

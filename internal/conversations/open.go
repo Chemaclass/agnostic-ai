@@ -228,10 +228,11 @@ func openRoute(ctx context.Context, c Conversation, processes Processes, launche
 	case RouteFocus:
 		return focusTerminal(ctx, c, processes, launcher)
 	case RouteTerminal:
-		if held, ok := heldNow(c, processes); ok {
+		held, ok := heldNow(c, processes)
+		if ok {
 			return focusTerminal(ctx, held, processes, launcher)
 		}
-		if livenessUnknown(c) {
+		if livenessUnknown(held) {
 			return OpenReply{Message: livenessUnknownMessage, Command: c.Open.Command}
 		}
 		return resumeTerminal(ctx, c, launcher)
@@ -341,14 +342,17 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	if c.Tool != ToolCursor || c.store == "" {
 		return c, false
 	}
-	held, _ := processes.Holders([]string{c.store})
+	held, err := processes.Holders([]string{c.store})
 	pid := held[c.store]
 	if pid <= 0 {
+		// A clean read of this one store settles what the scan could not see.
+		c.liveUnknown = c.liveUnknown && err != nil
 		return c, false
 	}
 	// Another program with the store open, such as a database viewer,
 	// must not stop an ended chat from resuming.
 	if !agentCommands[commandName(processes.Args([]int{pid})[pid])] {
+		c.liveUnknown = false
 		return c, false
 	}
 	c.Live = true
