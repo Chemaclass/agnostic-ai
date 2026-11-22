@@ -222,7 +222,7 @@ func (s *Scanner) showShellGroups(c *Conversation, parent ProcessInfo, children 
 		}
 		shell := StuckShell{
 			PID: child.PID, ProcStart: child.Started, Since: stamp(since),
-			Command: s.shown.get(texts{lastPrompt: evidence.command}).prompt, ProcessCount: counts[child.PGID],
+			Command: s.shown.get(texts{command: evidence.command}).command, ProcessCount: counts[child.PGID],
 		}
 		if id, ok := strings.CutPrefix(filepath.Base(evidence.owner), "agent-"); ok {
 			id = strings.TrimSuffix(id, ".jsonl")

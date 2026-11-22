@@ -6,8 +6,11 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
 
 const forgottenCommand = "bash scripts/run-preview.bash 'hello'"
@@ -259,4 +262,36 @@ func TestStuckShell_MatchesDarwinMultilineCommandAndRefusesAmbiguousForeground(t
 	if c := scan(); len(c.StuckShells) != 1 || c.StuckShells[0].Command != "" || c.StuckShells[0].HelperID != "" {
 		t.Errorf("ambiguous shell = %+v", c.StuckShells)
 	}
+}
+
+func TestShowCommand_WithholdsOrMasksCredentialsAndKeepsLongCommands(t *testing.T) {
+	plain := "make test " + strings.Repeat("a", 1490)
+	cases := []struct {
+		name, command, want string
+	}{
+		{"bearer token", `curl -H "Authorization: Bearer abcDEF123456ghiJKL789mno" https://api.example.com/v1/items`, ""},
+		{"key assignment", "API_KEY=sk-ant-api03-AbCd1234EfGh5678 node server.js", ""},
+		{"plain long command", plain, plain},
+		{"cut at the limit", strings.Repeat("ls ", 1000), strings.TrimSpace(strings.Repeat("ls ", 1000)[:shellCommandRunes-1]) + "…"},
+		{"several lines", "make\n  test", "make test"},
+		{"known miss: a password after -p", "mysql -u root -p hunter2pass", "mysql -u root -p hunter2pass"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := showCommand(tc.command); got != tc.want {
+				t.Errorf("showCommand() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+	t.Run("URL password", func(t *testing.T) {
+		if got := showCommand("git clone https://alice:hunter2pass@git.example.com/team/repo.git"); strings.Contains(got, "hunter2pass") {
+			t.Errorf("showCommand() = %q, want no password", got)
+		}
+	})
+	t.Run("URL user masked", func(t *testing.T) {
+		want := "git clone https://" + preview.Redacted + "@git.example.com/x"
+		if got := showCommand("git clone https://alice@git.example.com/x"); got != want {
+			t.Errorf("showCommand() = %q, want %q", got, want)
+		}
+	})
 }

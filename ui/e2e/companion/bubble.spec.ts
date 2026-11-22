@@ -66,3 +66,34 @@ test('a kept shell leaves the circle count until its wake time', async ({ page }
   await expect(page.locator('#badge')).toBeHidden()
   await expect(page.locator('#bubble')).toHaveAttribute('aria-label', 'Conversations: none needs you')
 })
+
+test('the badge shows a terminal for a shell wait and a lock for a permission, with the count of those rows', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'stuck-shells' } })
+  await page.goto('/')
+  await expect(page.locator('#badge.is-blocked.is-terminal')).toBeVisible()
+  await expect(page.locator('#badge .terminal')).toBeVisible()
+  await expect(page.locator('#badge .lock')).toBeHidden()
+  await expect(page.locator('#count')).toHaveText('1')
+
+  await page.request.post('/dev/fixture', { data: { name: 'auto-approvals' } })
+  await page.goto('/')
+  await expect(page.locator('#badge .lock')).toBeVisible()
+  await expect(page.locator('#badge .terminal')).toBeHidden()
+  await expect(page.locator('#count')).toHaveText('2')
+})
+
+test('a click on the circle asks for the first waiting row only while one waits', async ({ page }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'stuck-shells' } })
+  await page.goto('/')
+  await expect(page.locator('#count')).toHaveText('1')
+  const asked = page.waitForRequest((request) => request.url().endsWith('/api/panel/toggle'))
+  await page.locator('#bubble').click()
+  expect((await asked).postDataJSON()).toEqual({ jump: true })
+
+  await page.request.post('/dev/fixture', { data: { name: 'empty' } })
+  await page.goto('/')
+  await expect(page.locator('#badge')).toBeHidden()
+  const quiet = page.waitForRequest((request) => request.url().endsWith('/api/panel/toggle'))
+  await page.locator('#bubble').click()
+  expect((await quiet).postDataJSON()).toEqual({ jump: false })
+})

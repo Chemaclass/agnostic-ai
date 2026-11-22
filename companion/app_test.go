@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -741,5 +742,41 @@ func TestTerminalUpdate_ClearsTheOfferWhenTheReleaseChanges(t *testing.T) {
 	}
 	if got := failedUpdateAfterRestart(s.appCommands.logPath(), s.appCommands.app == ""); got.State != updateIdle {
 		t.Errorf("after restart = %+v; want the handled refusal cleared", got)
+	}
+}
+
+func TestTogglePanel_TheCircleAsksForTheFirstWaitingRow(t *testing.T) {
+	s, _ := placedShell(t)
+	panel := s.panel.(*fakeWindow)
+	toggle := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		s.routes(&inbox{}, fstest.MapFS{}).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/panel/toggle", strings.NewReader(body)))
+		return rec
+	}
+
+	if rec := toggle(`{"jump":true}`); rec.Code != http.StatusNoContent {
+		t.Fatalf("toggle = %d %s", rec.Code, rec.Body)
+	}
+	if !panel.IsVisible() || len(panel.events) != 1 || panel.events[0] != eventPanelShown {
+		t.Fatalf("visible %v, events %v; want the list shown once", panel.IsVisible(), panel.events)
+	}
+	if got, ok := panel.eventData[0][0].(panelOpening); !ok || !got.Jump || got.From == "" {
+		t.Errorf("panel-shown data = %#v; want the corner and jump", panel.eventData[0])
+	}
+
+	toggle("")
+	if panel.IsVisible() {
+		t.Fatal("a second click left the list open")
+	}
+	s.mu.Lock()
+	s.hiddenByFocusAt = time.Time{}
+	s.mu.Unlock()
+	toggle("")
+	last := panel.eventData[len(panel.eventData)-1]
+	if _, ok := last[0].(string); !ok {
+		t.Errorf("panel-shown data = %#v; want the corner alone after a toggle with no jump", last)
+	}
+	if rec := toggle("{"); rec.Code != http.StatusBadRequest {
+		t.Errorf("a broken body = %d; want 400", rec.Code)
 	}
 }

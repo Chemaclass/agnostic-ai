@@ -43,8 +43,8 @@ test('under Needs you a family ranks by its most urgent row, and a child stays r
 
 test('the circle tells the chats that wait for the person apart from the unread ones', () => {
   const view = { needsYou: 4, conversations: [row('a', 'blocked'), row('b', 'unread'), row('c', 'working'), row('d', 'blocked'), row('e', 'unread')] }
-  assert.deepEqual(waitingOf(view), { blocked: 2, unread: 2 })
-  assert.deepEqual(waitingOf({ needsYou: 0, conversations: [] }), { blocked: 0, unread: 0 })
+  assert.deepEqual(waitingOf(view), { blocked: 2, unread: 2, icon: 'lock' })
+  assert.deepEqual(waitingOf({ needsYou: 0, conversations: [] }), { blocked: 0, unread: 0, icon: 'terminal' })
 })
 
 test('the circle\'s label names each count, and leaves out a count of zero', () => {
@@ -841,7 +841,7 @@ const needsYouIds = (view) => grouped(view.conversations).find((group) => group.
 test('in ask every permission wait is a Needs permission row that counts, as today, with no reason', () => {
   const view = { needsYou: 1, conversations: [permission('a')] }
   assert.deepEqual(needsYouIds(view), ['a'])
-  assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0 })
+  assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0, icon: 'lock' })
   assert.equal(approvalReasonOf(view.conversations[0]), undefined)
   assert.equal(approvalsHeaderOf(view), undefined)
 })
@@ -850,7 +850,7 @@ for (const mode of ['review', 'yolo']) {
   test(`in ${mode} an approved request never shows under Needs you nor counts, and its row says how many were approved`, () => {
     const view = { approvalsMode: mode, needsYou: 0, conversations: [approvedRow('a', 3)] }
     assert.deepEqual(needsYouIds(view), [])
-    assert.deepEqual(waitingOf(view), { blocked: 0, unread: 0 })
+    assert.deepEqual(waitingOf(view), { blocked: 0, unread: 0, icon: 'terminal' })
     assert.equal(approvedLabelOf(view.conversations[0]), '3 approved for you')
     assert.equal(approvalOf(view.conversations[0]), undefined)
   })
@@ -859,7 +859,7 @@ for (const mode of ['review', 'yolo']) {
     const asked = permission('a', { approvals: { reason: 'Always asks: publishing', approved: 2 } })
     const view = { approvalsMode: mode, needsYou: 1, conversations: [asked] }
     assert.deepEqual(needsYouIds(view), ['a'])
-    assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0 })
+    assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0, icon: 'lock' })
     assert.equal(approvalReasonOf(asked), 'Always asks: publishing')
     assert.equal(approvedLabelOf(asked), '2 approved for you')
   })
@@ -867,14 +867,14 @@ for (const mode of ['review', 'yolo']) {
   test(`in ${mode} a tool with no route shows its prompt and says approvals do not reach it`, () => {
     const unsupported = permission('a', { tool: 'cursor', approvals: { reason: 'Approvals not supported for Cursor' } })
     const view = { approvalsMode: mode, needsYou: 1, conversations: [unsupported] }
-    assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0 })
+    assert.deepEqual(waitingOf(view), { blocked: 1, unread: 0, icon: 'lock' })
     assert.equal(approvalReasonOf(unsupported), 'Approvals not supported for Cursor')
   })
 }
 
 test('the header names the mode only while approvals answer prompts', () => {
-  assert.deepEqual(approvalsHeaderOf({ approvalsMode: 'yolo' }), { mode: 'yolo', label: 'Approvals: routine prompts are approved for you' })
-  assert.deepEqual(approvalsHeaderOf({ approvalsMode: 'review' }), { mode: 'review', label: "Approvals: your tools' reviewers answer routine prompts" })
+  assert.deepEqual(approvalsHeaderOf({ approvalsMode: 'yolo' }), { mode: 'yolo', label: 'Auto-approve on', title: 'Approvals: routine prompts are approved for you' })
+  assert.deepEqual(approvalsHeaderOf({ approvalsMode: 'review' }), { mode: 'review', label: 'Reviewers answer', title: "Approvals: your tools' reviewers answer routine prompts" })
   assert.equal(approvalsHeaderOf({ approvalsMode: 'ask' }), undefined)
   assert.equal(approvalsHeaderOf({}), undefined)
   assert.equal(approvalsHeaderOf(undefined), undefined)
@@ -1059,7 +1059,7 @@ test('a row waiting only on kept shells sits under Active until the wake time', 
   assert.equal(kept.conversations[0].waiting, undefined)
   assert.equal(kept.conversations[0].stuckShells[0].keptUntil, record.wakeAt)
   assert.equal(kept.needsYou, 1)
-  assert.deepEqual(waitingOf(kept), { blocked: 0, unread: 1 })
+  assert.deepEqual(waitingOf(kept), { blocked: 0, unread: 1, icon: 'terminal' })
 
   const due = keptViewOf(view, [record], Date.parse(record.wakeAt))
   assert.equal(due.conversations[0].state, 'blocked')
@@ -1251,4 +1251,69 @@ test('a row without a held request, or that no longer waits, gets no buttons', a
   assert.equal(pendingOf(row('a', 'blocked', { waiting: { for: 'permission' }, approvals: { pending: [] } })), undefined)
   assert.equal(pendingOf(row('a', 'working', { approvals: { pending } })), undefined)
   assert.equal(pendingOf(row('a', 'blocked', { waiting: { for: 'permission' }, approvals: { pending: [{ id: 'i1', digest: 'd1', call: 'mcp__x__y', input: {} }] } })), undefined)
+})
+
+test('the circle counts the rows under Needs you and shows a terminal only when every wait is on a shell', () => {
+  const shellWait = row('s', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
+  assert.deepEqual(waitingOf({ needsYou: 1, conversations: [shellWait] }), { blocked: 1, unread: 0, icon: 'terminal' })
+  assert.deepEqual(waitingOf({ needsYou: 2, conversations: [shellWait, permission('p')] }), { blocked: 2, unread: 0, icon: 'lock' })
+  assert.deepEqual(waitingOf({ needsYou: 9, conversations: [shellWait, row('u', 'unread'), row('w', 'working')] }), { blocked: 1, unread: 1, icon: 'terminal' })
+})
+
+test('a click on the circle opens the first row under Needs you', async () => {
+  const { firstWaitingOf } = await import('../frontend/model.js')
+  const view = { conversations: [row('u', 'unread'), row('w', 'working'), permission('p')] }
+  assert.equal(firstWaitingOf(view), 'claude:p')
+  assert.equal(firstWaitingOf({ conversations: [row('w', 'working')] }), undefined)
+  assert.equal(firstWaitingOf(undefined), undefined)
+})
+
+test('every row under Needs you says why it waits, in one short line', async () => {
+  const { needsReasonOf } = await import('../frontend/model.js')
+  const now = Date.parse('2026-11-09T12:00:00Z')
+  const reason = (conversation) => needsReasonOf(conversation, now)
+  assert.deepEqual(reason(permission('p')), { kind: 'permission', text: 'Approve git push' })
+  const shellWait = row('s', 'blocked', { live: true, waiting: { for: 'shell' }, stuckShells: [shell, { ...shell, pid: 43 }] })
+  assert.deepEqual(reason(shellWait), { kind: 'shell', text: 'Waiting on 2 shells still running' })
+  assert.deepEqual(reason({ ...shellWait, stuckShells: [shell] }), { kind: 'shell', text: 'Waiting on a shell still running' })
+  assert.deepEqual(reason(row('q', 'blocked', { waiting: { for: 'answer' } })), { kind: 'question', text: 'Asks you a question' })
+  assert.deepEqual(reason(row('z', 'blocked', { quietSince: '2026-11-09T11:53:00Z' })), { kind: 'quiet', text: 'No activity for 7m' })
+  assert.deepEqual(reason(row('b', 'blocked')), { kind: 'waiting', text: 'Waiting for you' })
+  assert.deepEqual(reason(row('u', 'unread', { reply: 'Done.' })), { kind: 'reply', text: 'New reply' })
+  assert.deepEqual(reason(row('h', 'unread', { withheld: ['reply'] })), { kind: 'reply', text: 'New reply, hidden because it may hold a password or key' })
+  assert.equal(reason(row('a', 'active')), undefined)
+  assert.equal(reason(row('w', 'working', { waiting: { for: 'shell' } })), undefined)
+})
+
+test('shell labels tell apart shells whose commands share a long start', async () => {
+  const { SHELL_COMMAND_SHOWN, shellLabelsOf } = await import('../frontend/model.js')
+  const start = 'node scripts/watch.mjs ' + 'x'.repeat(240)
+  const shells = [
+    { ...shell, pid: 14476, command: start, since: '2026-11-09T11:16:00Z', processCount: 2 },
+    { ...shell, pid: 38983, command: start + ' --port 4400', since: '2026-11-09T11:28:00Z', processCount: 2, helperName: 'Faramir' },
+  ]
+  const labels = shellLabelsOf(shells, shellNow)
+  assert.notEqual(labels[0].command, labels[1].command)
+  assert.ok(labels.every((label) => Array.from(label.command).length <= SHELL_COMMAND_SHOWN))
+  assert.ok(labels[0].command.startsWith('node scripts/w') && labels[1].command.startsWith('node script'))
+  assert.ok(labels[1].command.endsWith('--port 4400'))
+  assert.deepEqual(labels.map((label) => label.age), ['44m', '32m'])
+  assert.deepEqual(labels.map((label) => label.detail), ['', 'Faramir'])
+  const clock = (stamp) => new Date(stamp).toTimeString().slice(0, 5)
+  assert.equal(labels[0].full, `Running for 44 min, since ${clock(shells[0].since)}\nPID 14476 · 2 processes\n${start}`)
+  assert.equal(labels[1].full.split('\n')[2], 'Left by Faramir')
+
+  const hidden = shellLabelsOf([{ ...shell, pid: 14476, command: '' }, { ...shell, pid: 38983, command: '' }], shellNow)
+  assert.deepEqual(hidden.map((label) => label.command), ['Command hidden · pid 14476', 'Command hidden · pid 38983'])
+  assert.ok(hidden[0].full.endsWith('\nCommand hidden: it may hold a password or key'))
+
+  const equal = shellLabelsOf([shell, { ...shell, pid: 43 }], shellNow)
+  assert.deepEqual(equal.map((label) => label.command), ['npm run dev · pid 42', 'npm run dev · pid 43'])
+  assert.deepEqual(shellLabelsOf([shell], shellNow).map((label) => label.command), ['npm run dev'])
+  assert.equal(shellLabelsOf([{ ...shell, since: '2026-11-09T11:59:30Z', processCount: 1 }], shellNow)[0].full, `Running for less than a minute, since ${clock('2026-11-09T11:59:30Z')}\nPID 42 · 1 process\nnpm run dev`)
+})
+
+test('a kept shell names its wake time before its command', async () => {
+  const { keptShellNoteOf } = await import('../frontend/model.js')
+  assert.equal(keptShellNoteOf({ ...shell, keptUntil: new Date(shellNow + 30 * 60000).toISOString() }, shellNow), 'Kept running · asks again in 30 min')
 })

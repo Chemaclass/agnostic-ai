@@ -19,7 +19,9 @@ const (
 	openingRunes = 160
 	openingLines = 3
 	promptRunes  = 300
-	replyRunes   = 200
+	// shellCommandRunes lets the hover on a stuck shell show its whole command.
+	shellCommandRunes = 2000
+	replyRunes        = 200
 	// replyCheckedBytes is what a reader keeps of an agent message for the
 	// credential check, cut at a space so a token is checked whole or
 	// never shown. Titles and prompts are checked whole; a reply is
@@ -285,6 +287,7 @@ type texts struct {
 	lastPrompt  string
 	reply       string
 	question    string
+	command     string
 }
 
 // shownTexts are what a row shows of its texts once any that may hold a
@@ -296,6 +299,7 @@ type shownTexts struct {
 	reply    string
 	withheld []string
 	parent   *Ref
+	command  string
 }
 
 // showTexts withholds any text that may hold a credential. A row with no
@@ -307,6 +311,7 @@ func showTexts(t texts) shownTexts { return showTextsOf(t, true) }
 
 func showTextsOf(t texts, readLinks bool) shownTexts {
 	var shown shownTexts
+	shown.command = showCommand(t.command)
 	first := typedText(t.firstPrompt)
 	last := typedText(t.lastPrompt)
 	title := oneLine(withoutMailbox(t.title))
@@ -353,6 +358,21 @@ func showTextsOf(t texts, readLinks bool) shownTexts {
 		}
 	}
 	return shown
+}
+
+// showCommand is the text a stuck shell's command shows: none when it
+// may hold a credential or reads as a secret, else the command on one
+// line with any credential in a URL masked.
+func showCommand(command string) string {
+	line := oneLine(command)
+	if line == "" || mayHoldCredential(line) {
+		return ""
+	}
+	line = preview.RedactText(line)
+	if line == preview.Redacted {
+		return ""
+	}
+	return truncate(line, shellCommandRunes)
 }
 
 // shownCache keeps each row's shown texts from one scan to the next,

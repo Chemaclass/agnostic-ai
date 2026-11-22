@@ -35,6 +35,8 @@ type fakeWindow struct {
 	side int
 	// events are the names of the events the shell sent the window's page.
 	events []string
+	// eventData holds what each event carried, in the order of events.
+	eventData [][]any
 	// screenless makes GetScreen fail, as before Wails lists the screens.
 	screenless bool
 	// dropsHiddenMoves ignores a move while the window is off the screen,
@@ -116,10 +118,11 @@ func (w *fakeWindow) SetPosition(x, y int) {
 	}
 	w.x, w.y = x, y
 }
-func (w *fakeWindow) EmitEvent(name string, _ ...any) bool {
+func (w *fakeWindow) EmitEvent(name string, data ...any) bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.events = append(w.events, name)
+	w.eventData = append(w.eventData, data)
 	return true
 }
 func (w *fakeWindow) GetScreen() (*application.Screen, error) {

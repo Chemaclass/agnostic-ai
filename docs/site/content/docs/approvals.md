@@ -124,7 +124,7 @@ Run `agnostic-ai sync --scope user` once, then open the companion. When Claude C
 
 Any of these stops hook approvals from the next request, without syncing or restarting.
 
-1. Run `agnostic-ai approvals ask` or select **Ask me** in the companion. Both write `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
+1. Run `agnostic-ai approvals ask` or select **Ask me** on the approvals chip in the companion list. Both write `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
 2. Set `AGNOSTIC_AI_APPROVALS=ask` for a session or `approvals.mode: ask` in the project's config.
 
 To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A user-level sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
