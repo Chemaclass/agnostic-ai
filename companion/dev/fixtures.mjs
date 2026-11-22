@@ -255,6 +255,32 @@ function stuckShells(now) {
   ]
 }
 
+/** Every reason a row can sit under Needs you, and two shells whose commands share their first 250 characters. */
+function needsReasons(now) {
+  const since = (minutes) => new Date(now - minutes * MINUTE).toISOString()
+  const shellOf = (pid, minutes, command, processCount = 2) => ({ pid, procStart: since(minutes), since: since(minutes), command, processCount })
+  const shared = 'npm run preview -- --watch src/reports --config preview.config.json --port-range 4300-4399 --open-browser false ' +
+    '--log-level info --cache-dir .cache/preview --public-dir public --env-file .env.preview --strict-port false --clear-screen false --base /reports/'
+  return [
+    {
+      ...conversation(now, 'claude', 'shell-twins', 'Preview the reports page', 'blocked', { minutesAgo: 2 }),
+      waiting: { for: 'shell' },
+      withheld: ['reply'],
+      stuckShells: [shellOf(14476, 44, shared), shellOf(38983, 32, shared + ' --host 127.0.0.1')],
+    },
+    {
+      ...conversation(now, 'claude', 'shell-hidden', 'Deploy the staging stack', 'blocked', { minutesAgo: 3 }),
+      waiting: { for: 'shell' },
+      stuckShells: [shellOf(14477, 50, ''), shellOf(38984, 40, '', 1)],
+    },
+    { ...conversation(now, 'claude', 'reason-answer', 'Pick a chart library', 'blocked', { minutesAgo: 4, reply: 'Should I use the bar or the line chart?' }), waiting: { for: 'answer' } },
+    { ...conversation(now, 'codex', 'reason-quiet', 'Migrate the billing tables', 'blocked', { minutesAgo: 7 }), activity: 'waiting', quietSince: since(7) },
+    conversation(now, 'claude', 'reason-wait', 'Check the release notes', 'blocked', { minutesAgo: 8 }),
+    { ...conversation(now, 'claude', 'reason-hidden', 'Rotate the API keys', 'unread', { minutesAgo: 9 }), unread: true, withheld: ['reply'] },
+    { ...conversation(now, 'codex', 'reason-reply', 'Tidy the old branches', 'unread', { minutesAgo: 10, reply: 'Removed 12 merged branches.' }), unread: true },
+  ]
+}
+
 /**
  * Each fixture is a list plus the ways its calls fail:
  * listProblem (the list cannot be read), cloudNote, marksNote, note (from the companion itself),
@@ -444,6 +470,7 @@ export const FIXTURES = {
   },
   'needs-you': { label: 'Four chats that need you, one in the cloud', conversations: needsYou },
   'stuck-shells': { label: 'Forgotten shells on waiting and working Claude Code chats', conversations: stuckShells },
+  'needs-reasons': { label: 'Each reason a row needs you, with two shells that share a long command start', conversations: needsReasons },
   nested: { label: 'Chats started from other chats', conversations: nested },
   approvals: { label: 'Chats waiting for an approval or an answer', conversations: approvals },
   'companion-approve': { label: 'Requests held for Approve and Deny in the companion', conversations: companionApprove },

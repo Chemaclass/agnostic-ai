@@ -199,7 +199,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
-- The circle shows a solid orange count with a lock and a halo for chats waiting for permission or an answer. Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
+- The circle shows a solid orange count with a lock and a halo for chats waiting for you (a terminal when all wait on a shell). Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
 - The circle and the list's ⋯ menu hold the same items in the same order, except the mailbox approval switch, which only the ⋯ menu shows.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
@@ -247,7 +247,7 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 
 - **N approved for you** folds out the latest approved requests under the row, newest first. It opens nothing.
 - The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
-- The header names the loosest active mode when it is `review` or `yolo`.
+- The header chip names the loosest mode: `review` or `yolo`.
 - With [`approvals.companion: true`](@/docs/approvals.md#answer-from-the-companion), a held Claude Code request shows in full under the pill, with **Approve** and **Deny**.
 - **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --scope user` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
 

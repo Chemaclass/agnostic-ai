@@ -9,7 +9,9 @@ import (
 	"context"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -372,12 +374,23 @@ func (s *shell) appReopened(cancel func()) {
 	go s.bringBack()
 }
 
+// panelOpening is the panel-shown data of a click on the circle that
+// asks for the first waiting row; other showings send the corner alone.
+type panelOpening struct {
+	From string `json:"from"`
+	Jump bool   `json:"jump"`
+}
+
 // togglePanel answers a click on the bubble and the shortcut.
-func (s *shell) togglePanel() {
+func (s *shell) togglePanel() { s.togglePanelOnWaiting(false) }
+
+// togglePanelOnWaiting is togglePanel for a click on the circle; with
+// jump, a panel it shows opens on the first waiting row.
+func (s *shell) togglePanelOnWaiting(jump bool) {
 	s.placing.Lock()
 	defer s.placing.Unlock()
 	if s.changePresenceLocked("", shown) {
-		s.showPanelOn(eventPanelShown)
+		s.showPanelOpening(eventPanelShown, true, jump)
 		return
 	}
 	s.mu.Lock()
@@ -393,7 +406,7 @@ func (s *shell) togglePanel() {
 	if justDismissed {
 		return
 	}
-	s.showPanelOn(eventPanelShown)
+	s.showPanelOpening(eventPanelShown, true, jump)
 }
 
 // showPanelWhileShown opens the list unless the companion is hidden or faded.
@@ -433,6 +446,12 @@ func (s *shell) showPanelOn(event string) {
 
 // showPanelFocused is showPanelOn, with the keys only when focus is true.
 func (s *shell) showPanelFocused(event string, focus bool) {
+	s.showPanelOpening(event, focus, false)
+}
+
+// showPanelOpening is showPanelFocused; with jump, the event asks the
+// page to open on its first waiting row.
+func (s *shell) showPanelOpening(event string, focus, jump bool) {
 	nearest := corner("")
 	work, placed := s.workArea()
 	var x, y int
@@ -450,6 +469,10 @@ func (s *shell) showPanelFocused(event string, focus bool) {
 	}
 	if focus {
 		s.panel.Focus()
+	}
+	if jump {
+		s.panel.EmitEvent(event, panelOpening{From: string(nearest), Jump: true})
+		return
 	}
 	s.panel.EmitEvent(event, string(nearest))
 }
@@ -700,8 +723,16 @@ func (s *shell) routes(in *inbox, pages fs.FS) http.Handler {
 	mux.HandleFunc("POST "+serverMailboxQueuePath, in.pass(serverMailboxQueuePath))
 	mux.HandleFunc("GET "+serverMailboxSettingsPath, in.readMailbox(serverMailboxSettingsPath))
 	mux.HandleFunc("POST "+serverMailboxSettingsPath, in.pass(serverMailboxSettingsPath))
-	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, _ *http.Request) {
-		s.togglePanel()
+	mux.HandleFunc("POST /api/panel/toggle", func(w http.ResponseWriter, r *http.Request) {
+		// The circle sends {"jump": true} while a row waits; the shortcut sends nothing.
+		var asked struct {
+			Jump bool `json:"jump"`
+		}
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxRequestBytes)).Decode(&asked); err != nil && !errors.Is(err, io.EOF) {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: "toggle {jump?}"})
+			return
+		}
+		s.togglePanelOnWaiting(asked.Jump)
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("POST /api/panel/hide", func(w http.ResponseWriter, _ *http.Request) {

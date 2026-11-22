@@ -1,7 +1,7 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
-import { currentShellOf, finishedKeepsOf, keepOf, keptShellLineOf, keptShellsOfRow, keptViewOf, shellCommandOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
+import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
@@ -25,6 +25,7 @@ const toastText = document.getElementById('toast-text')
 const approvalsBar = document.getElementById('approvals-bar')
 const approvalsMode = document.getElementById('approvals-mode')
 const approvalsAsk = document.getElementById('approvals-ask')
+const tooltip = document.getElementById('tooltip')
 
 /** How long typing must pause before a search is sent. */
 const SEARCH_PAUSE_MS = 300
@@ -271,8 +272,9 @@ function rowOf(conversation, order, folderNames, under) {
   row.setAttribute('role', 'option')
   row.setAttribute('aria-selected', String(key === state.activeKey))
   const now = Date.now()
-  row.title = rowTooltipOf(conversation, now)
-  const described = [under && startedFromOf(under), row.title !== conversation.open.label && row.title, conversation.cloud && SHARED_TITLE].filter(Boolean)
+  const tip = rowTooltipOf(conversation, now)
+  row.dataset.tooltip = tip
+  const described = [under && startedFromOf(under), tip !== conversation.open.label && tip, conversation.cloud && SHARED_TITLE].filter(Boolean)
   if (described.length > 0) row.setAttribute('aria-description', described.join('\n'))
 
   const text = element('div', 'text')
@@ -284,6 +286,11 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
+  const needs = needsReasonOf(conversation, now)
+  if (needs && needs.kind !== 'permission') {
+    const why = element('div', 'needs-reason is-' + needs.kind, needs.text)
+    text.append(why)
+  }
   if (approval) text.append(approvalLine(approval))
   else if (reply) text.append(element('div', 'reply', reply))
   const reason = approvalReasonOf(conversation)
@@ -294,17 +301,18 @@ function rowOf(conversation, order, folderNames, under) {
   const meta = element('div', 'meta')
   if (renaming?.problem) {
     meta.classList.add('is-problem')
-    meta.title = renaming.problem
+    meta.dataset.tooltip = renaming.problem
     meta.append(renaming.problem)
   } else {
     meta.append(detailsOf(conversation, now, folderNames))
-    if (conversation.cloud) meta.title = SHARED_TITLE
+    if (conversation.cloud) meta.dataset.tooltip = SHARED_TITLE
   }
   text.append(meta)
   const subagents = subagentsLine(conversation, key)
   if (subagents) text.append(subagents)
   const shells = stuckShellsOf(conversation)
-  for (const shell of shells) text.append(shellLine(conversation, shell, now))
+  const labels = shellLabelsOf(shells, now)
+  shells.forEach((shell, index) => text.append(shellLine(conversation, shell, labels[index], now, shells.length > 1)))
   const listed = new Set(shells.map(shellKeyOf))
   for (const [shell, stop] of state.shellStops) {
     if (stop.key === key && stop.text && !listed.has(shell)) text.append(shellStoppedLine(stop))
@@ -352,8 +360,12 @@ function shellButton(label, accessibleName, press) {
   return button
 }
 
-/** A stuck shell's line: its warning with Keep running and Stop, the grey line of a kept shell with Stop, or the stop on its way. */
-function shellLine(conversation, shell, now) {
+/**
+ * A stuck shell's line: its run time and its command cut in the middle, with Keep running and Stop; the grey line of a
+ * kept shell with Stop; or the stop on its way. The buttons wrap under the words in a row of several shells, or when
+ * the panel is narrow. The hover shows the whole command, the start time, the PID and the processes.
+ */
+function shellLine(conversation, shell, label, now, stacked) {
   const line = element('div', 'shell-warning')
   const stop = state.shellStops.get(shellKeyOf(shell))
   if (stop?.text) return shellStoppedLine(stop)
@@ -363,13 +375,22 @@ function shellLine(conversation, shell, now) {
     return line
   }
   const command = shellCommandOf(shell)
-  const said = shell.keptUntil ? keptShellLineOf(shell, now) : shellWarningOf(shell, now)
-  const words = element('span', 'shell-text', said)
-  words.title = said
+  const words = element('span', 'shell-text')
+  words.dataset.tooltip = label.full
+  // The spaces are for screen readers and copied text; the gap spaces the parts on screen.
+  if (shell.keptUntil) words.append(element('span', 'shell-note', keptShellNoteOf(shell, now) + ':'), ' ')
+  else {
+    if (label.detail) words.append(element('span', 'shell-note', label.detail), ' ')
+    words.append(element('span', 'shell-age', label.age), ' ')
+  }
+  words.append(element('code', 'shell-command', label.command))
   line.append(words)
   line.classList.toggle('is-kept', Boolean(shell.keptUntil))
-  if (!shell.keptUntil) line.append(shellButton('Keep running', 'Keep running: ' + command, () => keepRunning(conversation, shell)))
-  line.append(shellButton('Stop', 'Stop shell: ' + command, () => openStopShell(conversation, shell)))
+  line.classList.toggle('is-stacked', stacked)
+  const buttons = element('span', 'shell-actions')
+  if (!shell.keptUntil) buttons.append(shellButton('Keep running', 'Keep running: ' + command, () => keepRunning(conversation, shell)))
+  buttons.append(shellButton('Stop', 'Stop shell: ' + command, () => openStopShell(conversation, shell)))
+  line.append(buttons)
   return line
 }
 
@@ -377,7 +398,7 @@ function shellStoppedLine(stop) {
   const line = element('div', 'shell-warning is-stopped')
   line.classList.toggle('is-problem', stop.problem)
   const words = element('span', 'shell-text', stop.text)
-  words.title = stop.text
+  words.dataset.tooltip = stop.text
   line.append(words)
   return line
 }
@@ -414,7 +435,7 @@ function approvalLine(approval) {
   const line = element('div', 'reply is-approval')
   const pill = element('span', 'approval is-' + approval.icon)
   // A long detail is cut on screen; the whole pill reads on hover.
-  pill.title = approval.text
+  pill.dataset.tooltip = approval.text
   pill.append(icon(approval.icon, '0 0 16 16'), element('span', 'approval-label', approval.label))
   // The space is for screen readers and copied text; the pill's gap spaces the words on screen.
   if (approval.code) pill.append(' ', element('code', 'approval-code', approval.code))
@@ -751,11 +772,14 @@ function asidesOf(view) {
   return [local, cloudAside(view)].filter(Boolean).map((text) => element('p', 'aside', text))
 }
 
-/** The active approvals mode and the Ask me button above the list. */
+/** The active approvals mode as a chip in the header, with its Ask me; the full sentence is its tooltip and name. */
 function drawApprovals(view) {
   const header = approvalsHeaderOf(view)
   approvalsBar.hidden = header === undefined
-  if (header) approvalsMode.textContent = header.label
+  if (!header) return
+  approvalsMode.textContent = header.label
+  approvalsBar.title = header.title
+  approvalsBar.setAttribute('aria-label', header.title)
 }
 
 /** Ask me sets the home approvals policy to ask. */
@@ -808,7 +832,10 @@ function draw({ force } = { force: false }) {
   // The quiet notes go in too: a silent chat's "No activity for 7m" tooltip changes with no new row data.
   const now = Date.now()
   const reasons = view.conversations.map((conversation) => quietNoteOf(conversation, now))
-  const shellAges = view.conversations.flatMap((conversation) => stuckShellsOf(conversation).map((shell) => shell.keptUntil ? keptShellLineOf(shell, now) : ago(shell.since, now)))
+  const shellAges = view.conversations.flatMap((conversation) => {
+    const shells = stuckShellsOf(conversation)
+    return shellLabelsOf(shells, now).map((label, index) => [label.full, shells[index].keptUntil && keptShellNoteOf(shells[index], now)])
+  })
   const stillSearching = state.query !== '' && state.readingOlder === state.query
   const signature = JSON.stringify([view.conversations, reasons, shellAges, [...state.shellStops], view.needsYou, view.matches, said, view.cloudNote, missingToolsNoteOf(state.view ?? view), state.query, state.activeKey, state.place, state.pick?.hash, stillSearching])
   if (!force && signature === state.drawn) return
@@ -845,7 +872,96 @@ function draw({ force } = { force: false }) {
   mailbox.markRows()
   holdWorkPhase(list)
   announceActive()
+  tipAfterRedraw()
 }
+
+/*
+ * One tooltip the page draws for the rows, the shell lines and the approval pills, in place of the browser's own:
+ * the system draws a title under the pointer, over the next row of a tall one, and keeps it up while a redraw moves
+ * another row under a still pointer. It opens after a pause, or on a row the keys select; it sits above the row, or
+ * below when there is no room above, never over the row; a press, a scroll, or a redraw that takes its row away closes it.
+ */
+const TOOLTIP_MS = 600
+const TOOLTIP_GAP = 4
+const tip = { timer: undefined, target: undefined, pointer: undefined }
+
+/** What a hover shows: the nearest element with a tooltip, unless a button, a field or a native title is nearer; those keep their own. */
+function tipTargetOf(element) {
+  const hit = element?.closest?.('button, input, select, textarea, [title], [data-tooltip]')
+  return hit && hit.hasAttribute('data-tooltip') && list.contains(hit) ? hit : null
+}
+
+function placeTip(target) {
+  const row = target.closest('.row') ?? target
+  tooltip.textContent = target.dataset.tooltip
+  tooltip.style.maxHeight = ''
+  tooltip.hidden = false
+  const box = row.getBoundingClientRect()
+  const above = box.top - TOOLTIP_GAP * 2
+  const below = window.innerHeight - box.bottom - TOOLTIP_GAP * 2
+  const onTop = tooltip.offsetHeight <= above || above >= below
+  const room = Math.max(0, onTop ? above : below)
+  if (tooltip.offsetHeight > room) tooltip.style.maxHeight = `${room}px`
+  const height = tooltip.offsetHeight
+  tooltip.style.top = `${onTop ? box.top - TOOLTIP_GAP - height : box.bottom + TOOLTIP_GAP}px`
+  const x = tip.pointer?.x ?? box.left + 24
+  tooltip.style.left = `${Math.max(8, Math.min(x - 16, window.innerWidth - tooltip.offsetWidth - 8))}px`
+  tip.target = target
+}
+
+function hideTip() {
+  clearTimeout(tip.timer)
+  tip.timer = undefined
+  tip.target = undefined
+  tooltip.hidden = true
+}
+
+function tipSoon(target) {
+  if (target === tip.target && (tip.timer !== undefined || !tooltip.hidden)) return
+  clearTimeout(tip.timer)
+  tip.timer = undefined
+  if (!target) {
+    hideTip()
+    return
+  }
+  // Moving from one tooltip to the next shows the next at once, as the system's do.
+  if (!tooltip.hidden) {
+    placeTip(target)
+    return
+  }
+  tip.target = target
+  tip.timer = setTimeout(() => {
+    tip.timer = undefined
+    if (target.isConnected) placeTip(target)
+  }, TOOLTIP_MS)
+}
+
+/** After a redraw or a scroll, what is under a still pointer changed: the tooltip follows it, or closes. */
+function tipAfterRedraw() {
+  if (tip.target === undefined) return
+  const waiting = tip.timer !== undefined
+  const selectedRow = state.activeKey === undefined ? null : document.getElementById(rowId(state.activeKey))
+  const under = tip.pointer ? tipTargetOf(document.elementFromPoint(tip.pointer.x, tip.pointer.y)) : selectedRow
+  hideTip()
+  if (!under) return
+  if (waiting) tipSoon(under)
+  else placeTip(under)
+}
+
+list.addEventListener('pointermove', (event) => {
+  tip.pointer = { x: event.clientX, y: event.clientY }
+  tipSoon(tipTargetOf(event.target))
+})
+list.addEventListener('pointerleave', () => {
+  tip.pointer = undefined
+  hideTip()
+})
+list.addEventListener('pointerdown', hideTip)
+// The person scrolling closes it; a scroll the page makes, such as the browser keeping rows in place, moves it along.
+list.addEventListener('wheel', hideTip, { passive: true })
+list.addEventListener('scroll', tipAfterRedraw, { passive: true })
+document.addEventListener('keydown', hideTip, true)
+window.addEventListener('blur', hideTip)
 
 /**
  * The phase delay counts from the frame the orbit starts, not from when its mark was made,
@@ -885,7 +1001,12 @@ function moveActive(step) {
   const key = neighbour(visibleKeys(), state.activeKey, step)
   if (key === undefined) return
   setActive(key)
-  list.querySelector('.row.is-active')?.scrollIntoView({ block: 'nearest' })
+  const row = list.querySelector('.row.is-active')
+  row?.scrollIntoView({ block: 'nearest' })
+  if (row) {
+    tip.pointer = undefined
+    tipSoon(row)
+  }
 }
 
 /** The selected row while it is drawn: a key never acts on a row folded away or moved out of sight. */
@@ -2383,8 +2504,11 @@ document.addEventListener('keydown', (event) => {
 })
 
 /** The panel opened: it grows out of the corner nearest the bubble, and the search takes the keys. */
-function opened(from) {
+function opened(data) {
+  // A click on the circle while a row waits sends {from, jump}; every other showing sends the corner alone.
+  const { from, jump } = typeof data === 'object' && data !== null ? data : { from: data, jump: false }
   listShown = true
+  hideTip()
   card.dataset.from = from
   card.classList.remove('is-opening')
   if (document.documentElement.dataset.motion !== 'off') {
@@ -2408,10 +2532,38 @@ function opened(from) {
     leavePick()
   }
   state.returning = false
+  if (jump) {
+    // The waiting row may sit outside the search typed before: the circle asks for every row.
+    queryInput.value = ''
+    clearButton.hidden = true
+    state.query = ''
+    state.searching = false
+  }
   queryInput.focus()
   queryInput.select()
   draw({ force: true })
-  return refresh().then(showLateOpenFailure)
+  return refresh().then(() => {
+    if (jump) jumpToWaiting()
+    return showLateOpenFailure()
+  })
+}
+
+/**
+ * Selects the first row under Needs you and brings it into view: the place switches to All when none waits in the
+ * chosen place, and a folded Needs you unfolds.
+ */
+function jumpToWaiting() {
+  if (state.query !== '' || state.pick) return
+  let key = firstWaitingOf(shownView())
+  if (key === undefined) {
+    key = firstWaitingOf(keptViewOf(state.view, state.keptShells, Date.now()))
+    if (key === undefined) return
+    choosePlace('all')
+  }
+  state.folded.set('needs-you', false)
+  state.activeKey = key
+  draw({ force: true })
+  document.getElementById(rowId(key))?.scrollIntoView({ block: 'nearest' })
 }
 
 card.addEventListener('animationend', (event) => {
@@ -2442,7 +2594,10 @@ Events.On('inbox', (event) => {
   refresh({ version: event?.data }).then(showLateOpenFailure)
 })
 Events.On('panel-shown', (event) => opened(event.data))
-Events.On('panel-hidden', () => { listShown = false })
+Events.On('panel-hidden', () => {
+  listShown = false
+  hideTip()
+})
 Events.On('send-shown', (event) => sendFromAnywhere(event.data))
 // Quit in the right-click menu: the list opens on the question.
 Events.On('quit-asked', (event) => {
