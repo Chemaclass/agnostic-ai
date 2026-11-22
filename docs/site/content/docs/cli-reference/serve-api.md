@@ -293,7 +293,7 @@ Takes no input. A user-level server only; a project server answers 404. Returns 
 - `approvals.overrides` counts the per-tool modes, per-folder modes and extra always-ask patterns. `approvals.shadowed` names the keys of the shared file that a block in `local/agnostic-ai.yaml` hides.
 - `approvals.tools` uses the same fields as [`GET /api/views/approvals`](#get-api-views-approvals).
 - `mailbox.approveAgentSends` is the mailbox switch.
-- `sync.needed` is `true` when `sync --scope user` would put the asked mode in effect: the hook is not installed, `approvals` is missing from `builtins`, or a native reviewer key is missing or left over. `sync.reasons` says which.
+- `sync.needed` is `true` when `sync --scope user` would put the asked mode, or the companion buttons, in effect: the hook is not installed, `approvals` is missing from `builtins`, or a native reviewer key is missing or left over. `sync.reasons` says which.
 - `canLoosen` says whether this request carried the companion's secret.
 - The answer has an `ETag`. A request with `If-None-Match` set to it answers 304 while nothing changed.
 

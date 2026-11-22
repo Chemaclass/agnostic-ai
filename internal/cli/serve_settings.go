@@ -254,7 +254,16 @@ func approvalsSyncNeed(home config.ApprovalsConfig, status approvalsStatusOutput
 	review := false
 	for _, tool := range status.Tools {
 		review = review || tool.Mode == config.ApprovalsReview
-		if tool.Mode == config.ApprovalsAsk || tool.Effective != config.ApprovalsAsk {
+		if tool.Mode == config.ApprovalsAsk {
+			// The companion buttons need the hook even while the tool asks.
+			if home.Companion && (tool.Tool == "claude" || tool.Tool == "codex") {
+				if problem := approvalHookProblem(tool.Tool); strings.HasPrefix(problem, syncFixedReasons[0]) {
+					out.Reasons = append(out.Reasons, tool.Tool+": "+problem)
+				}
+			}
+			continue
+		}
+		if tool.Effective != config.ApprovalsAsk {
 			continue
 		}
 		if slices.ContainsFunc(syncFixedReasons, func(reason string) bool { return strings.HasPrefix(tool.Reason, reason) }) {

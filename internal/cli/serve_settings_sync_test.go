@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestSettingsSync_PlanApplyStaleAndFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	planJSON := `{"writes":[{"target":"codex","path":"` + filepath.ToSlash(hooks) + `","action":"create"}],"notes":[{"message":"a note"}]}`
+	planJSON := `{"writes":[{"target":"codex","path":"` + filepath.ToSlash(hooks) + `","action":"create"}],"notes":[{"message":"a note"}],"warnings":[{"message":"codex: x/hooks.json: PermissionRequest hook \"h\" (group 0, handler 0) is untrusted; open /hooks in Codex to review and trust it"},{"message":"codex: x/hooks.json: cannot check hook trust: busy; open /hooks in Codex to review hook status"}]}`
 	var applied bool
 	var failure error
 	h.runSync = func(_ context.Context, args ...string) ([]byte, error) {
@@ -65,7 +66,7 @@ func TestSettingsSync_PlanApplyStaleAndFailure(t *testing.T) {
 		t.Fatalf("plan = %d %s", rec.Code, rec.Body)
 	}
 	plan := decodeSyncReply[settingsSyncPlan](t, rec.Body.Bytes())
-	if plan.ID == "" || len(plan.Files) != 1 || plan.Files[0].Change != "create" || len(plan.Notes) != 1 {
+	if plan.ID == "" || len(plan.Files) != 1 || plan.Files[0].Change != "create" || len(plan.Notes) != 3 || !slices.Contains(plan.Notes, settingsCodexNote) {
 		t.Fatalf("plan = %s", rec.Body)
 	}
 
@@ -86,8 +87,12 @@ func TestSettingsSync_PlanApplyStaleAndFailure(t *testing.T) {
 		t.Fatalf("apply = %d %s", rec.Code, rec.Body)
 	}
 	reply := decodeSyncReply[settingsSyncReply](t, rec.Body.Bytes())
-	if len(reply.Written) != 1 || !strings.Contains(strings.Join(reply.Notes, "\n"), "Open /hooks in Codex") {
+	if len(reply.Written) != 1 || !slices.Contains(reply.Notes, settingsCodexNote) {
 		t.Errorf("apply reply = %s", rec.Body)
+	}
+	notes := strings.Join(reply.Notes, "\n")
+	if strings.Contains(notes, "is untrusted") || !strings.Contains(notes, "cannot check hook trust") || len(reply.Notes) != 3 {
+		t.Errorf("the short note replaces only the untrusted-hook warning: %q", reply.Notes)
 	}
 	entries, err := approvals.ReadLog(approvals.LogPath(source))
 	if err != nil || len(entries) != 1 || entries[0].Call != "sync" {

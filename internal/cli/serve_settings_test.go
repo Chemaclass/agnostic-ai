@@ -187,6 +187,17 @@ func TestSettings_YoloOnACleanHomeAddsTheBuiltinAndAsksForASync(t *testing.T) {
 	}
 }
 
+func TestSettings_CompanionOnWithoutTheHookAsksForASync(t *testing.T) {
+	h, _ := settingsFixture(t, "version: 1\ntargets: [claude]\n")
+	rec, reply := postSetting(t, h, `{"key":"approvals.companion","value":true,"expected":false}`, withSecret(settingsTestSecret))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST companion = %d %s", rec.Code, rec.Body)
+	}
+	if reply.Settings.Approvals.Mode != config.ApprovalsAsk || !reply.Settings.Sync.Needed || !strings.Contains(strings.Join(reply.Settings.Sync.Reasons, "\n"), "claude: the hook is not installed") {
+		t.Errorf("document = %s", rec.Body)
+	}
+}
+
 func TestSettings_BuiltinAddedOnlyWhenMissing(t *testing.T) {
 	const shared = "version: 1\ntargets: [claude]\nbuiltins: [approvals]\n"
 	h, source := settingsFixture(t, shared)

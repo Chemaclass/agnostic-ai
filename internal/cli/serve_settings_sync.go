@@ -57,14 +57,16 @@ type settingsSyncRefusal struct {
 
 // userSyncReport is the part of sync --scope user --json the page shows.
 type userSyncReport struct {
-	Writes []struct {
-		Target string   `json:"target"`
-		Path   string   `json:"path"`
-		Action string   `json:"action"`
-		Keys   []string `json:"keys"`
-	} `json:"writes"`
-	Warnings []dropRecord `json:"warnings"`
-	Notes    []dropRecord `json:"notes"`
+	Writes   []userSyncWrite `json:"writes"`
+	Warnings []dropRecord    `json:"warnings"`
+	Notes    []dropRecord    `json:"notes"`
+}
+
+type userSyncWrite struct {
+	Target string   `json:"target"`
+	Path   string   `json:"path"`
+	Action string   `json:"action"`
+	Keys   []string `json:"keys"`
 }
 
 // sync plans or applies sync --scope user. Both install hooks, so both
@@ -108,17 +110,26 @@ func (h *settingsHandler) sync(w http.ResponseWriter, r *http.Request) {
 	}
 	source, _ := h.reader.source()
 	h.logChange(source, "sync", "sync --scope user")
-	reply := settingsSyncReply{Written: []string{}, Notes: report.notes(), Settings: h.document(r)}
-	hooks, _ := codex.UserHooksPath()
+	reply := settingsSyncReply{Written: []string{}, Notes: report.shortNotes(), Settings: h.document(r)}
 	for _, write := range report.Writes {
 		reply.Written = append(reply.Written, write.Path)
-		if hooks != "" && filepath.Clean(filepath.FromSlash(write.Path)) == filepath.Clean(hooks) && !slices.Contains(reply.Notes, settingsCodexNote) {
-			// The short note replaces sync's own untrusted-hook warning, which names the full command.
-			reply.Notes = slices.DeleteFunc(reply.Notes, func(note string) bool { return strings.Contains(note, "open /hooks in Codex") })
-			reply.Notes = append(reply.Notes, settingsCodexNote)
-		}
 	}
 	writeEditJSON(w, http.StatusOK, reply)
+}
+
+// shortNotes are the sync's notes, with one short Codex trust step in place
+// of the untrusted-hook warning, which names the full command, when the sync
+// writes the Codex hooks file.
+func (r userSyncReport) shortNotes() []string {
+	notes := r.notes()
+	hooks, _ := codex.UserHooksPath()
+	if hooks == "" || !slices.ContainsFunc(r.Writes, func(write userSyncWrite) bool {
+		return filepath.Clean(filepath.FromSlash(write.Path)) == filepath.Clean(hooks)
+	}) {
+		return notes
+	}
+	notes = slices.DeleteFunc(notes, func(note string) bool { return strings.Contains(note, "open /hooks in Codex to review and trust it") })
+	return append(notes, settingsCodexNote)
 }
 
 // syncPlan runs sync --scope user --plan --json.
@@ -131,7 +142,7 @@ func (h *settingsHandler) syncPlan(ctx context.Context) (settingsSyncPlan, error
 	if err != nil {
 		return settingsSyncPlan{}, err
 	}
-	plan := settingsSyncPlan{Files: []settingsSyncFile{}, Notes: report.notes()}
+	plan := settingsSyncPlan{Files: []settingsSyncFile{}, Notes: report.shortNotes()}
 	for _, write := range report.Writes {
 		plan.Files = append(plan.Files, settingsSyncFile{Path: write.Path, Change: write.Action, Target: write.Target, Keys: write.Keys})
 	}
