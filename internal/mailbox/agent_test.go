@@ -14,6 +14,7 @@ func TestSendFromAgent_StoresTheStatedModelWithinItsLimits(t *testing.T) {
 		{"a model name of 81 characters", strings.Repeat("a", 81), "size"},
 		{"a character outside the set", "gpt<5>", "format"},
 		{"a line break", "gpt\n5", "format"},
+		{"only spaces", "   ", "format"},
 		{"a credential", "api_key=example-secret-sentinel", "secret"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -333,4 +334,23 @@ func deliverTo(t *testing.T, s Store, to conversations.Ref) {
 	if err := s.Confirm(t.Context(), delivery); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestSendFromAgent_CountsTheStatedModelInTheLineSize(t *testing.T) {
+	probe := Message{N: 1, Type: Question, From: Actor{Ref: claude, By: "agent"}}
+	empty, err := renderLine("th_20261121_abcdef01", probe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	room := maxLineBytes - len(empty) - len(`,"body":""`)
+	escaped := len(`\u003c`)
+	req := agentQuestion("")
+	req.Body = strings.Repeat("<", room/escaped) + strings.Repeat("b", room%escaped)
+
+	if _, err := (Store{Dir: t.TempDir()}).SendFromAgent(t.Context(), claude, req, ""); err != nil {
+		t.Fatalf("a line of exactly %d bytes was refused: %v", maxLineBytes, err)
+	}
+	req.Model = strings.Repeat("a", maxStatedModel)
+	_, err = (Store{Dir: t.TempDir()}).SendFromAgent(t.Context(), claude, req, "")
+	requireGuard(t, err, "size")
 }

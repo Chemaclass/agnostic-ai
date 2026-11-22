@@ -1710,6 +1710,63 @@ button:focus-visible {
   display: none;
 }
 
+.row.is-mailbox-receivable {
+  box-shadow: inset 0 0 0 1px var(--busy);
+  cursor: pointer;
+}
+
+.row.is-mailbox-from {
+  opacity: 0.55;
+}
+
+.row.is-mailbox-to {
+  box-shadow: inset 0 0 0 2px var(--busy);
+}
+
+.mailbox-tag {
+  display: inline-block;
+  margin-block-end: 2px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: var(--hairline-strong);
+  color: var(--paper);
+  font-size: 10.5px;
+  font-weight: 620;
+  line-height: 16px;
+}
+
+.row.is-mailbox-to .mailbox-tag {
+  background: var(--busy);
+  color: var(--ink);
+}
+
+.mailbox-end {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mailbox-end-label {
+  color: var(--paper-dim);
+}
+
+.mailbox-to {
+  display: grid;
+  gap: 3px;
+}
+
+.mailbox-link {
+  color: var(--busy-text);
+  text-decoration: underline;
+}
+
+.mailbox-send {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mailbox-review {
   display: grid;
   gap: 6px;

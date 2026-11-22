@@ -81,3 +81,24 @@ func TestRenderReviewRequest_UsesCodeRefsAndAnUncommittedNotice(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderLine_LabelsTheModelTheSenderStates(t *testing.T) {
+	message := Message{N: 1, Type: Question, From: Actor{Ref: claude, By: "agent"}, Model: "gpt-5.5", Body: "Hi."}
+	line, err := renderLine("th_20261121_abcdef01", message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `"from":{"tool":"claude","model":"gpt-5.5 (stated by sender)","session":"` + claude.ID + `","by":"agent"}`
+	if !strings.Contains(string(line), want) {
+		t.Errorf("rendered line = %s, want it to contain %s", line, want)
+	}
+
+	message.Model = ""
+	line, err = renderLine("th_20261121_abcdef01", message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(line), `"model"`) {
+		t.Errorf("rendered line without a stated model = %s", line)
+	}
+}
