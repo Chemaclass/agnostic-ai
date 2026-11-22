@@ -1,6 +1,7 @@
 package approvals
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -44,8 +45,17 @@ func TestPending_RoundTripAndModes(t *testing.T) {
 	if d, ok := ReadDecision(dir, id); !ok || d.Decision != DecideDeny || d.Digest != "d" {
 		t.Errorf("decision = %+v, %v", d, ok)
 	}
-	if listed, _ := ListPending(dir); len(listed) != 0 {
-		t.Errorf("a decided request is still listed: %+v", listed)
+	if listed, _ := ListPending(dir); len(listed) != 1 || !listed[0].Decided {
+		t.Errorf("listed = %+v, want the request marked decided", listed)
+	}
+	if err := WriteDecision(dir, id, PendingDecision{Decision: DecideApprove, Digest: "d"}); !errors.Is(err, ErrDecided) {
+		t.Errorf("a second answer = %v, want ErrDecided", err)
+	}
+	if d, _ := ReadDecision(dir, id); d.Decision != DecideDeny {
+		t.Errorf("the second answer replaced the first: %+v", d)
+	}
+	if _, ok := ReadDecision(dir, "../"+id); ok {
+		t.Error("a decision read through a path in the id")
 	}
 	RemovePending(dir, id)
 	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
@@ -125,7 +135,12 @@ func TestShowableInput(t *testing.T) {
 		{"write", "Write", map[string]any{"file_path": "/p/a.go", "content": "package a\n"}, PendingInput{FilePath: "/p/a.go", New: "package a\n"}, true},
 		{"edit", "Edit", map[string]any{"file_path": "/p/a.go", "old_string": "a", "new_string": "b"}, PendingInput{FilePath: "/p/a.go", Old: "a", New: "b"}, true},
 		{"multi edit", "MultiEdit", map[string]any{"file_path": "/p/a.go", "edits": []any{map[string]any{"old_string": "a", "new_string": "b"}, map[string]any{"old_string": "c", "new_string": "d"}}}, PendingInput{FilePath: "/p/a.go", Old: "a\n…\nc", New: "b\n…\nd"}, true},
-		{"notebook", "NotebookEdit", map[string]any{"notebook_path": "/p/n.ipynb", "new_source": "print(1)"}, PendingInput{FilePath: "/p/n.ipynb", New: "print(1)"}, true},
+		{"notebook", "NotebookEdit", map[string]any{"notebook_path": "/p/n.ipynb", "new_source": "print(1)"}, PendingInput{}, false},
+		{"sandbox off", "Bash", map[string]any{"command": "ls", "dangerouslyDisableSandbox": true}, PendingInput{}, false},
+		{"background", "Bash", map[string]any{"command": "make dev", "run_in_background": true}, PendingInput{Command: "make dev"}, true},
+		{"replace all", "Edit", map[string]any{"file_path": "/p/a.go", "old_string": "a", "new_string": "b", "replace_all": true}, PendingInput{}, false},
+		{"multi edit replace all", "MultiEdit", map[string]any{"file_path": "/p/a.go", "edits": []any{map[string]any{"old_string": "a", "new_string": "b", "replace_all": true}}}, PendingInput{}, false},
+		{"read range", "Read", map[string]any{"file_path": "/p/a.go", "offset": 10, "limit": 20}, PendingInput{FilePath: "/p/a.go"}, true},
 		{"question", "AskUserQuestion", map[string]any{"questions": []any{}}, PendingInput{}, false},
 		{"mcp", "mcp__notion__fetch", map[string]any{"id": "x"}, PendingInput{}, false},
 		{"web", "WebFetch", map[string]any{"url": "https://example.test"}, PendingInput{}, false},

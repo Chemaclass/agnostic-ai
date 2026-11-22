@@ -127,7 +127,7 @@ func hookApproveReply(target string, raw []byte, now time.Time) (reply []byte) {
 	log := approvals.Log{Path: approvals.LogPath(source)}
 	var settings approvals.ClaudeSettings
 	settingsOK := false
-	if mode == config.ApprovalsYolo || home.Companion {
+	if _, holds := companionHoldTimes[target]; mode == config.ApprovalsYolo || (home.Companion && holds) {
 		settings, settingsOK = approveToolSettings(target, p.Cwd, userHome)
 	}
 	hold := companionHold{

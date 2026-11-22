@@ -421,10 +421,11 @@ End to end with `agnostic-ai hook approve` built from this branch, a server star
 - With `deny`, the call was blocked with `Denied by PermissionRequest hook` and the agent quoted "Denied in the agnostic-ai companion".
 - No click: the hook removed its record 299.9 s after writing it and printed nothing. The terminal prompt was still open, the row showed the plain pill, the log read `asked (companion)`, and pressing 1 then ran the call.
 - Pressing 1 in the terminal: the next list read showed no request, the pending folder was empty, and a later `POST` for that id answered 404. The log read `asked (companion)`.
+- With `approvals.companion` turned off while the server ran, `companion.live` was gone within 6 s, and the next request wrote no record and showed the terminal prompt at once.
 - The route answered 405 to GET, 415 without the JSON content type, 403 to another origin, 421 to another Host, and 409 to another digest, which left the record in place.
 
 **Why:** The prompt stays on screen while the hook runs (decision 022), so a long hold never delays the terminal answer; 296 s worked, so the planned 300 s stands. A hook left running after a terminal answer would keep showing buttons that answer nothing, so the server must withdraw it from the session state, which changes within tens of milliseconds. `prompt_id` cannot tell two calls of one turn apart, so the digest of the full input carries that job.
 
-**Accepted limits:** One run per case on one account, macOS only, in the fullscreen renderer. Not measured: a hold past 300 s, the classic renderer, several prompts of one session at once, Linux, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). Codex is slice 2.
+**Accepted limits:** One run per case on one account, macOS only, in the fullscreen renderer. Not measured: a hold past 300 s, the classic renderer, several prompts of one session at once (whether a late allow from an old hook could answer a newer prompt), how long Claude Code takes to record its wait after the hook starts (the 5 s grace rests on the 1.1 s of decision 022), Linux, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). Codex is slice 2.
 
 **Revisit when:** Claude Code adds a per-request id to the hook input, stops a hook when the prompt is answered elsewhere, or draws its prompt only after the hook ends.

@@ -1,6 +1,6 @@
 ### General
 
-- An `x-<target>` block on a hook spec can now set `timeout` for that target, as it already could `event`, `matcher`, `command` and `args` (#3906).
+- An `x-<target>` block on a hook spec now sets `timeout` for that target, in seconds like the top-level `timeout`, as it already set `event`, `matcher`, `command` and `args`. A spec that already had such a block gets that timeout on its next sync (#3906).
 
 ### By tool
 

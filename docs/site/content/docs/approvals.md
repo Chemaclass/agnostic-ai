@@ -107,7 +107,7 @@ approvals:
 Run `agnostic-ai sync --scope user` once, then open the companion. When Claude Code asks to run `touch a.txt`, the row shows the whole command with **Approve** and **Deny**. **Approve** runs that one call. **Deny** blocks it, and Claude Code reads "Denied in the agnostic-ai companion". The terminal prompt stays open the whole time, so you can still answer there.
 
 - The hook waits for a click only when the request is left to you: mode `ask`, a match in the always-ask rules in `yolo`, or a prompt in `review`. A request the hook approves never waits.
-- It waits only while the companion is open, and only for calls it can show in full: `Bash`, `Read`, `Write`, `Edit`, `MultiEdit` and `NotebookEdit`, under 8 KB, with nothing that looks like a credential. MCP tools, web tools and questions keep the terminal prompt alone.
+- It waits only while the companion is open, and only for calls it can show in full: `Bash`, `Read`, `Write`, `Edit` and `MultiEdit`, under 8 KB, with nothing that looks like a credential. A call with an option the row does not show, such as a command run outside the sandbox or an edit that replaces every match, keeps the terminal prompt alone, and so do MCP tools, web tools and questions.
 - The row shows the request from the hook's own copy, never from the chat. A click answers at once; no key does. When the request changed before the click, the row says "This request changed. Check it again." and shows the new one.
 - The hook waits up to 300 seconds, then leaves the request to the terminal prompt. An answer in the terminal removes the buttons by the next list read.
 - Only Claude Code on macOS and Linux supports it for now. Codex, Kiro, Qwen Code and Qoder keep their prompts as they are.

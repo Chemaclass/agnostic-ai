@@ -65,7 +65,7 @@ func (h companionHold) wait(now time.Time) []byte {
 		Digest: digest, Created: now.UTC(), Expires: now.Add(holdFor).UTC(), PID: os.Getpid(),
 	}
 	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT)
+	signal.Notify(stop, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
 	defer signal.Stop(stop)
 	defer approvals.RemovePending(dir, id)
 	if err := approvals.WritePending(dir, record); err != nil {

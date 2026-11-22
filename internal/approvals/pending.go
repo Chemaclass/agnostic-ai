@@ -56,6 +56,8 @@ type Pending struct {
 	Created time.Time `json:"created"`
 	Expires time.Time `json:"expires"`
 	PID     int       `json:"pid"`
+	// Decided is set by ListPending for a request with a decision file.
+	Decided bool `json:"-"`
 }
 
 // PendingInput is the part of a call's input the panel shows.
@@ -130,10 +132,26 @@ func PendingDigest(tool, session, call string, rawInput []byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// showableKeys are, per call, the input keys the panel shows or that do
+// not change what the call does. A call with any other key, such as
+// Bash dangerouslyDisableSandbox or Edit replace_all, gets no record.
+var showableKeys = map[string][]string{
+	"Bash":      shellInputKeys,
+	"Read":      {"file_path", "offset", "limit", "pages"},
+	"Write":     {"file_path", "content"},
+	"Edit":      {"file_path", "old_string", "new_string"},
+	"MultiEdit": {"file_path", "edits"},
+}
+
 // ShowableInput is the input of call the panel can show in full. ok is
-// false for a call the companion does not answer, an input over
-// MaxPendingInput, or one that may hold a credential.
+// false for a call the companion does not answer, an input with a key
+// the panel would not show, one over MaxPendingInput, or one that may
+// hold a credential.
 func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
+	keys, known := showableKeys[call]
+	if !known || !onlyKeys(input, keys) {
+		return PendingInput{}, false
+	}
 	text := func(key string) string {
 		s, _ := input[key].(string)
 		return s
@@ -157,7 +175,7 @@ func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 		var olds, news []string
 		for _, e := range edits {
 			edit, ok := e.(map[string]any)
-			if !ok {
+			if !ok || !onlyKeys(edit, showableKeys["Edit"][1:]) {
 				return PendingInput{}, false
 			}
 			old, _ := edit["old_string"].(string)
@@ -168,10 +186,6 @@ func ShowableInput(call string, input map[string]any) (PendingInput, bool) {
 			return PendingInput{}, false
 		}
 		in.Old, in.New = strings.Join(olds, "\n…\n"), strings.Join(news, "\n…\n")
-	case "NotebookEdit":
-		in.FilePath, in.New = text("notebook_path"), text("new_source")
-	default:
-		return PendingInput{}, false
 	}
 	if in.Command == "" && in.FilePath == "" {
 		return PendingInput{}, false
@@ -231,9 +245,9 @@ func ReadPending(dir, id string) (Pending, bool, error) {
 	return p, true, nil
 }
 
-// ListPending returns the requests in dir that wait for a decision,
-// oldest first. A missing folder lists none; a file that does not
-// parse is skipped.
+// ListPending returns the requests in dir, oldest first, with Decided
+// set on those that have a decision. A missing folder lists none; a
+// file that does not parse is skipped.
 func ListPending(dir string) ([]Pending, error) {
 	entries, err := os.ReadDir(dir)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -248,14 +262,13 @@ func ListPending(dir string) ([]Pending, error) {
 		if !isRecord || !ValidPendingID(id) {
 			continue
 		}
-		if _, err := os.Lstat(decisionPath(dir, id)); err == nil {
-			continue
-		}
 		p, ok, err := ReadPending(dir, id)
 		if err != nil {
 			return nil, err
 		}
 		if ok {
+			_, err := os.Lstat(decisionPath(dir, id))
+			p.Decided = err == nil
 			out = append(out, p)
 		}
 	}
@@ -268,7 +281,12 @@ func ListPending(dir string) ([]Pending, error) {
 	return out, nil
 }
 
-// WriteDecision saves the answer to request id.
+// ErrDecided is WriteDecision's error for a request that already has
+// an answer: the first answer wins.
+var ErrDecided = errors.New("the request already has an answer")
+
+// WriteDecision saves the answer to request id, unless it has one. The
+// file appears whole, so the hook never reads half of it.
 func WriteDecision(dir, id string, d PendingDecision) error {
 	if !ValidPendingID(id) || !slices.Contains(Decisions, d.Decision) {
 		return fmt.Errorf("decision %q for %q is not valid", d.Decision, id)
@@ -277,12 +295,34 @@ func WriteDecision(dir, id string, d PendingDecision) error {
 	if err != nil {
 		return fmt.Errorf("encode decision: %w", err)
 	}
-	return atomicfile.Replace(decisionPath(dir, id), data, 0o600)
+	tmp, err := os.CreateTemp(dir, "."+id+".decision-*")
+	if err != nil {
+		return fmt.Errorf("write decision: %w", err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	if err := errors.Join(tmp.Chmod(0o600), writeAll(tmp, data), tmp.Close()); err != nil {
+		return fmt.Errorf("write decision: %w", err)
+	}
+	if err := os.Link(tmp.Name(), decisionPath(dir, id)); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return ErrDecided
+		}
+		return fmt.Errorf("write decision: %w", err)
+	}
+	return nil
+}
+
+func writeAll(f *os.File, data []byte) error {
+	_, err := f.Write(data)
+	return err
 }
 
 // ReadDecision reads the answer to request id. ok is false while none
 // was written, or when the file does not parse.
 func ReadDecision(dir, id string) (PendingDecision, bool) {
+	if !ValidPendingID(id) {
+		return PendingDecision{}, false
+	}
 	data, err := os.ReadFile(decisionPath(dir, id))
 	if err != nil {
 		return PendingDecision{}, false

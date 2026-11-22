@@ -287,7 +287,7 @@ function rowOf(conversation, order, folderNames, under) {
   const reason = approvalReasonOf(conversation)
   if (reason) text.append(element('div', 'approval-reason', reason))
   const held = pendingOf(conversation)
-  if (held) text.append(heldRequest(held))
+  if (held) text.append(heldRequest(held, key))
   // The meta line is the same in every group: tool, place, folder and age.
   const meta = element('div', 'meta')
   if (renaming?.problem) {
@@ -424,23 +424,32 @@ function approvalLine(approval) {
 const answering = new Set()
 
 /**
+ * How long the buttons stay off on the row's next request after an answer, so the second click of a double click
+ * cannot answer a request the person has not read.
+ */
+const SETTLE_MS = 800
+
+/** Per row key, when the buttons of the next request come on. */
+const settling = new Map()
+
+/**
  * A request the approvals hook holds for the companion: what it runs or writes, then Approve and Deny. The block is the
  * confirmation, so a click answers at once; no key does.
  */
-function heldRequest(held) {
+function heldRequest(held, key) {
   const box = element('div', 'held-request')
   for (const block of held.blocks) {
     box.append(element('div', 'held-label', block.label), element('pre', 'held-text', block.text))
   }
   const line = element('div', 'held-actions')
-  const off = answering.has(held.id)
+  const off = answering.has(held.id) || (settling.get(key) ?? 0) > Date.now()
   for (const [label, decision] of [['Approve', 'approve'], ['Deny', 'deny']]) {
     const button = element('button', 'held-action is-' + decision, label)
     button.type = 'button'
     button.disabled = off
     button.addEventListener('click', (event) => {
       event.stopPropagation()
-      answerHeld(held, decision)
+      answerHeld(held, key, decision)
     })
     line.append(button)
   }
@@ -451,7 +460,7 @@ function heldRequest(held) {
   return box
 }
 
-async function answerHeld(held, decision) {
+async function answerHeld(held, key, decision) {
   answering.add(held.id)
   redrawKeepingKeys()
   let version
@@ -462,8 +471,13 @@ async function answerHeld(held, decision) {
     else sayFailure(error)
   }
   await afterChange(version)
+  settling.set(key, Date.now() + SETTLE_MS)
   answering.delete(held.id)
   redrawKeepingKeys()
+  setTimeout(() => {
+    settling.delete(key)
+    redrawKeepingKeys()
+  }, SETTLE_MS)
 }
 
 /** The line under the meta line while subagents work: "▸ 3 subagents", or their count when the server lists none of them. */

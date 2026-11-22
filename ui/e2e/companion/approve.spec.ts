@@ -40,12 +40,16 @@ test('Approve sends the id and digest the row showed, opens nothing, and the req
   expect((await calls(page)).map((call) => call.path)).not.toContain('/api/open')
 })
 
-test('Deny on the first of two requests shows the next one', async ({ page }) => {
+test('Deny on the first of two requests shows the next one, whose buttons come on after a moment', async ({ page }) => {
   await openPanel(page)
   const edit = row(page, 'Webhooks v2 dashboard')
   await edit.getByRole('button', { name: 'Deny' }).click()
   await expect(edit.locator('.held-text')).toHaveText(['npm test'])
   await expect(edit.locator('.held-more')).toHaveCount(0)
+  // A double click must not answer the request that just took the first one's place.
+  await expect(edit.getByRole('button', { name: 'Approve' })).toBeDisabled()
+  await page.clock.runFor(1000)
+  await expect(edit.getByRole('button', { name: 'Approve' })).toBeEnabled()
 })
 
 test('a request that changed before the click says so', async ({ page }) => {

@@ -1880,8 +1880,6 @@ button:focus-visible {
 
 .held-text {
   margin: 1px 0 0;
-  max-height: 160px;
-  overflow: auto;
   padding: 4px 6px;
   border-radius: 6px;
   background: var(--ink);

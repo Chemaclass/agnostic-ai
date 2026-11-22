@@ -763,6 +763,8 @@ func (a *approvalsReader) pendingRequests(view *conversations.View, folder strin
 		case !now.Before(p.Expires), a.alive != nil && !a.alive(p.PID):
 			approvals.RemovePending(dir, p.ID)
 			continue
+		case p.Decided:
+			continue
 		case folder == "" && p.Tool == string(conversations.ToolClaude) && !waiting[key] && now.Sub(p.Created) > pendingGrace:
 			_ = approvals.WriteDecision(dir, p.ID, approvals.PendingDecision{Decision: approvals.DecideRelease, Digest: p.Digest})
 			continue
@@ -796,11 +798,8 @@ func pendingShown(c conversations.Conversation, held []conversations.PendingRequ
 // pendingDetail is the short detail a row shows for request p.
 func pendingDetail(p conversations.PendingRequest) string {
 	key, value := "file_path", p.Input.FilePath
-	switch p.Call {
-	case "Bash":
+	if p.Call == "Bash" {
 		key, value = "command", p.Input.Command
-	case "NotebookEdit":
-		key = "notebook_path"
 	}
 	input, err := json.Marshal(map[string]string{key: value})
 	if err != nil {
@@ -808,6 +807,8 @@ func pendingDetail(p conversations.PendingRequest) string {
 	}
 	return conversations.CallDetail(p.Call, input)
 }
+
+const pendingGone = "This request is no longer waiting."
 
 type approvalsDecideRequest struct {
 	ID       string `json:"id"`
@@ -840,26 +841,32 @@ func (h approvalsHandler) decide(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
-	_, decided := approvals.ReadDecision(dir, req.ID)
-	if !ok || decided || !h.reader.now().Before(held.Expires) {
-		writeEditJSON(w, http.StatusNotFound, editError{Error: "This request is no longer waiting."})
+	gone := !ok || !h.reader.now().Before(held.Expires) || (h.reader.alive != nil && !h.reader.alive(held.PID))
+	if gone {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: pendingGone})
 		return
 	}
 	if req.Digest != held.Digest {
 		writeEditJSON(w, http.StatusConflict, editError{Error: "This request changed. Check it again."})
 		return
 	}
-	if err := approvals.WriteDecision(dir, req.ID, approvals.PendingDecision{Decision: req.Decision, Digest: held.Digest}); err != nil {
+	err = approvals.WriteDecision(dir, req.ID, approvals.PendingDecision{Decision: req.Decision, Digest: held.Digest})
+	if errors.Is(err, approvals.ErrDecided) {
+		writeEditJSON(w, http.StatusNotFound, editError{Error: pendingGone})
+		return
+	}
+	if err != nil {
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
 	writeEditJSON(w, http.StatusOK, map[string]string{"decision": req.Decision})
 }
 
-// keepCompanionLive touches companion.live every approvals.LiveEvery
-// until ctx ends, then removes it: while it is fresh, the approvals
-// hook may hold a request for the companion. The returned func waits
-// for the removal.
+// keepCompanionLive keeps companion.live fresh every
+// approvals.LiveEvery while approvals.companion is on, and removes it
+// when the switch goes off or ctx ends: while it is fresh, the
+// approvals hook may hold a request for the companion. The returned
+// func waits for the removal.
 func keepCompanionLive(ctx context.Context, source string) (wait func()) {
 	path := approvals.LivePath(source)
 	done := make(chan struct{})
@@ -869,7 +876,11 @@ func keepCompanionLive(ctx context.Context, source string) (wait func()) {
 		tick := time.NewTicker(approvals.LiveEvery)
 		defer tick.Stop()
 		for {
-			_ = approvals.TouchLive(path, time.Now())
+			if home, err := config.LoadHomeApprovals(source); err != nil || !home.Companion {
+				_ = os.Remove(path)
+			} else if now := time.Now(); os.Chtimes(path, now, now) != nil {
+				_ = approvals.TouchLive(path, now)
+			}
 			select {
 			case <-ctx.Done():
 				return

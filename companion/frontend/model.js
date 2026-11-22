@@ -473,7 +473,7 @@ export function pendingOf(conversation) {
   return { id: first.id, digest: first.digest, blocks, more: held.length - 1 }
 }
 
-const PENDING_VERBS = { Read: 'Read', Write: 'Write', Edit: 'Edit', MultiEdit: 'Edit', NotebookEdit: 'Edit notebook' }
+const PENDING_VERBS = { Read: 'Read', Write: 'Write', Edit: 'Edit', MultiEdit: 'Edit' }
 
 function pendingBlocksOf(call, input) {
   const block = (label, text) => (typeof text === 'string' && text !== '' ? [{ label, text }] : [])

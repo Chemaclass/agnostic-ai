@@ -223,11 +223,15 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 	dir := approvals.PendingDir(home)
 	id, _ := approvals.NewPendingID()
 	digest := approvals.PendingDigest("claude", "s", "Bash", []byte(`{"command":"touch a.txt"}`))
-	if err := approvals.WritePending(dir, approvals.Pending{ID: id, Tool: "claude", Session: "s", Call: "Bash", Digest: digest, Created: now, Expires: now.Add(time.Minute)}); err != nil {
+	if err := approvals.WritePending(dir, approvals.Pending{ID: id, Tool: "claude", Session: "s", Call: "Bash", Digest: digest, Created: now, Expires: now.Add(time.Minute), PID: os.Getpid()}); err != nil {
+		t.Fatal(err)
+	}
+	orphanID, _ := approvals.NewPendingID()
+	if err := approvals.WritePending(dir, approvals.Pending{ID: orphanID, Digest: digest, Created: now, Expires: now.Add(time.Minute), PID: 1 << 30}); err != nil {
 		t.Fatal(err)
 	}
 	expiredID, _ := approvals.NewPendingID()
-	if err := approvals.WritePending(dir, approvals.Pending{ID: expiredID, Digest: digest, Created: now.Add(-time.Hour), Expires: now.Add(-time.Minute)}); err != nil {
+	if err := approvals.WritePending(dir, approvals.Pending{ID: expiredID, Digest: digest, Created: now.Add(-time.Hour), Expires: now.Add(-time.Minute), PID: os.Getpid()}); err != nil {
 		t.Fatal(err)
 	}
 	body := func(id, digest, decision string) string {
@@ -247,6 +251,7 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 		{"unknown id", body(unknown, digest, "approve"), nil, http.StatusNotFound},
 		{"path in id", body("../decisions", digest, "approve"), nil, http.StatusNotFound},
 		{"expired", body(expiredID, digest, "approve"), nil, http.StatusNotFound},
+		{"hook gone", body(orphanID, digest, "approve"), nil, http.StatusNotFound},
 		{"other digest", body(id, strings.Repeat("0", 64), "approve"), nil, http.StatusConflict},
 		{"no JSON type", body(id, digest, "approve"), func(r *http.Request) { r.Header.Set("Content-Type", "text/plain") }, http.StatusUnsupportedMediaType},
 		{"other origin", body(id, digest, "approve"), func(r *http.Request) { r.Header.Set("Origin", "https://example.com") }, http.StatusForbidden},
@@ -276,7 +281,7 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 	}
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".decision.json") && e.Name() != id+".decision.json" {
+		if strings.HasSuffix(e.Name(), ".decision.json") && e.Name() != id+".decision.json" || strings.HasPrefix(e.Name(), ".") {
 			t.Errorf("unexpected decision file %s", filepath.Join(dir, e.Name()))
 		}
 	}
@@ -284,6 +289,7 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 
 func TestKeepCompanionLive_TouchesUntilStoppedThenRemoves(t *testing.T) {
 	home := t.TempDir()
+	writeTestFile(t, filepath.Join(home, config.ConfigFileName), "approvals:\n  companion: true\n")
 	ctx, stop := context.WithCancel(context.Background())
 	wait := keepCompanionLive(ctx, home)
 	path := approvals.LivePath(home)
@@ -298,5 +304,42 @@ func TestKeepCompanionLive_TouchesUntilStoppedThenRemoves(t *testing.T) {
 	wait()
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("companion.live after stop: %v", err)
+	}
+}
+
+func TestKeepCompanionLive_WritesNothingWithTheSwitchOff(t *testing.T) {
+	home := t.TempDir()
+	writeTestFile(t, filepath.Join(home, config.ConfigFileName), "approvals:\n  mode: ask\n")
+	path := approvals.LivePath(home)
+	writeTestFile(t, path, "stale\n")
+	ctx, stop := context.WithCancel(context.Background())
+	wait := keepCompanionLive(ctx, home)
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("companion.live stays with approvals.companion off")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	stop()
+	wait()
+}
+
+func TestApprovals_DecidedRequestOfAGoneHookIsRemoved(t *testing.T) {
+	f := newApprovalsFixture(t, config.ApprovalsAsk, true)
+	f.wait(t, f.now.Add(-time.Second))
+	held := f.hold(t, "Bash", approvals.PendingInput{Command: "touch a.txt"}, f.now.Add(-time.Second))
+	if err := approvals.WriteDecision(approvals.PendingDir(f.home), held.ID, approvals.PendingDecision{Decision: approvals.DecideApprove, Digest: held.Digest}); err != nil {
+		t.Fatal(err)
+	}
+	f.h.approvals.alive = func(int) bool { return false }
+
+	f.list(t)
+
+	if entries, _ := os.ReadDir(approvals.PendingDir(f.home)); len(entries) != 0 {
+		t.Errorf("pending folder keeps %d files of a hook that is gone", len(entries))
 	}
 }
