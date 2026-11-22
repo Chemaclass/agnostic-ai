@@ -13,16 +13,18 @@ Keep a question or finding beside the two chats it concerns. The [companion](@/d
 
 ## Send a message
 
-1. Right-click a local Claude Code or Codex chat and choose **Send to session…**.
-2. Choose **Question** or **Finding** and write your message.
-3. Select a destination row or paste its [session ID](@/docs/cli-reference/companion-list.md#copy-a-session-id).
-4. Send it, then open the thread to see the waiting message.
+1. Right-click a local Claude Code or Codex chat and choose **Message another session…**. The form shows that chat under **From**.
+2. Pick the receiver under **To**, or click its row in the list. Rows you can message have a blue outline. To use a [session ID](@/docs/cli-reference/companion-list.md#copy-a-session-id), choose **Enter an ID instead**.
+3. Choose **Question** or **Finding** and write your message. The line under **Type** says what the receiver is asked to do, and the line above the buttons says when it gets the message.
+4. Choose **Send to** and the receiver's name, then open the thread to see the waiting message.
+
+The **To** list holds the local Claude Code and Codex chats the companion has loaded, grouped like the main list. With the mailbox built-in on, an archived chat gets the message when it is resumed. An ID that matches no loaded chat still sends, and the server checks it.
 
 Choose **Type into session** to put it in the existing terminal tab. Press Enter in that tab when you are ready to send it. The Terminal app uses the clipboard to paste it. **Copy message** lets you paste it yourself in any app. A message marked **Staged** has been typed or copied by you. A failed attempt leaves it waiting. With the [mailbox built-in](#deliver-with-the-next-prompt) on, a waiting message also reaches the session with your next prompt.
 
 ## Request a code review
 
-1. Open **Send to session…** from the chat in the Git worktree you want reviewed. Choose **Review request** and pick the reviewer’s chat.
+1. Open **Message another session…** from the chat in the Git worktree you want reviewed. Choose **Review request** and pick the reviewer’s chat.
 2. Check the base that the form fills from `origin/HEAD`, or enter a base such as `main` yourself.
 3. Check the worktree, commit, base and changed-file count in the preview. Commit local changes first if they belong in the review.
 4. Send the request and stage it from the thread. The reviewer can send back a **Finding**.
@@ -44,7 +46,7 @@ Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path i
 ## Hand off files
 
 1. Choose **Claim files…** on the source chat and enter paths relative to its Git worktree. A directory claims its contents. Use `.` to claim the whole worktree.
-2. Open **Send to session…** and choose **Handoff**. Enter the paths to give and a short message pointing to your [handoff note](@/docs/handoff.md).
+2. Open **Message another session…** and choose **Handoff**. Enter the paths to give and a short message pointing to your [handoff note](@/docs/handoff.md).
 3. Open the thread from the receiving chat and choose **Accept**. The files move to its claim when the offer is accepted. **Decline** leaves ownership with the sender.
 
 If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends. A claim coordinates who is working on a path. It does not block edits.

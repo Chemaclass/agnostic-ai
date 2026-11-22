@@ -36,11 +36,20 @@
     </section>
     <p class="note" id="mailbox-warning" role="status" hidden></p>
     <form class="mailbox-card" id="mailbox-compose" aria-labelledby="mailbox-compose-title" hidden>
-      <strong id="mailbox-compose-title">Send to session</strong>
-      <output class="mailbox-muted" id="mailbox-from"></output>
-      <label>Session ID <input id="mailbox-target" autocomplete="off" spellcheck="false" aria-describedby="mailbox-target-hint"></label>
-      <p class="mailbox-muted" id="mailbox-target-hint">Click a session in the list or paste its ID here.</p>
-      <label>Type <select id="mailbox-type"><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option><option value="handoff">Handoff</option></select></label>
+      <strong id="mailbox-compose-title">Message another session</strong>
+      <p class="mailbox-end"><span class="mailbox-end-label">From</span> <output id="mailbox-from"></output></p>
+      <p class="mailbox-end" id="mailbox-to-fixed" hidden><span class="mailbox-end-label">To</span> <output id="mailbox-to-name"></output></p>
+      <div class="mailbox-to" id="mailbox-to-list">
+        <label>To <select id="mailbox-to" aria-describedby="mailbox-to-hint"><option value="">Choose a session</option></select></label>
+        <p class="mailbox-muted" id="mailbox-to-hint"><span id="mailbox-to-hint-text">Or click a session in the list.</span> <button class="mailbox-link" id="mailbox-enter-id" type="button">Enter an ID instead</button></p>
+      </div>
+      <div class="mailbox-to" id="mailbox-to-id" hidden>
+        <label>Session ID <input id="mailbox-target" autocomplete="off" spellcheck="false" aria-describedby="mailbox-target-status"></label>
+        <p class="mailbox-muted" id="mailbox-target-status" role="status"></p>
+        <p class="mailbox-muted"><button class="mailbox-link" id="mailbox-use-list" type="button">Choose from the list</button></p>
+      </div>
+      <label>Type <select id="mailbox-type" aria-describedby="mailbox-type-help"><option value="question">Question</option><option value="finding">Finding</option><option value="review_request">Review request</option><option value="handoff">Handoff</option></select></label>
+      <p class="mailbox-muted" id="mailbox-type-help"></p>
       <label id="mailbox-body-field">Message <textarea id="mailbox-body" rows="2"></textarea></label>
       <div class="mailbox-review" id="mailbox-review" hidden>
         <label>Base branch or commit <input id="mailbox-review-base" autocomplete="off" spellcheck="false" aria-describedby="mailbox-review-status"></label>
@@ -59,9 +68,10 @@
         <p class="mailbox-muted" id="mailbox-handoff-hint">Use paths relative to the Git worktree root. Use <code>.</code> for the whole worktree.</p>
         <button class="confirm-cancel" id="mailbox-claim-offer" type="button">Claim these paths</button>
       </div>
+      <p class="mailbox-muted" id="mailbox-arrival" hidden></p>
       <div class="mailbox-actions">
         <button class="confirm-cancel" id="mailbox-cancel" type="button">Cancel</button>
-        <button class="mailbox-send" id="mailbox-send" type="submit">Send message</button>
+        <button class="mailbox-send" id="mailbox-send" type="submit">Send</button>
       </div>
     </form>
     <section class="mailbox-card" id="mailbox-claims" aria-labelledby="mailbox-claims-title" hidden>
@@ -182,7 +192,7 @@
       <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes it out of Needs you without opening it, until something new is written">Mark as read</button>
       <button class="menu-item" id="rename" type="button" role="menuitem">Rename…</button>
       <button class="menu-item" id="copy-session-id" type="button" role="menuitem">Copy session ID</button>
-      <button class="menu-item" id="send-to" type="button" role="menuitem" aria-controls="mailbox-compose">Send to session…</button>
+      <button class="menu-item" id="send-to" type="button" role="menuitem" aria-controls="mailbox-compose">Message another session…</button>
       <button class="menu-item" id="claim-files" type="button" role="menuitem" aria-controls="mailbox-claims">Claim files…</button>
       <button class="menu-item" id="complete" type="button" role="menuitem" title="Marks it complete until something new is written or it starts working">Mark complete</button>
       <button class="menu-item" id="reopen" type="button" role="menuitem" title="Clears the completion mark you set">Undo complete</button>

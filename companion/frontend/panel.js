@@ -89,6 +89,7 @@ const state = {
 
 const mailbox = mailboxPanel({
   rows: () => state.view?.conversations ?? [],
+  shownRows: () => list.querySelectorAll('.row[data-key]'),
   focusRows: () => queryInput.focus(),
   afterChange,
   say,
@@ -659,6 +660,7 @@ function draw({ force } = { force: false }) {
   }
   list.append(...asidesOf(view))
   list.scrollTop = scroll
+  mailbox.markRows()
   holdWorkPhase(list)
   announceActive()
 }
