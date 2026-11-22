@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -78,5 +79,74 @@ func TestOpen_ClaudeSessionWhoseProcessReadFailedIsNotResumed(t *testing.T) {
 
 	if len(launcher.calls) != 0 || reply.Opened || !strings.Contains(reply.Message, "Could not check") || !strings.Contains(reply.Command, "--resume") {
 		t.Errorf("a session whose process could not be read must launch nothing: calls %v, reply %+v", launcher.calls, reply)
+	}
+}
+
+func openClaudeSession(t *testing.T, processes fakeProcesses, sessions func(Stores)) (OpenReply, []string) {
+	t.Helper()
+	const id = "11111111-1111-4111-8111-111111111111"
+	scanner, stores := testScanner(t, noSQLite, processes)
+	writeMarkedSession(t, stores, id, "2026-11-07T11:00:00.000Z")
+	if sessions != nil {
+		sessions(stores)
+	}
+	view := scanner.Scan(context.Background(), ScanOptions{})
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), byID(t, view, id), scanner.Processes, launcher)
+	return reply, launcher.calls
+}
+
+func TestOpen_ClaudeSessionLivenessFromItsSessionsFolder(t *testing.T) {
+	for name, tc := range map[string]struct {
+		processes fakeProcesses
+		sessions  func(Stores)
+		resumes   bool
+	}{
+		"a session file of a running process cannot be read": {
+			processes: fakeProcesses{alive: map[int]bool{77: true}},
+			sessions: func(stores Stores) {
+				if err := os.MkdirAll(filepath.Join(stores.ClaudeDir, "sessions", "77.json"), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			},
+		},
+		"the sessions folder cannot be listed": {
+			sessions: func(stores Stores) { write(t, filepath.Join(stores.ClaudeDir, "sessions"), "not a folder") },
+		},
+		"no sessions folder and a good process read": {resumes: true},
+	} {
+		t.Run(name, func(t *testing.T) {
+			reply, calls := openClaudeSession(t, tc.processes, tc.sessions)
+			if tc.resumes {
+				if len(calls) != 1 || !reply.Opened {
+					t.Errorf("want a resume: calls %v, reply %+v", calls, reply)
+				}
+				return
+			}
+			if len(calls) != 0 || reply.Opened || !strings.Contains(reply.Message, "Could not check") || !strings.Contains(reply.Command, "--resume") {
+				t.Errorf("want no launch and the command by hand: calls %v, reply %+v", calls, reply)
+			}
+		})
+	}
+}
+
+func TestOpen_CursorAgentChatTheScanCouldNotSeeFollowsAFreshRead(t *testing.T) {
+	for name, tc := range map[string]struct {
+		processes fakeProcesses
+		resumes   bool
+	}{
+		"a clean read finds no holder": {processes: fakeProcesses{}, resumes: true},
+		"the read fails":               {processes: fakeProcesses{readFails: true}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			chat := Conversation{Tool: ToolCursor, App: AppCLI, store: filepath.Join(t.TempDir(), "store.db"), liveUnknown: true, Open: Route{Kind: RouteTerminal, Command: "cursor-agent --resume x"}}
+			launcher := &fakeLauncher{focusOK: true}
+
+			reply := Open(context.Background(), chat, tc.processes, launcher)
+
+			if resumed := len(launcher.calls) == 1 && reply.Opened; resumed != tc.resumes {
+				t.Errorf("resumed = %v, want %v: calls %v, reply %+v", resumed, tc.resumes, launcher.calls, reply)
+			}
+		})
 	}
 }

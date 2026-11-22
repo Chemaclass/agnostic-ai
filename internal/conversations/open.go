@@ -351,8 +351,8 @@ func heldNow(c Conversation, processes Processes) (Conversation, bool) {
 	}
 	// Another program with the store open, such as a database viewer,
 	// must not stop an ended chat from resuming.
-	if !agentCommands[commandName(processes.Args([]int{pid})[pid])] {
-		c.liveUnknown = false
+	if command := processes.Args([]int{pid})[pid]; !agentCommands[commandName(command)] {
+		c.liveUnknown = c.liveUnknown && (err != nil || command == "")
 		return c, false
 	}
 	c.Live = true
