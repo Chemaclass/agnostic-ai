@@ -344,7 +344,7 @@ func TestAnswerHandoff_AConflictLeavesAnEventWithoutPaths(t *testing.T) {
 	if err := s.Release(t.Context(), claude, file); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Claim(t.Context(), mailThird, file, root); err != nil {
+	if err := s.Claim(t.Context(), mailThird, file, root, "human"); err != nil {
 		t.Fatal(err)
 	}
 	requireGuard(t, s.AnswerHandoff(t.Context(), offer.Thread, offer.N, "accept"), "ownership")
