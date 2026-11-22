@@ -31,6 +31,8 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 - The companion settings menu scrolls within the list in short windows (#3942).
 - The local server requires the companion or an unlocked web tab to delete archived chats, stop sessions or shells, or rename cloud chats (#3938, #3941).
 - If the local server cannot tell whether a session still runs, it shows a manual resume command (#3938, #3941).
+- Settings saves share a lock and preserve config edits made after the file was read (#3938, #3940).
+- **Apply to my tools** shows hook and MCP commands, arguments, folders, and URLs for each tool, with credentials masked (#3938, #3940).
 
 ### By tool
 
