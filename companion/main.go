@@ -176,10 +176,7 @@ type shell struct {
 	// panelAsked is whether the panel was last asked to show. A window
 	// asked to hide still reads as visible for a moment.
 	panelAsked bool
-	// jumpToWaiting asks the panel the next toggle shows to open on its
-	// first waiting row: the circle was clicked while a row waits.
-	jumpToWaiting bool
-	save          *time.Timer
+	save       *time.Timer
 	// quitting is set once the companion quits: no place save starts then.
 	quitting bool
 	// presence is how the companion sits on the screen; the zero value is shown.
@@ -384,26 +381,16 @@ type panelOpening struct {
 	Jump bool   `json:"jump"`
 }
 
+// togglePanel answers a click on the bubble and the shortcut.
+func (s *shell) togglePanel() { s.togglePanelOnWaiting(false) }
+
 // togglePanelOnWaiting is togglePanel for a click on the circle; with
 // jump, a panel it shows opens on the first waiting row.
 func (s *shell) togglePanelOnWaiting(jump bool) {
-	s.mu.Lock()
-	s.jumpToWaiting = jump
-	s.mu.Unlock()
-	defer func() {
-		s.mu.Lock()
-		s.jumpToWaiting = false
-		s.mu.Unlock()
-	}()
-	s.togglePanel()
-}
-
-// togglePanel answers a click on the bubble and the shortcut.
-func (s *shell) togglePanel() {
 	s.placing.Lock()
 	defer s.placing.Unlock()
 	if s.changePresenceLocked("", shown) {
-		s.showPanelOn(eventPanelShown)
+		s.showPanelOpening(eventPanelShown, true, jump)
 		return
 	}
 	s.mu.Lock()
@@ -419,7 +406,7 @@ func (s *shell) togglePanel() {
 	if justDismissed {
 		return
 	}
-	s.showPanelOn(eventPanelShown)
+	s.showPanelOpening(eventPanelShown, true, jump)
 }
 
 // showPanelWhileShown opens the list unless the companion is hidden or faded.
@@ -459,6 +446,12 @@ func (s *shell) showPanelOn(event string) {
 
 // showPanelFocused is showPanelOn, with the keys only when focus is true.
 func (s *shell) showPanelFocused(event string, focus bool) {
+	s.showPanelOpening(event, focus, false)
+}
+
+// showPanelOpening is showPanelFocused; with jump, the event asks the
+// page to open on its first waiting row.
+func (s *shell) showPanelOpening(event string, focus, jump bool) {
 	nearest := corner("")
 	work, placed := s.workArea()
 	var x, y int
@@ -468,7 +461,6 @@ func (s *shell) showPanelFocused(event string, focus bool) {
 	}
 	s.mu.Lock()
 	s.panelAsked = true
-	jump := s.jumpToWaiting && event == eventPanelShown
 	s.mu.Unlock()
 	s.panel.Show()
 	// On X11 a window the system has not shown yet ignores a move.

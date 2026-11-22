@@ -282,10 +282,15 @@ func TestShowCommand_WithholdsOrMasksCredentialsAndKeepsLongCommands(t *testing.
 			}
 		})
 	}
-	t.Run("URL credential", func(t *testing.T) {
-		got := showCommand("git clone https://alice:hunter2pass@git.example.com/team/repo.git")
-		if strings.Contains(got, "hunter2pass") || got != "" && !strings.Contains(got, preview.Redacted) {
-			t.Errorf("showCommand() = %q, want no command or a masked one", got)
+	t.Run("URL password", func(t *testing.T) {
+		if got := showCommand("git clone https://alice:hunter2pass@git.example.com/team/repo.git"); strings.Contains(got, "hunter2pass") {
+			t.Errorf("showCommand() = %q, want no password", got)
+		}
+	})
+	t.Run("URL user masked", func(t *testing.T) {
+		want := "git clone https://" + preview.Redacted + "@git.example.com/x"
+		if got := showCommand("git clone https://alice@git.example.com/x"); got != want {
+			t.Errorf("showCommand() = %q, want %q", got, want)
 		}
 	})
 }

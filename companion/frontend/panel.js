@@ -885,9 +885,9 @@ const TOOLTIP_MS = 600
 const TOOLTIP_GAP = 4
 const tip = { timer: undefined, target: undefined, pointer: undefined }
 
-/** What a hover shows: the nearest element with a tooltip, unless a button or field is nearer; those keep their own. */
+/** What a hover shows: the nearest element with a tooltip, unless a button, a field or a native title is nearer; those keep their own. */
 function tipTargetOf(element) {
-  const hit = element?.closest?.('button, input, select, textarea, [data-tooltip]')
+  const hit = element?.closest?.('button, input, select, textarea, [title], [data-tooltip]')
   return hit && hit.hasAttribute('data-tooltip') && list.contains(hit) ? hit : null
 }
 
@@ -940,7 +940,8 @@ function tipSoon(target) {
 function tipAfterRedraw() {
   if (tip.target === undefined) return
   const waiting = tip.timer !== undefined
-  const under = tip.pointer ? tipTargetOf(document.elementFromPoint(tip.pointer.x, tip.pointer.y)) : document.getElementById(rowId(state.activeKey))
+  const selectedRow = state.activeKey === undefined ? null : document.getElementById(rowId(state.activeKey))
+  const under = tip.pointer ? tipTargetOf(document.elementFromPoint(tip.pointer.x, tip.pointer.y)) : selectedRow
   hideTip()
   if (!under) return
   if (waiting) tipSoon(under)
@@ -2505,7 +2506,7 @@ document.addEventListener('keydown', (event) => {
 /** The panel opened: it grows out of the corner nearest the bubble, and the search takes the keys. */
 function opened(data) {
   // A click on the circle while a row waits sends {from, jump}; every other showing sends the corner alone.
-  const { from, jump } = typeof data === 'string' ? { from: data, jump: false } : data
+  const { from, jump } = typeof data === 'object' && data !== null ? data : { from: data, jump: false }
   listShown = true
   hideTip()
   card.dataset.from = from

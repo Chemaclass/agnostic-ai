@@ -906,7 +906,7 @@ function clockOf(stamp) {
 /**
  * What each stuck shell's line shows, as `{ command, age, detail, full }`: the command cut in the middle, so shells that
  * differ only at the end differ on screen, with its PID when hidden or still equal to another; the run time; the
- * subagent that left it; and the hover text: the whole command the server sent, the start time, the PID, the processes.
+ * subagent that left it; and the hover text: the start time, the PID, the processes and the whole command the server sent.
  */
 export function shellLabelsOf(shells, now) {
   // A subagent's name before the command takes from the command's room.
@@ -916,12 +916,12 @@ export function shellLabelsOf(shells, now) {
     const command = !shell.command || same ? `${cut[index]} · pid ${shell.pid}` : cut[index]
     const age = ago(shell.since, now) === 'now' ? '<1m' : ago(shell.since, now)
     const processes = shell.processCount === 1 ? '1 process' : `${shell.processCount} processes`
+    // The facts come first: a tooltip too tall for the panel cuts its last lines, which are then the command's.
     const full = [
-      shell.command || 'Command hidden: it may hold a password or key',
       `Running for ${runTimeOf(now - Date.parse(shell.since))}, since ${clockOf(shell.since)}`,
-      `PID ${shell.pid}`,
-      processes,
+      `PID ${shell.pid} · ${processes}`,
       ...(shell.helperName ? [`Left by ${shell.helperName}`] : []),
+      shell.command || 'Command hidden: it may hold a password or key',
     ].join('\n')
     return { command, age, detail: shell.helperName ?? '', full }
   })

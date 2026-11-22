@@ -3283,8 +3283,7 @@ test('two shells whose commands share a long start read apart, and the hover sho
   await expect(tooltip(page)).toBeVisible()
   await expect(tooltip(page)).toContainText('--base /reports/ --host 127.0.0.1')
   await expect(tooltip(page)).toContainText(/Running for 32 min, since \d\d:\d\d/)
-  await expect(tooltip(page)).toContainText('PID 38983')
-  await expect(tooltip(page)).toContainText('2 processes')
+  await expect(tooltip(page)).toContainText('PID 38983 · 2 processes')
   await expect(tooltip(page)).toHaveCSS('pointer-events', 'none')
 })
 

@@ -1300,17 +1300,17 @@ test('shell labels tell apart shells whose commands share a long start', async (
   assert.deepEqual(labels.map((label) => label.age), ['44m', '32m'])
   assert.deepEqual(labels.map((label) => label.detail), ['', 'Faramir'])
   const clock = (stamp) => new Date(stamp).toTimeString().slice(0, 5)
-  assert.equal(labels[0].full, `${start}\nRunning for 44 min, since ${clock(shells[0].since)}\nPID 14476\n2 processes`)
-  assert.equal(labels[1].full.split('\n').at(-1), 'Left by Faramir')
+  assert.equal(labels[0].full, `Running for 44 min, since ${clock(shells[0].since)}\nPID 14476 · 2 processes\n${start}`)
+  assert.equal(labels[1].full.split('\n')[2], 'Left by Faramir')
 
   const hidden = shellLabelsOf([{ ...shell, pid: 14476, command: '' }, { ...shell, pid: 38983, command: '' }], shellNow)
   assert.deepEqual(hidden.map((label) => label.command), ['Command hidden · pid 14476', 'Command hidden · pid 38983'])
-  assert.ok(hidden[0].full.startsWith('Command hidden: it may hold a password or key\n'))
+  assert.ok(hidden[0].full.endsWith('\nCommand hidden: it may hold a password or key'))
 
   const equal = shellLabelsOf([shell, { ...shell, pid: 43 }], shellNow)
   assert.deepEqual(equal.map((label) => label.command), ['npm run dev · pid 42', 'npm run dev · pid 43'])
   assert.deepEqual(shellLabelsOf([shell], shellNow).map((label) => label.command), ['npm run dev'])
-  assert.equal(shellLabelsOf([{ ...shell, since: '2026-11-09T11:59:30Z', processCount: 1 }], shellNow)[0].full.split('\n').slice(1, 4).join('|'), `Running for less than a minute, since ${clock('2026-11-09T11:59:30Z')}|PID 42|1 process`)
+  assert.equal(shellLabelsOf([{ ...shell, since: '2026-11-09T11:59:30Z', processCount: 1 }], shellNow)[0].full, `Running for less than a minute, since ${clock('2026-11-09T11:59:30Z')}\nPID 42 · 1 process\nnpm run dev`)
 })
 
 test('a kept shell names its wake time before its command', async () => {
