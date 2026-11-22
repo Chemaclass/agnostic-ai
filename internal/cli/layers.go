@@ -21,7 +21,7 @@ const (
 	layerNameUserLocal = "user-local"
 
 	// defaultProjectUser sits inside the source dir, the same shape as the
-	// global `~/.agnostic-ai/local/`.
+	// user `~/.agnostic-ai/local/`.
 	defaultProjectUser = config.SourceBaseDir + "/local"
 )
 

@@ -40,7 +40,7 @@ func TestSyncUser_HomeConfigLimitsSyncAndCheckToItsTargets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync --scope user: %v", err)
 	}
-	if !strings.Contains(out, "Synced global configuration to 3 target(s).") {
+	if !strings.Contains(out, "Synced user configuration to 3 target(s).") {
 		t.Errorf("expected three targets synced, got:\n%s", out)
 	}
 	assertUserInstructions(t, home, map[string]bool{
@@ -118,7 +118,7 @@ func TestSyncUser_HomeConfigWarnsOnKeysItIgnores(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync --scope user: %v", err)
 	}
-	want := fmt.Sprintf("warning: %s: global mode reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring sources", config)
+	want := fmt.Sprintf("warning: %s: user scope reads only targets, builtins, requires, lint, on-unsupported, models, approvals, and conversations; ignoring sources", config)
 	if !strings.Contains(errOut, want) {
 		t.Errorf("expected %q, got:\n%s", want, errOut)
 	}
@@ -131,7 +131,7 @@ func TestSyncUser_WithoutHomeConfigSyncsEveryTarget(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync --scope user: %v", err)
 	}
-	want := fmt.Sprintf("Synced global configuration to %d target(s).", len(userTargetNames()))
+	want := fmt.Sprintf("Synced user configuration to %d target(s).", len(userTargetNames()))
 	if !strings.Contains(out, want) {
 		t.Errorf("expected %q, got:\n%s", want, out)
 	}
@@ -157,7 +157,7 @@ func TestValidateUser_ChecksHookEventsAgainstConfiguredTargets(t *testing.T) {
 	hook := filepath.Join(source, "hooks", "tool.yaml")
 	writeFile(t, hook, "name: tool\nevent: BeforeTool\ncommand: echo hi\n")
 	if out, _, err := runUserCheck("validate"); err != nil {
-		t.Fatalf("a gemini event is valid when gemini is a global target: %v\n%s", err, out)
+		t.Fatalf("a gemini event is valid when gemini is a user-level target: %v\n%s", err, out)
 	}
 
 	writeFile(t, filepath.Join(source, "agnostic-ai.yaml"), "targets: [claude, cursor]\n")
@@ -191,10 +191,10 @@ func TestSync_RefusesToRunInTheUserHome(t *testing.T) {
 	local := filepath.Join(source, "local")
 
 	for dir, want := range map[string]string{
-		source:                                source + " is the global home (AGNOSTIC_AI_HOME); " + remedy,
-		link:                                  source + " is the global home (AGNOSTIC_AI_HOME); " + remedy,
-		local:                                 local + " is inside the global home " + source + " (AGNOSTIC_AI_HOME); " + remedy,
-		filepath.Join(link, "local", "rules"): filepath.Join(local, "rules") + " is inside the global home " + source + " (AGNOSTIC_AI_HOME); " + remedy,
+		source:                                source + " is the user source (AGNOSTIC_AI_HOME); " + remedy,
+		link:                                  source + " is the user source (AGNOSTIC_AI_HOME); " + remedy,
+		local:                                 local + " is inside the user source " + source + " (AGNOSTIC_AI_HOME); " + remedy,
+		filepath.Join(link, "local", "rules"): filepath.Join(local, "rules") + " is inside the user source " + source + " (AGNOSTIC_AI_HOME); " + remedy,
 	} {
 		testutil.Chdir(t, dir)
 		for _, args := range [][]string{{}, {"--check"}, {"--dry-run"}, {"--json"}, {"--plan"}, {"--watch"}} {
@@ -205,7 +205,7 @@ func TestSync_RefusesToRunInTheUserHome(t *testing.T) {
 	}
 	for _, rel := range []string{"CLAUDE.md", ".claude", ".agnostic-ai", "local/CLAUDE.md", "local/.agnostic-ai"} {
 		if _, err := os.Stat(filepath.Join(source, rel)); !os.IsNotExist(err) {
-			t.Errorf("project sync wrote %s into the global home: %v", rel, err)
+			t.Errorf("project sync wrote %s into the user source: %v", rel, err)
 		}
 	}
 }
@@ -232,13 +232,13 @@ func TestProjectWriters_RefuseToRunInTheUserHome(t *testing.T) {
 		cmd.SetIn(strings.NewReader(""))
 		cmd.SetArgs(args)
 		err := cmd.Execute()
-		if err == nil || !strings.Contains(err.Error(), source+" is the global home (AGNOSTIC_AI_HOME)") {
-			t.Errorf("%v in the global home: want the refusal, got %v", args, err)
+		if err == nil || !strings.Contains(err.Error(), source+" is the user source (AGNOSTIC_AI_HOME)") {
+			t.Errorf("%v in the user source: want the refusal, got %v", args, err)
 		}
 	}
 	for _, rel := range []string{"agnostic-ai.yaml", ".agnostic-ai", ".gitignore"} {
 		if _, err := os.Stat(filepath.Join(source, rel)); !os.IsNotExist(err) {
-			t.Errorf("a project command wrote %s into the global home: %v", rel, err)
+			t.Errorf("a project command wrote %s into the user source: %v", rel, err)
 		}
 	}
 }
@@ -258,9 +258,9 @@ func TestSync_UserHomeGuardFollowsTheResolvedSourceRoot(t *testing.T) {
 	}
 
 	t.Setenv("AGNOSTIC_AI_HOME", "")
-	want := unused + " is the global home (AGNOSTIC_AI_HOME is unset); run `agnostic-ai sync --scope user`, or set AGNOSTIC_AI_HOME to another root if this is a project"
+	want := unused + " is the user source (AGNOSTIC_AI_HOME is unset); run `agnostic-ai sync --scope user`, or set AGNOSTIC_AI_HOME to another root if this is a project"
 	if err := runProjectSync("--check"); err == nil || err.Error() != want {
-		t.Errorf("~/.agnostic-ai is the global home once AGNOSTIC_AI_HOME is unset:\nwant %s\ngot  %v", want, err)
+		t.Errorf("~/.agnostic-ai is the user source once AGNOSTIC_AI_HOME is unset:\nwant %s\ngot  %v", want, err)
 	}
 }
 
@@ -273,7 +273,7 @@ func TestSyncUser_HomeConfigSkipsTargetsWithoutAUserSurface(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a project-shaped home config must keep sync --scope user working: %v", err)
 	}
-	if !strings.Contains(out, "Synced global configuration to 1 target(s).") {
+	if !strings.Contains(out, "Synced user configuration to 1 target(s).") {
 		t.Errorf("expected only claude synced, got:\n%s", out)
 	}
 	want := "warning: " + config + ": sync --scope user cannot write aider, continue; skipping them"
@@ -296,7 +296,7 @@ func TestSyncUser_DuplicateHomeConfigTargetSyncsOnce(t *testing.T) {
 	if err != nil {
 		t.Fatalf("sync --scope user: %v", err)
 	}
-	if !strings.Contains(out, "Synced global configuration to 2 target(s).") {
+	if !strings.Contains(out, "Synced user configuration to 2 target(s).") {
 		t.Errorf("expected the duplicate dropped, got:\n%s", out)
 	}
 }
@@ -322,18 +322,18 @@ func TestLintUser_ChecksKindsAgainstUserSurfaces(t *testing.T) {
 		t.Helper()
 		_, advice, ok := strings.Cut(out, marker)
 		if !ok {
-			t.Errorf("missing global hook advice in:\n%s", out)
+			t.Errorf("missing user-level hook advice in:\n%s", out)
 			return
 		}
 		names := strings.Split(strings.SplitN(advice, "\n", 2)[0], ", ")
 		for _, target := range []string{"claude", "codebuddy", "grok"} {
 			if !slices.Contains(names, target) {
-				t.Errorf("global hook advice omits %s: %v", target, names)
+				t.Errorf("user-level hook advice omits %s: %v", target, names)
 			}
 		}
 		for _, target := range []string{"windsurf", "zed"} {
 			if slices.Contains(names, target) {
-				t.Errorf("global hook advice lists project-only hooks for %s", target)
+				t.Errorf("user-level hook advice lists project-only hooks for %s", target)
 			}
 		}
 	}
@@ -349,17 +349,17 @@ func TestLintUser_ChecksKindsAgainstUserSurfaces(t *testing.T) {
 		t.Fatalf("validate --scope user must reject hooks no configured target writes:\n%s", out)
 	}
 	if !strings.Contains(out, hook) || !strings.Contains(out, "no enabled target supports hooks.") {
-		t.Errorf("expected the hook orphan with the global hook targets, got:\n%s", out)
+		t.Errorf("expected the hook orphan with the user-level hook targets, got:\n%s", out)
 	}
 	checkHookAdvice(out, "Enable one of: ")
 
 	out, _, _ = runUserCheck("lint")
 	if !strings.Contains(out, hook+": hook spec not consumed by any enabled target;") {
-		t.Errorf("expected the global hook orphan finding, got:\n%s", out)
+		t.Errorf("expected the user-level hook orphan finding, got:\n%s", out)
 	}
 	checkHookAdvice(out, "targets that support hooks: ")
 	if strings.Contains(out, agent) {
-		t.Errorf("windsurf writes global agents, so the agent is not dead:\n%s", out)
+		t.Errorf("windsurf writes user-level agents, so the agent is not dead:\n%s", out)
 	}
 }
 
@@ -371,12 +371,12 @@ func TestSync_UserSourceAtHomeDirGuardsOnlyTheRoot(t *testing.T) {
 	writeFile(t, filepath.Join(project, "agnostic-ai.yaml"), "targets: [claude]\n")
 
 	testutil.Chdir(t, home)
-	if err := runProjectSync("--check"); err == nil || !strings.Contains(err.Error(), home+" is the global home") {
-		t.Errorf("sync in HOME as the global home: want the refusal, got %v", err)
+	if err := runProjectSync("--check"); err == nil || !strings.Contains(err.Error(), home+" is the user source") {
+		t.Errorf("sync in HOME as the user source: want the refusal, got %v", err)
 	}
 	testutil.Chdir(t, project)
 	if err := runProjectSync(); err != nil {
-		t.Errorf("a project under HOME must sync when the global home is HOME itself: %v", err)
+		t.Errorf("a project under HOME must sync when the user source is HOME itself: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(project, "CLAUDE.md")); err != nil {
 		t.Errorf("expected the project sync to write CLAUDE.md: %v", err)

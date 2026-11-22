@@ -53,9 +53,9 @@ Outside a project, it updates only the tool. Rerun your command afterward; the r
 {% <details summary="Offer limits and opt-out"> %}
 
 - A failed install or version check starts no project change. A later failed step stops, keeps what finished, and prints how to continue.
-- If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the global specs folder, the offer is skipped and names it. Links within the project are fine.
+- If a config file, `.agnostic-ai`, or `.agnostic-ai/local` links to another project or the user specs folder, the offer is skipped and names it. Links within the project are fine.
 - Project-local npm or pnpm installs, and npx, get a command to run yourself. Automatic npm updates apply only to confirmed global installs (a two-second check).
-- `AGNOSTIC_AI_NO_UPDATE_CHECK=1` turns the checks off. They are silent offline and skip CI, redirected input or output, JSON output, quiet mode, global commands, checks, previews, hooks, completion, editor services, and development builds.
+- `AGNOSTIC_AI_NO_UPDATE_CHECK=1` turns the checks off. They are silent offline and skip CI, redirected input or output, JSON output, quiet mode, user-level commands, checks, previews, hooks, completion, editor services, and development builds.
 
 {% </details> %}
 
@@ -84,7 +84,7 @@ After updating through a package manager, run its installed CLI from the project
 
 A missing key is added only to the base config. When a range becomes a minimum, the command prints the value it replaced. If sync fails, the version changes stay: fix the problem and run `sync` again.
 
-`--requires` needs a stable release build. It also reads `agnostic.config.yaml` and cannot combine with `--check`, `--version`, or `--run`. Update global config and package-manager files with their own commands.
+`--requires` needs a stable release build. It also reads `agnostic.config.yaml` and cannot combine with `--check`, `--version`, or `--run`. Update user-level config and package-manager files with their own commands.
 
 The config needs one root setting per line and a single-line `requires`. Before upgrading, expand a root `{...}`, YAML `<<` merges, or a `requires` shared through `&`/`*` or split across lines.
 
@@ -120,7 +120,7 @@ Update spec files that use old field names or formats. Old forms keep working an
 agnostic-ai migrate --list      # which migrations apply here
 agnostic-ai migrate --dry-run   # preview the rewrites
 agnostic-ai migrate             # apply them
-agnostic-ai migrate --scope user    # rewrite the global specs
+agnostic-ai migrate --scope user    # rewrite the user specs
 ```
 
 | Flag | Description |
@@ -134,7 +134,7 @@ agnostic-ai migrate --scope user    # rewrite the global specs
 
 - A migration rewrites only what keeps its meaning; anything else stays, with the reason. `secrets-mcp-literals` names each variable to set, never the value.
 - A symlinked spec keeps its link, and its target gets the rewrite. A pack, or a spec linked into one, is never rewritten; the output names the pack.
-- Migrations stay within the project (or, with `--scope user`, the global specs folder) and its local folder, even a linked one.
+- Migrations stay within the project (or, with `--scope user`, the user specs folder) and its local folder, even a linked one.
 - A migration that cannot plan, such as on a spec that does not parse, prints `cannot plan` with the reason; the others run, and `migrate` exits 1.
 - `doctor` names a migration only when it rewrites something or a skip needs you, such as a spec setting both old and new forms. `--dry-run` and `--list` show every skip.
 

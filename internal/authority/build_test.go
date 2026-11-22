@@ -388,7 +388,7 @@ func TestBuild_UserViewWritesNoPermissionRules(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if v.Snapshot.Project.Name != "global ("+root+")" || v.Harness.PermissionSupport != "none" {
+	if v.Snapshot.Project.Name != "user ("+root+")" || v.Harness.PermissionSupport != "none" {
 		t.Errorf("project %q, support %q", v.Snapshot.Project.Name, v.Harness.PermissionSupport)
 	}
 	op := findOp(t, v, "shell-go-test:run")

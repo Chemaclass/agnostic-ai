@@ -164,7 +164,7 @@ test.describe('setup health', () => {
     await tray.getByRole('button', { name: 'Copy prompt' }).click()
     await expect(tray.getByRole('button', { name: 'Copied' })).toBeVisible()
     const prompt = await page.evaluate(() => navigator.clipboard.readText())
-    expect(prompt).toMatch(/^Work through these 3 agnostic-ai items in the project or global configuration, errors first, then suggestions:/)
+    expect(prompt).toMatch(/^Work through these 3 agnostic-ai items in the project or user configuration, errors first, then suggestions:/)
     expect(prompt.indexOf('1. Lifecycle: Prepare session')).toBeGreaterThan(0)
     expect(prompt.indexOf('1. Lifecycle: Prepare session')).toBeLessThan(prompt.indexOf('2. Context: Skills'))
     expect(prompt.indexOf('2. Context: Skills')).toBeLessThan(prompt.indexOf('3. Context: Commands'))
@@ -253,7 +253,7 @@ test.describe('setup health', () => {
     expect(await current.evaluate((element) => getComputedStyle(element).borderColor)).toBe(await current.evaluate((element) => getComputedStyle(element).color))
   })
 
-  test('counts a global setup finding and lists it as Global setup', async ({ page }) => {
+  test('counts a user setup finding and lists it as User setup', async ({ page }) => {
     const { data } = scenario()
     const settings = section(data, 'settings')
     settings.findings = [{ source: 'lint', code: 'LINT007', severity: 'warn', message: 'Unknown key modl.', path: 'agents/helper.md', openPath: '/home/u/.agnostic-ai/agents/helper.md', layer: 'user' }]
@@ -261,7 +261,7 @@ test.describe('setup health', () => {
     await page.goto('/?view=health')
     await expect(healthRow(page, '1 to fix, 4 worth a look')).toBeVisible()
     const warnings = page.locator('.health-group', { has: page.getByRole('heading', { name: 'Worth a look 4' }) })
-    const place = warnings.locator('.health-place', { hasText: 'Global setup' })
+    const place = warnings.locator('.health-place', { hasText: 'User setup' })
     await expect(place.locator('.finding')).toHaveCount(1)
     await expect(place.locator('.finding .badge', { hasText: 'user' })).toBeVisible()
     await place.getByText('Details', { exact: true }).click()

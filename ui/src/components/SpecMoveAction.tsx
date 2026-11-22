@@ -4,7 +4,7 @@ import type { SectionItem, SpecMovePreview } from '../contract'
 import { canMoveSpec, destinationNote, parseSpecMoved, specMoveLabel, specMovedText, specMoveRequest, type SpecMoved, type SpecMoveMode } from '../model/spec-move'
 import { useApp } from './app-context'
 import { Notice } from './Banner'
-import { useLevelName } from './EditAudience'
+import { useSpecLevel } from './EditAudience'
 import { Code, CopyButton } from './ui'
 
 /** Saves the notice shown after a copy or move, across the reload that follows it. */
@@ -33,7 +33,7 @@ export function useSpecMovedNotice(root: string | undefined): [SpecMoved | undef
 
 export function SpecMoveAction({ item }: { item: SectionItem }) {
   const app = useApp()
-  const level = useLevelName()
+  const level = useSpecLevel()
   const saved = useContext(SpecMovedSaver)
   const [preview, setPreview] = useState<SpecMovePreview>()
   const [overwrite, setOverwrite] = useState(false)

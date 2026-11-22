@@ -266,7 +266,7 @@ func TestSyncUser_GrokRawHookStripsProjectRootFromSharedScript(t *testing.T) {
 	}
 	got := readFile(t, filepath.Join(root, "hooks/guard.json"))
 	if strings.Contains(got, "CLAUDE_PROJECT_DIR") || !strings.Contains(got, filepath.ToSlash(filepath.Join(root, "hook-scripts/guard.sh"))) {
-		t.Fatalf("wrong global script command %s", got)
+		t.Fatalf("wrong user script command %s", got)
 	}
 }
 func TestSyncUser_GrokRejectsUnsupportedNativeTransport(t *testing.T) {

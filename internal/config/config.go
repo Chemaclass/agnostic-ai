@@ -146,12 +146,12 @@ type SyncConfig struct {
 	// leftover, with or without a provenance header.
 	OutputManifest bool `yaml:"output-manifest,omitempty" json:"output-manifest,omitempty"`
 	// AllowUserNames lists skill and agent names the project shares with
-	// the global home on purpose. sync prints no shared-name warning for
+	// the user source on purpose. sync prints no shared-name warning for
 	// them; doctor still lists each one, marked as allowed. Names match
 	// the way Claude Code folds skill names.
 	AllowUserNames []string `yaml:"allow-global-names,omitempty" json:"allow-global-names,omitempty"`
 	// UserNameClash sets what sync does with a skill or agent name the
-	// project shares with the global home: `warn` (the default when
+	// project shares with the user source: `warn` (the default when
 	// empty) prints the warning, `ignore` prints nothing. doctor still
 	// lists each one, marked as ignored.
 	UserNameClash string `yaml:"global-name-clash,omitempty" json:"global-name-clash,omitempty" jsonschema:"enum=warn,enum=ignore"`
@@ -731,7 +731,7 @@ func readYAMLMap(path string) (map[string]any, error) {
 }
 
 // replaceLocalTiers drops each base model tier the local file redefines,
-// so a local tier replaces the shared one whole, as in the global home.
+// so a local tier replaces the shared one whole, as in the user source.
 // A merged tier would keep a shared target's model the local file meant
 // to leave out.
 func replaceLocalTiers(base, local map[string]any) {

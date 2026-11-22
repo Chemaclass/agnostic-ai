@@ -35,7 +35,7 @@ agnostic-ai sync --scope user
 agnostic-ai approvals status
 ```
 
-A global sync installs the `PermissionRequest` hook. Each tool's [setup and limits](#per-tool) still apply. The hook reads the mode on every request. Changing it needs no sync for the hook to respond.
+A user-level sync installs the `PermissionRequest` hook. Each tool's [setup and limits](#per-tool) still apply. The hook reads the mode on every request. Changing it needs no sync for the hook to respond.
 
 ## Modes
 
@@ -99,7 +99,7 @@ Any of these stops hook approvals from the next request, without syncing or rest
 1. Run `agnostic-ai approvals ask` or select **Ask me** in the companion. Both write `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`.
 2. Set `AGNOSTIC_AI_APPROVALS=ask` for a session or `approvals.mode: ask` in the project's config.
 
-To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A global sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
+To remove the hooks, drop `approvals` from `builtins` and run `sync --scope user`. A user-level sync also removes the native reviewer settings it wrote when you turn off `review`. Switch modes separately in any running reviewer session, for example with Shift+Tab in Claude Code.
 
 ## The decision log
 

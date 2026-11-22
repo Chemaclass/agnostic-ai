@@ -269,7 +269,7 @@ func insideProjectHint(dir, command string) string {
 }
 
 // enclosingProject returns the nearest directory above dir that holds an
-// agnostic-ai config, other than the global home, up to the Git root, or
+// agnostic-ai config, other than the user source, up to the Git root, or
 // up to the filesystem root outside Git.
 func enclosingProject(dir string) (string, bool) {
 	if abs, err := filepath.Abs(dir); err == nil {
@@ -295,7 +295,7 @@ func enclosingProject(dir string) (string, bool) {
 		if _, _, err := config.ResolveConfigPath(dir); err != nil {
 			continue
 		}
-		// The global home holds a config too, but it is no project.
+		// The user source holds a config too, but it is no project.
 		if info, err := os.Stat(dir); err == nil && home != nil && os.SameFile(info, home) {
 			continue
 		}

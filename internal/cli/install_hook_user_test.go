@@ -31,7 +31,7 @@ func gitInit(t *testing.T, dir string) {
 	git(t, dir, "init", "-q")
 }
 
-// userGitHome makes the global home a git repository and enters it.
+// userGitHome makes the user source a git repository and enters it.
 // It returns the home and the isolated user git config.
 func userGitHome(t *testing.T) (string, string) {
 	t.Helper()
@@ -48,7 +48,7 @@ func userHookPath(source string) string {
 
 func TestInstallHookUser_WritesTheUserGate(t *testing.T) {
 	source, _ := userGitHome(t)
-	existing := "#!/bin/sh\n# the global gate runs agnostic-ai sync --global --check\necho existing\n"
+	existing := "#!/bin/sh\n# the user-level gate runs agnostic-ai sync --global --check\necho existing\n"
 	if err := os.WriteFile(userHookPath(source), []byte(existing), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestInstallHookUser_WritesTheUserGate(t *testing.T) {
 		}
 	}
 	if strings.Contains(got, "agnostic-ai sync --check") {
-		t.Errorf("global hook runs the project check:\n%s", got)
+		t.Errorf("user-level hook runs the project check:\n%s", got)
 	}
 }
 
@@ -90,7 +90,7 @@ func TestInstallHook_InTheUserSourcePointsAtUser(t *testing.T) {
 		t.Fatalf("want the refusal to point at install-hook --scope user, got %v", err)
 	}
 	if _, err := os.Stat(userHookPath(source)); !os.IsNotExist(err) {
-		t.Errorf("plain install-hook wrote a hook into the global home: %v", err)
+		t.Errorf("plain install-hook wrote a hook into the user source: %v", err)
 	}
 }
 
@@ -101,7 +101,7 @@ func TestInstallHookUser_RefusesOutsideTheHome(t *testing.T) {
 	testutil.Chdir(t, project)
 
 	_, err := runInstallHook("--scope", "user")
-	want := "install-hook --scope user runs in the global home " + source
+	want := "install-hook --scope user runs in the user source " + source
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Fatalf("want %q, got %v", want, err)
 	}

@@ -150,7 +150,7 @@ async function voiceScreenshot(page: Page, path: string) {
   await page.screenshot({ path, fullPage: true, animations: 'disabled' })
 }
 
-test('live global voice saves false, mode and language, then removes its empty scaffold', async ({ page }, testInfo) => {
+test('live user-level voice saves false, mode and language, then removes its empty scaffold', async ({ page }, testInfo) => {
   const f = await fixture(true)
   try {
     await rm(f.settings)
@@ -161,7 +161,7 @@ test('live global voice saves false, mode and language, then removes its empty s
     await mkdir(dirname(native), { recursive: true })
     await writeFile(native, original, { mode: 0o600 })
     await page.goto(`${f.url}?view=settings&tab=preferences`)
-    await page.getByRole('button', { name: 'Global (every project)', exact: true }).click()
+    await page.getByRole('button', { name: 'User (every project)', exact: true }).click()
     await page.getByText('Unconfigured fields', { exact: false }).click()
     const voice = page.locator('.field-row').filter({ has: page.getByText('Voice dictation', { exact: true }) })
     const mode = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
@@ -285,15 +285,15 @@ test('live Authority previews source changes, saves rules, and applies them on t
   } finally { await f.close() }
 })
 
-test('live Authority sets protected paths, keeps a project deny for a local block, and leaves the mode to global settings', async ({ page }) => {
+test('live Authority sets protected paths, keeps a project deny for a local block, and leaves the mode to user-level settings', async ({ page }) => {
   const f = await fixture(false, [], true)
   try {
     const original = '# Shared settings.\nname: native\npermissions:\n    deny: [edit(.env)] # Keep this rule.\nx-claude:\n    verbose: false\n'
     await put(f.settings, original)
     await page.goto(`${f.url}?view=authority`)
     const mode = alsoRow(page, 'Default permission mode')
-    await expect(mode).toContainText('Applies through global sync only. Set it in global settings.')
-    await expect(mode.getByRole('button', { name: 'Open global settings', exact: true })).toBeVisible()
+    await expect(mode).toContainText('Applies through user-level sync only. Set it in user-level settings.')
+    await expect(mode.getByRole('button', { name: 'Open user-level settings', exact: true })).toBeVisible()
     await expect(mode.getByRole('combobox')).toHaveCount(0)
 
     const guarded = alsoRow(page, 'Protected paths')
@@ -427,7 +427,7 @@ test('live Authority adds, edits, and resets the first local protected block wit
   } finally { await f.close() }
 })
 
-test('live global Authority sets the default permission mode and global sync writes it for Claude', async ({ page }) => {
+test('live user Authority sets the default permission mode and user-level sync writes it for Claude', async ({ page }) => {
   const f = await fixture(true)
   try {
     await page.goto(`${f.url}?view=authority`)
@@ -451,7 +451,7 @@ test('live global Authority sets the default permission mode and global sync wri
   } finally { await f.close() }
 })
 
-test('live global Authority updates and resets a local mode set in one of several settings specs', async ({ page }) => {
+test('live user Authority updates and resets a local mode set in one of several settings specs', async ({ page }) => {
   const f = await fixture(true)
   try {
     await put(join(f.root, 'settings', 'a.yaml'), 'name: a\npermissions:\n    allow: [read]\n')
@@ -466,13 +466,13 @@ test('live global Authority updates and resets a local mode set in one of severa
     await mode.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => readFile(f.localSettings, 'utf8')).toContain('default-mode: plan\n')
     await expect(mode.getByRole('alert')).toHaveCount(0)
-    await mode.getByRole('button', { name: 'Reset to the global value', exact: true }).click()
+    await mode.getByRole('button', { name: 'Reset to the user value', exact: true }).click()
     await expect.poll(() => readFile(f.localSettings, 'utf8')).toBe(f.localBytes)
     await expect(mode.getByRole('alert')).toHaveCount(0)
   } finally { await f.close() }
 })
 
-test('live global Authority creates, updates, and resets the first local mode with no settings spec', async ({ page }) => {
+test('live user Authority creates, updates, and resets the first local mode with no settings spec', async ({ page }) => {
   const f = await fixture(true)
   try {
     await rm(f.settings)
@@ -492,7 +492,7 @@ test('live global Authority creates, updates, and resets the first local mode wi
     await mode.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect.poll(() => readFile(source, 'utf8').catch(() => '')).toMatch(/default-mode: acceptEdits\n/)
     await expect(mode.getByRole('alert')).toHaveCount(0)
-    await mode.getByRole('button', { name: 'Reset to the global value', exact: true }).click()
+    await mode.getByRole('button', { name: 'Reset to the user value', exact: true }).click()
     await expect.poll(() => readFile(source, 'utf8').catch(() => '')).not.toContain('default-mode')
     await expect(mode.getByRole('alert')).toHaveCount(0)
   } finally { await f.close() }
@@ -922,7 +922,7 @@ test('live first personal save before any ignore rule stays out of Git', async (
   }
 })
 
-test('live global edits keep the last local builtin disabled and enforce browser boundaries', async ({ page, request }) => {
+test('live user edits keep the last local builtin disabled and enforce browser boundaries', async ({ page, request }) => {
   const f = await fixture(true)
   const nativeBefore = await projectFiles(f.userHome)
   try {
@@ -1002,7 +1002,7 @@ test('live Authority, overview, and edit errors redact configured credentials', 
   }
 })
 
-test('live global Tools lists a server held only in ~/.claude.json and none of its values', async ({ page, request }) => {
+test('live user Tools lists a server held only in ~/.claude.json and none of its values', async ({ page, request }) => {
   const f = await fixture(true)
   const token = 'ghp_live_native_token_123'
   const claudeJSON = join(f.userHome, '.claude.json')
@@ -1037,7 +1037,7 @@ test('live global Tools lists a server held only in ~/.claude.json and none of i
   }
 })
 
-test('live global Tools makes one native server a spec and refuses credentials it cannot rewrite', async ({ page }) => {
+test('live user Tools makes one native server a spec and refuses credentials it cannot rewrite', async ({ page }) => {
   const f = await fixture(true)
   const token = 'ghp_live_spec_token_123456789'
   const claudeJSON = join(f.userHome, '.claude.json')
@@ -1700,7 +1700,7 @@ test('live Recheck tells a fixed finding from a remaining, new, or unchecked one
   } finally { await f.close() }
 })
 
-test('live global voice explains a whole personal clear and refuses member edits', async ({ page, request }) => {
+test('live user-level voice explains a whole personal clear and refuses member edits', async ({ page, request }) => {
   const f = await fixture(true)
   try {
     const shared = 'name: native\nvoice:\n  enabled: true\n  mode: hold\n  language: es\n'
@@ -1712,7 +1712,7 @@ test('live global voice explains a whole personal clear and refuses member edits
       const row = page.locator('.field-row').filter({ has: page.getByText(label, { exact: true }) })
       await expect(row).toContainText('Remove voice: null')
       await expect(row).toContainText('local/settings/native.yaml')
-      await expect(row.getByRole('button', { name: /^(Save|Update|Clear|Reset to the global value)$/ })).toHaveCount(0)
+      await expect(row.getByRole('button', { name: /^(Save|Update|Clear|Reset to the user value)$/ })).toHaveCount(0)
     }
     for (const audience of ['shared', 'personal']) {
       const response = await request.post(`${f.url}api/edit/field`, { data: { audience, path: 'settings/native.yaml', key: 'voice.mode', value: 'tap', expected: 'hold' } })
@@ -1724,7 +1724,7 @@ test('live global voice explains a whole personal clear and refuses member edits
   } finally { await f.close() }
 })
 
-test('live global voice edits comment-only and whitespace-only settings without losing bytes', async ({ request }) => {
+test('live user-level voice edits comment-only and whitespace-only settings without losing bytes', async ({ request }) => {
   const f = await fixture(true)
   try {
     await rm(f.localSettings)
@@ -1739,7 +1739,7 @@ test('live global voice edits comment-only and whitespace-only settings without 
   } finally { await f.close() }
 })
 
-test('live global voice edits an independent spec beside a personal clear', async ({ page }) => {
+test('live user-level voice edits an independent spec beside a personal clear', async ({ page }) => {
   const f = await fixture(true)
   try {
     await rm(f.settings)
@@ -1753,7 +1753,7 @@ test('live global voice edits an independent spec beside a personal clear', asyn
     await put(local, clear)
     await put(z, 'name: z\nvoice:\n  enabled: false\n  mode: tap\n  language: es\n')
     await page.goto(`${f.url}?view=settings&tab=preferences`)
-    await page.getByRole('button', { name: 'Global (every project)', exact: true }).click()
+    await page.getByRole('button', { name: 'User (every project)', exact: true }).click()
     const row = page.locator('.field-row').filter({ has: page.getByText('Voice mode', { exact: true }) })
     await expect(row).not.toContainText('non-scalar')
     await row.getByRole('combobox', { name: 'Voice mode value' }).selectOption('hold')

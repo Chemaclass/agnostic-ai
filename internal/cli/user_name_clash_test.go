@@ -12,8 +12,8 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// userNameClashProject writes a global home and a project in the
-// working directory userAgentTestHome picks, and returns the global
+// userNameClashProject writes a user source and a project in the
+// working directory userAgentTestHome picks, and returns the user
 // source root.
 func userNameClashProject(t *testing.T, targets string, userLevel, project map[string]string) string {
 	t.Helper()
@@ -54,8 +54,8 @@ func TestSync_WarnsWhenAProjectSkillSharesAUserName(t *testing.T) {
 
 	want := "! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in " +
 		"~/source/skills/gh-issue/SKILL.md with different content" +
-		"; amp and claude load the global one, which exists only on this machine, gemini loads this one" +
-		"; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`; project sync cannot select this skill instead on amp, claude\n"
+		"; amp and claude load the user-level one, which exists only on this machine, gemini loads this one" +
+		"; to load both, rename the user-level one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`; project sync cannot select this skill instead on amp, claude\n"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("sync should name the shared skill and who wins per target:\nwant %q\n%s", want, buf.String())
 	}
@@ -72,7 +72,7 @@ func TestSync_WarnsWhenAProjectAgentSharesAUserName(t *testing.T) {
 	}
 
 	if !strings.Contains(buf.String(), "agent \"reviewer\" also exists in ") ||
-		!strings.Contains(buf.String(), "; claude loads this one, so the global one is unused here; rename one to load both\n") {
+		!strings.Contains(buf.String(), "; claude loads this one, so the user-level one is unused here; rename one to load both\n") {
 		t.Errorf("sync should say the project agent wins in claude:\n%s", buf.String())
 	}
 }
@@ -82,7 +82,7 @@ func TestSync_NoNameClashWarningWhereNoTargetHidesEither(t *testing.T) {
 		name, targets, userLevelConfig, projectExtra string
 	}{
 		{name: "codex lists both skills", targets: "codex"},
-		{name: "global home does not write claude", targets: "claude", userLevelConfig: "version: 1\ntargets: [codex]\n"},
+		{name: "user source does not write claude", targets: "claude", userLevelConfig: "version: 1\ntargets: [codex]\n"},
 		{name: "project skill skips claude", targets: "claude", projectExtra: "target: codex\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -116,8 +116,8 @@ func TestDoctor_ReportsAUserNameClashWithoutFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
 	}
-	if !strings.Contains(out, "Global names:\n  ! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ") ||
-		!strings.Contains(out, "; claude loads the global one, which exists only on this machine;") {
+	if !strings.Contains(out, "Names shared with the user level:\n  ! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ") ||
+		!strings.Contains(out, "; claude loads the user-level one, which exists only on this machine;") {
 		t.Errorf("doctor should report the shared skill name:\n%s", out)
 	}
 }
@@ -164,7 +164,7 @@ func TestDoctor_MarksAnAllowedUserNameClash(t *testing.T) {
 		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
 	}
 	want := "  ~ .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" also exists in ~/source/skills/gh-issue/SKILL.md" +
-		"; claude loads the global one, which exists only on this machine; allowed by sync.allow-global-names; project sync cannot select this skill instead on claude\n"
+		"; claude loads the user-level one, which exists only on this machine; allowed by sync.allow-global-names; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("doctor should list the allowed clash, marked as allowed:\nwant %q\n%s", want, out)
 	}
@@ -215,7 +215,7 @@ func TestDoctor_MarksIgnoredUserNameClashes(t *testing.T) {
 		t.Fatalf("a shared name must not fail doctor: %v\n%s", err, out)
 	}
 	want := "  ~ .agnostic-ai/skills/gh-pr/SKILL.md: skill \"gh-pr\" also exists in ~/source/skills/gh-pr/SKILL.md" +
-		"; claude loads the global one, which exists only on this machine; ignored by sync.global-name-clash; project sync cannot select this skill instead on claude\n"
+		"; claude loads the user-level one, which exists only on this machine; ignored by sync.global-name-clash; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(out, want) {
 		t.Errorf("doctor should list the ignored clash, marked as ignored:\nwant %q\n%s", want, out)
 	}
@@ -285,7 +285,7 @@ func TestUserNameClash_AbbreviatesHome(t *testing.T) {
 	}
 
 	if got := c.String(); !strings.Contains(got, "also exists in ~/.agnostic-ai/skills/gh-issue/SKILL.md;") {
-		t.Errorf("the global path should start with ~: %s", got)
+		t.Errorf("the user-level path should start with ~: %s", got)
 	}
 }
 
@@ -300,7 +300,7 @@ func TestUserNameClashes_AmpOnlyWhenBothWriteAmp(t *testing.T) {
 	got := clashesInWorkingDir(t)
 
 	if len(got) != 1 || !slices.Equal(got[0].userWins, []string{"claude"}) {
-		t.Errorf("Amp loads the project copy of a claude-only global skill, so only claude wins globally: %+v", got)
+		t.Errorf("Amp loads the project copy of a claude-only user-level skill, so only claude wins globally: %+v", got)
 	}
 }
 
@@ -312,7 +312,7 @@ func TestUserNameClashes_ClineLoadsTheUserSkill(t *testing.T) {
 	got := clashesInWorkingDir(t)
 
 	if len(got) != 1 || !slices.Equal(got[0].userWins, []string{"cline"}) {
-		t.Errorf("Cline loads the global skill over the project one: %+v", got)
+		t.Errorf("Cline loads the user-level skill over the project one: %+v", got)
 	}
 }
 
@@ -342,7 +342,7 @@ func TestUserNameClashes_SkipsTargetsWithNoUserLevelSurface(t *testing.T) {
 	got := clashesInWorkingDir(t)
 
 	if len(got) != 1 || len(got[0].userWins) != 0 || !slices.Equal(got[0].projectWins, []string{"claude"}) {
-		t.Errorf("amp writes no global agents, so it cannot hide one: %+v", got)
+		t.Errorf("amp writes no user-level agents, so it cannot hide one: %+v", got)
 	}
 }
 
@@ -357,7 +357,7 @@ func TestSync_SaysAnIdenticalUserCopyChangesNothing(t *testing.T) {
 	}
 
 	want := "! .agnostic-ai/skills/gh-issue/SKILL.md: skill \"gh-issue\" is identical in ~/source/skills/gh-issue/SKILL.md" +
-		", so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the global one; project sync cannot select this skill instead on claude\n"
+		", so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the user-level one; project sync cannot select this skill instead on claude\n"
 	if !strings.Contains(buf.String(), want) {
 		t.Errorf("sync should say an identical copy changes nothing:\nwant %q\n%s", want, buf.String())
 	}
@@ -402,7 +402,7 @@ func TestUserNameClashes_ComparesContent(t *testing.T) {
 			want:      contentDiffers,
 		},
 		{
-			name:      "asset only in the global copy",
+			name:      "asset only in the user-level copy",
 			userLevel: map[string]string{skill: skillSpec("gh-issue", ""), asset: "echo global\n"},
 			project:   map[string]string{skill: skillSpec("gh-issue", "")},
 			want:      contentDiffers,
@@ -502,31 +502,31 @@ func TestUserNameClashes_UnreadableAssetMakesNoContentClaim(t *testing.T) {
 func TestUserNameClash_MessagePerWinner(t *testing.T) {
 	project := spec.Entry{Kind: spec.KindSkill, Name: "gh-issue", Path: ".agnostic-ai/skills/gh-issue/SKILL.md"}
 	userLevel := spec.Entry{Name: "gh-issue", Path: "/elsewhere/skills/gh-issue/SKILL.md"}
-	const rename = "; to load both, rename the global one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`"
+	const rename = "; to load both, rename the user-level one (such as gh-issue-personal), or delete it to drop it, then run `agnostic-ai sync --scope user`"
 	for _, tc := range []struct {
 		name string
 		c    userNameClash
 		want string
 	}{
 		{
-			name: "global wins",
+			name: "user-level wins",
 			c:    userNameClash{project: project, userLevel: userLevel, userWins: []string{"claude"}, content: contentDiffers},
-			want: " with different content; claude loads the global one, which exists only on this machine" + rename + "; project sync cannot select this skill instead on claude",
+			want: " with different content; claude loads the user-level one, which exists only on this machine" + rename + "; project sync cannot select this skill instead on claude",
 		},
 		{
 			name: "project wins",
 			c:    userNameClash{project: project, userLevel: userLevel, projectWins: []string{"gemini"}, content: contentDiffers},
-			want: " with different content; gemini loads this one, so the global one is unused here; rename one to load both",
+			want: " with different content; gemini loads this one, so the user-level one is unused here; rename one to load both",
 		},
 		{
 			name: "each wins somewhere",
 			c:    userNameClash{project: project, userLevel: userLevel, userWins: []string{"claude"}, projectWins: []string{"gemini"}, content: contentDiffers},
-			want: " with different content; claude loads the global one, which exists only on this machine, gemini loads this one" + rename + "; project sync cannot select this skill instead on claude",
+			want: " with different content; claude loads the user-level one, which exists only on this machine, gemini loads this one" + rename + "; project sync cannot select this skill instead on claude",
 		},
 		{
 			name: "identical",
 			c:    userNameClash{project: project, userLevel: userLevel, userWins: []string{"claude"}, content: contentIdentical},
-			want: " is identical in /elsewhere/skills/gh-issue/SKILL.md, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the global one; project sync cannot select this skill instead on claude",
+			want: " is identical in /elsewhere/skills/gh-issue/SKILL.md, so every target loads the same content; delete one copy to keep them from drifting apart, and run `agnostic-ai sync --scope user` after deleting the user-level one; project sync cannot select this skill instead on claude",
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -544,7 +544,7 @@ func TestUserNameClash_ReportsUnsupportedProjectSkillSelection(t *testing.T) {
 		userWins:  []string{"claude"}, projectWins: []string{"gemini"}, content: contentDiffers,
 	}
 	for _, line := range []string{clash.String(), clash.silenced("allowed by sync.allow-global-names")} {
-		for _, text := range []string{"claude loads the global one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
+		for _, text := range []string{"claude loads the user-level one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
 			if !strings.Contains(line, text) {
 				t.Errorf("skill selection limit missing %q: %s", text, line)
 			}
@@ -567,7 +567,7 @@ func TestSyncAndDoctor_ExplainUnsupportedHomeWinningSkill(t *testing.T) {
 	if err != nil {
 		t.Fatalf("doctor: %v: %s", err, out)
 	}
-	for _, text := range []string{"claude loads the global one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
+	for _, text := range []string{"claude loads the user-level one", "gemini loads this one", "project sync cannot select this skill instead on claude"} {
 		if !strings.Contains(log.String(), text) {
 			t.Errorf("sync lacks %q: %s", text, log.String())
 		}
@@ -605,7 +605,7 @@ func TestDoctor_ExplainsUnsupportedSkillEvenWhenSyncIsSilenced(t *testing.T) {
 func TestUserNameClash_ClaudeAgentStillSelectsProjectCopy(t *testing.T) {
 	clash := userNameClash{project: spec.Entry{Kind: spec.KindAgent, Name: "reviewer"}, userLevel: spec.Entry{Kind: spec.KindAgent, Name: "reviewer"}, projectWins: []string{"claude"}, content: contentDiffers}
 	line := clash.String()
-	if !strings.Contains(line, "claude loads this one, so the global one is unused here") {
+	if !strings.Contains(line, "claude loads this one, so the user-level one is unused here") {
 		t.Errorf("agent winner changed: %s", line)
 	}
 	if strings.Contains(line, "project sync cannot") {

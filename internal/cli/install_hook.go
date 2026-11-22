@@ -171,7 +171,7 @@ func newInstallHookCmd() *cobra.Command {
 		Long: "Writes .git/hooks/pre-commit (or appends to an existing file). " +
 			"With --shared, writes to .githooks/pre-commit and sets core.hooksPath so " +
 			"the hook is committed alongside the project. With --scope user, run in the " +
-			"global home kept in git, writes a hook that runs lint --strict, " +
+			"user source kept in git, writes a hook that runs lint --strict, " +
 			"validate, and sync --check at user scope. With --post-checkout, writes " +
 			"post-checkout and post-merge in .git/hooks (or .githooks with --shared) instead: " +
 			"they run `agnostic-ai project` with the local binary from the worktree root after a branch or " +
@@ -182,7 +182,7 @@ func newInstallHookCmd() *cobra.Command {
   # Install into .githooks/ and set core.hooksPath (shared with team)
   agnostic-ai install-hook --shared
 
-  # Gate commits to the global home, run inside ~/.agnostic-ai
+  # Gate commits to the user source, run inside ~/.agnostic-ai
   agnostic-ai install-hook --scope user
 
   # Regenerate tool files after a checkout or pull
@@ -213,14 +213,14 @@ func newInstallHookCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/<hook> and set core.hooksPath so the hook is shared with the team.")
-	addScopeFlag(cmd, &userLevel, "Write the pre-commit hook of the global home in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
+	addScopeFlag(cmd, &userLevel, "Write the pre-commit hook of the user source in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
 	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout and post-merge hooks that run `agnostic-ai project` after a checkout or pull, preserving edits and never installing dependencies.")
 	cmd.MarkFlagsMutuallyExclusive("shared", "global")
 	cmd.MarkFlagsMutuallyExclusive("global", "post-checkout")
 	return cmd
 }
 
-// installUserPreCommitHook writes the global home's pre-commit hook.
+// installUserPreCommitHook writes the user source's pre-commit hook.
 // dir must be the home itself, at the root of its git repository, so
 // the hook's checks read the same home the commit is for.
 func installUserPreCommitHook(dir string, out io.Writer) error {
@@ -230,17 +230,17 @@ func installUserPreCommitHook(dir string, out io.Writer) error {
 	}
 	home, err := os.Stat(source)
 	if err != nil {
-		return fmt.Errorf("global home %s: %w", source, err)
+		return fmt.Errorf("user source %s: %w", source, err)
 	}
 	if here, err := os.Stat(dir); err != nil || !os.SameFile(here, home) {
-		return fmt.Errorf("install-hook --scope user runs in the global home %s; cd there first, or set %s to this directory", source, envUserRoot)
+		return fmt.Errorf("install-hook --scope user runs in the user source %s; cd there first, or set %s to this directory", source, envUserRoot)
 	}
 	top, err := gitRevParse(source, "--show-toplevel")
 	if err != nil {
 		return fmt.Errorf("%s is not the root of a git repository; run `git init` there first", source)
 	}
 	if info, err := os.Stat(top); err != nil || !os.SameFile(info, home) {
-		return fmt.Errorf("%s is not the root of a git repository (it sits inside %s); keep the global home in its own repository", source, top)
+		return fmt.Errorf("%s is not the root of a git repository (it sits inside %s); keep the user source in its own repository", source, top)
 	}
 	hooksDir, err := gitHooksDir(source, userLevelHook)
 	if err != nil {
@@ -248,7 +248,7 @@ func installUserPreCommitHook(dir string, out io.Writer) error {
 	}
 	hookPath := filepath.Join(hooksDir, "pre-commit")
 	if existing, err := os.ReadFile(hookPath); err == nil && hasProjectCheck(string(existing)) {
-		return fmt.Errorf("%s runs `agnostic-ai sync --check`, which fails in the global home without blocking the commit; remove that line and run install-hook --scope user again", hookPath)
+		return fmt.Errorf("%s runs `agnostic-ai sync --check`, which fails in the user source without blocking the commit; remove that line and run install-hook --scope user again", hookPath)
 	}
 	written, err := writeHookAt(hooksDir, userLevelHook)
 	if err != nil {
@@ -305,7 +305,7 @@ func parseConfigOrigin(line string) (string, string) {
 }
 
 // hasProjectCheck reports a project sync --check line, which has no
-// place in the global home's hook.
+// place in the user source's hook.
 func hasProjectCheck(content string) bool {
 	for _, line := range strings.Split(content, "\n") {
 		if strings.HasPrefix(strings.TrimSpace(line), projectHook.legacy) || strings.HasPrefix(strings.TrimSpace(line), "agnostic-ai project --check") || strings.HasPrefix(strings.TrimSpace(line), `"$agnostic_ai_bin" project --check`) {

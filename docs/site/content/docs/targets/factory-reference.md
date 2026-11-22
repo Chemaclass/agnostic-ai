@@ -10,14 +10,14 @@ group = "Reference"
 
 # Factory native reference
 
-Start with the [Factory setup](@/docs/targets/factory.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Factory setup](@/docs/targets/factory.md). For home configuration and ownership, see [user configuration](@/docs/global-configuration.md).
 
 ## Agents
 
 `<name>.md` has `name`, `description`, and optional `model` and `tools`. `x-factory` keys pass through.
 
 - Empty body: skipped with a sync note (Droid CLI needs a system prompt).
-- A portable `mcpServers` list is written as is. `mcpServers: []` excludes every MCP server, even global ones ([`mcpServers`](@/docs/spec-format/agents-reference.md#mcpservers-support-by-target)).
+- A portable `mcpServers` list is written as is. `mcpServers: []` excludes every MCP server, even user-level ones ([`mcpServers`](@/docs/spec-format/agents-reference.md#mcpservers-support-by-target)).
 - A read-only droid with no `mcpServers` list gets `mcpServers: []`. A list you set is kept.
 - `effort` becomes `reasoningEffort`: `low`, `medium`, `high` only. `xhigh`, `max`, and integer budgets drop with a sync note. Ignored under `model: inherit` ([`effort`](@/docs/spec-format/agents.md#per-target-model-and-effort)).
 - `readonly: true` writes `tools: read-only`, replacing a portable `tools` list. Sync notes `x-factory.tools` for a custom list.

@@ -79,7 +79,7 @@ To test hooks before a session, run [`agnostic-ai hook run`](@/docs/cli-referenc
 - No skill can be kept user-only, so `disable-model-invocation` is dropped with a note and commands are skipped.
 - A generic agent `tools` list is dropped with a note, because Goose does not document it.
 - Skills in the shared folder are written once for every `.agents/skills/` tool, Crush included. Shared rendering drops Crush invocation fields; give Crush its own `skills-dir` to keep them.
-- Global sync ignores `outputs.goose.hooks-file` and an absolute `GOOSE_PATH_ROOT`, for hooks and agents, and writes under `~`.
+- User-level sync ignores `outputs.goose.hooks-file` and an absolute `GOOSE_PATH_ROOT`, for hooks and agents, and writes under `~`.
 - MCP specs are skipped with a warning.
 - An existing `plugin.json` that sync did not write is kept, with a note. Manifests from an earlier sync stay managed.
 {% </details> %}

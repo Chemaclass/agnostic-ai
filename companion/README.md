@@ -50,11 +50,13 @@ with `make companion-run`.
 
 ## Upgrade
 
-The companion checks for a newer release on start and every 24 hours, without opening a window. The update entry in the right-click menu and the list's ⋯ menu then reads **Update to vX.Y.Z**, and a dot shows on the ⋯ button. Choose it, then **Update and restart** in the list, to update the app and its bundled CLI. The list shows each step, and on a failure before the restart the reason, the log and **Retry**; the current version keeps running. **Check for updates** checks now and says what it found. **Check for updates automatically**, on by default, turns off the check it makes on its own. Before it replaces the app, the new one must be signed with the same project certificate. A companion installed from the terminal shows the same entry. On macOS it runs `agnostic-ai upgrade` for you; when it cannot, and on other systems, the list shows that command to copy and a **Release page** button that opens the release on GitHub.
+The companion checks for a newer release on start and every 24 hours without opening a window. An automatic check can keep the last verified offer offline. **Check for updates** checks now and reports a failure, including an unreadable release checksum list. The update entry in both menus reads **Update to vX.Y.Z** when an update is known. Choose it, then **Update and restart** in the list. See the [update guide](https://agnostic-ai.org/docs/cli-reference/companion/#upgrade-the-companion) for the terminal install and copy fallback.
+
+Disk image updates check the new app's signer before running it. If macOS refuses to open the replacement, the updater tries to put back and open the earlier app. If it cannot restore the app, it logs where the earlier bundle is saved. The list shows the failure and log path after restart when it can recover the outcome.
 
 `agnostic-ai upgrade` also replaces an installed companion through the updated CLI, downloaded or built as `install` does. It prints each step and restarts the companion if it was running. A stopped companion stays stopped. Your settings and Start at login choice stay as they were. If no companion is installed, the upgrade does not build one.
 
-If the companion update fails, the CLI stays upgraded and the old companion stays usable. The command explains the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
+If the CLI upgrade succeeds and the companion update fails, the CLI stays upgraded. The command explains the failed step or missing build tool. Fix it, then run `agnostic-ai companion install` to retry.
 
 After upgrading directly through Homebrew or npm, run `agnostic-ai companion install`. On the next companion/server start, the panel shows a notice if their versions differ, with that command. Starting through `agnostic-ai companion` also prints a warning. A companion and server already running before an external upgrade can keep their old versions until restarted.
 

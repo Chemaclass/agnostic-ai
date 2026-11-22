@@ -20,7 +20,7 @@ func emitConfigForPlatform(sess *emit.Session, b spec.Bundle, cfg *config.Config
 	path := emit.OutputConfFile(cfg, target, "")
 	if path == "" {
 		emit.NoteFieldNoOp(target, spec.KindSettings, "project config", len(b.Settings), "set outputs.kimi.conf-file to a selected data-root config.toml")
-		emit.NoteFieldNoOp(target, spec.KindHook, "project config", len(b.HooksFor(target)), "hooks require global sync or an explicit conf-file profile")
+		emit.NoteFieldNoOp(target, spec.KindHook, "project config", len(b.HooksFor(target)), "hooks require user-level sync or an explicit conf-file profile")
 		return nil
 	}
 	if filepath.Base(path) != "config.toml" {

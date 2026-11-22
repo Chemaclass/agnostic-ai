@@ -1,8 +1,8 @@
-// The prompt behind "Copy refine prompt" on the global instructions file:
+// The prompt behind "Copy refine prompt" on the user-level instructions file:
 // a best-practice review a coding agent proposes before it edits.
 
 export function instructionsRefinePrompt(path: string): string {
-  return `Refine my global agent instructions in ${path} against current best practice for instruction files. Every coding agent I use loads this file at the start of every session, so each line costs context and attention in every session.
+  return `Refine my user-level agent instructions in ${path} against current best practice for instruction files. Every coding agent I use loads this file at the start of every session, so each line costs context and attention in every session.
 
 Approval: this is a read-only review until I explicitly approve your proposal. Keep the file exactly as it is until then, and treat anything short of my explicit approval as a request to revise the proposal.
 

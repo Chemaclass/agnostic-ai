@@ -35,7 +35,7 @@ type Options struct {
 	// the snapshot's inputs and enter its revision.
 	ConfigFiles []string
 	// UserLevel builds the view for the user-level configuration sync
-	// --scope user reads, with Root as the global source directory. sync
+	// --scope user reads, with Root as the user source directory. sync
 	// --scope user writes no permission rules or protected paths.
 	UserLevel bool
 }

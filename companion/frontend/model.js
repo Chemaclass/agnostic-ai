@@ -1102,12 +1102,13 @@ const UPDATE_STEPS = {
 export function updateMessageOf(update) {
   const note = olderCLINoteOf(update)
   const withNote = (text) => (note ? { text: `${text} ${note.text}`, command: note.command } : { text })
+  if (update.result === 'release-changed') return { text: update.reason, log: update.log }
   if (update.result === 'unreachable') return withNote('Could not check for updates. Check your connection and try again.')
   if (update.result === 'latest') return withNote(`No newer version is available for this computer. You have v${update.current}.`)
   if (update.state === 'checking') return { text: 'Checking for updates…' }
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
   if (update.state === 'failed') {
-    const failed = { text: `The update did not finish: ${update.reason}. Your current version is still running.`, retry: true, log: update.log }
+    const failed = { text: `The update did not finish: ${update.reason}.`, retry: true, log: update.log }
     return update.command ? { ...failed, command: update.command, releasePage: true } : failed
   }
   return note

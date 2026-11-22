@@ -61,7 +61,7 @@ func buildUserWritesForPlatform(home, source string, targets []string, intro []b
 	return p.writes, p.next, nil
 }
 
-// userPlan is one run of the global planner: the writes it plans and
+// userPlan is one run of the user planner: the writes it plans and
 // the ownership state it records for the next run.
 type userPlan struct {
 	home, source, platform string
@@ -82,7 +82,7 @@ type userPlan struct {
 	agentErr      func(string, error) error
 	// approvals is the home approvals block, which picks native reviewers.
 	approvals config.ApprovalsConfig
-	// body is the instructions text; managed wraps it in the global block.
+	// body is the instructions text; managed wraps it in the user block.
 	body, managed string
 }
 
@@ -196,7 +196,7 @@ func (p *userPlan) guardRemoval(path string, snap *diskSnapshot) {
 func (p *userPlan) place(path string, data []byte, mode fs.FileMode) (bool, error) {
 	if i, ok := p.seen[path]; ok {
 		if !bytes.Equal(p.writes[i].data, data) {
-			return false, fmt.Errorf("%s: two global targets emit different content to one path", path)
+			return false, fmt.Errorf("%s: two user-level targets emit different content to one path", path)
 		}
 		p.writes[i].addTarget(p.current)
 		return false, nil

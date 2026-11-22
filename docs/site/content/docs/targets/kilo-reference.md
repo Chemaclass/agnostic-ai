@@ -10,14 +10,14 @@ group = "Reference"
 
 # Kilo native reference
 
-Start with the [Kilo setup](@/docs/targets/kilo.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Kilo setup](@/docs/targets/kilo.md). For home configuration and ownership, see [user configuration](@/docs/global-configuration.md).
 
-## Shell commands in global skills
+## Shell commands in user-level skills {#shell-commands-in-global-skills}
 
 `sync --scope user` writes skills to `~/.kilo/skills/`. Kilo supports inline `` !`command` `` placeholders there and in its trusted `~/.agents/skills/` and `~/.claude/skills/` directories ([shell commands in skills](https://kilo.ai/docs/customize/skills#shell-commands-in-skills)).
 
 - Kilo asks for approval on load. `KILO_DISABLE_SKILL_SHELL` disables execution.
-- Project and remote skills never execute them. A custom output directory is not trusted just because its source is global.
+- Project and remote skills never execute them. A custom output directory is not trusted just because its source is user-level.
 - The sync check accepts only inline placeholders at those user paths.
 - `$ARGUMENTS`, positional arguments, and Claude's ` ```! ` blocks stay unsupported.
 - Placeholders in ordinary code blocks are examples.
@@ -41,7 +41,7 @@ Kilo has no `tools:` key, so a `tools` list becomes a [`permission`](https://kil
 - The catch-all comes first, because the last matching rule wins.
 - `doom_loop` and `external_directory` ask at most (Kilo's default), so the catch-all never silently denies paths outside the project.
 - A restricted agent keeps project permission decisions for its listed tools and denies the rest.
-- Sync reads root `kilo.jsonc` and a hand-written `.kilo/kilo.jsonc` (also in preview), not global user policy.
+- Sync reads root `kilo.jsonc` and a hand-written `.kilo/kilo.jsonc` (also in preview), not user policy.
 - Pattern intersections that cannot be represented exactly become denies, so the agent can be stricter than the project. MCP server-name overlaps and Windows case differences are handled conservatively.
 - `x-kilo: {permission: {...}}` wins outright.
 - If no name translates, no map is written (`{"*": deny}` alone would lock the agent out).

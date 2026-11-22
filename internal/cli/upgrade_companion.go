@@ -10,6 +10,9 @@ import (
 	"strings"
 )
 
+// The companion sets this for an upgrade whose output is kept in its update log.
+const envCompanionUpdate = "AGNOSTIC_AI_COMPANION_UPDATE"
+
 type upgradeCompanionDeps struct {
 	installed func() (bool, error)
 	current   func() (string, bool, error)

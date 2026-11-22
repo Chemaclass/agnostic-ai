@@ -11,7 +11,7 @@ import (
 	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
-// Global sync reuses each adapter's agent renderer, so agent-only output
+// User-level sync reuses each adapter's agent renderer, so agent-only output
 // must match what project sync writes for the same agent, and must write
 // nothing else.
 func TestEmitAgents_MatchesProjectOutputForEveryEmitter(t *testing.T) {

@@ -22,7 +22,7 @@ export interface RequiredRelease {
 /** The config's `requires` beside the serving version, and whether that version meets it. */
 export function requiredRelease(served: { userLevel: boolean; version?: string; requires?: string; requiresMet?: boolean | null }): RequiredRelease | undefined {
   if (!served.requires) return undefined
-  const needs = `${served.userLevel ? 'The global setup' : 'This project'} needs agnostic-ai ${served.requires}`
+  const needs = `${served.userLevel ? 'The user setup' : 'This project'} needs agnostic-ai ${served.requires}`
   const running = served.version ? servingRelease(served.version).label : 'the running build'
   const label = `requires ${served.requires}`
   if (served.requiresMet === true) return { label, state: 'met', title: `${needs}; ${running} meets it.` }

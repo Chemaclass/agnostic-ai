@@ -26,7 +26,7 @@ describe('spec move', () => {
   })
 
   it('names the other level', () => {
-    expect(specMoveLabel('project')).toBe('Copy to global')
+    expect(specMoveLabel('project')).toBe('Copy to user')
     expect(specMoveLabel('global')).toBe('Copy to project')
   })
 

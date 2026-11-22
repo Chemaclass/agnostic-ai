@@ -161,10 +161,10 @@ func TestProtectedEdit_UserViewRefuses(t *testing.T) {
 	h := &editHandler{root: root, userLevel: true}
 	rec := protectedRequest(t, h, map[string]any{"action": "preview", "audience": "shared", "protected": map[string]any{"paths": []string{"a"}, "decision": "ask", "reason": ""}})
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "sync --scope user does not write protected paths") {
-		t.Fatalf("global = %d %s", rec.Code, rec.Body)
+		t.Fatalf("user = %d %s", rec.Code, rec.Body)
 	}
 	if entries, _ := os.ReadDir(root); len(entries) != 0 {
-		t.Fatal("global refusal wrote files")
+		t.Fatal("user refusal wrote files")
 	}
 }
 

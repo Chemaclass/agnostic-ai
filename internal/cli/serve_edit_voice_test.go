@@ -266,7 +266,7 @@ func TestEditField_UserVoiceCannotUseBooleanPerToolTargets(t *testing.T) {
 		for _, value := range []string{"false", "null"} {
 			body := fmt.Sprintf(`{"audience":"shared","path":"settings/native.yaml","key":%q,"target":"claude","value":%s}`, key, value)
 			if rec := postEdit(t, h, editValuePath, body, nil); rec.Code != http.StatusBadRequest {
-				t.Errorf("global boolean %s = %d %s", body, rec.Code, rec.Body)
+				t.Errorf("user boolean %s = %d %s", body, rec.Code, rec.Body)
 			}
 		}
 	}

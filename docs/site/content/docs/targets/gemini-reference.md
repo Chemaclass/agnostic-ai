@@ -10,7 +10,7 @@ group = "Reference"
 
 # Gemini CLI native reference
 
-Start with the [Gemini CLI setup](@/docs/targets/gemini.md). For home configuration and ownership, see [global configuration](@/docs/global-configuration.md).
+Start with the [Gemini CLI setup](@/docs/targets/gemini.md). For home configuration and ownership, see [user configuration](@/docs/global-configuration.md).
 
 ## Rules
 

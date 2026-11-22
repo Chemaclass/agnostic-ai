@@ -3,7 +3,7 @@
 # target-facts.sh - print what agnostic-ai currently claims about a target.
 #
 # One compact dump per target: declared capabilities, default output paths,
-# the adapter's package doc comment, cross-target and global reference lines,
+# the adapter's package doc comment, cross-target and user reference lines,
 # and its own target guide and native reference.
 # Feeds the `target-audit` skill so an auditing agent reads the repo's side of
 # the comparison in one call instead of grepping Go and the docs tree.

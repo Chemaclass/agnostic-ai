@@ -19,7 +19,7 @@ func newListCmd() *cobra.Command {
 		Example: `  # Print every loaded entry as <kind>\t<name>\t<layer>
   agnostic-ai list
 
-  # Print effective global specs and their layers
+  # Print effective user specs and their layers
   agnostic-ai list --scope user
 
   # Print only your personal specs in this project, and what each changes

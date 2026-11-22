@@ -27,7 +27,7 @@ func refuse(format string, args ...any) error {
 // CheckProjectLinks refuses to verb path, inside the project at root,
 // when a link along it leads outside root or into a Git folder: a cloned
 // repository can commit such links in its output folders to plant Git
-// hooks or edit the user's global tool settings. parentsOnly checks only
+// hooks or edit the user's own tool settings. parentsOnly checks only
 // the folders above path, for a removal or an exclusive create, which
 // never follow a link at path itself. A path that lies outside root
 // before any link is followed is left to UnsafeProjectPathIn.

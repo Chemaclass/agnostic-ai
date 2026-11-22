@@ -11,7 +11,7 @@ import (
 
 // lintTargetRefusals flags the first spec or setting each selected target
 // refuses, which stops sync for every target (LINT053, error). The check
-// is the adapter's own, so each rule lives in one place. Global scope has
+// is the adapter's own, so each rule lives in one place. User scope has
 // no project config and is not checked.
 func lintTargetRefusals(cfg *config.Config, targets []string, b spec.Bundle, configPath string) []lintFinding {
 	if cfg == nil {

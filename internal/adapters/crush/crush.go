@@ -53,7 +53,7 @@
 // Crush reads `./.crushrc`, then `./crushrc`, then
 // `$XDG_CONFIG_HOME/crush/crushrc`, merges every legacy `crush.json` /
 // `.crush.json` found alongside those paths, with project settings
-// overriding global ones and crushrc overriding JSON in the same
+// overriding user-level ones and crushrc overriding JSON in the same
 // directory, and logs a warning whenever a directory holds both. A
 // project that also hand-authors a `crushrc` gets that warning against
 // our crush.json on every launch; nothing on our side can suppress it.

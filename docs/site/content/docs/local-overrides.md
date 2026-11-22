@@ -42,7 +42,7 @@ Run `agnostic-ai sync`, then `agnostic-ai list` to see which source won.
 | `local` | `<project>/.agnostic-ai/local/` | `agnostic-ai sync` in that project | `agnostic-ai list` |
 | `user-local` | `~/.agnostic-ai/local/` (or `$AGNOSTIC_AI_HOME/local/`) | `agnostic-ai sync --scope user` | `agnostic-ai list --scope user` |
 
-A folder loads only when it exists. Project sync ignores `~/.agnostic-ai/`, and global sync ignores every project. Your personal setup wins over the shared one.
+A folder loads only when it exists. Project sync loads no specs from `~/.agnostic-ai/`; it reads only their names, to warn when one clashes. User-level sync ignores every project. Your personal setup wins over the shared one.
 
 ## Layout
 
@@ -61,7 +61,7 @@ my-project/.agnostic-ai/
 
 The project folder reads every spec kind: `agents/`, `skills/`, `rules/`, `hooks/`, `mcps/`, `commands/`, `settings/`, `reviews/`, `environments/`, and `ignore/`. It stays at `.agnostic-ai/local/` even when custom `sources` paths in `agnostic-ai.yaml` move the shared specs.
 
-For the global folder’s supported kinds and layout, see [global configuration](@/docs/global-configuration.md#source-and-targets).
+For the user folder’s supported kinds and layout, see [user configuration](@/docs/global-configuration.md#source-and-targets).
 
 </details>
 
@@ -181,7 +181,7 @@ Answer in Spanish. Run `make test` before every commit.
 - A legacy [`outputs.<target>.rules-file`](@/docs/configuration-reference.md#entry-point-files) that names the entry point gets the block too, after the rule bodies.
 - `::target` fences and `@path` imports work as in the [shared file](@/docs/configuration-reference.md#per-target-paragraphs).
 
-In the global folder, `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after the shared instructions and rules.
+In the user folder, `local/AGNOSTIC_AI.md` comes last in the managed instructions block, after the shared instructions and rules.
 
 ## Import
 

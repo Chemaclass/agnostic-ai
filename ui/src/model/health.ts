@@ -21,7 +21,7 @@ export interface FindingPlace {
   section: Section
   item?: SectionItem
   owner?: string
-  /** Section findings on the global setup, listed apart from the project's. */
+  /** Section findings on the user setup, listed apart from the project's. */
   userLevel?: boolean
   findings: ItemFinding[]
   ids: string[]
@@ -129,7 +129,7 @@ export function healthGroups(overview: OverviewView, keep?: KeptPlace): HealthGr
 
 export function placeLabel(place: Pick<FindingPlace, 'item' | 'userLevel'>): string {
   if (place.item) return place.item.label || place.item.name
-  return place.userLevel ? 'Global setup' : 'Other findings'
+  return place.userLevel ? 'User setup' : 'Other findings'
 }
 
 /** The findings and suggestions picked on Setup health, by finding entry id and gap id. */
@@ -152,8 +152,8 @@ export function healthFixPrompt(overview: OverviewView, root?: string, pick?: He
   const gaps = pick ? overview.health.gaps.filter((gap) => pick.gaps.has(gap.id)) : []
   const total = findings.length + gaps.length
   const lines = [gaps.length
-    ? `Work through ${total === 1 ? 'this agnostic-ai item' : `these ${total} agnostic-ai items`} in the project or global configuration${findings.length ? ', errors first, then suggestions' : ''}:`
-    : total === 1 ? 'Fix this agnostic-ai finding in the project or global configuration:' : `Fix these ${total} agnostic-ai findings in the project or global configuration, errors first:`]
+    ? `Work through ${total === 1 ? 'this agnostic-ai item' : `these ${total} agnostic-ai items`} in the project or user configuration${findings.length ? ', errors first, then suggestions' : ''}:`
+    : total === 1 ? 'Fix this agnostic-ai finding in the project or user configuration:' : `Fix these ${total} agnostic-ai findings in the project or user configuration, errors first:`]
   if (root) lines.push(`Configuration root: ${root}`)
   let n = 0
   for (const { place, finding } of findings) lines.push('', `${++n}. ${place.section.label}: ${placeLabel(place)}`, ...findingFacts(finding))
