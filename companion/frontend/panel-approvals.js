@@ -58,10 +58,11 @@ export function approvalsMenu({ changed, listChanged, row }) {
     confirm.hidden = state.pending === undefined
   }
 
+  /** Shows doc. A document from a save or a sync comes without a tag, so the next read answers in full. */
   function take(doc, tag) {
     state.taken += 1
     state.doc = doc
-    if (tag !== undefined) state.tag = tag
+    state.tag = tag
     changed(doc)
     draw()
   }
@@ -76,7 +77,6 @@ export function approvalsMenu({ changed, listChanged, row }) {
     } catch (error) {
       if (!(error instanceof CallError)) throw error
       if (taken !== state.taken) return
-      state.tag = undefined
       take(undefined)
     }
   }

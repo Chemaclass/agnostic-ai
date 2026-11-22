@@ -254,3 +254,34 @@ func TestSaveSettingsChange_WaitsForTheLock(t *testing.T) {
 		t.Errorf("saved %+v, %v", saved, err)
 	}
 }
+
+// TestLoadSettings_WaitsForASaveInProgress holds the settings lock while
+// a broken file is replaced with a good one: recovery waits, then reads
+// the good file and moves nothing aside.
+func TestLoadSettings_WaitsForASaveInProgress(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "companion.json")
+	if err := os.WriteFile(path, []byte("{cut short"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	release, err := lockSettings(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan settings)
+	go func() {
+		saved, _ := loadSettings(path)
+		done <- saved
+	}()
+	time.Sleep(50 * time.Millisecond)
+	if err := os.WriteFile(path, []byte(`{"animate": false}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	release()
+	saved := <-done
+	if saved.Animate == nil || *saved.Animate {
+		t.Errorf("loadSettings = %+v; want the file saved while it waited", saved)
+	}
+	if _, err := os.Stat(path + ".bad"); !os.IsNotExist(err) {
+		t.Errorf("a good file was moved aside: %v", err)
+	}
+}

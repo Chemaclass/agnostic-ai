@@ -151,10 +151,17 @@ func (e *unreadableSettings) Error() string {
 
 func (e *unreadableSettings) Unwrap() error { return e.cause }
 
-// loadSettings is readSettings for a companion that starts: a file that
-// is not JSON moves aside, to companion.json.bad or, when that is taken,
-// a name with the time, and the companion starts with empty settings.
+// loadSettings is readSettings for the one companion that runs: a file
+// that is not JSON moves aside, to companion.json.bad or, when that is
+// taken, a name with the time, and the companion starts with empty
+// settings. It holds the settings lock, so a file another writer just
+// saved is read again, not moved.
 func loadSettings(path string) (settings, error) {
+	if release, err := lockSettings(path); err == nil {
+		defer release()
+	} else {
+		log.Printf("%v; reading the settings without it", err)
+	}
 	s, err := readSettings(path)
 	if _, ok := errors.AsType[*unreadableSettings](err); !ok {
 		return s, err

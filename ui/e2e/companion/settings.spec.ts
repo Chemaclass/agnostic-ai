@@ -712,3 +712,17 @@ test('turning on the companion buttons without the hook offers Apply to my tools
   await expect(menu.getByRole('switch', { name: 'Approve and deny from this list' })).toHaveAttribute('aria-checked', 'true')
   await expect(menu.getByRole('button', { name: 'Apply to my tools' })).toBeVisible()
 })
+
+test('a saved change that is undone elsewhere shows again in the open menu', async ({ page }) => {
+  await openPanel(page)
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  const buttons = menu.getByRole('switch', { name: 'Approve and deny from this list' })
+  await buttons.click()
+  await expect(buttons).toHaveAttribute('aria-checked', 'true')
+
+  const outside = await page.request.post('/api/settings', { data: { key: 'approvals.companion', value: false } })
+  expect(outside.ok()).toBe(true)
+
+  await expect(buttons).toHaveAttribute('aria-checked', 'false', { timeout: 4_000 })
+})

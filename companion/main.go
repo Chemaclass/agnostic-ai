@@ -821,16 +821,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// A companion asked to quit or to change the login leaves even an
-	// unreadable file where it is.
-	read := readSettings
-	if ask == "" {
-		read = loadSettings
-	}
-	saved, err := read(path)
+	// An unreadable file moves aside only once this is the one companion
+	// that runs, below; a second launch leaves it where it is.
+	saved, err := readSettings(path)
+	_, unreadable := errors.AsType[*unreadableSettings](err)
 	// A companion asked to quit or to change the login needs no settings,
 	// and must answer even when the file cannot be read.
-	if err != nil && ask == "" {
+	if err != nil && !unreadable && ask == "" {
 		log.Fatal(err)
 	}
 	pages, err := fs.Sub(embedded, "frontend")
@@ -898,6 +895,12 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	}
+	if unreadable {
+		if saved, err = loadSettings(path); err != nil {
+			log.Fatal(err)
+		}
+		s.settings = saved
 	}
 
 	s.screens = s.app.Screen.GetAll
