@@ -438,13 +438,10 @@ func TestSettings_WaitsForTheApprovalsLock(t *testing.T) {
 	}
 }
 
-func TestRestorePoint_LeavesAnOutsideEditAlone(t *testing.T) {
+func TestRestoreTo_LeavesAnOutsideEditAlone(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "agnostic-ai.yaml")
 	writeFile(t, path, "before\n")
-	undo, err := restorePoint(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	undo := restoreTo(path, []byte("before\n"), false)
 	writeFile(t, path, "someone else\n")
 	if err := undo([]byte("ours\n")); err == nil {
 		t.Error("undo replaced a file another program changed")
@@ -492,5 +489,30 @@ func TestSettings_AskRepairsABrokenLocalBlock(t *testing.T) {
 		if err != nil || home.Mode != config.ApprovalsAsk || home.Companion {
 			t.Errorf("after Ask me on %q = %+v, %v", local, home, err)
 		}
+	}
+}
+
+func TestSettings_KeepsAnEditMadeWhileTheChangeWasChecked(t *testing.T) {
+	cases := []struct {
+		name, body, file string
+	}{
+		{"companion", `{"key":"approvals.companion","value":false}`, config.ConfigFileName},
+		{"ask me", `{"key":"approvals.mode","value":"ask"}`, filepath.Join("local", config.ConfigFileName)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h, source := settingsFixture(t, "version: 1\napprovals:\n  mode: review\n")
+			path := filepath.Join(source, tc.file)
+			const other = "version: 1\ntargets: [claude]\napprovals:\n  mode: review\n"
+			approvalsWritePause = func() { writeFile(t, path, other) }
+			t.Cleanup(func() { approvalsWritePause = func() {} })
+			rec, _ := postSetting(t, h, tc.body, withSecret(settingsTestSecret))
+			if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "changed while this change was checked") {
+				t.Fatalf("POST = %d %s", rec.Code, rec.Body)
+			}
+			if got := readFile(t, path); got != other {
+				t.Errorf("the other edit was lost:\n%s", got)
+			}
+		})
 	}
 }

@@ -535,18 +535,25 @@ func writeApprovalsAsk(source string, proven bool) (string, error) {
 			return "", errSettingNeedsProof
 		}
 	}
-	return path, editApprovalsFile(path, func([]byte) ([]byte, error) { return out, nil })
+	return path, editApprovalsFile(path, data, out)
 }
 
-// editApprovalsFile replaces the home config at path with edit's result.
-func editApprovalsFile(path string, edit func([]byte) ([]byte, error)) error {
-	data, err := os.ReadFile(path)
+// approvalsWritePause runs between the check of an approvals change and
+// its write; tests use it to change the file in between.
+var approvalsWritePause = func() {}
+
+// editApprovalsFile writes out to the home config at path when it still
+// holds planned, the bytes the change was built and checked from. Other
+// writers, such as a builtins or targets edit, do not take the approvals
+// lock, so a file that changed since is left alone.
+func editApprovalsFile(path string, planned, out []byte) error {
+	approvalsWritePause()
+	now, err := os.ReadFile(path)
 	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("read %s: %w", path, err)
 	}
-	out, err := edit(data)
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+	if !bytes.Equal(now, planned) {
+		return fmt.Errorf("%s changed while this change was checked, so it was not made; check the current value and try again", path)
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return fmt.Errorf("create %s: %w", filepath.Dir(path), err)

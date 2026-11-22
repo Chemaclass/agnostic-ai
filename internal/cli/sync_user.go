@@ -212,7 +212,7 @@ func runUserSync(cmd *cobra.Command, o userSyncOptions) error {
 		old: old, next: next, drops: drops, targets: len(targets), jsonWritten: &jsonWritten,
 	}
 	if pin, ok := cmd.Context().Value(userSyncPinKey{}).(*userSyncPin); ok {
-		pin.commands = userSyncCommands(bundle)
+		pin.commands = userSyncCommands(bundle, targets)
 	}
 	if err := run.checkPin(cmd.Context()); err != nil {
 		return err

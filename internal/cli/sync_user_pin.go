@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
@@ -67,9 +68,11 @@ func (r userRun) fingerprint() string {
 }
 
 // userSyncCommands lists, as "<kind> <name>: <command>", every command a
-// user hook or MCP server spec asks a tool to run. agnostic-ai's own
-// built-in hooks are left out.
-func userSyncCommands(bundle spec.Bundle) []string {
+// user hook or MCP server spec asks a tool to run. A hook's line is the
+// command with its args, as each of targets reads it after its override;
+// a line only some targets run names them. agnostic-ai's own built-in
+// hooks are left out.
+func userSyncCommands(bundle spec.Bundle, targets []string) []string {
 	commands := []string{}
 	add := func(label string, raw any) {
 		for _, line := range commandLines(raw) {
@@ -82,15 +85,14 @@ func userSyncCommands(bundle spec.Bundle) []string {
 		if hook.Layer == "builtin" {
 			continue
 		}
-		label := "hook " + hook.Name + ": "
-		for _, key := range []string{"command", "commandWindows"} {
-			add(label, hook.Meta[key])
-		}
-		for field, raw := range hook.Meta {
-			if override, ok := raw.(map[string]any); ok && strings.HasPrefix(field, "x-") {
-				for _, key := range []string{"command", "commandWindows"} {
-					add(label, override[key])
-				}
+		label := "hook " + hook.Name
+		lines, reached := userHookLines(hook, targets)
+		for _, line := range lines.order {
+			on := lines.targets[line]
+			if len(on) == len(reached) {
+				add(label+": ", line)
+			} else {
+				add(label+" ("+strings.Join(on, ", ")+"): ", line)
 			}
 		}
 	}
@@ -112,6 +114,43 @@ func userSyncCommands(bundle spec.Bundle) []string {
 		}
 	}
 	return commands
+}
+
+// hookLines are a hook's command lines in first-seen order, each with
+// the targets that run it.
+type hookLines struct {
+	order   []string
+	targets map[string][]string
+}
+
+// userHookLines renders hook's command lines for each target it reaches,
+// and returns those targets.
+func userHookLines(hook spec.Entry, targets []string) (hookLines, []string) {
+	lines := hookLines{targets: map[string][]string{}}
+	var reached []string
+	for _, target := range targets {
+		if !hook.EmitsTo(target) {
+			continue
+		}
+		reached = append(reached, target)
+		resolved := adapters.TargetHook(target, hook)
+		args := stringSliceFromAny(resolved.Meta["args"])
+		override, _ := hook.Meta["x-"+target].(map[string]any)
+		// A Windows command under the override is listed too, so nothing it may run is hidden.
+		for _, raw := range []any{resolved.Meta["command"], resolved.Meta["commandWindows"], override["commandWindows"]} {
+			for _, command := range userHookCommands(raw) {
+				line := strings.TrimSpace(adapters.ExecFormCommand(command, args))
+				if line == "" || slices.Contains(lines.targets[line], target) {
+					continue
+				}
+				if _, seen := lines.targets[line]; !seen {
+					lines.order = append(lines.order, line)
+				}
+				lines.targets[line] = append(lines.targets[line], target)
+			}
+		}
+	}
+	return lines, reached
 }
 
 // mcpCommandLine is a server's command with its args, cwd and env, or

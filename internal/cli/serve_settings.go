@@ -398,14 +398,12 @@ func writeApprovalsSetting(source, key string, value any, proven bool) ([]string
 		// a repair could turn on what it holds before any check runs.
 		return nil, errBrokenBlockNeedsProof
 	}
-	undo, err := restorePoint(path)
-	if err != nil {
-		return nil, err
-	}
 	data, err := os.ReadFile(path)
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+	missing := errors.Is(err, fs.ErrNotExist)
+	if err != nil && !missing {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
+	undo := restoreTo(path, data, missing)
 	ours, err := approvalsSetYAML(data, key, value)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -420,7 +418,7 @@ func writeApprovalsSetting(source, key string, value any, proven bool) ([]string
 	case err == nil && !proven && approvalsLoosened(before, home):
 		return nil, errSettingNeedsProof
 	}
-	if err := editApprovalsFile(path, func([]byte) ([]byte, error) { return ours, nil }); err != nil {
+	if err := editApprovalsFile(path, data, ours); err != nil {
 		return nil, err
 	}
 	restore := func() error { return undo(ours) }
@@ -479,22 +477,17 @@ func approvalsHolds(home config.ApprovalsConfig, key string, value any) bool {
 	return false
 }
 
-// restorePoint returns a func that puts path back as it is now (its
-// bytes, or no file) once an edit wrote ours. It leaves alone a file
+// restoreTo returns a func that puts path back to before (its bytes, or
+// no file when missing) once an edit wrote ours. It leaves alone a file
 // another program changed since.
-func restorePoint(path string) (func(ours []byte) error, error) {
-	before, err := os.ReadFile(path)
-	missing := errors.Is(err, fs.ErrNotExist)
-	if err != nil && !missing {
-		return nil, fmt.Errorf("read %s: %w", path, err)
-	}
+func restoreTo(path string, before []byte, missing bool) func(ours []byte) error {
 	return func(ours []byte) error {
 		now, err := os.ReadFile(path)
 		if err != nil || !bytes.Equal(now, ours) {
 			return fmt.Errorf("%s changed while the change was undone, so it was left as it is; check the approvals block", path)
 		}
 		return putBack(path, before, missing)
-	}, nil
+	}
 }
 
 func putBack(path string, before []byte, missing bool) error {
