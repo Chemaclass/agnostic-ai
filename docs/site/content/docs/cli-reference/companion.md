@@ -167,17 +167,17 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
 | `companion install-command --app /Applications/agnostic-ai\ companion.app` | Links the app's bundled CLI into a command folder on macOS. |
 | `companion update-app --app /Applications/agnostic-ai\ companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
-| `companion update-status --json` | Prints the installed and latest stable release, the install method, its upgrade command, whether `agnostic-ai upgrade` can run it (`oneClick`), whether the CLI can check an approved release before upgrading (`confirmsRelease`), and on macOS whether the newer release lists a disk image for this Mac (`image`), or why that is unknown (`imageError`). The companion reads it to offer an update. The answer is kept for up to a day in the cache `agnostic-ai upgrade` shares, and an automatic check can use the last verified answer offline. `--refresh` asks GitHub now and reports a failed check. |
+| `companion update-status --json` | Prints the installed and latest stable release, the install method, its upgrade command, whether `agnostic-ai upgrade` can run it (`oneClick`), whether the CLI can check an approved release before upgrading (`confirmsRelease`), and on macOS whether the newer release lists a disk image for this Mac (`image`), or why that is unknown (`imageError`). The companion reads it to offer an update. The answer is cached for up to a day, shared with `agnostic-ai upgrade`; an automatic check can use the last verified answer offline. `--refresh` asks GitHub now and reports a failed check. |
 
 {% <details summary="Details: stop and uninstall"> %}
-- `stop` when nothing runs: it succeeds and says so.
+- `stop` with nothing running succeeds and says so.
 - **Quit Agnostic AI companion** in the menus does the same as `stop`.
-- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) and its lock file, `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
-- When the companion cannot run at all, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
+- `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) with its lock, `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
+- When the companion cannot run, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
 - `stop` and `uninstall` manage the terminal-installed companion. For the disk-image app, quit from its menu, turn off **Start at login**, remove any CLI link you installed, then move the app from Applications to Trash.
 - It also removes a login entry that a deleted program left behind: a file on macOS and Linux, the `agnostic-ai-companion` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on Windows.
-- On Windows the companion keeps its browser data in the `companion` folder, which `uninstall` deletes. It also deletes the `agnostic-ai-companion.exe` folder that earlier companions left in `%AppData%`.
+- On Windows the companion keeps its browser data in the `companion` folder, which `uninstall` deletes. It also deletes the `agnostic-ai-companion.exe` folder older companions left in `%AppData%`.
 - On Linux the CLI reaches the companion over the D-Bus session bus. In a shell without one, such as an SSH login, `stop` says so and stops nothing, and `uninstall` warns and still deletes the files.
 {% </details> %}
 
@@ -191,8 +191,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Dim when idle** | Fades the circle while nothing needs you. |
 | **Small companion** | A 40px circle instead of 60px. |
 | **Start at login** | Starts it when you log in. |
-| **When a tool asks permission** | The [approvals](#approvals) mode: **Ask me**, **Let the tool's reviewer decide** or **Approve routine calls for me**. The last two ask once before saving. Only the list's ⋯ menu shows it. |
-| **Approve and deny from this list** | Shows **Approve** and **Deny** on a row when a Claude Code or Codex request is left to you ([`approvals.companion`](@/docs/approvals.md#answer-from-the-companion)). Only the list's ⋯ menu shows it. |
+| **When a tool asks permission** and **Approve and deny from this list** | [Approvals settings](@/docs/approvals.md#change-it-from-the-companion). List menu only. |
 | **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. Only the list's ⋯ menu shows it. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
@@ -251,9 +250,7 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 - The reason line sits under the approval pill. agnostic-ai words it from the always-ask rule that matched, or from why approvals did not answer. A session's own text never reaches it, so a file in a repository cannot fake it.
 - The header chip names the loosest mode: `review` or `yolo`.
 - With [`approvals.companion: true`](@/docs/approvals.md#answer-from-the-companion), a held Claude Code request shows in full under the pill, with **Approve** and **Deny**.
-- The ⋯ menu shows the mode and the **Approve and deny from this list** switch from the home config, and changes them in the file the [settings reference](@/docs/global-configuration-reference.md#global-approvals) names. When the server cannot be read, both rows hide and the rest of the menu works. A change made in the home config or another page shows in the open menu within 2 seconds.
-- Under the rows, a status line says why a tool still asks, how many tools and folders have their own mode, and which shared keys a local block hides. When a sync would put the mode in effect, such as on a machine without the approvals hook, it says **Not in effect yet** and offers **Apply to my tools**. That button lists every file `agnostic-ai sync --scope user` would change, including changes that are not about approvals, and runs it after you confirm. After the sync writes the Codex hooks file, open `/hooks` in Codex once and trust it.
-- **Ask me**, in the menu or on the chip, writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The agnostic-ai hook stops approving requests right away. Run `agnostic-ai sync --scope user` to remove native reviewer settings that agnostic-ai wrote. In a running session, switch modes in the tool.
+- **Ask me** writes `approvals.mode: ask` to `$AGNOSTIC_AI_HOME/local/agnostic-ai.yaml`, as `agnostic-ai approvals ask` does. The hook stops approving at once. Run `agnostic-ai sync --scope user` to remove native reviewer settings it wrote. In a running session, switch modes in the tool.
 
 {% <details summary="Details: the brief Claude Code prompt, counts, limits"> %}
 - With the `yolo` hook active, Claude Code can show its prompt while the hook runs. The companion lists the permission wait when the log says `asked` or after 10 seconds with no decision. Until then the row shows as working.

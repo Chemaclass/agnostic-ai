@@ -516,7 +516,7 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 	}
 	changed, err := h.apply(r.Context(), change.Key, value.value)
 	if err != nil {
-		writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: err.Error(), Settings: ptr(h.document(r))})
+		writeEditJSON(w, http.StatusConflict, settingsRefusal{Error: err.Error(), Settings: new(h.document(r))})
 		return
 	}
 	if value.loosens {
@@ -528,8 +528,6 @@ func (h *settingsHandler) write(w http.ResponseWriter, r *http.Request) {
 	}
 	writeEditJSON(w, http.StatusOK, settingsWriteReply{Settings: after, Changed: changed})
 }
-
-func ptr[T any](v T) *T { return &v }
 
 func sameJSONValue(raw json.RawMessage, value any) bool {
 	var got any

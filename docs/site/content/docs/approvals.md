@@ -37,7 +37,13 @@ agnostic-ai approvals status
 
 A user-level sync installs the `PermissionRequest` hook. Each tool's [setup and limits](#per-tool) still apply. The hook reads the mode on every request. Changing it needs no sync for the hook to respond.
 
-Or open the companion list's ⋯ menu and choose **Approve routine calls for me** under **When a tool asks permission**. It asks once, then writes the mode and adds `approvals` to `builtins` when it is missing. The menu then says **Not in effect yet**: click **Apply to my tools**, check the files it lists, and confirm. See [the menu](@/docs/cli-reference/companion.md#approvals).
+### Change it from the companion {#change-it-from-the-companion}
+
+Open the companion list's ⋯ menu and choose a mode under **When a tool asks permission**: **Ask me**, **Let the tool's reviewer decide** or **Approve routine calls for me**. The two looser modes ask once. The menu writes the mode in the file the [settings reference](@/docs/global-configuration-reference.md#global-approvals) names, and adds `approvals` to `builtins` when it is missing.
+
+- A status line under the rows says why a tool still asks, how many tools and folders have their own mode, and which shared keys a local block hides.
+- **Not in effect yet** means a sync would put the setting in effect, such as on a machine without the hook. **Apply to my tools** lists every file `agnostic-ai sync --scope user` would change, including changes that are not about approvals, and runs it after you confirm. After it writes the Codex hooks file, open `/hooks` in Codex once and trust it.
+- A change made in the home config or another page shows in the open menu within 2 seconds. When the server cannot be read, the approvals rows hide and the rest of the menu works.
 
 ## Modes
 
