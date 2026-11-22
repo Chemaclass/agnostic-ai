@@ -390,7 +390,7 @@ func TestUpgradeCompanion_AcceptsANewerReleaseThePackageManagerInstalled(t *test
 	if want := []string{"--version", "companion install"}; !reflect.DeepEqual(commands, want) {
 		t.Errorf("commands = %v, want %v", commands, want)
 	}
-	for _, line := range []string{"The package manager installed 2.1.0, newer than the release checked (2.0.0).", "Terminal update completed."} {
+	for _, line := range []string{"The CLI is now 2.1.0, newer than the release checked (2.0.0).", "Terminal update completed."} {
 		if !strings.Contains(log.String(), line) {
 			t.Errorf("log %q; want %q", &log, line)
 		}

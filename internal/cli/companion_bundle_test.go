@@ -554,3 +554,48 @@ func TestInstallCompanion_KeepsTheEarlierAppWhenTheNewOneDoesNotStartAndCannotBe
 		t.Errorf("output %q", out.String())
 	}
 }
+
+func TestInstallCompanion_KeepsTheEarlierAppWhenTheNewOneCannotMoveOut(t *testing.T) {
+	dir := t.TempDir()
+	installedCompanion(t, dir, "darwin")
+	app := companionBundle(dir)
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	tools.start = func(string, []string) error { return errors.New("open refused") }
+	tools.rename = func(from, to string) error {
+		if from == app && !strings.HasSuffix(to, companionAsideName) {
+			return errors.New("busy")
+		}
+		return os.Rename(from, to)
+	}
+
+	err := installCompanion(context.Background(), io.Discard, false, tools, dir, macBuild(), nil)
+
+	var kept companionKeptAside
+	if !errors.As(err, &kept) {
+		t.Fatalf("err = %v; want the earlier companion kept aside", err)
+	}
+	if raw, readErr := os.ReadFile(filepath.Join(kept.aside, "Contents", "MacOS", companionName)); string(raw) != "the one that works" {
+		t.Errorf("the earlier companion at %s is gone (%v)", kept.aside, readErr)
+	}
+}
+
+func TestInstallCompanion_ReportsTheStartFailureWhenNoEarlierAppWasReplaced(t *testing.T) {
+	dir := t.TempDir()
+	bareCompanion(t, dir)
+	tools := builtTools(t)
+	var asked int
+	tools.quit = runsUntilAsked(&asked)
+	tools.start = func(string, []string) error { return errors.New("open refused") }
+	var out bytes.Buffer
+
+	err := installCompanion(context.Background(), &out, false, tools, dir, macBuild(), nil)
+
+	if err == nil || !strings.Contains(err.Error(), "start the companion: open refused") {
+		t.Fatalf("err = %v", err)
+	}
+	if strings.Contains(out.String(), "Could not restore the earlier companion.") {
+		t.Errorf("output %q; nothing was saved to restore", out.String())
+	}
+}

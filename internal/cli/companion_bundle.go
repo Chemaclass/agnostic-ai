@@ -138,15 +138,19 @@ func replaceCompanionApp(rename func(from, to string) error, built, installed, s
 	return nil
 }
 
+// errNoEarlierCompanion is an install that replaced no app, such as one
+// over a bare program, so there is nothing to put back.
+var errNoEarlierCompanion = errors.New("no earlier companion app to restore")
+
 // restoreCompanionApp undoes replaceCompanionApp: the new app goes back to
 // built and the earlier one, moved aside, returns to installed.
 func restoreCompanionApp(rename func(from, to string) error, built, installed, staging string) error {
 	aside := filepath.Join(staging, companionAsideName)
 	if _, err := os.Stat(aside); err != nil {
-		return fmt.Errorf("no earlier companion to restore: %w", err)
+		return errNoEarlierCompanion
 	}
 	if err := rename(installed, built); err != nil {
-		return err
+		return companionKeptAside{err: err, aside: aside, installed: installed}
 	}
 	if err := rename(aside, installed); err != nil {
 		return companionKeptAside{err: err, aside: aside, installed: installed}

@@ -119,7 +119,8 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	if cache.GuidedFailureCurrent == current && cache.GuidedFailureAt.After(cache.CheckedAt) && recent(cache.GuidedFailureAt) {
 		return upgradeOffer{}, nil
 	}
-	if !recent(cache.CheckedAt) || cache.Current != current {
+	fetched := !recent(cache.CheckedAt) || cache.Current != current
+	if fetched {
 		offer, err := fetch(current)
 		if err != nil {
 			_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
@@ -141,8 +142,11 @@ func cachedUpgradeOfferAt(path, current string, now time.Time, fetch func(string
 	}
 	// The companion fields belong to companion update-status; keep what it wrote meanwhile.
 	_ = updateUpgradeCache(path, func(stored *upgradeCheckCache) {
-		stored.CheckedAt, stored.Current, stored.Offer, stored.OfferedAt = cache.CheckedAt, cache.Current, cache.Offer, cache.OfferedAt
-		stored.GuidedFailureAt, stored.GuidedFailureCurrent = cache.GuidedFailureAt, cache.GuidedFailureCurrent
+		if fetched && !stored.CheckedAt.After(cache.CheckedAt) {
+			stored.CheckedAt, stored.Current, stored.Offer = cache.CheckedAt, cache.Current, cache.Offer
+			stored.GuidedFailureAt, stored.GuidedFailureCurrent = cache.GuidedFailureAt, cache.GuidedFailureCurrent
+		}
+		stored.OfferedAt = cache.OfferedAt
 	})
 	if !offering {
 		return upgradeOffer{}, nil
@@ -173,7 +177,11 @@ func updateUpgradeCache(path string, change func(*upgradeCheckCache)) error {
 		if err == nil {
 			break
 		}
-		if !projectLockContended(err) || try == upgradeCacheLockTries {
+		if !projectLockContended(err) {
+			// Without file locks the cache is still written, as before the lock existed.
+			break
+		}
+		if try == upgradeCacheLockTries {
 			return fmt.Errorf("lock %s: %w", path, err)
 		}
 		time.Sleep(upgradeCacheLockPause)

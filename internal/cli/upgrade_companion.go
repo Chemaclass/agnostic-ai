@@ -111,7 +111,7 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 		// is already in place, so the companion follows it.
 		aheadOfCheck := err == nil && info.Method != installBinary && newerStableRelease(reported, version)
 		if aheadOfCheck {
-			_, _ = fmt.Fprintf(out, "The package manager installed %s, newer than the release checked (%s).\n", reported, version)
+			_, _ = fmt.Fprintf(out, "The CLI is now %s, newer than the release checked (%s).\n", reported, version)
 		}
 		if err == nil && !aheadOfCheck {
 			if reported == "" || (version != "" && !versionsEqual(reported, version)) || (version == "" && versionsEqual(reported, info.Version)) {

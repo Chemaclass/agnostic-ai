@@ -277,7 +277,9 @@ func replaceInstalledCompanion(ctx context.Context, out io.Writer, tools compani
 // The companion reads these lines from its update log.
 func restartEarlierInstalledCompanion(out io.Writer, tools companionTools, dir, installed string, restore func() error, startErr error) (keepStaging bool, err error) {
 	_, _ = fmt.Fprintln(out, "Could not start the updated companion.")
-	if restoreErr := restore(); restoreErr != nil {
+	if restoreErr := restore(); errors.Is(restoreErr, errNoEarlierCompanion) {
+		return false, startErr
+	} else if restoreErr != nil {
 		_, kept := errors.AsType[companionKeptAside](restoreErr)
 		_, _ = fmt.Fprintf(out, "Could not restore the earlier companion. %v\n", restoreErr)
 		return kept, errors.Join(startErr, restoreErr)

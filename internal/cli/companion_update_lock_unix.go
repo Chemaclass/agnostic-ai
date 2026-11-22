@@ -17,14 +17,15 @@ import (
 func lockCompanionUpdate(app string) (release func(), err error) {
 	folder, err := os.Open(filepath.Dir(app))
 	if err != nil {
-		return nil, fmt.Errorf("lock %s for the update: %w", app, err)
+		return func() {}, nil
 	}
 	if err := unix.Flock(int(folder.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		_ = folder.Close()
 		if errors.Is(err, unix.EWOULDBLOCK) || errors.Is(err, unix.EAGAIN) {
 			return nil, fmt.Errorf("another update of %s is running; wait for it to finish", app)
 		}
-		return nil, fmt.Errorf("lock %s for the update: %w", app, err)
+		// A folder that takes no lock still updates; the steps that follow report real problems.
+		return func() {}, nil
 	}
 	return func() { _ = folder.Close() }, nil
 }
