@@ -153,6 +153,28 @@ outputs = [
   { tool = "Gemini CLI", path = ".gemini/settings.json", part = "json:hooks" },
 ]
 
+[companion]
+eyebrow = "macOS app"
+title = "Your chats, one click away."
+muted_title = "The companion."
+body = "A small circle floats over every app and counts the Claude Code, Codex and Cursor chats that wait for you. Click it to answer a question or open the chat. The download includes the CLI and the web dashboard, so it works on its own."
+requirements = "macOS 13 or later. The app is not notarized, so macOS may warn on first launch."
+requirements_link = "What to expect"
+other_os = "Not on a Mac? Windows and Linux can build it with `agnostic-ai companion install`, still experimental."
+other_os_link = "Install from the terminal"
+docs_label = "Read the companion guide"
+release_base = "https://github.com/Chemaclass/agnostic-ai/releases/latest/download/"
+downloads = [
+  { label = "Download for Apple silicon", hint = "M1 and newer", asset = "agnostic-ai-companion_darwin_arm64.dmg", primary = true },
+  { label = "Download for Intel", hint = "Older Macs", asset = "agnostic-ai-companion_darwin_amd64.dmg" },
+]
+preview_group = "Needs you"
+preview_rows = [
+  { tool = "Claude Code", title = "Fix the flaky login test", state = "Asks you a question" },
+  { tool = "Codex", title = "Add rate limits to the API", state = "No activity for 7m" },
+  { tool = "Cursor", title = "Rename the billing module", state = "New reply" },
+]
+
 [updates]
 new_label = "New"
 links = [

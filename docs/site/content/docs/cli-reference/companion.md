@@ -284,7 +284,7 @@ Older CLIs, unknown install methods, missing package managers, and other systems
 - Ran on macOS 27 (arm64): `agnostic-ai companion update-status --json --refresh` with the short `PATH` a Finder launch gets and an empty home folder. It read the latest release, v0.96.0, and reported no disk image, as the release page shows.
 - Ran with the same short `PATH` plus the folders above: Homebrew was found and ran; an npm installed through nvm was not found.
 - The companion's Go tests cover each update state, both install kinds and each failure reason. Its node tests and the Playwright suite cover what the list shows in each state.
-- Not run: a whole update from one released disk image to the next, since no release ships a disk image yet. That covers the download, build provenance, the signer check, the swap and the restart.
+- Not run: a whole update from one released disk image to the next, since releases then had no disk image. That covers the download, build provenance, the signer check, the swap and the restart.
 - Not run: that the updated app opens without a Gatekeeper dialog, and that Accessibility access survives a real update.
 - Not run: a certificate rotation, and a restart of a terminal-installed companion started from a terminal window.
 {% </details> %}
