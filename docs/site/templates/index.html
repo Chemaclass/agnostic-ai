@@ -157,6 +157,32 @@
     </div>
   </section>
 
+  {% set companion = landing.companion %}
+  <section class="companion" id="companion">
+    <div class="wrap companion-grid">
+      <div class="companion-copy">
+        <p class="companion-eyebrow">{{ companion.eyebrow }}</p>
+        <h2 class="section-title">{{ companion.title }}<br><span>{{ companion.muted_title }}</span></h2>
+        <p class="companion-lead">{{ companion.body }}</p>
+        <div class="companion-downloads">
+          {% for download in companion.downloads %}<a class="button {% if download.primary %}button-primary{% else %}button-secondary{% endif %} companion-download" href="{{ companion.release_base }}{{ download.asset }}" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 19.5h14"/></svg><span>{{ download.label }}<small>{{ download.hint }}</small></span></a>{% endfor %}
+        </div>
+        <p class="companion-note">{{ companion.requirements }} <a href="{{ get_url(path='@/docs/cli-reference/companion.md') }}#install">{{ companion.requirements_link }}</a></p>
+        <p class="companion-note">{{ companion.other_os | markdown(inline=true) | safe }} <a href="{{ get_url(path='@/docs/cli-reference/companion.md') }}#install-from-terminal">{{ companion.other_os_link }}</a></p>
+        <a class="companion-more" href="{{ get_url(path='@/docs/cli-reference/companion.md') }}">{{ companion.docs_label }} <span aria-hidden="true">&rarr;</span></a>
+      </div>
+      <figure class="companion-preview" aria-hidden="true">
+        <div class="companion-panel">
+          <p class="companion-group">{{ companion.preview_group }}<span>{{ companion.preview_rows | length }}</span></p>
+          <ul>
+            {% for row in companion.preview_rows %}<li><span class="companion-dot"></span><span class="companion-row"><strong>{{ row.title }}</strong><span>{{ row.tool }} &middot; {{ row.state }}</span></span></li>{% endfor %}
+          </ul>
+        </div>
+        <div class="companion-bubble"><span>{{ companion.preview_rows | length }}</span></div>
+      </figure>
+    </div>
+  </section>
+
   {% if latest_update %}{% set title_parts = latest_update.title | split(pat=": ") %}
   <section class="update-strip" id="updates">
     <div class="wrap update-strip-row">

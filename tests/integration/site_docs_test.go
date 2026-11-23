@@ -677,12 +677,19 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	proofIndex := strings.Index(home, `id="first-sync"`)
 	quickstartIndex := strings.Index(home, `id="quickstart"`)
 	explorerIndex := strings.Index(home, `id="source-explorer"`)
+	companionIndex := strings.Index(home, `id="companion"`)
 	updatesIndex := strings.Index(home, `id="updates"`)
-	if proofIndex < 0 || quickstartIndex < 0 || explorerIndex < 0 || updatesIndex < 0 || proofIndex >= quickstartIndex || quickstartIndex >= explorerIndex || explorerIndex >= updatesIndex {
-		t.Errorf("home blocks are not ordered hero, steps, explorer, updates: %d, %d, %d, %d", proofIndex, quickstartIndex, explorerIndex, updatesIndex)
+	if proofIndex < 0 || quickstartIndex < 0 || explorerIndex < 0 || companionIndex < 0 || updatesIndex < 0 || proofIndex >= quickstartIndex || quickstartIndex >= explorerIndex || explorerIndex >= companionIndex || companionIndex >= updatesIndex {
+		t.Errorf("home blocks are not ordered hero, steps, explorer, companion, updates: %d, %d, %d, %d, %d", proofIndex, quickstartIndex, explorerIndex, companionIndex, updatesIndex)
 	}
-	if count := strings.Count(home, "<section"); count != 4 {
-		t.Errorf("home page has %d sections, want the 4 blocks: hero, steps, explorer, updates", count)
+	if count := strings.Count(home, "<section"); count != 5 {
+		t.Errorf("home page has %d sections, want the 5 blocks: hero, steps, explorer, companion, updates", count)
+	}
+	for _, arch := range []string{"arm64", "amd64"} {
+		download := "https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai-companion_darwin_" + arch + ".dmg"
+		if !strings.Contains(home, download) {
+			t.Errorf("home page is missing the companion download %q", download)
+		}
 	}
 	for _, assetURL := range []string{
 		"https://agnostic-ai.org/assets/styles/base.css",
