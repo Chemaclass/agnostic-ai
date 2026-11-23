@@ -938,6 +938,19 @@ test.describe('conversations by week', () => {
     await expect(note).toHaveCount(1)
     await expect(page.getByText("That's every conversation.")).toHaveCount(0)
   })
+
+  test('shows a cloud problem first reported by an older page', async ({ page }) => {
+    const cloudNote = 'Codex cloud threads are not listed: the cloud service did not answer.'
+    await mockServer(page, opened, (before) => ({ json: before ? { ...weekBefore, cloudNote } : firstWeek }))
+    await page.goto('/')
+    await expect(page.getByRole('button', { name: 'Load the week before' })).toBeVisible()
+    await expect(page.getByText(cloudNote, { exact: true })).toHaveCount(0)
+
+    await scrollToEnd(page)
+    await expect(row(page, 'Port the docs search to Pagefind')).toBeVisible()
+    await expect(page.getByText(cloudNote, { exact: true })).toBeVisible()
+    await expect(page.getByText("That's every conversation.")).toHaveCount(0)
+  })
 })
 
 test.describe('conversations on a touch screen', () => {

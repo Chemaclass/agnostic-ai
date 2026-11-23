@@ -221,7 +221,7 @@ export function ConversationsPage() {
   const matching = filterConversations(rows, '', tool)
   const groups = groupConversations(matching, now)
   const matches = pages[0]?.matches
-  const cloudNote = pages[0]?.cloudNote
+  const cloudNote = pages.reduce<string | undefined>((note, page) => page.cloudNote ?? note, undefined)
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 

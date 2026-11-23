@@ -167,7 +167,7 @@ The page reads `GET /api/views/conversations?editor=<id>` using the editor chose
 
 An `IntersectionObserver` near the list's end loads the next week, one request at a time. **Load the week before** provides the same action by click or keyboard and works without the observer. While loading it reads **Loading the week before…**. A failed request keeps the loaded rows and offers **Try again** for that week. Rows merge by tool and id, with the later copy winning, newest first, and open chats on top.
 
-The note below the list explains when cloud chats could not be loaded and updates when the first page is refreshed. When no cloud issue is reported and there is no next page, the list ends with **That's every conversation.**
+The note below the list shows the last cloud problem reported by a loaded page. It clears when a refreshed list reports no cloud problem. When no cloud problem is reported and there is no next page, the list ends with **That's every conversation.**
 
 `conversationsVerdict` reports open chats, those waiting for you and those with no recent activity, or when the last chat ran. The facts line counts loaded chats. Tool filters show **All** and an `aria-pressed` toggle for each detected store, with its loaded count and a tooltip such as "12 of 66 Codex chats loaded." Pressing the selected tool restores All. Missing stores are omitted.
 
