@@ -81,11 +81,17 @@ allow_remote_control socket-only
 listen_on unix:/tmp/kitty-{kitty_pid}
 ```
 
-Then any program you run can control kitty through that socket, not only agnostic-ai. Without them, a kitty session's app comes forward and the message gives these lines. agnostic-ai never edits `kitty.conf`. The same lines work on Linux. A socket kitty names with `@`, such as `unix:@kitty`, is not found.
+Then any program you run can control kitty through that socket, not only agnostic-ai. Without them, the message gives these lines. On macOS the app also comes forward. agnostic-ai never edits `kitty.conf`. The same lines work on Linux. A socket kitty names with `@`, such as `unix:@kitty`, is not found.
 
 #### Konsole on Linux {#konsole-on-linux}
 
-agnostic-ai reaches Konsole over D-Bus with `dbus-send`. It selects and names a tab with no setup. Konsole 26.04 refuses typed text and commands in a new tab until you turn on **Enable the security sensitive parts of the DBus API** in its settings, under **General**. While it is off, the reply names it, the text stays on the clipboard to paste, and a resumed chat gets a new tab in its folder and the command to run there. Konsole 23.08 allowed both with no change in our tests. Other versions were not tested.
+agnostic-ai reaches Konsole over D-Bus with `dbus-send`. It selects and names a tab with no setup. Konsole 26.04 refuses typed text and commands in a new tab until you turn on **Enable the security sensitive parts of the DBus API** in its settings, under **General**. While it is off, the reply names it, the text stays on the clipboard to paste, and a resumed chat gets a new tab in its folder and the command to run there. Konsole 23.08 allowed both with no change in our tests.
+
+#### Linux desktop checks
+
+We checked WezTerm on X11 with Openbox, and kitty and tmux on X11 and Wayland with Openbox and headless Sway. In KDE Plasma 6.3.6 on X11, kitty 0.51.1 selected the right tab and resumed an ended chat in its folder. tmux 3.5a selected the right pane and its outer kitty tab. The API named GNOME Terminal 3.56.2 and returned `opened: false`.
+
+Konsole 25.04.2 on Debian 13 passed tab selection and renaming in KDE Plasma 6.3.6 on X11. Typing and resuming in a new tab passed with the D-Bus command setting enabled. While Konsole was in the background, the API selected the tab and returned `opened: false`. When we brought Konsole forward, the requested tab was selected. The Plasma checks used Xvfb and stand-in chat metadata. Earlier X11 checks covered Konsole 23.08 and the fallback with the D-Bus setting off in 26.04.
 
 ### When it refuses
 
