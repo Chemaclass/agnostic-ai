@@ -806,13 +806,11 @@ for (const [title, id, archived] of [
     const item = page.getByRole('menuitem', { name: 'Copy session ID' })
     const menu = page.getByRole('menu', { name: 'Conversation' })
     await chat.click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Rename…' }).press('ArrowDown')
-    await expect(item).toBeFocused()
+    await expect(item).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
     await chat.click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Rename…' }).press('ArrowDown')
-    await page.keyboard.press('Enter')
+    await item.press('Enter')
 
     await expect(menu).toBeHidden()
     await expect(page.locator('#toast[role=status]')).toHaveText('Session ID copied.')
@@ -847,6 +845,19 @@ async function chooseMailboxTarget(page: Page) {
   await mailboxTo(page).selectOption({ label: mailboxTargetLabel })
 }
 
+async function openThreadMore(thread: Locator) {
+  const more = thread.locator('.mailbox-more')
+  await expect(more.locator('summary')).toBeVisible()
+  if (await more.getAttribute('open') === null) await more.locator('summary').click()
+}
+
+async function threadControl(thread: Locator, action: string) {
+  const control = thread.locator('[data-mailbox-control="' + action + '"]')
+  await expect(control).toHaveCount(1)
+  if (!await control.isVisible()) await openThreadMore(thread)
+  return control
+}
+
 async function composeMailbox(page: Page) {
   await row(page, 'Review the parser').click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Message another session…' }).click()
@@ -863,7 +874,7 @@ async function askMailbox(page: Page, text = 'Is the parser ready?') {
 }
 
 async function replyInMailbox(page: Page, text: string) {
-  await mailboxThread(page).getByRole('button', { name: 'Reply' }).click()
+  await (await threadControl(mailboxThread(page), 'reply')).click()
   await page.getByLabel('Message', { exact: true }).fill(text)
   await mailboxSend(page).click()
 }
@@ -881,10 +892,10 @@ test('sends a question to a pasted session ID and shows the thread under both se
   await page.getByRole('button', { name: 'Send to Draft the tests' }).click()
   expect((await send).postDataJSON()).toMatchObject({ to: { tool: 'codex', id: mailboxTarget }, type: 'question', body: 'Is the parser ready?' })
   await expect(page.locator('#toast')).toHaveText('Message waiting in the thread with Draft the tests.')
-  await expect(mailboxSummary(page)).toContainText('Question · Open · 1 of 8 messages, 1 waiting')
-  await expect(page.getByRole('button', { name: /^With Review the parser/ })).toContainText('1 of 8 messages, 1 waiting')
+  await expect(mailboxSummary(page)).toContainText('Question · The message is waiting. Open the thread for the recipient and delivery options.')
+  await expect(page.getByRole('button', { name: /^With Review the parser/ })).toContainText('Open the thread for the recipient and delivery options')
   await mailboxSummary(page).press('Enter')
-  await expect(mailboxThread(page)).toContainText('Review the parser · Question · Waiting')
+  await expect(mailboxThread(page)).toContainText('Review the parser · Question · Waiting for delivery')
   await expect(mailboxThread(page)).toContainText('Is the parser ready?')
   expect(await calledPaths(page)).not.toContain('/api/mark')
 })
@@ -1021,7 +1032,7 @@ test('a mailbox reply names the other session and offers no receiver choice', as
   await openPanel(page, 'mailbox')
   await askMailbox(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Reply' }).click()
+  await (await threadControl(mailboxThread(page), 'reply')).click()
   const form = page.getByRole('form', { name: 'Reply to Draft the tests' })
   await expect(form).toBeVisible()
   await expect(page.locator('#mailbox-to-name')).toHaveText('Draft the tests · Codex · agnostic-ai')
@@ -1037,42 +1048,71 @@ test('pause refuses a mailbox reply in one click and resume allows the draft', a
   await openPanel(page, 'mailbox')
   await askMailbox(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Pause' }).click()
-  await expect(mailboxThread(page).getByRole('button', { name: 'Resume' })).toBeVisible()
+  await (await threadControl(mailboxThread(page), 'pause')).click()
+  await expect(mailboxThread(page).getByRole('button', { name: 'Resume thread' })).toBeVisible()
   await replyInMailbox(page, 'Wait for me.')
   await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: paused')
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(mailboxThread(page)).toContainText('Refused (guard: paused)')
-  await mailboxThread(page).getByRole('button', { name: 'Resume' }).click()
-  await expect(mailboxThread(page).getByRole('button', { name: 'Pause' })).toBeVisible()
+  await (await threadControl(mailboxThread(page), 'resume')).click()
+  await expect(mailboxThread(page).getByRole('button', { name: 'Paste into chat' })).toBeVisible()
   await replyInMailbox(page, 'Ready now.')
   await expect(mailboxThread(page)).toContainText('Ready now.')
-  await expect(mailboxSummary(page)).toContainText('2 of 8 messages')
+  await expect(mailboxSummary(page)).not.toContainText('of 8 messages')
+})
+
+test('a thread prioritizes pasteable messages while automatic delivery holds a reservation', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'mailbox' } })
+  expect(reset.ok()).toBe(true)
+  await page.clock.install({ time: NOW })
+  await page.goto('/panel.html')
+  await askMailbox(page)
+
+  await page.route('**/api/mailbox/threads?*', async (route) => {
+    const response = await route.fetch()
+    const data = await response.json()
+    for (const thread of data.threads) {
+      const [message] = thread.messages
+      thread.messages = [
+        { ...message, state: 'reserved', reservedAt: NOW.toISOString() },
+        { ...message, n: 2, body: 'A later message.' },
+      ]
+    }
+    await route.fulfill({ response, json: data })
+  })
+  await mailboxSummary(page).click()
+  const thread = mailboxThread(page)
+  const primary = thread.locator('#mailbox-thread-actions > .mailbox-send')
+  await expect(primary).toHaveAttribute('data-mailbox-control', 'type-2')
+  await expect(thread.locator('[data-mailbox-control="type-1"]')).toHaveCount(0)
+  await page.clock.fastForward('01:01')
+  await expect(primary).toHaveAttribute('data-mailbox-control', 'type-1')
 })
 
 test('the message after the mailbox cap is refused, and Allow 8 more raises the cap', async ({ page }) => {
   await openPanel(page, 'mailbox-cap')
+  await expect(mailboxSummary(page)).toContainText('Choose Allow 8 more to reply.')
   await mailboxSummary(page).click()
-  await expect(mailboxThread(page)).toContainText('8 of 8 messages')
+  await expect(mailboxThread(page)).toContainText('Choose Allow 8 more to reply.')
   await replyInMailbox(page, 'One more?')
   await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: cap')
   await expect(page.locator('#toast')).toContainText('raise the limit')
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await expect(mailboxThread(page)).toContainText('Refused (guard: cap)')
-  await mailboxThread(page).getByRole('button', { name: 'Allow 8 more' }).click()
-  await expect(mailboxSummary(page)).toContainText('8 of 16 messages')
+  await (await threadControl(mailboxThread(page), 'raise-cap')).click()
+  await expect(mailboxThread(page).getByText(/reached its .* limit/)).toBeHidden()
   await replyInMailbox(page, 'One more.')
-  await expect(mailboxSummary(page)).toContainText('9 of 16 messages')
+  await expect(mailboxThread(page)).toContainText('One more.')
 })
 
 test('closing a capped mailbox accepts one done notice and drains it on copy', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openPanel(page, 'mailbox-cap')
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Close thread' }).click()
-  await expect(mailboxSummary(page)).toContainText('Done · Closing · 8 of 8 messages, 1 waiting')
-  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
-  await expect(mailboxSummary(page)).toContainText('Done · Closed · 8 of 8 messages')
+  await (await threadControl(mailboxThread(page), 'close')).click()
+  await expect(mailboxSummary(page)).toContainText('Done · The message is waiting.')
+  await (await threadControl(mailboxThread(page), 'copy-9')).click()
+  await expect(mailboxSummary(page)).toContainText('Done · This thread has ended.')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('"type":"done"')
 })
 
@@ -1080,18 +1120,35 @@ test('stop confirms and cancels waiting mailbox messages', async ({ page }) => {
   await openPanel(page, 'mailbox')
   await askMailbox(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Stop', exact: true }).press('Enter')
-  await expect(mailboxThread(page).getByRole('button', { name: 'Keep thread' })).toBeFocused()
-  await mailboxThread(page).getByRole('button', { name: 'Stop thread', exact: true }).press('Enter')
-  await expect(mailboxSummary(page)).toContainText('Closed · 1 of 8 messages')
+  const thread = mailboxThread(page)
+  const paste = thread.getByRole('button', { name: 'Paste into chat' })
+  await expect(paste).toHaveClass(/mailbox-send/)
+  await expect(thread.getByRole('button')).toHaveCount(2)
+  await expect(thread.locator('.mailbox-more > summary')).toBeVisible()
+  await expect(thread.getByRole('button', { name: 'Hide thread card' })).toHaveAttribute('title', 'Hides this card and leaves the thread running.')
+  await paste.focus()
+  await page.keyboard.press('Tab')
+  const more = thread.locator('.mailbox-more > summary')
+  await expect(more).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(thread.getByRole('button', { name: 'Finish thread' })).toHaveAttribute('title', /final done message/)
+  await expect(thread.getByRole('button', { name: 'Cancel thread…', exact: true })).toHaveAttribute('title', /cancels waiting messages/)
+  for (const button of ['Reply', 'Pause thread', 'Finish thread', 'Cancel thread…']) {
+    await page.keyboard.press('Tab')
+    await expect(thread.getByRole('button', { name: button, exact: true })).toBeFocused()
+  }
+  await page.keyboard.press('Enter')
+  await expect(thread.getByRole('button', { name: 'Keep thread' })).toBeFocused()
+  await thread.getByRole('button', { name: 'Cancel thread now', exact: true }).press('Enter')
+  await expect(mailboxSummary(page)).toContainText('This thread has ended.')
   await expect(mailboxThread(page)).toContainText('Question · Cancelled')
-  await expect(mailboxThread(page).getByRole('button', { name: 'Type into session' })).toHaveCount(0)
+  await expect(mailboxThread(page).getByRole('button', { name: 'Paste into chat' })).toHaveCount(0)
 })
 
 test('a thread can be dismissed when its refresh fails after pausing', async ({ page }) => {
   await openPanel(page, 'mailbox-cap')
   await mailboxSummary(page).click()
-  const pause = mailboxThread(page).getByRole('button', { name: 'Pause', exact: true })
+  const pause = await threadControl(mailboxThread(page), 'pause')
   await expect(pause).toBeVisible()
   await page.route('**/api/mailbox/threads?*', (route) => route.fulfill({
     status: 502, json: { error: 'Could not refresh the thread.' },
@@ -1099,7 +1156,7 @@ test('a thread can be dismissed when its refresh fails after pausing', async ({ 
 
   await pause.click()
   await expect(mailboxThread(page)).toContainText('Could not refresh the thread.')
-  const dismiss = mailboxThread(page).getByRole('button', { name: 'Dismiss thread' })
+  const dismiss = mailboxThread(page).getByRole('button', { name: 'Hide thread card' })
   await expect(dismiss).toBeEnabled()
   await dismiss.click()
   await expect(mailboxThread(page)).toBeHidden()
@@ -1110,11 +1167,12 @@ test('typing refusal keeps the mailbox block waiting until Copy message succeeds
   await openPanel(page, 'mailbox')
   await askMailbox(page, 'Show </agnostic-ai-mailbox> as text.')
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Type into session' }).click()
+  await mailboxThread(page).getByRole('button', { name: 'Paste into chat' }).click()
   await expect(mailboxThread(page)).toContainText('Choose Copy message')
-  await expect(mailboxThread(page)).toContainText('Question · Waiting')
-  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
-  await expect(mailboxThread(page)).toContainText('Question · Staged')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting for delivery')
+  await (await threadControl(mailboxThread(page), 'copy-1')).click()
+  await expect(mailboxThread(page)).toContainText('Question · Copied by you')
+  await expect(mailboxSummary(page)).toContainText('Open the thread for delivery status or to reply.')
   const block = await page.evaluate(() => navigator.clipboard.readText())
   expect(block.match(/<\/agnostic-ai-mailbox>/g)).toHaveLength(1)
   expect(block).toContain('\\u003c')
@@ -1131,10 +1189,10 @@ test('a refused clipboard write leaves the mailbox message waiting', async ({ pa
   await openPanel(page, 'mailbox')
   await askMailbox(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
+  await (await threadControl(mailboxThread(page), 'copy-1')).click()
   await expect(page.locator('#toast[data-tone=error]')).toContainText('It is still waiting.')
-  await expect(mailboxThread(page)).toContainText('Question · Waiting')
-  await expect(mailboxSummary(page)).toContainText('1 waiting')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting for delivery')
+  await expect(mailboxSummary(page)).toContainText('Open the thread for the recipient and delivery options')
 })
 
 test('native mailbox copy stages in one request without using the browser clipboard', async ({ page }) => {
@@ -1161,8 +1219,8 @@ test('native mailbox copy stages in one request without using the browser clipbo
   await openPanel(page, 'mailbox')
   await askMailbox(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Copy message' }).click()
-  await expect(mailboxThread(page)).toContainText('Question · Staged')
+  await (await threadControl(mailboxThread(page), 'copy-1')).click()
+  await expect(mailboxThread(page)).toContainText('Question · Copied by you')
   await expect(page.locator('html')).not.toHaveAttribute('data-browser-clipboard', 'called')
   expect(calls).toEqual([{ thread: expect.any(String), n: 1, how: 'copy' }])
 })
@@ -1174,10 +1232,10 @@ test('a mailbox typing receipt failure warns that text was already typed', async
   await openPanel(page, 'mailbox')
   await askMailbox(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Type into session' }).click()
+  await mailboxThread(page).getByRole('button', { name: 'Paste into chat' }).click()
   await expect(mailboxThread(page)).toContainText('The text was typed. Check that session before trying again.')
   await expect(mailboxThread(page)).not.toContainText('Choose Copy message')
-  await expect(mailboxThread(page)).toContainText('Question · Waiting')
+  await expect(mailboxThread(page)).toContainText('Question · Waiting for delivery')
 })
 
 test('an unreadable mailbox thread leaves the rest of the list available', async ({ page }) => {
@@ -1371,7 +1429,8 @@ const receiverThread = (page: Page) => page.getByRole('region', { name: 'Thread 
 
 const claimedFilesDetails = (page: Page) => page.getByText('Also give claimed files (optional)', { exact: true })
 
-test('a new mailbox handoff sends only the receiver and shows the saved note', async ({ page }) => {
+test('a new mailbox handoff sends only the receiver and shows the saved note', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await openPanel(page, 'mailbox-handoff')
   let worktreeLookups = 0
   await page.route(`**/api/mailbox/claims?tool=claude&id=${mailboxSource}`, (route) => {
@@ -1395,13 +1454,33 @@ test('a new mailbox handoff sends only the receiver and shows the saved note', a
   const claimList = await page.request.get('/api/mailbox/claims')
   expect((await claimList.json()).claims).toEqual([])
   await page.getByRole('button', { name: /^With Review the parser/ }).click()
-  await expect(receiverThread(page)).toContainText('Handoff · Waiting')
-  await expect(receiverThread(page)).toContainText(handoffWorktree)
-  await expect(receiverThread(page)).toContainText('feat/mailbox')
-  await expect(receiverThread(page)).toContainText(reviewCommit)
+  await expect(receiverThread(page)).toContainText('Handoff · Waiting for delivery')
+  const thread = receiverThread(page)
+  await expect(thread.getByText(handoffWorktree, { exact: true })).toBeHidden()
+  await thread.getByText('Handoff details', { exact: true }).click()
+  await expect(thread.getByText(handoffWorktree, { exact: true })).toBeVisible()
+  await expect(thread).toContainText('feat/mailbox')
+  const hash = thread.getByText(reviewCommit.slice(0, 7), { exact: true })
+  await expect(hash).toHaveAttribute('title', reviewCommit)
+  await expect(hash).toHaveCSS('white-space', 'nowrap')
+  await (await threadControl(thread, 'copy-commit-1')).click()
+  await expect(thread.getByRole('status')).toHaveText('Full commit hash copied.')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(reviewCommit)
   await expect(receiverThread(page).getByText(`${handoffWorktree}/app`, { exact: true })).toBeVisible()
   await expect(receiverThread(page)).toContainText(`${handoffWorktree}/app/.agnostic-ai/local/handoffs/feat-mailbox.md`)
-  await expect(receiverThread(page).getByRole('button', { name: 'Accept', exact: true })).toHaveCount(0)
+  await expect(receiverThread(page).getByRole('button', { name: 'Accept files', exact: true })).toHaveCount(0)
+})
+
+test('a handoff without a saved note skips the note row', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await composeMailbox(page)
+  await chooseMailboxTarget(page)
+  await mailboxSend(page).click()
+  await mailboxSummary(page).click()
+  const thread = mailboxThread(page)
+  await thread.getByText('Handoff details', { exact: true }).click()
+  await expect(thread.getByText('Commit', { exact: true })).toBeVisible()
+  await expect(thread.getByText('Note', { exact: true })).toHaveCount(0)
 })
 
 test('a handoff excludes paths when their disclosure is closed', async ({ page }) => {
@@ -1499,10 +1578,10 @@ test('a mailbox handoff moves no claim until the receiver accepts', async ({ pag
   const claims = await page.request.get('/api/mailbox/claims')
   expect((await claims.json()).claims).toMatchObject([{ owner: { id: mailboxSource }, paths: [handoffPath] }])
   await mailboxSummary(page).click()
-  await expect(mailboxThread(page)).toContainText('Handoff · Waiting · Offered')
-  await expect(mailboxThread(page).getByRole('button', { name: 'Accept', exact: true })).toHaveCount(0)
+  await expect(mailboxThread(page)).toContainText('Handoff · Waiting for delivery · Offered')
+  await expect(mailboxThread(page).getByRole('button', { name: 'Accept files', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: /^With Review the parser/ }).click()
-  await receiverThread(page).getByRole('button', { name: 'Accept', exact: true }).click()
+  await receiverThread(page).getByRole('button', { name: 'Accept files', exact: true }).click()
   await expect(receiverThread(page)).toContainText('Accepted')
   const moved = await page.request.get('/api/mailbox/claims')
   expect((await moved.json()).claims).toMatchObject([{ owner: { id: mailboxTarget }, paths: [handoffPath] }])
@@ -1512,7 +1591,7 @@ test('declining a mailbox handoff leaves ownership with the sender', async ({ pa
   await openPanel(page, 'mailbox-handoff')
   await offerHandoff(page)
   await page.getByRole('button', { name: /^With Review the parser/ }).click()
-  await receiverThread(page).getByRole('button', { name: 'Decline', exact: true }).click()
+  await (await threadControl(receiverThread(page), 'decline-1')).click()
   await expect(receiverThread(page)).toContainText('Declined')
   const retained = await page.request.get('/api/mailbox/claims')
   expect((await retained.json()).claims).toMatchObject([{ owner: { id: mailboxSource }, paths: [handoffPath] }])
@@ -1529,7 +1608,7 @@ test('a mailbox handoff conflict names the holder on both sessions', async ({ pa
   } })).ok()).toBe(true)
   const recipient = page.getByRole('button', { name: /^With Review the parser/ })
   await recipient.click()
-  await receiverThread(page).getByRole('button', { name: 'Accept', exact: true }).click()
+  await receiverThread(page).getByRole('button', { name: 'Accept files', exact: true }).click()
   await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: ownership')
   for (const summary of [mailboxSummary(page), recipient]) {
     await expect(summary).toContainText('Path conflict')
@@ -1544,8 +1623,8 @@ test('closing a mailbox thread keeps its file claim until Release', async ({ pag
   await openPanel(page, 'mailbox-handoff')
   await offerHandoff(page)
   await mailboxSummary(page).click()
-  await mailboxThread(page).getByRole('button', { name: 'Close thread' }).click()
-  await expect(mailboxSummary(page)).toContainText('Closing')
+  await (await threadControl(mailboxThread(page), 'close')).click()
+  await expect(mailboxSummary(page)).toContainText('Done · The message is waiting.')
   await claimsButton(page).click()
   await expect(fileClaims(page)).toContainText(handoffPath)
   await fileClaims(page).getByRole('button', { name: 'Release', exact: true }).click()
@@ -1649,10 +1728,20 @@ test('with no claims the footer shows no File claims button', async ({ page }) =
   await expect(page.locator('#mailbox-open-claims')).toHaveCSS('display', 'none')
 })
 
-test('Claim files explains claims, links the docs, and claims paths from a row', async ({ page }) => {
+test('the row menu groups chat actions and explains every visible item', async ({ page }) => {
+  await openPanel(page, 'mailbox-claims')
+  await row(page, 'Review the parser').click({ button: 'right' })
+  const menu = page.getByRole('menu', { name: 'Conversation' })
+  const labels = await menu.getByRole('menuitem').allTextContents()
+  expect(labels.slice(-4)).toEqual(['Mark complete', 'Message another session…', 'Note files this chat is working on…', 'Copy session ID'])
+  for (const item of await menu.getByRole('menuitem').all()) await expect(item).toHaveAttribute('title', /.+\.$/)
+  await expect(menu.getByRole('separator')).toHaveCount(2)
+})
+
+test('the file note action explains claims, links the docs, and records paths from a row', async ({ page }) => {
   await openPanel(page, 'mailbox-handoff')
   await row(page, 'Review the parser').click({ button: 'right' })
-  await page.getByRole('menuitem', { name: 'Claim files…' }).click()
+  await page.getByRole('menuitem', { name: 'Note files this chat is working on…' }).click()
   const card = page.getByRole('region', { name: 'Files claimed by Review the parser' })
   await expect(card).toContainText(CLAIM_HELP)
   await expect(card).toContainText('This session has no claims yet.')
@@ -3341,7 +3430,7 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  for (const name of ['Copy session ID', 'Message another session…', 'Claim files…', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai']) {
+  for (const name of ['Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai', 'Message another session…', 'Note files this chat is working on…', 'Copy session ID']) {
     await page.keyboard.press('ArrowDown')
     await expect(page.getByRole('menuitem', { name })).toBeFocused()
   }
@@ -3359,8 +3448,8 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   await expect(read).toBeFocused()
   const copy = page.getByRole('menuitem', { name: 'Copy session ID' })
   const mailbox = page.getByRole('menuitem', { name: 'Message another session…' })
-  const claim = page.getByRole('menuitem', { name: 'Claim files…' })
-  for (const item of [rename, copy, mailbox, claim, complete, stop, read]) {
+  const claim = page.getByRole('menuitem', { name: 'Note files this chat is working on…' })
+  for (const item of [rename, complete, mailbox, claim, copy, stop, read]) {
     await page.keyboard.press('ArrowDown')
     await expect(item).toBeFocused()
   }
@@ -3604,18 +3693,18 @@ const mailboxMessage = (page: Page, text: string) => mailboxThread(page).locator
 
 test('a held message goes out only after approval', async ({ page }) => {
   await openPanel(page, 'mailbox-delivery')
-  await expect(mailboxSummary(page)).toContainText('2 held for you')
+  await expect(mailboxSummary(page)).toContainText('Review the message that needs your approval.')
   await mailboxSummary(page).click()
   const held = mailboxMessage(page, 'May I rebase the branch?')
   await expect(held).toContainText('Held for you')
   await expect(held.getByRole('button', { name: 'Copy message' })).toHaveCount(0)
   await expect(mailboxMessage(page, 'Did the parser tests pass?')).toContainText('Delivered')
   const approve = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/approve'))
-  await held.getByRole('button', { name: 'Approve' }).click()
+  await mailboxThread(page).getByRole('button', { name: 'Approve message', exact: true }).click()
   expect((await approve).postDataJSON()).toEqual({ thread: 'th_20261107_00000005', n: 4, action: 'approve' })
   await expect(held).toContainText('Waiting')
-  await expect(held.getByRole('button', { name: 'Copy message' })).toBeVisible()
-  await expect(mailboxSummary(page)).toContainText('1 held for you')
+  await expect(await threadControl(mailboxThread(page), 'copy-4')).toBeVisible()
+  await expect(mailboxSummary(page)).toContainText('Review the message that needs your approval.')
 })
 
 test('a message an agent sent shows as sent by the agent, with its stated model', async ({ page }) => {
@@ -3628,13 +3717,13 @@ test('a message an agent sent shows as sent by the agent, with its stated model'
 
 test('an agent message is held until approved', async ({ page }) => {
   await openPanel(page, 'mailbox-agent')
-  await expect(mailboxSummary(page)).toContainText('1 held for you')
+  await expect(mailboxSummary(page)).toContainText('Review the message that needs your approval.')
   await mailboxSummary(page).click()
   const held = mailboxMessage(page, 'May I rename the claims helper?')
   await expect(held).toContainText('Sent by the agent')
   await expect(held).toContainText('Held for you')
   await expect(held.getByRole('button', { name: 'Copy message' })).toHaveCount(0)
-  await held.getByRole('button', { name: 'Approve' }).click()
+  await mailboxThread(page).getByRole('button', { name: 'Approve message', exact: true }).click()
   await expect(held).toContainText('Waiting')
 })
 
@@ -3650,7 +3739,7 @@ test('reject shows the refusal', async ({ page }) => {
   await openPanel(page, 'mailbox-delivery')
   await mailboxSummary(page).click()
   const held = mailboxMessage(page, 'Should I drop the old fixtures?')
-  await held.getByRole('button', { name: 'Reject' }).click()
+  await (await threadControl(mailboxThread(page), 'reject-5')).click()
   await expect(held).toContainText('Rejected')
   await expect(held.getByRole('button', { name: 'Approve' })).toHaveCount(0)
   await expect(mailboxThread(page).locator('.mailbox-refusal', { hasText: 'Refused (guard: rejected)' })).toHaveCount(2)
@@ -3660,10 +3749,10 @@ test('queue for delivery puts a staged message back', async ({ page }) => {
   await openPanel(page, 'mailbox-delivery')
   await mailboxSummary(page).click()
   const staged = mailboxMessage(page, 'Run them again with the race flag.')
-  await expect(staged).toContainText('Staged')
-  await staged.getByRole('button', { name: 'Queue for delivery' }).click()
+  await expect(staged).toContainText('Copied or pasted by you')
+  await (await threadControl(mailboxThread(page), 'queue-2')).click()
   await expect(staged).toContainText('Waiting')
-  await expect(staged.getByRole('button', { name: 'Queue for delivery' })).toHaveCount(0)
+  await expect(mailboxThread(page).locator('[data-mailbox-control="queue-2"]')).toHaveCount(0)
 })
 
 const tooltip = (page: Page) => page.locator('#tooltip')

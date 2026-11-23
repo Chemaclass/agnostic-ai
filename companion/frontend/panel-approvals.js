@@ -19,7 +19,7 @@ function button(className, text) {
 
 /**
  * The approvals part of the settings menu: the status line under its rows, the question before a mode that
- * answers prompts, and Apply to my tools. `changed(doc)` hands each new settings document to the menu, which
+ * answers prompts, and Finish setup. `changed(doc)` hands each new settings document to the menu, which
  * draws the rows; `listChanged(version)` reads the list a change made, so the header chip follows. `row(id)` is the
  * control the focus goes to once a question is answered: the checked mode, or the companion switch after a sync.
  */
@@ -28,8 +28,8 @@ export function approvalsMenu({ changed, listChanged, row }) {
 
   const box = element('div', 'menu-approvals')
   const lines = element('div', 'menu-approvals-lines')
-  const apply = button('menu-approvals-apply', 'Apply to my tools')
-  apply.title = 'Runs agnostic-ai sync --scope user, after showing what it changes'
+  const apply = button('menu-approvals-apply', 'Finish setup…')
+  const explanation = element('p', '', 'Setup changes your tools’ settings files, so you can review the changes first.')
   const said = element('p', 'menu-approvals-said')
   said.setAttribute('role', 'status')
   const confirm = element('div', 'menu-confirm')
@@ -47,13 +47,13 @@ export function approvalsMenu({ changed, listChanged, row }) {
   confirm.append(confirmTitle, confirmBody, confirmFiles, confirmCommandsLabel, confirmCommands, confirmNotes, confirmActions)
   confirm.setAttribute('aria-labelledby', 'menu-confirm-title')
   confirmTitle.id = 'menu-confirm-title'
-  box.append(lines, apply, said, confirm)
+  box.append(lines, explanation, apply, said, confirm)
 
   function draw() {
     const status = approvalsStatusOf(state.doc)
     box.hidden = state.doc === undefined
     lines.replaceChildren(...status.lines.map((line) => element('p', '', line)))
-    apply.hidden = !status.apply || state.pending !== undefined
+    apply.hidden = explanation.hidden = !status.apply || state.pending !== undefined
     apply.disabled = state.busy
     said.hidden = state.said === undefined
     said.textContent = state.said ?? ''
@@ -158,12 +158,12 @@ export function approvalsMenu({ changed, listChanged, row }) {
     }, back)
   }
 
-  /** Apply to my tools: shows what a sync would change, then runs it. */
+  /** Finish setup previews the changes before applying them. */
   async function sync() {
     if (state.busy) return
     const shown = state.shown
     state.busy = true
-    state.said = 'Checking what a sync would change…'
+    state.said = 'Checking which settings files will change…'
     draw()
     let plan
     try {

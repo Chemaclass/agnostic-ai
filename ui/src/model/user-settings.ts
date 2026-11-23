@@ -10,7 +10,7 @@ export interface ModeChoice {
 export const MODE_CHOICES: ModeChoice[] = [
   { value: 'ask', label: 'Ask me', hint: 'Every permission prompt reaches you.' },
   { value: 'review', label: "Let the tool's reviewer decide", hint: "The tool's own reviewer answers routine prompts." },
-  { value: 'yolo', label: 'Approve routine calls for me', hint: 'The approvals hook approves routine calls. Risky ones still ask.' },
+  { value: 'yolo', label: 'Approve routine calls for me', hint: 'agnostic-ai approves routine calls. Risky ones still ask.' },
 ]
 
 /** The line a locked control shows. */
@@ -45,6 +45,15 @@ export const COMPANION_SWITCHES: { key: CompanionSwitch; label: string }[] = [
   { key: 'checkForUpdates', label: 'Check for updates' },
 ]
 
+export const COMPANION_APPROVALS_LABEL = 'Answer permission requests from the companion'
+export const COMPANION_APPROVALS_HINT = 'Approve or deny requests on the chat row. You can still answer in the terminal.'
+export const APPROVALS_SETUP_HINT = 'Setup changes your tools’ settings files, so you can review the changes first.'
+
+export function companionApprovalsNeedSetup(doc: SettingsView): boolean {
+  return doc.approvals.companion && Boolean(doc.approvals.problem || doc.approvals.companionUnavailable || Object.keys(doc.approvals.companionSetup ?? {}).length || doc.sync.reasons.some((reason) =>
+    /^(claude|codex): the hook is not installed/.test(reason) || reason === 'approvals is not in builtins in the home config'))
+}
+
 const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 /**
@@ -55,8 +64,15 @@ const counted = (n: number, one: string, many: string) => `${n} ${n === 1 ? one 
 export function approvalsStatus(doc: SettingsView, toolName: (target: string) => string): string[] {
   const lines: string[] = []
   const approvals = doc.approvals
-  if (approvals.problem) lines.push(`The approvals block does not load: ${approvals.problem}`)
-  if (doc.sync.needed) lines.push(`Not in effect yet: ${syncReasons(doc.sync.reasons, toolName)}.`)
+  if (approvals.problem) lines.push('The approvals settings could not be read. Check your home configuration.')
+  if (doc.sync.needed) lines.push(approvalSetupLine(doc.sync.reasons, toolName))
+  if (approvals.companionUnavailable) lines.push('Add Claude Code or Codex to your configured tools to answer requests from the companion.')
+  for (const [tool, setup] of Object.entries(approvals.companionSetup ?? {})) {
+    if (setup === 'trust') lines.push('Open /hooks in Codex and trust the permission entry.')
+    if (setup === 'disabled') lines.push('Open /hooks in Codex and enable the permission entry.')
+    if (setup === 'reviewer') lines.push('Review mode turns off companion answers for Codex. Set Codex to Ask me to answer from the companion.')
+    if (setup === 'unavailable') lines.push('Check permissions in ' + toolName(tool) + '’s settings before answering from the companion.')
+  }
   const { tools, projects, alwaysAsk } = approvals.overrides
   if (tools || projects) {
     const parts = [tools ? counted(tools, 'tool', 'tools') : '', projects ? counted(projects, 'folder', 'folders') : ''].filter(Boolean)
@@ -67,32 +83,19 @@ export function approvalsStatus(doc: SettingsView, toolName: (target: string) =>
   return lines
 }
 
-/** The reasons a sync fixes, short: tools with the same reason share one clause, and the advice after a semicolon is what Apply does. */
-function syncReasons(reasons: string[], toolName: (target: string) => string): string {
-  const byReason = new Map<string, string[]>()
-  const clauses: string[] = []
-  for (const reason of reasons) {
-    const match = /^([a-z-]+): ([^;]*)/.exec(reason)
-    if (!match) {
-      clauses.push(reason)
-      continue
-    }
-    const [, tool, text] = match
-    if (!byReason.has(text)) {
-      byReason.set(text, [])
-      clauses.push(text)
-    }
-    byReason.get(text)!.push(toolName(tool))
-  }
-  const list = new Intl.ListFormat('en', { type: 'conjunction' })
-  return clauses.map((clause) => (byReason.has(clause) ? `${clause} for ${list.format(byReason.get(clause)!)}` : clause)).join('; ')
+function approvalSetupLine(reasons: string[], toolName: (target: string) => string): string {
+  const missing = reasons.filter((reason) => reason.split(': ')[1]?.startsWith('the hook is not installed'))
+    .map((reason) => toolName(reason.split(': ')[0]))
+  if (missing.length === 0 || missing.length !== reasons.length) return 'Approval changes still need setup.'
+  const tools = new Intl.ListFormat('en', { type: 'conjunction' }).format(missing)
+  return `${tools} ${missing.length === 1 ? 'needs' : 'need'} setup.`
 }
 
 /** What the sync dialog shows before it runs. */
 export function syncConfirm(plan: SettingsSyncPlan): { title: string; body: string; files: string[]; commands: string[]; notes: string[]; go?: string } {
   const files = plan.files.map((file) => `${file.change} ${file.path}`)
   if (files.length === 0) return { title: 'Nothing to apply', body: 'Your tools already match your user configuration.', files, commands: [], notes: plan.notes }
-  return { title: 'Apply to my tools?', body: 'This applies all pending changes of your user configuration, not only approvals:', files, commands: plan.commands ?? [], notes: plan.notes, go: 'Apply' }
+  return { title: 'Finish setup?', body: 'Review all pending changes to your tool settings, including approvals, before applying them.', files, commands: plan.commands ?? [], notes: plan.notes, go: 'Apply' }
 }
 
 /** What the page says after a sync. */

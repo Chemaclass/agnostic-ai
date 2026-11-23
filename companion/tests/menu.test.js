@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { approvalsConfirmOf, approvalsStatusOf, escapeTarget, hideLabelOf, menuRowsOf, syncConfirmOf, syncFailureOf, syncResultOf, updateBadgeOf, updateFeed, updateConfirmOf, updateLabelOf, updateMessageOf } from '../frontend/model.js'
+import { approvalsConfirmOf, approvalsStatusOf, companionApprovalsNeedSetup, escapeTarget, hideLabelOf, menuRowsOf, syncConfirmOf, syncFailureOf, syncResultOf, updateBadgeOf, updateFeed, updateConfirmOf, updateLabelOf, updateMessageOf } from '../frontend/model.js'
 
 const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true, checkForUpdates: true }
@@ -123,7 +123,7 @@ test('the status line says why the mode is not in effect, what has its own mode,
   }
   assert.deepEqual(approvalsStatusOf(doc), {
     lines: [
-      'Not in effect yet: the hook is not installed for Codex.',
+      'Codex needs setup.',
       'Cursor still asks: Approvals not supported for cursor.',
       '2 tools and 1 folder have their own mode. Edit them in the dashboard.',
       'Your local home config hides approvals.tools from the shared one.',
@@ -134,10 +134,29 @@ test('the status line says why the mode is not in effect, what has its own mode,
   assert.deepEqual(approvalsStatusOf(undefined), { lines: [], apply: false })
 })
 
+test('companion permission setup stays pending while Codex needs trust', () => {
+  const doc = { approvals: { companion: true, companionSetup: { codex: 'trust' } }, sync: { needed: false, reasons: [] } }
+  assert.equal(companionApprovalsNeedSetup(doc), true)
+  assert.deepEqual(approvalsStatusOf(doc), {
+    lines: ['Open /hooks in Codex and trust the permission entry.'],
+    apply: false,
+  })
+  assert.equal(companionApprovalsNeedSetup({ ...doc, approvals: { companion: true } }), false)
+})
+
+test('companion permission setup names a missing supported tool without offering to write settings', () => {
+  const doc = { approvals: { companion: true, companionUnavailable: true }, sync: { needed: false, reasons: [] } }
+  assert.equal(companionApprovalsNeedSetup(doc), true)
+  assert.deepEqual(approvalsStatusOf(doc), {
+    lines: ['Add Claude Code or Codex to your configured tools to answer requests from the companion.'],
+    apply: false,
+  })
+})
+
 test('the sync question lists every file and says it applies all pending changes', () => {
   const question = syncConfirmOf({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }] })
   assert.deepEqual(question.files, ['create /h/.codex/hooks.json'])
-  assert.match(question.body, /all pending changes of your user configuration/)
+  assert.match(question.body, /all pending changes to your tool settings/)
   assert.deepEqual(syncConfirmOf({ id: 'x', files: [{ path: 'a', change: 'update' }], notes: ['claude: a warning'] }).notes, ['claude: a warning'])
   assert.equal(syncConfirmOf({ id: 'x', files: [] }).go, undefined)
   assert.deepEqual(syncConfirmOf({ id: 'x', files: [{ path: 'a', change: 'update' }], commands: ['hook staged: curl x | sh'] }).commands, ['hook staged: curl x | sh'])

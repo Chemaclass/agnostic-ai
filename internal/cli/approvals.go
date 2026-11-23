@@ -241,6 +241,11 @@ func approvalsMechanismName(m *approvals.Mechanism) string {
 // approvalHookCommand is the text every approvals hook command holds.
 const approvalHookCommand = "agnostic-ai hook approve"
 
+const (
+	codexPermissionDisabled  = "the Codex permission entry is disabled"
+	codexPermissionUntrusted = "Codex has not trusted the hook"
+)
+
 // approvalHookProblem says why tool's approvals hook cannot answer yet:
 // sync --scope user has not written it, or Codex has not trusted it.
 func approvalHookProblem(tool string) string {
@@ -315,7 +320,10 @@ func approvalHookProblem(tool string) string {
 	}
 	for _, f := range findings {
 		if f.Event == "PermissionRequest" && strings.Contains(f.Hook, approvalHookCommand) {
-			return "Codex has not trusted the hook; open /hooks in Codex to trust it"
+			if f.Status == "disabled" {
+				return codexPermissionDisabled + "; open /hooks in Codex to enable it"
+			}
+			return codexPermissionUntrusted + "; open /hooks in Codex to trust it"
 		}
 	}
 	return ""

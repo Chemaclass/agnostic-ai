@@ -1222,6 +1222,8 @@ export interface SettingsView {
     /** The home file, relative to configRoot, whose approvals block is in effect; empty when none has one. */
     modeFile: string
     companion: boolean
+    companionUnavailable?: boolean
+    companionSetup?: Record<string, 'install' | 'trust' | 'disabled' | 'reviewer' | 'unavailable'>
     overrides: { tools: number; projects: number; alwaysAsk: number }
     /** Keys of the shared file that the local block hides. */
     shadowed: string[]

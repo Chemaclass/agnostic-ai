@@ -326,7 +326,7 @@ export function mailboxStage(state, ask, now) {
   }
   if (ask.how !== 'copy' && ask.how !== 'type') return refused('format', thread, now)
   message.state = 'staged'
-  thread.events.push({ at: now.toISOString(), by: 'human', action: 'stage' })
+  thread.events.push({ at: now.toISOString(), by: 'human', action: ask.how, n: message.n })
   if (thread.status === 'closing' && !pendingOf(thread)) thread.status = 'closed'
   return changed({ staged: true, message: ask.how === 'copy' ? 'Message copied.' : 'Typed into the existing session. Press Enter there to send it.' })
 }

@@ -108,7 +108,7 @@ export function ToolAvatar({ target, label }: { target: string; label?: string }
 }
 
 /** An on/off switch that changes a setting; pending while the change saves. */
-export function Toggle({ on, label, disabled, pending, onToggle, ref }: { on: boolean; label: string; disabled?: boolean; pending?: boolean; onToggle: () => void; ref?: Ref<HTMLButtonElement> }) {
+export function Toggle({ on, label, describedBy, disabled, pending, onToggle, ref }: { on: boolean; label: string; describedBy?: string; disabled?: boolean; pending?: boolean; onToggle: () => void; ref?: Ref<HTMLButtonElement> }) {
   return (
     <button
       ref={ref}
@@ -116,6 +116,7 @@ export function Toggle({ on, label, disabled, pending, onToggle, ref }: { on: bo
       role="switch"
       aria-checked={on}
       aria-label={label}
+      aria-describedby={describedBy}
       aria-busy={pending || undefined}
       className={`switch switch-control${on ? ' is-on' : ''}${pending ? ' is-pending' : ''}`}
       disabled={disabled || pending}

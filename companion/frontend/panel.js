@@ -2,7 +2,7 @@ import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
@@ -1677,6 +1677,13 @@ function openRowMenu(conversation, event) {
   rowMenuFor = conversation
   const offered = rowMenuOf(conversation)
   for (const [name, item] of Object.entries(menuItems)) item.hidden = !offered.includes(name)
+  let hasGroup = false
+  for (const group of rowMenu.querySelectorAll('[role="group"]')) {
+    group.hidden = !group.querySelector('.menu-item:not([hidden])')
+    const separator = group.previousElementSibling
+    if (separator) separator.hidden = group.hidden || !hasGroup
+    hasGroup ||= !group.hidden
+  }
   rowMenu.hidden = false
   // The menu opens at the pointer and stays inside the card.
   const bounds = card.getBoundingClientRect()
@@ -1684,7 +1691,7 @@ function openRowMenu(conversation, event) {
   const top = Math.min(event.clientY - bounds.top, bounds.height - rowMenu.offsetHeight - 8)
   rowMenu.style.left = Math.max(left, 8) + 'px'
   rowMenu.style.top = Math.max(top, 8) + 'px'
-  menuItems[offered[0]].focus()
+  rowMenu.querySelector('.menu-item:not([hidden])')?.focus()
 }
 
 function closeRowMenu() {
@@ -2360,7 +2367,16 @@ function buildMenu(rows) {
       placed.append(label, control)
     }
     if (row.kind !== 'choice') control.type = 'button'
-    if (row.hint) control.title = row.hint
+    if (row.id === 'approvalsCompanion') {
+      const hint = element('p', 'menu-hint', row.hint)
+      hint.id = 'menu-approvals-companion-hint'
+      const status = element('span', 'menu-setup-state', 'Setup required')
+      status.id = 'menu-approvals-companion-state'
+      status.hidden = true
+      placed.classList.add('menu-row-with-hint')
+      placed.append(status, hint)
+      control.setAttribute('aria-describedby', hint.id)
+    } else if (row.hint) control.title = row.hint
     control.addEventListener('click', act)
     settings.controls.set(row.id, control)
     settings.rows.set(row.id, placed)
@@ -2381,6 +2397,13 @@ function drawSettings() {
     if (row.kind === 'action') control.textContent = row.label
     control.disabled = Boolean(row.disabled)
     if (row.kind === 'switch') control.setAttribute('aria-checked', String(row.value))
+    if (row.id === 'approvalsCompanion') {
+      const pending = companionApprovalsNeedSetup(settings.approvals)
+      const status = document.getElementById('menu-approvals-companion-state')
+      status.hidden = !pending
+      const hint = 'menu-approvals-companion-hint'
+      control.setAttribute('aria-describedby', pending ? `${status.id} ${hint}` : hint)
+    }
     if (row.kind === 'choice') {
       for (const option of control.children) {
         const chosen = option.dataset.value === row.value

@@ -98,13 +98,13 @@ Only one chat can take text? It goes straight there. Change the shortcut under *
 
 ## Copy a session ID {#copy-a-session-id}
 
-Right-click a chat and choose **Copy session ID**. The clipboard gets the exact ID for that row. A cloud row gives you its cloud session ID. Copying keeps the chat state and marks.
+Right-click a chat to **Copy session ID**. This copies its exact ID, including cloud IDs, and keeps its state and marks.
 
 ## Message another session {#message-another-session}
 
-Right-click a local Claude Code or Codex chat and choose **Message another session…**. New threads start on **Handoff** and replies start on **Question**. See [the mailbox guide](@/docs/mailbox.md#hand-a-session-over).
+Right-click a local Claude Code or Codex chat and choose **Message another session…**. [New threads](@/docs/mailbox.md#hand-a-session-over) start on **Handoff**, replies on **Question**. The line under the chat says what happens next.
 
-[Claim files…](@/docs/mailbox.md#hand-off-files) notes which files a session works on. It does not block edits.
+[**Note files this chat is working on…**](@/docs/mailbox.md#hand-off-files) shares which files this chat works on. Anyone in the worktree can still edit them.
 
 ## Rename a chat {#rename-a-chat}
 
@@ -196,7 +196,7 @@ A row shows the title, the agent's latest reply in one line, and a meta line. A 
 | Waiting for you | The tool says it waits, but not for what. |
 | New reply | Something was written since you last looked. "Hidden because it may hold a password or key" is added when the reply is left out. |
 
-While [approvals](@/docs/cli-reference/companion.md#approvals) answer prompts, a chip beside the search says **Auto-approve on** (`yolo`) or **Reviewers answer** (`review`), with the full sentence as its tooltip. **Ask me** on it switches back to ask. The ⋯ menu [changes the mode too](@/docs/approvals.md#change-it-from-the-companion).
+The [approvals chip](@/docs/cli-reference/companion.md#approvals) shows **Auto-approve on** (yolo) or **Reviewers answer** (review). Hover for details or choose **Ask me**. In ⋯, use [**Answer permission requests from the companion**](@/docs/approvals.md#answer-from-the-companion). **Finish setup…** previews changes to your tools’ settings.
 
 Hover a row, shell line or approval pill, or select a row with the arrow keys, for a tooltip. It never covers the row, and closes on a key, scroll or click.
 

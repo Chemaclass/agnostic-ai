@@ -292,6 +292,8 @@ Takes no input. A user-level server only; a project server answers 404. Returns 
 
 - `approvals.mode` and `approvals.companion` are what the home config asks for. `approvals.modeFile` is the home file whose `approvals` block is in effect, relative to `configRoot`, or empty when neither file has one.
 - `approvals.overrides` counts the per-tool modes, per-folder modes and extra always-ask patterns. `approvals.shadowed` names the keys of the shared file that a block in `local/agnostic-ai.yaml` hides.
+- When the companion switch is on, `approvals.companionSetup` lists Claude Code or Codex by target ID if they need setup. Its values are `install` for a missing permission entry, `trust` or `disabled` for a Codex entry that needs attention, `reviewer` for Codex in review mode, and `unavailable` when the settings prevent the permission entry from running or cannot be read.
+- `approvals.companionUnavailable` is true when companion permission requests are enabled and neither Claude Code nor Codex is configured as a user target.
 - `approvals.tools` uses the same fields as [`GET /api/views/approvals`](#get-api-views-approvals).
 - `mailbox.approveAgentSends` is the mailbox switch.
 - `companionApp` holds the companion's switches from its `companion.json` (`animate`, `dimWhenIdle`, `smallCompanion`, `checkForUpdates`) and that file's path. `running` is `true` while a companion runs; `live` then holds its shortcuts, start at login, and why a shortcut is not active. A companion writes them to `companion-state.json` beside its settings, touches it every 5 seconds, and removes it as it quits. A file whose process is gone, or untouched for 30 seconds, does not count. `problem` says why `companion.json` does not load.

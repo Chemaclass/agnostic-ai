@@ -97,7 +97,7 @@
     <section class="mailbox-card mailbox-details" id="mailbox-details" aria-labelledby="mailbox-details-title" hidden>
       <header class="mailbox-header">
         <strong id="mailbox-details-title"></strong>
-        <button class="icon-button" id="mailbox-dismiss" type="button" aria-label="Dismiss thread" title="Dismiss thread">
+        <button class="icon-button" id="mailbox-dismiss" type="button" aria-label="Hide thread card" title="Hides this card and leaves the thread running.">
           <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-linecap="round"/></svg>
         </button>
       </header>
@@ -194,19 +194,30 @@
       <p class="menu-problem" id="menu-problem" role="status" hidden></p>
     </section>
     <div class="menu row-menu" id="row-menu" role="menu" aria-label="Conversation" hidden>
-      <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes it out of Needs you without opening it, until something new is written">Mark as read</button>
-      <button class="menu-item" id="rename" type="button" role="menuitem">Rename…</button>
-      <button class="menu-item" id="copy-session-id" type="button" role="menuitem">Copy session ID</button>
-      <button class="menu-item" id="send-to" type="button" role="menuitem" aria-controls="mailbox-compose">Message another session…</button>
-      <button class="menu-item" id="claim-files" type="button" role="menuitem" aria-controls="mailbox-claims">Claim files…</button>
-      <button class="menu-item" id="complete" type="button" role="menuitem" title="Marks it complete until something new is written or it starts working">Mark complete</button>
-      <button class="menu-item" id="reopen" type="button" role="menuitem" title="Clears the completion mark you set">Undo complete</button>
-      <button class="menu-item" id="hide" type="button" role="menuitem" title="Takes it out of every list and search, until something new is written or it starts working. The tool keeps the chat.">Hide from agnostic-ai</button>
-      <button class="menu-item" id="open-web" type="button" role="menuitem" title="Also open on claude.ai">Open on claude.ai</button>
-      <button class="menu-item is-danger" id="delete" type="button" role="menuitem" title="Removes the chat from this computer. It cannot be undone.">Delete permanently…</button>
-      <button class="menu-item is-danger" id="stop-shell" type="button" role="menuitem">Stop shell…</button>
-      <button class="menu-item" id="ask-shell-again" type="button" role="menuitem" title="Brings a shell you kept running back to Needs you while it is the only work left">Ask about this shell again</button>
-      <button class="menu-item is-danger" id="stop-session" type="button" role="menuitem" title="Ends the chat's Claude Code process on this computer. The transcript stays.">Stop chat…</button>
+      <div role="group">
+        <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes this chat out of Needs you without opening it, until something new is written.">Mark as read</button>
+        <button class="menu-item" id="rename" type="button" role="menuitem" title="Changes this chat’s name in the list.">Rename…</button>
+        <button class="menu-item" id="complete" type="button" role="menuitem" title="Moves this chat to Archived until it has new activity.">Mark complete</button>
+        <button class="menu-item" id="reopen" type="button" role="menuitem" title="Clears the completion mark you set for this chat.">Undo complete</button>
+        <button class="menu-item" id="hide" type="button" role="menuitem" title="Hides this chat from the list and search until it has new activity.">Hide from agnostic-ai</button>
+        <button class="menu-item" id="open-web" type="button" role="menuitem" title="Opens this chat on claude.ai.">Open on claude.ai</button>
+        <button class="menu-item" id="ask-shell-again" type="button" role="menuitem" title="Brings a shell you kept running back to Needs you while it is the only work left.">Ask about this shell again</button>
+      </div>
+      <div role="separator"></div>
+      <div role="group">
+        <button class="menu-item" id="send-to" type="button" role="menuitem" aria-controls="mailbox-compose" title="Sends a question, finding, review request or handoff to another chat on this computer.">Message another session…</button>
+        <button class="menu-item" id="claim-files" type="button" role="menuitem" aria-controls="mailbox-claims" title="Shares which files this chat is working on with other chats in the same Git worktree, and anyone can still edit them.">Note files this chat is working on…</button>
+      </div>
+      <div role="separator"></div>
+      <div role="group">
+        <button class="menu-item" id="copy-session-id" type="button" role="menuitem" title="Copies the ID your tool uses to identify this chat.">Copy session ID</button>
+      </div>
+      <div role="separator"></div>
+      <div role="group">
+        <button class="menu-item is-danger" id="delete" type="button" role="menuitem" title="Permanently removes this chat from this computer.">Delete permanently…</button>
+        <button class="menu-item is-danger" id="stop-shell" type="button" role="menuitem" title="Asks which shell command to stop when the chat has one still running.">Stop shell…</button>
+        <button class="menu-item is-danger" id="stop-session" type="button" role="menuitem" title="Ends this Claude Code chat’s running process and keeps its transcript.">Stop chat…</button>
+      </div>
     </div>
     <p class="toast" id="toast" role="status" data-tone="info" hidden><svg class="tone-icon" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M8 2.6L14 13H2zM8 6.7v3.1M8 11.3v.1"/></svg><span id="toast-text"></span></p>
   </main>

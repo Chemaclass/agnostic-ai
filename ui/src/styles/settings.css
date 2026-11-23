@@ -829,6 +829,16 @@
   gap: 16px;
 }
 
+.user-settings-row-label {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+
+.user-settings-row-label p {
+  margin: 0;
+}
+
 .user-settings-live {
   display: grid;
   grid-template-columns: max-content 1fr;
