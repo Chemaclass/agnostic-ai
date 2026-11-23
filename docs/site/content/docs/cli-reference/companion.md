@@ -283,15 +283,13 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --scope
 
 A terminal install uses the same menus and quiet automatic checks. On macOS, **Update and restart** runs `agnostic-ai upgrade` after you confirm the offer. The CLI first checks that GitHub still shows that release, then uses its install method. Homebrew and npm publish on their own schedules. The updater verifies the installed CLI version before replacing the companion. If the package manager has yet to publish the release, choose **Retry** later. If it already serves a newer release, the updater keeps that CLI and installs the matching companion.
 
-Older CLIs, unknown install methods, missing package managers, and other systems use **Copy command** for `agnostic-ai upgrade` and **Release page** for the GitHub release. Finder and login launches on macOS also search `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. If npm lives elsewhere, as with nvm, copy the command into a terminal where npm is available.
+Older CLIs, unknown install methods, and other systems use **Copy command** for `agnostic-ai upgrade` and **Release page** for the GitHub release. Finder and login launches on macOS also search `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. If the update fails because npm lives elsewhere, as with nvm, use **Copy command** in the failure message and paste it into a terminal where npm is available.
 
 {% <details summary="Details: what ran for updates"> %}
-- Ran on macOS 27 (arm64): `agnostic-ai companion update-status --json --refresh` with the short `PATH` a Finder launch gets and an empty home folder. It read the latest release, v0.96.0, and reported no disk image, as the release page shows.
-- Ran with the same short `PATH` plus the folders above: Homebrew was found and ran; an npm installed through nvm was not found.
-- The companion's Go tests cover each update state, both install kinds and each failure reason. Its node tests and the Playwright suite cover what the list shows in each state.
-- Not run: a whole update from one released disk image to the next, since releases then had no disk image. That covers the download, build provenance, the signer check, the swap and the restart.
-- Not run: that the updated app opens without a Gatekeeper dialog, and that Accessibility access survives a real update.
-- Not run: a certificate rotation, and a restart of a terminal-installed companion started from a terminal window.
+- On macOS 27.2.1 (arm64), checksums, build provenance and signatures passed for v0.97.0 and v0.98.0. `companion update-app` upgraded between them. The restarted app and its CLI reported v0.98.0, and preferences survived.
+- A short `PATH` like Finder's found Homebrew once the folders above were added. The v0.97.0 CLI offered a one-click npm update with npm absent. **Copy command** appears in the failure message.
+- Go and browser tests cover the update states and failure messages.
+- Desktop checks still due: panel updates, Accessibility, Gatekeeper and certificate rotation on macOS. **Copy command** and **Release page** need a check on native Linux and Windows desktops.
 {% </details> %}
 
 {% <details summary="Details: failures and version mismatch"> %}
