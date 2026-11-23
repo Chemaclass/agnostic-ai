@@ -42,11 +42,13 @@ const claudeCloudLink = "https://claude.ai/code"
 // cloudSessionIDPrefix starts every cloud session id.
 const cloudSessionIDPrefix = "cse_"
 
-// cloudSessionLink is a session's own page: claude.ai names it by the
-// id with session_ in place of cse_. Seen on one account's sessions on
-// 2026-11-10; like the rest of this file it can change.
+// Claude's web links and CLI launch output use session_ for a listed cse_ ID.
+func cloudSessionExternalID(id string) string {
+	return "session_" + strings.TrimPrefix(id, cloudSessionIDPrefix)
+}
+
 func cloudSessionLink(id string) string {
-	return claudeCloudLink + "/session_" + strings.TrimPrefix(id, cloudSessionIDPrefix)
+	return claudeCloudLink + "/" + cloudSessionExternalID(id)
 }
 
 // cloudSessionLinkPattern is the only shape of web page the server opens.
@@ -339,15 +341,16 @@ func cloudConversation(row claudeCloudRow) (Conversation, error) {
 		bucket = cloudBucket{}
 	}
 	return Conversation{
-		Tool:      ToolClaude,
-		App:       AppCloud,
-		ID:        row.ID,
-		Title:     row.Title,
-		StartedAt: started,
-		UpdatedAt: updated,
-		Live:      bucket.live,
-		Activity:  bucket.activity,
-		Open:      Route{Kind: RouteLink, Label: "Open on claude.ai", Link: cloudSessionLink(row.ID)},
+		Tool:               ToolClaude,
+		App:                AppCloud,
+		ID:                 row.ID,
+		Title:              row.Title,
+		StartedAt:          started,
+		UpdatedAt:          updated,
+		Live:               bucket.live,
+		Activity:           bucket.activity,
+		CloudResumeCommand: "claude --teleport " + cloudSessionExternalID(row.ID),
+		Open:               Route{Kind: RouteLink, Label: "Open on claude.ai", Link: cloudSessionLink(row.ID)},
 	}, nil
 }
 

@@ -687,6 +687,15 @@ test('offers Open on claude.ai only on a shared row, and names its cloud session
   assert.equal(cloudPageOf(row('a', 'active')), undefined)
 })
 
+test('offers a resume command only for a Claude Code cloud session with a command', () => {
+  const cloudResumeCommand = 'claude --teleport session_a1'
+  const cloud = row('cse_a1', 'active', { app: 'cloud', cloudResumeCommand })
+  assert.ok(rowMenuOf(cloud).includes('copy-cloud-resume'))
+  assert.ok(!rowMenuOf({ ...cloud, cloudResumeCommand: '' }).includes('copy-cloud-resume'))
+  assert.ok(!rowMenuOf({ ...cloud, tool: 'codex' }).includes('copy-cloud-resume'))
+  assert.ok(!rowMenuOf(shared('a', 'active', { cloudResumeCommand })).includes('copy-cloud-resume'))
+})
+
 const helper = (id, state, minutesAgo, extra = {}) => ({ tool: 'claude', id, title: id, state, updatedAt: new Date(Date.parse('2026-11-09T12:00:00Z') - minutesAgo * 60000).toISOString(), ...extra })
 
 test('the subagent toggle counts working subagents only, in plain words, and says whether it is unfolded', () => {
