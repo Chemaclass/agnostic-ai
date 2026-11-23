@@ -409,10 +409,10 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
     const outcome = await openConversation(request)
     setStatus(openStatus(outcome, route, subject))
     setPending(false)
-    if (outcome.kind === 'reply' && outcome.reply.opened && !outcome.reply.guessed) {
+    if (ownRow && outcome.kind === 'reply' && outcome.reply.opened && !outcome.reply.guessed) {
       // The command it hides may hold the focus.
       if (actions.current?.contains(document.activeElement) && document.activeElement !== openButton.current) openButton.current?.focus()
-      if (ownRow) onOpened()
+      onOpened()
     }
   }
 
@@ -453,7 +453,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
           {route.label}
         </button>
         {conversation.cloud && (
-          <button type="button" className="button conversation-open" aria-disabled={pending || undefined} aria-label={`Open on claude.ai: ${title.text}`} onClick={() => conversation.cloud && open({ tool: conversation.tool, id: conversation.cloud.id, editor })}>
+          <button type="button" className="button conversation-open" aria-disabled={pending || undefined} aria-label={`Open on claude.ai: ${title.text}`} onClick={() => conversation.cloud && open({ tool: conversation.tool, id: conversation.cloud.id, editor }, false)}>
             Open on claude.ai
           </button>
         )}
