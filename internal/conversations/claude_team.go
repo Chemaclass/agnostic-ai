@@ -110,23 +110,10 @@ func (s *Scanner) claudeTeamOf(team, lead string) (members map[string]claudeTeam
 	return members, true
 }
 
-// claudeTeammateStateOf says whether a teammate of lead works. Its team
-// lists the members that run: one it does not list was stopped or shut
-// down, and a stop leaves no other trace a scan can read. A teammate
-// whose team is missing, or names another lead, is not counted, as
-// before teams were read. known is false when the team cannot be read.
-// A pane teammate works while its team marks it active. One in the
-// lead's process works by the newest of what the lead says of it,
-// spawned or resumed, and its own transcript's turn.
-func (s *Scanner) claudeTeammateStateOf(lead string, teammate claudeTeammate, said, turn nativeTaskEvent) (state claudeTeammateState, known bool) {
+// claudeTeammateStateOf reads activity for a teammate still on its team.
+func claudeTeammateStateOf(teammate claudeTeammate, member claudeTeamMember, said, turn nativeTaskEvent) (state claudeTeammateState) {
 	state = claudeTeammateState{claudeTeammate: teammate}
-	members, known := s.claudeTeamOf(teammate.team, lead)
-	if !known {
-		return state, false
-	}
-	member, listed := members[teammate.member]
 	switch {
-	case !listed:
 	case teammate.pane:
 		state.working = member.IsActive == nil || *member.IsActive
 		if member.BackendType == "tmux" && tmuxPaneID(member.TmuxPaneID) {
@@ -139,7 +126,7 @@ func (s *Scanner) claudeTeammateStateOf(lead string, teammate claudeTeammate, sa
 		}
 		state.working = event.working
 	}
-	return state, true
+	return state
 }
 
 // claudePaneHelpers lists the pane teammates of a session that work.

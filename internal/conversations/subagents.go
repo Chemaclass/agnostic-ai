@@ -409,7 +409,6 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 	}
 	previousLogs := kept.logs
 	kept.logs = make(map[string]*nativeLog[claudeWorkerEvents], len(files))
-	tasks := map[string]nativeTaskEvent{}
 	spawned := map[string]claudeTeammate{}
 	turns := map[string]nativeTaskEvent{}
 	work := &claudeWork{agents: map[string]bool{}, pending: map[string]bool{}, teammates: map[string]claudeTeammateState{}}
@@ -436,10 +435,69 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 			turns[agentOf[path]] = log.value.own
 		}
 		maps.Copy(spawned, log.value.teammates)
-		for call := range log.value.pending {
-			work.pending[call] = true
+	}
+	lead := strings.TrimSuffix(filepath.Base(file), ".jsonl")
+	teams := map[string]map[string]claudeTeamMember{}
+	members := map[string]claudeTeamMember{}
+	stopped := map[string]bool{}
+	for id, teammate := range spawned {
+		if _, read := teams[teammate.team]; !read {
+			team, known := s.claudeTeamOf(teammate.team, lead)
+			if !known {
+				return nil, append(watch, s.claudeTeamPath(teammate.team))
+			}
+			teams[teammate.team] = team
+		}
+		if member, listed := teams[teammate.team][teammate.member]; listed {
+			members[id] = member
+		} else {
+			stopped[id] = true
+		}
+	}
+	for _, team := range slices.Sorted(maps.Keys(teams)) {
+		if path := s.claudeTeamPath(team); path != "" {
+			watch = append(watch, path)
+		}
+	}
+	stoppedCalls := map[string]bool{}
+	if len(stopped) > 0 {
+		parents := map[string]string{}
+		calls := map[string]string{}
+		for _, path := range files[1:] {
+			id := agentOf[path]
+			metaPath := filepath.Join(dir, "agent-"+id+".meta.json")
+			watch = append(watch, metaPath)
+			meta := s.claudeAgentMetaOf(metaPath)
+			parents[id], calls[id] = meta.ParentAgentID, meta.ToolUseID
+		}
+		for id := range parents {
+			for parent, left := parents[id], len(parents); parent != "" && left > 0; parent, left = parents[parent], left-1 {
+				if stopped[parent] {
+					stopped[id] = true
+					break
+				}
+			}
+		}
+		for id := range stopped {
+			if call := calls[id]; call != "" {
+				stoppedCalls[call] = true
+			}
+		}
+	}
+	// A removed teammate can leave its own and its children's logs mid-turn.
+	tasks := map[string]nativeTaskEvent{}
+	for path, log := range kept.logs {
+		if !stopped[agentOf[path]] {
+			for call := range log.value.pending {
+				if !stoppedCalls[call] {
+					work.pending[call] = true
+				}
+			}
 		}
 		for id, event := range log.value.tasks {
+			if stopped[id] {
+				continue
+			}
 			previous, found := tasks[id]
 			if !found || event.at.After(previous.at) || (event.at.Equal(previous.at) && !event.working) {
 				tasks[id] = event
@@ -449,23 +507,15 @@ func (s *Scanner) claudeWorkOf(file string, session liveSession) (*claudeWork, [
 	for id, event := range tasks {
 		work.agents[id] = event.working
 	}
-	lead := strings.TrimSuffix(filepath.Base(file), ".jsonl")
-	teams := map[string]bool{}
-	for id, teammate := range spawned {
-		state, known := s.claudeTeammateStateOf(lead, teammate, tasks[id], turns[id])
-		if !known {
-			return nil, append(watch, s.claudeTeamPath(teammate.team))
+	for id, member := range members {
+		if stopped[id] {
+			continue
 		}
+		state := claudeTeammateStateOf(spawned[id], member, tasks[id], turns[id])
 		work.agents[id] = state.working
 		work.teammates[id] = state
-		if path := s.claudeTeamPath(teammate.team); path != "" {
-			teams[path] = true
-		}
 	}
-	// A team's config changes as a teammate stops or goes idle, with no
-	// write to any transcript. The watched files join the scan's stamp in
-	// order, so they are sorted.
-	return work, append(watch, slices.Sorted(maps.Keys(teams))...)
+	return work, watch
 }
 
 // claudeSubagentsDir is the folder that holds a session's subagent
