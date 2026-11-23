@@ -845,6 +845,23 @@ test('Copy session ID shows an error when the clipboard refuses', async ({ page 
   expect((await calledPaths(page)).filter((path) => path === '/api/mark' || path === '/api/open')).toEqual([])
 })
 
+test('copies the Claude Code cloud resume command without opening or marking the chat', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await openPanel(page, 'shared')
+  const item = page.getByRole('menuitem', { name: 'Copy resume command' })
+  await row(page, 'Write the onboarding guide').click({ button: 'right' })
+  await item.press('Enter')
+
+  await expect(page.getByRole('menu', { name: 'Conversation' })).toBeHidden()
+  await expect(page.locator('#toast[role=status]')).toHaveText('Resume command copied.')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('claude --teleport session_cloud-3')
+  expect((await calledPaths(page)).filter((path) => path === '/api/mark' || path === '/api/open')).toEqual([])
+
+  await row(page, 'Review the payment retries').click({ button: 'right' })
+  await expect(item).toBeHidden()
+  await expect(page.getByRole('menuitem', { name: 'Open on claude.ai' })).toBeVisible()
+})
+
 const mailboxTarget = '0199a2b4-5c1e-7d30-9f2a-3b6c8d1e4f50'
 const mailboxThread = (page: Page) => page.getByRole('region', { name: 'Thread with Draft the tests' })
 const mailboxSummary = (page: Page) => page.getByRole('button', { name: /^With Draft the tests/ })

@@ -263,6 +263,8 @@ type Conversation struct {
 	// Cloud is the claude.ai session that shows this live local one too,
 	// with Remote Control on. Its cloud row is not listed apart.
 	Cloud *CloudRef `json:"cloud,omitempty"`
+	// CloudResumeCommand resumes this cloud conversation in a terminal.
+	CloudResumeCommand string `json:"cloudResumeCommand,omitempty"`
 	// Approvals is what the approvals hook decided for this session; nil
 	// when it decided nothing and has nothing to say about a wait.
 	Approvals  *ApprovalsNote  `json:"approvals,omitempty"`

@@ -419,13 +419,14 @@ test.describe('conversations', () => {
     const mocks = await mockServer(page, (body) => ({
       json: { opened: true, message: (body as { id: string }).id === cloud.id ? cloudMessage : localMessage },
     }), () => ({
-      json: { ...conversations, conversations: [{ ...chat, live: false, open: { ...chat.open, command }, cloud }] },
+      json: { ...conversations, conversations: [{ ...chat, live: false, open: { ...chat.open, command }, cloud, cloudResumeCommand: 'claude --teleport session_nightly_audit' }] },
     }))
     await page.goto('/')
     const shared = row(page, title)
     const copy = shared.getByRole('button', { name: `Copy the command that resumes ${title}` })
     const openCloud = shared.getByRole('button', { name: `Open on claude.ai: ${title}` })
     await expect(copy).toHaveCount(1)
+    await expect(shared.getByRole('button', { name: /^Copy resume command/ })).toHaveCount(0)
     await openCloud.click()
 
     await expect(shared.getByRole('status')).toHaveText(cloudMessage)
@@ -440,6 +441,42 @@ test.describe('conversations', () => {
     expect(mocks.opens.at(-1)?.body).toEqual({ tool: 'claude', id: chat.id, editor: 'cursor' })
     await expect(shared.getByRole('button', { name: 'Copied', exact: true })).toHaveCount(0)
     await expect(copy).toHaveCount(0)
+  })
+
+  test('copies the Claude cloud resume command separately from opening its hosted session', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const command = 'claude --teleport session_parser_fix'
+    const message = 'Opened on claude.ai.'
+    const cloud = {
+      tool: 'claude', app: 'cloud', id: 'cse_parser_fix', title: 'Fix the parser remotely',
+      updatedAt: NOW.toISOString(), open: { kind: 'link', label: 'Open on claude.ai' },
+    }
+    const mocks = await mockServer(page, () => ({ json: { opened: true, message } }), () => ({
+      json: { ...conversations, conversations: [
+        { ...cloud, cloudResumeCommand: command },
+        { ...cloud, id: 'cse_waiting', title: 'Cloud chat without a command', cloudResumeCommand: ' ' },
+        { ...cloud, id: 'cse_malformed', title: 'Cloud chat with a malformed command', cloudResumeCommand: 3 },
+        { ...cloud, tool: 'codex', id: 'task_remote', title: 'Codex cloud chat', cloudResumeCommand: command },
+      ] },
+    }))
+    await page.goto('/')
+
+    const hosted = row(page, cloud.title)
+    const copy = hosted.getByRole('button', { name: `Copy resume command for ${cloud.title}` })
+    await copy.click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+    expect(mocks.opens).toHaveLength(0)
+
+    for (const title of ['Cloud chat without a command', 'Cloud chat with a malformed command', 'Codex cloud chat']) {
+      const other = row(page, title)
+      await expect(other).toBeVisible()
+      await expect(other.getByRole('button', { name: /^Copy resume command/ })).toHaveCount(0)
+    }
+
+    await hosted.getByRole('button', { name: `Open on claude.ai: ${cloud.title}` }).click()
+    await expect(hosted.getByRole('status')).toHaveText(message)
+    expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: cloud.id, editor: 'cursor' }])
+    await expect(copy).toHaveCount(1)
   })
 
   test('hides the resume command of a chat it opened, since it may run now', async ({ page }) => {

@@ -261,6 +261,7 @@ function normalizeConversation(raw: unknown): Conversation {
     withheld: arr<unknown>(c.withheld).filter(isWithheldField),
     live: c.live === true,
     parent: parentOf(c.parent),
+    cloudResumeCommand: c.tool === 'claude' && c.app === 'cloud' && typeof c.cloudResumeCommand === 'string' && c.cloudResumeCommand.trim() !== '' ? c.cloudResumeCommand : undefined,
     helpers: helpersOf(c.helpers),
     stuckShells: c.live === true && c.tool === 'claude' ? stuckShellsOf(c.stuckShells) : undefined,
     open: { ...(route as unknown as ConversationRoute), label: text(route.label) },

@@ -1662,6 +1662,7 @@ const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
   'copy-session-id': document.getElementById('copy-session-id'),
+  'copy-cloud-resume': document.getElementById('copy-cloud-resume'),
   'send-to': document.getElementById('send-to'),
   'claim-files': document.getElementById('claim-files'),
   complete: document.getElementById('complete'),
@@ -1795,18 +1796,22 @@ async function saveRename(conversation) {
 renameItem.addEventListener('click', () => {
   if (rowMenuFor) startRename(rowMenuFor)
 })
-menuItems['copy-session-id'].addEventListener('click', async () => {
-  const conversation = rowMenuTarget('copy-session-id')
-  closeRowMenu()
-  queryInput.focus()
-  if (!conversation) return
-  try {
-    await navigator.clipboard.writeText(conversation.id)
-    say('Session ID copied.')
-  } catch {
-    say('Could not copy the session ID.', 'error')
-  }
-})
+function bindRowCopy(item, field, copied, failed) {
+  menuItems[item].addEventListener('click', async () => {
+    const conversation = rowMenuTarget(item)
+    closeRowMenu()
+    queryInput.focus()
+    if (!conversation) return
+    try {
+      await navigator.clipboard.writeText(conversation[field])
+      say(copied)
+    } catch {
+      say(failed, 'error')
+    }
+  })
+}
+bindRowCopy('copy-session-id', 'id', 'Session ID copied.', 'Could not copy the session ID.')
+bindRowCopy('copy-cloud-resume', 'cloudResumeCommand', 'Resume command copied.', 'Could not copy the resume command.')
 menuItems['send-to'].addEventListener('click', () => {
   const conversation = rowMenuTarget('send-to')
   closeRowMenu()

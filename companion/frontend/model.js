@@ -677,6 +677,10 @@ export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read'] : []
   if (renames(conversation)) offered.push('rename')
   offered.push('copy-session-id')
+  if (conversation.tool === 'claude' && conversation.app === 'cloud' &&
+    typeof conversation.cloudResumeCommand === 'string' && conversation.cloudResumeCommand.trim()) {
+    offered.push('copy-cloud-resume')
+  }
   if (!conversation.parent && mailboxSessionOf(conversation)) offered.push('send-to', 'claim-files')
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')
