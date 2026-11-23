@@ -841,6 +841,14 @@ test('a late open failure the person dismissed while it was read does not show a
   assert.equal(lateOpenNoticeOf(failure, 2).id, 3)
 })
 
+test('a saved late helper notice cannot replace itself on each inbox refresh', () => {
+  const reply = { id: 4, reached: 'parent', message: 'Run this command to see its helper.', command: 'tmux -L example attach' }
+  const notice = lateOpenNoticeOf(reply)
+  assert.equal(notice.about, NOTICES.subagent)
+  assert.equal(notice.command, reply.command)
+  assert.equal(lateNoticeReplaces(notice), false)
+})
+
 test('a late guessed open names its chat and uses the neutral tab notice', () => {
   assert.deepEqual(lateOpenNoticeOf({ id: 4, title: 'Draft the release notes', message: 'The tab may show this thread.', guessed: true }), {
     message: 'Draft the release notes: The tab may show this thread.',

@@ -1144,6 +1144,8 @@ export interface ConversationOpenReply {
   command?: string
   /** The Claude Code subagent the request named, set once its conversation opened. */
   helper?: ConversationHelper
+  /** A parent fallback can carry a command to see the subagent in its own pane. */
+  reached?: 'parent' | 'subagent'
 }
 
 // HTTP API served by `agnostic-ai serve`.

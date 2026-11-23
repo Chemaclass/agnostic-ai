@@ -2832,6 +2832,40 @@ test('a chat folds its working subagents out under it, newest first, five at mos
   await expect(noticeCard(page)).toContainText("Press the down arrow to pick 'Find rename call sites' below the prompt, then Enter.")
 })
 
+for (const timing of ['fast', 'late']) {
+  test(`a ${timing} helper switch to its parent keeps the tmux attach command and leaves the terminal in front`, async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const message = 'Switched to the parent. Run this command to see its subagent.'
+    const command = 'tmux -L example attach'
+    let settled = false
+    await page.route('**/api/open', (route) => timing === 'late'
+      ? route.fulfill({ status: 202, json: { pending: true, message: 'Still opening.' } })
+      : route.fulfill({ json: { opened: true, reached: 'parent', message, command } }))
+    await page.route('**/api/open/late', (route) => settled
+      ? route.fulfill({ json: { id: 1, reached: 'parent', message, command } })
+      : route.fulfill({ status: 204 }))
+    await openPanel(page, 'helpers')
+    await row(page, 'Rename chats').getByRole('button', { name: '▸ 7 subagents' }).click()
+    const lateRead = timing === 'late' ? page.waitForResponse((response) => response.url().endsWith('/api/open/late')) : undefined
+    const peeked = page.waitForRequest((request) => request.url().endsWith('/api/panel/peek'))
+    await page.locator('.helper-row').filter({ hasText: 'Find rename call sites' }).click()
+    if (lateRead) {
+      await lateRead
+      settled = true
+      expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+    }
+
+    await expectInfoNotice(page, 'How to reach the subagent')
+    await peeked
+    await expect(noticeCard(page)).toContainText(message)
+    const copy = noticeCard(page).getByRole('button', { name: 'Copy attach command' })
+    await expect(copy).toBeVisible()
+    await copy.click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+    expect(await calledPaths(page)).not.toContain('/api/panel/show')
+  })
+}
+
 test('subagents show as a tree under their real parent, each level folds, and a deep click shows its note at once', async ({ page }) => {
   await openPanel(page, 'subagent-tree')
   const parent = row(page, 'Ship the subagent tree')

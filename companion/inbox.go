@@ -118,6 +118,7 @@ type openNotice struct {
 	message string
 	command string
 	guessed bool
+	reached string
 }
 
 func newInbox(server *server, builtFor string, changed func()) *inbox {
@@ -552,7 +553,7 @@ func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 
 // passOpen hands an open to the server. After openWait the page gets a
 // pending reply, and the call goes on up to openLateWait. A late failure
-// or guessed switch is kept for the panel until a newer open starts.
+// or switch with a hint is kept for the panel until a newer open starts.
 func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	body, title := withoutTitle(body)
 	var named struct {
@@ -620,10 +621,12 @@ func lateOutcomeOf(answer reply, err error) lateOutcome {
 		return lateOutcome{notice: &openNotice{message: errorOf(answer)}, said: "not opened"}
 	}
 	var told struct {
-		Opened  *bool  `json:"opened"`
-		Guessed bool   `json:"guessed"`
-		Message string `json:"message"`
-		Command string `json:"command"`
+		Opened  *bool     `json:"opened"`
+		Guessed bool      `json:"guessed"`
+		Message string    `json:"message"`
+		Command string    `json:"command"`
+		Reached string    `json:"reached"`
+		Helper  *struct{} `json:"helper"`
 	}
 	if answer.status != http.StatusOK || json.Unmarshal(answer.body, &told) != nil || told.Opened == nil {
 		return lateOutcome{said: "no word on whether it opened"}
@@ -631,6 +634,9 @@ func lateOutcomeOf(answer reply, err error) lateOutcome {
 	if *told.Opened {
 		if told.Guessed {
 			return lateOutcome{notice: &openNotice{message: told.Message, guessed: true}, said: "switched to a possible tab"}
+		}
+		if told.Reached != "subagent" && (told.Reached == "parent" || told.Helper != nil) {
+			return lateOutcome{notice: &openNotice{message: told.Message, command: told.Command, reached: "parent"}, said: "opened the parent"}
 		}
 		return lateOutcome{said: "opened"}
 	}
@@ -664,6 +670,7 @@ type lateOpenReply struct {
 	Message string `json:"message"`
 	Command string `json:"command,omitempty"`
 	Guessed bool   `json:"guessed,omitempty"`
+	Reached string `json:"reached,omitempty"`
 }
 
 // lateOpen answers GET /api/open/late with the kept notice of an open
@@ -682,7 +689,7 @@ func (in *inbox) lateOpen(w http.ResponseWriter, _ *http.Request) {
 	if title == "" {
 		title = late.sentTitle
 	}
-	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: title, Message: late.notice.message, Command: late.notice.command, Guessed: late.notice.guessed})
+	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: title, Message: late.notice.message, Command: late.notice.command, Guessed: late.notice.guessed, Reached: late.notice.reached})
 }
 
 // titleIn is the title list gives the chat; empty when it does not list it.

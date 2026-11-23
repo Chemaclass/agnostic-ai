@@ -358,9 +358,9 @@ export function rowCommand(route: ConversationRoute): string | undefined {
   return route.command
 }
 
-/** The command a failed open offers to copy, unless the row already offers the same one. */
+/** The command left after an open could not reach its target, unless the row already offers it. */
 export function replyCommand(reply: ConversationOpenReply, route: ConversationRoute): string | undefined {
-  if (reply.opened || !reply.command) return undefined
+  if (!reply.command || (reply.opened && reply.reached !== 'parent')) return undefined
   if (reply.command === rowCommand(route)) return undefined
   return reply.command
 }

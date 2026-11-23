@@ -1249,7 +1249,7 @@ function show(reply, problem) {
   keepStopShellCurrent()
 }
 
-/** The latest late open can show a failure or a guessed tab until dismissed. */
+/** The latest late open can show a failure or a hint until dismissed. */
 async function showLateOpenNotice() {
   if (opensOnTheirWay > 0) return
   const thisOpen = latestOpen
@@ -1263,7 +1263,7 @@ async function showLateOpenNotice() {
   const shown = reply && lateOpenNoticeOf(reply, lastDismissedLate)
   if (!shown || !lateNoticeReplaces(state.openFailure) || thisOpen !== latestOpen || opensOnTheirWay > 0) return
   showOpenFailure(shown, shown.about ?? NOTICES.notOpened)
-  if (shown.about === NOTICES.guessedTab && !listShown) await peekOpenNotice()
+  if (shown.about?.tone === 'info' && !listShown) await peekOpenNotice()
 }
 
 /** The last dismissed late notice may still come back on a read already on its way. */
@@ -1337,6 +1337,7 @@ function showOpenFailure(failure, about) {
     // The role is set before the text, so a screen reader takes the new text with the new urgency.
     noticeMessage.setAttribute('role', roleOfTone(about.tone))
     noticeAbout.textContent = about.label + ': '
+    noticeCopy.textContent = about === NOTICES.subagent ? 'Copy attach command' : 'Copy resume command'
   }
   noticeText.textContent = failure?.message ?? ''
   noticeCommand.textContent = failure?.command ?? ''

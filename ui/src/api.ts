@@ -178,6 +178,7 @@ function parseOpenReply(raw: unknown): ConversationOpenReply | undefined {
     opened: reply.opened,
     message: reply.message,
     ...(reply.opened && reply.guessed === true ? { guessed: true } : {}),
+    ...(reply.reached === 'parent' || reply.reached === 'subagent' ? { reached: reply.reached } : {}),
     ...(typeof reply.command === 'string' && reply.command ? { command: reply.command } : {}),
   }
 }

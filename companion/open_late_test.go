@@ -283,6 +283,27 @@ func TestInbox_KeepsALateGuessedTabAsANotice(t *testing.T) {
 	}
 }
 
+func TestInbox_KeepsLateHelperInstructionsAndCommand(t *testing.T) {
+	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{
+		"a": `{"opened":true,"reached":"parent","message":"Switched to the parent. Run this command to see its subagent.","command":"tmux -L example attach"}`,
+	}}
+	in, _ := lateInbox(t, fake)
+
+	rec := httptest.NewRecorder()
+	in.pass(serverOpenPath)(rec, httptest.NewRequest(http.MethodPost, "/api/open", strings.NewReader(`{"tool":"claude","id":"a","helper":"explore"}`)))
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("the open = %d %s; this test needs one still opening", rec.Code, rec.Body)
+	}
+	waitSignal(t, in.refresh, "a list read while the open is pending")
+	close(fake.release)
+	waitSignal(t, in.refresh, "a list read after the open")
+
+	const kept = `{"id":1,"message":"Switched to the parent. Run this command to see its subagent.","command":"tmux -L example attach","reached":"parent"}`
+	if status, body := readLate(t, in); status != http.StatusOK || body != kept {
+		t.Errorf("late helper notice = %d %s, want %s", status, body, kept)
+	}
+}
+
 func TestInbox_ANewerOpenWinsOverAnOlderLateFailure(t *testing.T) {
 	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked, "b": `{"opened":true,"message":"Opened."}`}}
 	in, _ := lateInbox(t, fake)

@@ -251,7 +251,7 @@ A click on a subagent row:
 | Codex subagent | Its own thread, or the terminal that holds it | Type `/subagents` to switch to it |
 | Subagent of a chat in the desktop app or an editor | The chat, as a click on its row does | Its name only |
 
-On macOS the notice shows at once: the list comes up beside the circle without taking the keys from the terminal. Elsewhere it waits in the list. Nothing is typed into the terminal, so you pick the subagent yourself. Only a teammate in a tmux pane can be shown directly; Claude Code and Codex offer no other way in from outside. A failure that comes later replaces the notice. In the send picker, a click on a subagent row sends the text to the chat it runs in.
+On macOS the notice appears beside the circle as soon as the switch finishes, even after a slow open. The terminal keeps keyboard focus. On other systems the notice waits in the list. **Copy attach command** copies the tmux command when available. Only a teammate’s tmux pane opens directly. Pick other subagents yourself. A later failure replaces the notice. The send picker targets the chat that runs the subagent.
 
 {% <details summary="Details: counts, parents, animation"> %}
 - The five-bulb gyroscope keeps constant brightness, with bulbs at different orbital radii and depths.
