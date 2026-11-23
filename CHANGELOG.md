@@ -6,14 +6,12 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
-### General
+## v0.98.0 - 2026-11-23
 
-- Hand off a task and its Git context from the companion or `mailbox send`, with an optional note and file claims (#3944, #3945, #3946).
+### Highlights
 
-### By tool
-
-#### Companion
-
+- Start a task handoff from the companion by picking a receiver, with an optional message and file claims (#3944, #3946).
+- Send a task handoff with `mailbox send` and include the source worktree, branch, commit and any saved note (#3944, #3945).
 - Clear the Working badge for subagents whose Claude Code teammate was removed (#3947).
 
 ## v0.97.0 - 2026-11-23
