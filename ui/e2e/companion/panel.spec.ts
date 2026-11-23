@@ -557,6 +557,19 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
   expect(opens).toEqual([])
 })
 
+test('a guessed Codex tab leaves a neutral notice without taking the terminal keys', async ({ page }) => {
+  const message = 'Switched to the Ghostty tab with the only Codex session that may show this thread.'
+  await page.route('**/api/open', (route) => route.fulfill({ json: { opened: true, guessed: true, message } }))
+  await openPanel(page)
+  const peeked = page.waitForRequest((request) => request.url().endsWith('/api/panel/peek'))
+  await clickRow(row(page, 'Draft the release notes'))
+  await peeked
+
+  await expectInfoNotice(page, 'Possible Codex tab')
+  await expect(noticeCard(page)).toContainText(message)
+  expect(await calledPaths(page)).not.toContain('/api/panel/show')
+})
+
 test('an open the server is slow to answer hides the list and shows no failure', async ({ page }) => {
   await openPanel(page, 'slow-open')
   const answer = page.waitForResponse((response) => response.url().endsWith('/api/open'))

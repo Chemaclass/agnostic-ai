@@ -409,7 +409,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
     const outcome = await openConversation(request)
     setStatus(openStatus(outcome, route, subject))
     setPending(false)
-    if (outcome.kind === 'reply' && outcome.reply.opened) {
+    if (outcome.kind === 'reply' && outcome.reply.opened && !outcome.reply.guessed) {
       // The command it hides may hold the focus.
       if (actions.current?.contains(document.activeElement) && document.activeElement !== openButton.current) openButton.current?.focus()
       if (ownRow) onOpened()

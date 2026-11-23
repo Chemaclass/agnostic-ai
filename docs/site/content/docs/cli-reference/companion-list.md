@@ -44,15 +44,15 @@ Click a row to reach its chat.
 | Claude Code `--bg` session | Selects the tab that runs `claude attach`, or opens one. |
 | Anything else | Opens its app, editor or browser. |
 
-If a chat does not open, the reason stays above the list.
+If a chat does not open, the reason stays above the list until dismissed or another chat opens.
 
 {% <details summary="Details: tabs, background sessions, slow opens, resume command"> %}
 - The first time, macOS asks to let the companion control each terminal app.
-- The reason a chat did not open stays above the list until you dismiss it or open another chat.
 - An ended terminal chat resumes in a new tab of the app it last ran in.
 - On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window. It runs in your shell, so its startup files set `PATH`. Without that command, or with no display, the list offers **Copy resume command**. A chat that last ran in WezTerm, kitty or Konsole resumes in a new tab there instead.
 - On Linux a running chat in WezTerm, kitty, Konsole, or `tmux` shown in one of them gets its tab selected. agnostic-ai does not bring the window forward on Linux, so the list says "Selected the kitty tab that runs it" and that its window may be behind. In GNOME Terminal, Ptyxis, Alacritty, foot, xterm, Tilix or Xfce Terminal the list names the terminal and its device, such as "It runs in GNOME Terminal on pts/3".
 - When only the app can come forward, the list stays open and says where the chat runs.
+- Codex can find a tab after a delayed first prompt. If the notice says **Possible Codex tab**, check before pasting.
 - `claude --bg` runs in Claude's own background service, not in a terminal app.
 - The tab is found by its short id, such as `e3469759`, or its exact full name. A tab attached with the start of an id or part of a name is not recognized, since it may be another session.
 - With no such tab, a new tab runs `claude attach <id>` in the session's folder, in the app it last ran in when it remembers one.

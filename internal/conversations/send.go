@@ -260,7 +260,11 @@ func pasteByHand(ctx context.Context, c Conversation, processes Processes, launc
 	opened := Open(ctx, c, processes, launcher)
 	message := opened.Message + " The text is on the clipboard: paste it with " + pasteKey() + "."
 	if opened.Opened {
-		message = "Switched to it. Paste with " + pasteKey() + "."
+		if opened.Guessed {
+			message = opened.Message + " Check the thread, then paste with " + pasteKey() + "."
+		} else {
+			message = "Switched to it. Paste with " + pasteKey() + "."
+		}
 	}
 	if why != "" {
 		message = why + " " + message

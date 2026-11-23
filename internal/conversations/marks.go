@@ -676,7 +676,7 @@ func (s *Scanner) reopen(ctx context.Context, tool Tool, id, subagent string, op
 		out.reply.Message += fmt.Sprintf(" Type /subagents to switch to '%s'.", conversation.subagent)
 		out.reply.Reached = reachedParent
 	}
-	if !out.reply.Opened || s.MarksPath == "" {
+	if !out.reply.Opened || out.reply.Guessed || s.MarksPath == "" {
 		return out
 	}
 	// A shared row's cloud id gets the same marks, and so does the local

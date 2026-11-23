@@ -396,6 +396,18 @@ test.describe('conversations', () => {
     await expect.poll(() => mocks.opens.map((open) => open.session)).toEqual(['tab-key'])
   })
 
+  test('a guessed open keeps the selected conversation unchanged', async ({ page }) => {
+    const message = 'Switched to a tab that may show this thread.'
+    await mockServer(page, () => ({ json: { opened: true, guessed: true, message } }))
+    await page.goto('/')
+    const sqlite = row(page, 'Speed up the sqlite reader')
+    const copy = sqlite.getByRole('button', { name: /^Copy the command that resumes/ })
+    await sqlite.getByRole('button', { name: /^Open in Terminal/ }).click()
+
+    await expect(sqlite.getByRole('status')).toHaveText(message)
+    await expect(copy).toHaveCount(1)
+  })
+
   test('hides the resume command of a chat it opened, since it may run now', async ({ page }) => {
     let answer!: () => void
     const answered = new Promise<void>((resolve) => { answer = resolve })

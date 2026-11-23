@@ -1138,6 +1138,8 @@ export interface ConversationSendReply {
 /** opened is false when the server could not open it here; message says why and command, when set, resumes it by hand; a Claude Code, Codex or cursor-agent session that still runs in a terminal gets none. */
 export interface ConversationOpenReply {
   opened: boolean
+  /** The tab came forward as a guess. The conversation's marks stay as they were. */
+  guessed?: boolean
   message: string
   command?: string
   /** The Claude Code subagent the request named, set once its conversation opened. */
@@ -1153,7 +1155,7 @@ export interface ConversationOpenReply {
 //   GET  /api/views/context?target=<tool>&file=<path>     → ContextView
 //   GET  /api/views/source?path=<openPath>               → SourceView; 404 for a file the configuration does not list
 //   GET  /api/views/conversations?editor=<id>&before=<time>&q=<words>&tool=<tool> → ConversationsView, one week per page; q searches every conversation; a project server lists the project's own conversations; the reply's ETag sent back as If-None-Match answers 304 while the list holds
-//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); an opened conversation is marked seen and its completion taken back
+//   POST /api/conversations/open                          → ConversationOpenReply (body: ConversationOpenRequest); a confirmed open marks the conversation seen and clears completion
 //   POST /api/conversations/stop-shell                   → ConversationStopShellReply (body: ConversationStopShellRequest); 403 without the companion secret or session key, 409 if refused
 //   POST /api/conversations/stop-session                 → ConversationStopSessionReply (body: ConversationStopSessionRequest); 403 without the companion secret or session key, 409 if it no longer runs here
 //   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 403 without the companion secret or session key, 404 when not listed, 413 over 256 KB
