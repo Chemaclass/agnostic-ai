@@ -495,6 +495,31 @@ jobs:
 
       # The CLI's install code has parts that build only on one system.
       - name: Set up Go for the CLI
+        if: runner.os != 'macOS'
+        uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Test the CLI's companion commands
+        if: runner.os != 'macOS'
+        shell: bash
+        run: go test -count=1 ./internal/cli/ -run 'Companion|Upgrade|MacOS|SessionBus|RunValue'
+
+  # The archive and signing steps can use most of the macOS build job's time.
+  companion_cli_macos:
+    name: Companion CLI (macos-latest)
+    needs: editor_changes
+    if: ${{ !cancelled() && (needs.editor_changes.result != 'success' || needs.editor_changes.outputs.companion == 'true') }}
+    runs-on: macos-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go for the CLI
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7
         with:
           go-version-file: go.mod
