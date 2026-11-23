@@ -6,7 +6,7 @@
 // only posts which one and shows the reply. A static snapshot has no
 // server to read the chats, so it only says what it needs.
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
@@ -69,6 +69,8 @@ export function ConversationsPage() {
     const cached = firstPages.get(cacheKey)
     return cached ? [cached] : []
   })
+  const cloudNote = pages.reduce<string | undefined>((note, page) => page.cloudNote ?? note, undefined)
+  const matchesCloudNote = useEffectEvent((note: string | undefined) => note === cloudNote)
   const [error, setError] = useState<Error>()
   const [refresh, setRefresh] = useState(0)
   const [shellFeedback, setShellFeedback] = useState<ReadonlyMap<string, ShellFeedback>>(() => new Map())
@@ -107,8 +109,7 @@ export function ConversationsPage() {
   }, [query])
 
   // The first page. A new editor or search changes every row, so it starts over.
-  // A kept copy shows until the fresh one lands, which replaces it only
-  // when a row or source changed.
+  // A kept copy shows until a fresh one with different visible content lands.
   useEffect(() => {
     if (needsServer) return
     const controller = new AbortController()
@@ -128,7 +129,7 @@ export function ConversationsPage() {
           if (conversation.live) openedChats.delete(rowKey(conversation))
         }
         setOpened(new Set(openedChats))
-        if (cached && sameFirstPage(cached, loaded.data)) return
+        if (cached && sameFirstPage(cached, loaded.data) && matchesCloudNote(loaded.data.cloudNote)) return
         if (!searched) firstPages.set(cacheKey, loaded.data)
         // A week loaded or loading after the kept page may leave a gap
         // before the fresh one, so the list starts over from it.
@@ -259,7 +260,7 @@ export function ConversationsPage() {
       {loaded && <div className="conversations-more">
         <div ref={sentinel} className="conversations-sentinel" aria-hidden="true" />
         {older.state === 'failed' && <Notice tone="error" title="Could not load the week before." details={older.error.message} />}
-        {next ? (
+        {next && (
           <button
             ref={olderButton}
             type="button"
@@ -270,7 +271,10 @@ export function ConversationsPage() {
           >
             {loading ? 'Loading the week before…' : older.state === 'failed' ? 'Try again' : 'Load the week before'}
           </button>
-        ) : <p ref={endNote} className="muted conversations-end" tabIndex={-1}>That's every conversation.</p>}
+        )}
+        {(cloudNote || !next) && (
+          <p ref={endNote} className="muted conversations-end" tabIndex={-1}>{cloudNote || "That's every conversation."}</p>
+        )}
       </div>}
     </>
   )
