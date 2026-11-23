@@ -95,8 +95,8 @@ func TestHostOf_FindsTheAppAndTheTTY(t *testing.T) {
 }
 
 func pick(c Conversation, threads []threadStart, table []ProcessInfo, processes Processes) (int, []string) {
-	pid, candidates := newCodexClients(table, threads, processes).pick(c)
-	return pid, codexClientTTYs(candidates)
+	client, candidates := newCodexClients(table, threads, processes).pick(c)
+	return client.PID, codexClientTTYs(candidates)
 }
 
 // threadsInRepo is threads created in /repo at each time.
@@ -131,8 +131,7 @@ func TestPickCodexClient_UsesResumeIDOrNamesCandidates(t *testing.T) {
 	if pid, ttys := pick(later, threadStartsFor(later), competing, both); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
 		t.Errorf("two clients in the folder and neither started with the thread: %d, %v", pid, ttys)
 	}
-	resumed := both
-	resumed.args = map[int]string{46288: "codex resume " + thread.ID}
+	resumed := codexArgvProcesses{fakeProcesses: both, argv: map[int][]string{46288: {"codex", "resume", thread.ID}}}
 	if pid, _ := pick(later, threadStartsFor(later), table, resumed); pid != 46288 {
 		t.Errorf("a client started with the thread's id holds it: %d", pid)
 	}
@@ -140,6 +139,63 @@ func TestPickCodexClient_UsesResumeIDOrNamesCandidates(t *testing.T) {
 	elsewhere.cwds = map[int]string{17199: "/repo", 46288: "/other"}
 	if pid, ttys := pick(later, threadStartsFor(later), table, elsewhere); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
 		t.Errorf("a later client in another folder does not end the first client's window: %d, %v", pid, ttys)
+	}
+}
+
+type codexArgvProcesses struct {
+	fakeProcesses
+	argv map[int][]string
+}
+
+func (p codexArgvProcesses) Argv([]int) map[int][]string { return p.argv }
+
+func TestPickCodexClient_DistinguishesAppServerFromPrompt(t *testing.T) {
+	const pid = 17199
+	const id = "01a1c738-eda0-7be0-b151-023a3e0ab7ee"
+	thread := Conversation{Tool: ToolCodex, ID: id, Folder: "/repo", StartedAt: "2026-11-10T21:49:19Z"}
+	table := ghosttyTable(ghosttyTab("/dev/ttys002", 16953, pid, "codex"))
+	for _, tc := range []struct {
+		name    string
+		argv    []string
+		wantPID int
+		wantTTY string
+	}{
+		{name: "prompt mentions app-server", argv: []string{"codex", "investigate app-server logs"}, wantTTY: "/dev/ttys002"},
+		{name: "prompt starts with app-server", argv: []string{"codex", "app-server logs"}, wantTTY: "/dev/ttys002"},
+		{name: "flat prompt with an ambiguous prefix", argv: []string{}, wantTTY: "/dev/ttys002"},
+		{name: "app-server after the options separator is a prompt", argv: []string{"codex", "--", "app-server"}, wantTTY: "/dev/ttys002"},
+		{name: "resume text is a prompt", argv: []string{"codex", "resume " + id}, wantTTY: "/dev/ttys002"},
+		{name: "resume with prompt", argv: []string{"codex", "resume", id, "investigate app-server logs"}, wantPID: pid},
+		{name: "resume with an option-shaped prompt", argv: []string{"codex", "resume", "--", id, "--last"}, wantPID: pid},
+		{name: "real server after a global option", argv: []string{"codex", "-c", "theme=app-server", "app-server", "--listen", "stdio://"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			processes := codexArgvProcesses{fakeProcesses: processesWithTable(table), argv: map[int][]string{pid: tc.argv}}
+			command := strings.Join(tc.argv, " ")
+			if len(tc.argv) == 0 {
+				command = "codex app-server logs"
+			}
+			processes.args = map[int]string{pid: command}
+			processes.cwds = map[int]string{pid: "/repo"}
+			exact, candidates := pick(thread, threadStartsFor(thread), table, processes)
+			if got := strings.Join(candidates, ","); exact != tc.wantPID || got != tc.wantTTY {
+				t.Errorf("match %d and candidates %q, want %d and %q", exact, got, tc.wantPID, tc.wantTTY)
+			}
+		})
+	}
+}
+
+func TestPickCodexClient_FlattenedArgumentsDoNotConfirmAResumeID(t *testing.T) {
+	const pid = 17199
+	const id = "01a1c738-eda0-7be0-b151-023a3e0ab7ee"
+	thread := Conversation{Tool: ToolCodex, ID: id, Folder: "/repo", StartedAt: "2026-11-10T20:00:00Z"}
+	table := ghosttyTable(ghosttyTab("/dev/ttys002", 16953, pid, "codex"))
+	processes := processesWithTable(table)
+	processes.args = map[int]string{pid: "codex resume " + id}
+	processes.cwds = map[int]string{pid: "/repo"}
+	exact, candidates := pick(thread, threadStartsFor(thread), table, processes)
+	if got := strings.Join(candidates, ","); exact != 0 || got != "/dev/ttys002" {
+		t.Errorf("match %d and candidates %q, want only a possible tab", exact, got)
 	}
 }
 
@@ -272,6 +328,83 @@ func TestPickCodexClient_AClientShowingAnotherThreadIsNotAGuess(t *testing.T) {
 	}
 }
 
+func TestPickCodexClient_ALaterHeldThreadCanUseTheOnlyTerminal(t *testing.T) {
+	first := ghosttyTab("/dev/ttys003", 79980, 80312, "codex")
+	first[2].Started = "Mon Nov 23 10:16:01 2026"
+	other := ghosttyTab("/dev/ttys004", 81131, 81453, "codex")
+	other[2].Started = "Mon Nov 23 10:20:00 2026"
+	later := Conversation{
+		Tool: ToolCodex, ID: "later", Folder: "/repo", StartedAt: "2026-11-23T13:32:56Z",
+		Open: Route{Kind: RouteFocus}, process: &liveProcess{PID: 99000},
+	}
+	for _, tc := range []struct {
+		name         string
+		firstLive    bool
+		firstUnknown bool
+		otherLive    bool
+		otherTab     bool
+		otherDir     string
+		wantTTY      string
+	}{
+		{name: "only terminal and held thread", wantTTY: "/dev/ttys003"},
+		{name: "first thread still held", firstLive: true},
+		{name: "first thread liveness unknown", firstUnknown: true},
+		{name: "different thread still held", otherLive: true},
+		{name: "second terminal in the project", otherTab: true, otherDir: "/repo"},
+		{name: "second terminal with unknown folder", otherTab: true},
+		{name: "second terminal in a different project", otherTab: true, otherDir: "/other", wantTTY: "/dev/ttys003"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			table := ghosttyTable(first)
+			if tc.otherTab {
+				table = ghosttyTable(first, other)
+			}
+			processes := processesWithTable(table)
+			processes.cwds = map[int]string{80312: "/repo", 81453: tc.otherDir}
+			threads := []threadStart{
+				{id: "first", created: "2026-11-23T10:16:39Z", folder: "/repo", live: tc.firstLive, unknown: tc.firstUnknown},
+				{id: "other", created: "2026-11-23T12:00:00Z", folder: "/repo", live: tc.otherLive},
+				{id: later.ID, created: later.StartedAt, folder: later.Folder, live: true},
+			}
+			pid, candidates := pick(later, threads, table, processes)
+			if got := strings.Join(candidates, ","); pid != 0 || got != tc.wantTTY {
+				t.Errorf("exact PID %d, candidates %v; want only candidate %q", pid, candidates, tc.wantTTY)
+			}
+		})
+	}
+}
+
+func TestPickCodexClient_ALaterHeldThreadCanUseAClientStartedWithResume(t *testing.T) {
+	const firstID = "01a1c738-eda0-7be0-b151-023a3e0ab7ee"
+	client := ghosttyTab("/dev/ttys003", 79980, 80312, "codex")
+	client[2].Started = "Mon Nov 23 10:16:01 2026"
+	table := ghosttyTable(client)
+	processes := codexArgvProcesses{
+		fakeProcesses: processesWithTable(table),
+		argv:          map[int][]string{80312: {"codex", "resume", firstID}},
+	}
+	processes.cwds = map[int]string{80312: "/repo"}
+	first := threadStart{id: firstID, created: "2026-11-23T09:00:00Z", folder: "/repo"}
+	for _, tc := range []struct {
+		name, created, wantTTY string
+	}{
+		{name: "later thread", created: "2026-11-23T13:32:56Z", wantTTY: "/dev/ttys003"},
+		{name: "thread before client", created: "2026-11-23T10:00:00Z"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			later := Conversation{
+				Tool: ToolCodex, ID: "other", Folder: "/repo", StartedAt: tc.created,
+				Open: Route{Kind: RouteFocus}, process: &liveProcess{PID: 99000},
+			}
+			threads := []threadStart{first, {id: later.ID, created: later.StartedAt, folder: later.Folder, live: true}}
+			pid, candidates := pick(later, threads, table, processes)
+			if got := strings.Join(candidates, ","); pid != 0 || got != tc.wantTTY {
+				t.Errorf("exact PID %d, candidates %v; want only candidate %q", pid, candidates, tc.wantTTY)
+			}
+		})
+	}
+}
+
 func TestPickCodexClient_AClientResumingAnotherThreadIsNeverTimed(t *testing.T) {
 	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
 	client[2].Started = "Tue Nov 10 22:55:27 2026"
@@ -331,8 +464,12 @@ func TestPickCodexClient_AClientResumingWithoutAnIDMayShowAnOlderThread(t *testi
 			t.Errorf("%q may show the older thread in its folder, so it is named: %d, %v", args, pid, ttys)
 		}
 	}
-	processes.args = map[int]string{80312: "codex resume 01a1c775-911c-7893-bd08-5f77cc835aa3"}
-	if pid, ttys := pick(older, threads, table, processes); pid != 0 || ttys != nil {
+	recent := codexArgvProcesses{fakeProcesses: processes, argv: map[int][]string{80312: {"codex", "resume", "--last", older.ID}}}
+	if pid, ttys := pick(older, threads, table, recent); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+		t.Errorf("resume --last takes a UUID as a prompt, so the tab is a candidate: %d, %v", pid, ttys)
+	}
+	resumed := codexArgvProcesses{fakeProcesses: processes, argv: map[int][]string{80312: {"codex", "resume", "01a1c775-911c-7893-bd08-5f77cc835aa3"}}}
+	if pid, ttys := pick(older, threads, table, resumed); pid != 0 || ttys != nil {
 		t.Errorf("a client resuming another id is not named: %d, %v", pid, ttys)
 	}
 }
@@ -351,6 +488,26 @@ func TestPickCodexClient_AClientStartedInAnotherFolderHasNoKnownFolder(t *testin
 		if pid, ttys := pick(created, threads, table, processes); pid != 0 || len(ttys) != 0 {
 			t.Errorf("%q has no confirmed folder, so it cannot be the only candidate: %d, %v", args, pid, ttys)
 		}
+	}
+}
+
+func TestReadCodexRun_RecognizesDirectoryOptionsOutsideThePrompt(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		argv []string
+		want bool
+	}{
+		{name: "option after prompt", argv: []string{"codex", "investigate app-server logs", "--cd", "/other"}, want: true},
+		{name: "option before prompt", argv: []string{"codex", "-C", "/other", "investigate app-server logs"}, want: true},
+		{name: "attached short option", argv: []string{"codex", "-C/other", "investigate app-server logs"}, want: true},
+		{name: "prompt mentions the option", argv: []string{"codex", "try --cd /other"}},
+		{name: "options ended", argv: []string{"codex", "--", "--cd /other"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := readCodexRun(tc.argv, true).elsewhere; got != tc.want {
+				t.Errorf("reads a directory option = %t, want %t", got, tc.want)
+			}
+		})
 	}
 }
 

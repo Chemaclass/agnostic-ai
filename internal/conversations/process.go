@@ -222,6 +222,17 @@ func (SystemProcesses) Args(pids []int) map[int]string {
 	return args
 }
 
+// Argv preserves argument boundaries where the system exposes them.
+func (SystemProcesses) Argv(pids []int) map[int][]string {
+	args := make(map[int][]string, len(pids))
+	for _, pid := range pids {
+		if argv := processArgv(pid); len(argv) > 0 {
+			args[pid] = argv
+		}
+	}
+	return args
+}
+
 // Cwds asks lsof once for every pid: a "p<pid>" line, then "n<folder>".
 func (SystemProcesses) Cwds(pids []int) map[int]string {
 	cwds := map[int]string{}

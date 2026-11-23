@@ -29,3 +29,11 @@ func procEnvironments(pids []int) (map[int][]string, error) {
 	}
 	return environments, nil
 }
+
+func processArgv(pid int) []string {
+	raw, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "cmdline"))
+	if err != nil || len(raw) == 0 || raw[len(raw)-1] != 0 {
+		return nil
+	}
+	return strings.Split(string(raw[:len(raw)-1]), "\x00")
+}

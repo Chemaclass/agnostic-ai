@@ -196,7 +196,10 @@ type codexClients struct {
 }
 
 // threadStart is when and where a Codex CLI thread was created.
-type threadStart struct{ id, created, folder string }
+type threadStart struct {
+	id, created, folder string
+	live, unknown       bool
+}
 
 type codexFirstThread struct {
 	threadStart
@@ -223,13 +226,31 @@ func (k *codexClients) load() {
 	if len(candidates) == 0 {
 		return
 	}
-	args := k.processes.Args(k.pids)
+	var argv map[int][]string
+	if reader, ok := k.processes.(interface{ Argv([]int) map[int][]string }); ok {
+		argv = reader.Argv(k.pids)
+	}
+	var unread []int
+	for _, pid := range k.pids {
+		if len(argv[pid]) == 0 {
+			unread = append(unread, pid)
+		}
+	}
+	var flatArgs map[int]string
+	if len(unread) > 0 {
+		flatArgs = k.processes.Args(unread)
+	}
 	k.runs = make(map[int]codexRun, len(candidates))
 	for _, candidate := range candidates {
-		command := args[candidate.PID]
-		if !strings.Contains(command, "app-server") {
+		args := argv[candidate.PID]
+		hasArgv := len(args) > 0
+		if !hasArgv {
+			args = strings.Fields(flatArgs[candidate.PID])
+		}
+		run := readCodexRun(args, hasArgv)
+		if !run.appServer {
 			k.clients = append(k.clients, candidate)
-			k.runs[candidate.PID] = readCodexRun(command)
+			k.runs[candidate.PID] = run
 		}
 	}
 }
@@ -253,18 +274,18 @@ func (k *codexClients) folder(pid int) string {
 
 // pick identifies a client by an explicit resume ID. Timing and folder
 // only suggest candidates because the daemon can keep an exited client's thread.
-func (k *codexClients) pick(c Conversation) (int, []ProcessInfo) {
+func (k *codexClients) pick(c Conversation) (ProcessInfo, []ProcessInfo) {
 	k.load()
 	for _, client := range k.clients {
 		run := k.runs[client.PID]
 		if run.thread != "" && run.thread == c.ID {
-			return client.PID, nil
+			return client, nil
 		}
 	}
 
 	created, err := time.Parse(time.RFC3339, c.StartedAt)
 	if err != nil {
-		return 0, nil
+		return ProcessInfo{}, nil
 	}
 	first := k.firstThreads()
 	var candidates []ProcessInfo
@@ -287,9 +308,58 @@ func (k *codexClients) pick(c Conversation) (int, []ProcessInfo) {
 		}
 	}
 	if len(candidates) == 1 && k.folder(candidates[0].PID) == "" {
-		return 0, nil
+		return ProcessInfo{}, nil
 	}
-	return 0, candidates
+	if len(candidates) == 0 && c.process != nil {
+		if client, ok := k.laterThreadCandidate(c, created); ok {
+			return ProcessInfo{}, []ProcessInfo{client}
+		}
+	}
+	return ProcessInfo{}, candidates
+}
+
+// A client can move on from its first thread without exiting. Once the
+// daemon releases that thread, one remaining held thread in the project
+// can be shown as a guess if there is only one plausible terminal.
+func (k *codexClients) laterThreadCandidate(c Conversation, created time.Time) (ProcessInfo, bool) {
+	if c.Folder == "" {
+		return ProcessInfo{}, false
+	}
+	var candidate ProcessInfo
+	for _, client := range k.clients {
+		folder := k.folder(client.PID)
+		if folder == "" {
+			return ProcessInfo{}, false
+		}
+		if folder == c.Folder {
+			if candidate.PID != 0 {
+				return ProcessInfo{}, false
+			}
+			candidate = client
+		}
+	}
+	launched, err := time.Parse(lstartLayout, candidate.Started)
+	if err != nil || created.Before(launched) {
+		return ProcessInfo{}, false
+	}
+	first := k.first[candidate.PID]
+	resumeID := k.runs[candidate.PID].thread
+	for _, thread := range k.threads {
+		if thread.folder != c.Folder || thread.id == c.ID {
+			continue
+		}
+		if thread.live || thread.unknown {
+			return ProcessInfo{}, false
+		}
+		if thread.id == resumeID {
+			first = codexFirstThread{threadStart: thread}
+		}
+	}
+	firstAt, err := time.Parse(time.RFC3339, first.created)
+	if err != nil || first.tied || !created.After(firstAt) {
+		return ProcessInfo{}, false
+	}
+	return candidate, true
 }
 
 // A second launch ends the first client's window. If an older client had
@@ -343,6 +413,7 @@ func (k *codexClients) firstThreads() map[int]codexFirstThread {
 // codexRun is what a Codex client's command line says about the thread
 // it shows.
 type codexRun struct {
+	appServer bool
 	// resumes is true for `codex resume` and `codex exec resume`.
 	resumes bool
 	// thread is the id it resumes, "" for the last one or a picker.
@@ -358,53 +429,89 @@ var codexValueFlags = map[string]bool{
 	"-c": true, "--config": true, "-C": true, "--cd": true, "-m": true, "--model": true,
 	"-p": true, "--profile": true, "-s": true, "--sandbox": true, "-a": true, "--ask-for-approval": true,
 	"-i": true, "--image": true, "--add-dir": true, "--enable": true, "--disable": true, "--local-provider": true,
+	"--remote": true, "--remote-auth-token-env": true,
 }
 
 var threadIDPattern = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
-// readCodexRun reads a client's command line, which ps prints without
-// quotes: a prompt such as "resume the migration" reads as several
-// words, so resume with more than one word after it and no id is a
-// prompt.
-func readCodexRun(args string) codexRun {
-	fields := strings.Fields(args)
-	if len(fields) == 0 {
-		return codexRun{}
-	}
+// readCodexRun only trusts subcommands and resume IDs when the original
+// argument boundaries are known. ps flattens even a single prompt argument.
+func readCodexRun(argv []string, hasArgv bool) codexRun {
 	var run codexRun
-	var words []string
-	last := false
-	for i := 1; i < len(fields); i++ {
-		field := fields[i]
-		if !strings.HasPrefix(field, "-") {
-			words = append(words, field)
-			continue
+	if len(argv) < 2 {
+		return run
+	}
+	run.elsewhere = codexHasDirectoryOption(argv[1:])
+	args, _, _ := skipCodexOptions(argv[1:])
+	if len(args) == 0 {
+		return run
+	}
+	switch args[0] {
+	case "app-server":
+		run.appServer = hasArgv
+		return run
+	case "exec":
+		args, _, _ = skipCodexOptions(args[1:])
+	}
+	if len(args) == 0 || args[0] != "resume" {
+		return run
+	}
+	args, last, all := skipCodexOptions(args[1:])
+	optionsEnded := len(args) > 0 && args[0] == "--"
+	if optionsEnded {
+		args = args[1:]
+	}
+	if len(args) > 0 && threadIDPattern.MatchString(args[0]) {
+		run.resumes = true
+		if !optionsEnded {
+			_, trailingLast, _ := skipCodexOptions(args[1:])
+			last = last || trailingLast
 		}
-		name, _, inline := strings.Cut(field, "=")
-		if name == "-C" || name == "--cd" {
-			run.elsewhere = true
+		// With --last, Codex takes a lone positional argument as the prompt.
+		if hasArgv && !last {
+			run.thread = args[0]
 		}
-		if name == "--last" || name == "--all" {
-			last = true
+		return run
+	}
+	run.resumes = hasArgv || last || all || len(args) <= 1
+	return run
+}
+
+func codexHasDirectoryOption(args []string) bool {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			break
+		}
+		name, _, inline := strings.Cut(arg, "=")
+		if strings.HasPrefix(name, "-C") || name == "--cd" {
+			return true
 		}
 		if codexValueFlags[name] && !inline {
 			i++
 		}
 	}
-	if len(words) > 0 && words[0] == "exec" {
-		words = words[1:]
+	return false
+}
+
+func skipCodexOptions(args []string) (rest []string, last, all bool) {
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" || !strings.HasPrefix(arg, "-") {
+			return args[i:], last, all
+		}
+		name, _, inline := strings.Cut(arg, "=")
+		switch name {
+		case "--last":
+			last = true
+		case "--all":
+			all = true
+		}
+		if codexValueFlags[name] && !inline {
+			i++
+		}
 	}
-	if len(words) == 0 || words[0] != "resume" {
-		return run
-	}
-	rest := words[1:]
-	switch {
-	case len(rest) > 0 && threadIDPattern.MatchString(rest[0]):
-		run.resumes, run.thread = true, rest[0]
-	case last || len(rest) <= 1:
-		run.resumes = true
-	}
-	return run
+	return nil, last, all
 }
 
 func firstThreadAfter(started, end time.Time, folder string, threads []threadStart) codexFirstThread {
@@ -494,7 +601,7 @@ func (s *Scanner) placeLive(results []sourceResult, readTable func() ([]ProcessI
 				live = append(live, c)
 			}
 			if c.Tool == ToolCodex && c.App == AppCLI && c.StartedAt != "" {
-				threads = append(threads, threadStart{id: c.ID, created: c.StartedAt, folder: c.Folder})
+				threads = append(threads, threadStart{id: c.ID, created: c.StartedAt, folder: c.Folder, live: c.Live, unknown: c.liveUnknown})
 			}
 		}
 		for i := range results[r].unlisted {
@@ -559,8 +666,8 @@ func place(c *Conversation, clients *codexClients, table []ProcessInfo, args fun
 	process := *c.process
 	host, _ := hostOf(table, process.PID)
 	if host.TTY == "" && c.Tool == ToolCodex {
-		pid, candidates := clients.pick(*c)
-		if pid == 0 {
+		client, candidates := clients.pick(*c)
+		if client.PID == 0 {
 			if len(candidates) > 0 {
 				c.placed = &placement{ttys: codexClientTTYs(candidates)}
 			}
@@ -574,7 +681,7 @@ func place(c *Conversation, clients *codexClients, table []ProcessInfo, args fun
 			}
 			return false
 		}
-		process = liveProcess{PID: pid}
+		process = liveProcess{PID: client.PID, ProcStart: client.Started}
 	}
 	return placeAt(c, process, table, args)
 }
