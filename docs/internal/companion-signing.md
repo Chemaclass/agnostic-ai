@@ -120,7 +120,7 @@ The hash must match `cert.sha1`. To check that the grant survives, grant Accessi
 
 ## First live update
 
-No published release has shipped a disk image yet, so the app's own update has run only against test fixtures. Once two releases in a row ship disk images:
+Use two consecutive published releases with disk images. Test in a separate macOS login, or copy the older app to a writable scratch folder and launch it with a scratch `HOME`. The companion runs once per desktop session, so stop the existing instance before opening a scratch copy and restore it afterward.
 
 1. Check that the `Sign the macOS companion` job log of each prints the hash pinned in `scripts/companion-sign.sh`.
 2. Install the older disk image in Applications, open it, and grant Accessibility.
@@ -131,6 +131,12 @@ No published release has shipped a disk image yet, so the app's own update has r
 7. Check that `~/Library/Application Support/agnostic-ai/companion-update.log` has the line `Replaced the companion app.`
 
 Record the result in the update details of `docs/site/content/docs/cli-reference/companion.md`.
+
+On macOS 27.2.1 (arm64), the checksums and release workflow attestations matched both published disk images. Both bundles passed strict verification against the pinned release certificate. The same check refused them against a different certificate requirement. Both signing jobs printed the pinned certificate fingerprint. [v0.97.0 signing job](https://github.com/Chemaclass/agnostic-ai/actions/runs/45083126805/job/137397071244) · [v0.98.0 signing job](https://github.com/Chemaclass/agnostic-ai/actions/runs/45131337779/job/137548771551)
+
+With the v0.97.0 app running from a scratch folder and using a scratch home, its bundled CLI ran `companion update-app --app <scratch-app> --version 0.98.0`. The update verified the downloaded image's checksum and build provenance using the published attestation bundle, then checked its signature and swapped the app. A new process started from the same path with the same scratch home. Both executable versions were 0.98.0. The log reported `Replaced the companion app.` The small circle, animation and automatic update preferences survived. The running app saved the circle's position, so the scratch settings file changed. The original companion was restarted and its settings file kept the same checksum.
+
+Still to check on a desktop: starting the update from the panel, Accessibility after the swap, Gatekeeper with a quarantined download, and installing a copy signed with a new certificate by hand.
 
 ## Troubleshooting
 
