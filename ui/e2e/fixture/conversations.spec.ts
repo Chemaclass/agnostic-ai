@@ -510,6 +510,23 @@ test.describe('conversations', () => {
     expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: 'c3b8e0d2-61f4-4a9e-8d27-5e0f9a1b7c64', editor: 'cursor', helper: 'a4f1c2e9b7d3' }])
   })
 
+  test('offers the tmux attach command when a helper opens its parent', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const message = 'Switched to the parent. Run this command to see its subagent.'
+    const command = 'tmux -L example attach'
+    const mocks = await mockServer(page, () => ({ json: { opened: true, reached: 'parent', message, command } }))
+    await page.goto('/')
+    const plan = row(page, 'Plan the sync --scope user dry run')
+    await plan.getByRole('button', { name: /^Find every caller of writeGlobal/ }).click()
+
+    await expect(plan.getByRole('status')).toHaveText(message)
+    const copy = plan.getByRole('button', { name: /^Copy the command the server suggests/ })
+    await expect(copy).toBeVisible()
+    await copy.click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+    expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: 'c3b8e0d2-61f4-4a9e-8d27-5e0f9a1b7c64', editor: 'cursor', helper: 'a4f1c2e9b7d3' }])
+  })
+
   test('opens a Codex subagent as its own thread', async ({ page }) => {
     const codex = structuredClone(conversations)
     codex.conversations[0].helpers = [{ tool: 'codex', id: '0199f7d4-3e21-7a90-b6c2-8d4e1f0a5b37', title: '', state: 'working', updatedAt: '2026-11-07T15:28:00Z' }]

@@ -231,7 +231,9 @@ export function lateOpenNoticeOf(reply, dismissed) {
   const message = reply.title ? reply.title + ': ' + reply.message : reply.message
   const shown = { message, late: true, id: reply.id }
   if (reply.guessed === true) return { ...shown, about: NOTICES.guessedTab }
-  return reply.command ? { ...shown, command: reply.command } : shown
+  if (reply.command) shown.command = reply.command
+  if (reply.reached === 'parent') return { ...shown, about: NOTICES.subagent }
+  return shown
 }
 
 /**
@@ -1431,7 +1433,7 @@ export function openNoticeOf(reply) {
   if (!reply.opened) return undefined
   if (reply.guessed === true) return { message: reply.message, hint: true, about: NOTICES.guessedTab }
   if (reply.reached !== 'subagent' && (reply.reached === 'parent' || reply.helper)) {
-    return { message: reply.message, hint: true, about: NOTICES.subagent }
+    return { message: reply.message, ...(reply.command ? { command: reply.command } : {}), hint: true, about: NOTICES.subagent }
   }
 }
 
