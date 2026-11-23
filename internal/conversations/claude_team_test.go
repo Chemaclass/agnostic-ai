@@ -171,7 +171,7 @@ func TestClaudeTeam_ASubagentATeammateStartedIsNestedUnderIt(t *testing.T) {
 	if err := json.Unmarshal([]byte(teamFixture(t, "nested-subagent.meta.json")), &nested); err != nil {
 		t.Fatal(err)
 	}
-	teammateTranscript(t, lead, teammateMessage(1), at(sidechainDispatch("Agent", nested.ToolUseID), 2))
+	teammate := teammateTranscript(t, lead, teammateMessage(1), at(sidechainDispatch("Agent", nested.ToolUseID), 2))
 	dir := claudeSubagentsDir(lead)
 	write(t, filepath.Join(dir, "agent-anested.meta.json"), teamFixture(t, "nested-subagent.meta.json"))
 	write(t, filepath.Join(dir, "agent-anested.jsonl"), "")
@@ -187,6 +187,24 @@ func TestClaudeTeam_ASubagentATeammateStartedIsNestedUnderIt(t *testing.T) {
 	}
 	if got := helpers[index]; got.ParentID != inProcessTeammate || got.Reach != reachNested || got.ParentName != "legolas-3905" {
 		t.Errorf("the nested subagent names the teammate it runs inside, actual %s", asJSON(t, got))
+	}
+
+	appendWorkerEvent(t, lead, at(workerDispatch("other-call"), 3))
+	appendWorkerEvent(t, lead, at(workerResult("other-call", obj{"status": "async_launched", "agentId": "other"}), 4))
+	appendWorkerEvent(t, teammate, at(sidechainDispatch("TaskStop", "stop-other"), 5))
+	appendWorkerEvent(t, teammate, at(sidechainResult("stop-other", `{"task_id":"other"}`), 6))
+	writeTeam(t, stores, inProcessTeam, "in-process-team-config.json", func(config obj) {
+		config["members"] = config["members"].([]any)[:1]
+	})
+	work, _ = scanner.claudeWorkOf(lead, session)
+	if work == nil || work.count() != 0 {
+		t.Fatalf("removing a teammate also clears its unfinished subagent, actual %v", work)
+	}
+	if helpers := scanner.claudeHelpers(lead, work, map[string]bool{}); len(helpers) != 0 {
+		t.Errorf("the stopped teammate and its subagent leave the list, actual %s", asJSON(t, helpers))
+	}
+	if working, seen := work.agents["other"]; !seen || working {
+		t.Errorf("the teammate's completed stop of a separate agent stays recorded, actual %v", work.agents)
 	}
 }
 

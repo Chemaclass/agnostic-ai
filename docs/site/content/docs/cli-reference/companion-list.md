@@ -264,6 +264,7 @@ On macOS the notice shows at once: the list comes up beside the circle without t
 - The list starts folded. Which chats are unfolded, and which subagents are folded shut, is kept until the companion quits.
 - A subagent whose parent finished, or whose parents lead back to it, sits at the top of the tree.
 - Only working subagents are listed and counted. A finished one leaves, and the toggle goes away once none works.
+- When Claude Code removes a teammate from its team, the teammate and its subagents leave Working.
 - `codex exec` runs count among them while they run.
 - With animation off, or the system's Reduce Motion on, the indicator stays still with its heading and worker count visible. See [Animate companion](@/docs/cli-reference/companion.md#menus).
 {% </details> %}
