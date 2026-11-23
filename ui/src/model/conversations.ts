@@ -103,8 +103,9 @@ export function mergePages(pages: Pick<ConversationsView, 'conversations'>[]): C
   return [...rows.values()].sort(newestFirst)
 }
 
-/** Whether two first pages show the same rows, sources and end of list; their times of reading may differ. */
+/** Whether two first pages have the same visible content, ignoring when they were read. */
 export function sameFirstPage(a: ConversationsView, b: ConversationsView): boolean {
+  if (a.cloudNote !== b.cloudNote) return false
   const shown = (view: ConversationsView) => JSON.stringify([view.tools, view.conversations, view.next !== undefined])
   return shown(a) === shown(b)
 }

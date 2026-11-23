@@ -107,8 +107,7 @@ export function ConversationsPage() {
   }, [query])
 
   // The first page. A new editor or search changes every row, so it starts over.
-  // A kept copy shows until the fresh one lands, which replaces it only
-  // when a row or source changed.
+  // A kept copy shows until a fresh one with different visible content lands.
   useEffect(() => {
     if (needsServer) return
     const controller = new AbortController()
@@ -222,6 +221,7 @@ export function ConversationsPage() {
   const matching = filterConversations(rows, '', tool)
   const groups = groupConversations(matching, now)
   const matches = pages[0]?.matches
+  const cloudNote = pages[0]?.cloudNote
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 
@@ -259,7 +259,7 @@ export function ConversationsPage() {
       {loaded && <div className="conversations-more">
         <div ref={sentinel} className="conversations-sentinel" aria-hidden="true" />
         {older.state === 'failed' && <Notice tone="error" title="Could not load the week before." details={older.error.message} />}
-        {next ? (
+        {next && (
           <button
             ref={olderButton}
             type="button"
@@ -270,7 +270,10 @@ export function ConversationsPage() {
           >
             {loading ? 'Loading the week before…' : older.state === 'failed' ? 'Try again' : 'Load the week before'}
           </button>
-        ) : <p ref={endNote} className="muted conversations-end" tabIndex={-1}>That's every conversation.</p>}
+        )}
+        {(cloudNote || !next) && (
+          <p ref={endNote} className="muted conversations-end" tabIndex={-1}>{cloudNote || "That's every conversation."}</p>
+        )}
       </div>}
     </>
   )

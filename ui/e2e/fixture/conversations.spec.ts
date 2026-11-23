@@ -888,6 +888,56 @@ test.describe('conversations by week', () => {
     await expect(row(page, 'Renamed while away')).toBeVisible()
     await expect(page.locator('li.conversation')).toHaveCount(9)
   })
+
+  test('updates the cloud sign-in note when the same local rows are refreshed', async ({ page }) => {
+    const expired = 'Claude Code cloud sessions are not listed: the Claude sign-in has expired or was refused. Run `claude` once to renew it.'
+    const unavailable = 'Claude Code cloud sessions are not listed: the cloud service did not answer.'
+    let answer = { ...conversations, cloudNote: expired }
+    await mockServer(page, opened, () => ({ json: answer }))
+    await page.goto('/')
+
+    await expect(page.getByText(expired, { exact: true })).toHaveCount(1)
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+    await expect(page.getByText("That's every conversation.")).toHaveCount(0)
+
+    const nav = page.getByRole('navigation', { name: 'Configuration sections' })
+    const returnToConversations = async () => {
+      await nav.getByRole('link', { name: /^Context/ }).click()
+      await nav.getByRole('link', { name: /^Conversations/ }).click()
+    }
+
+    answer = { ...conversations, cloudNote: unavailable }
+    await returnToConversations()
+    await expect(page.getByText(unavailable, { exact: true })).toBeVisible()
+    await expect(page.getByText(expired, { exact: true })).toHaveCount(0)
+
+    const search = page.getByRole('searchbox', { name: 'Search conversations' })
+    await search.fill('unmatched-cloud-search')
+    await expect(page.getByText('No conversation matches.')).toBeVisible()
+    await expect(page.getByText(unavailable, { exact: true })).toBeVisible()
+    await search.clear()
+    await expect(page.locator('li.conversation')).toHaveCount(9)
+
+    answer = conversations
+    await returnToConversations()
+    await expect(page.getByText("That's every conversation.")).toBeVisible()
+    await expect(page.getByText(unavailable, { exact: true })).toHaveCount(0)
+  })
+
+  test('keeps the cloud note while paging and focuses it at the end of the list', async ({ page }) => {
+    const cloudNote = 'Codex cloud threads are not listed: the cloud service did not answer.'
+    await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
+    await mockServer(page, opened, (before) => ({ json: before ? weekBefore : { ...firstWeek, cloudNote } }))
+    await page.goto('/')
+
+    const note = page.getByText(cloudNote, { exact: true })
+    await expect(note).toBeVisible()
+    await page.getByRole('button', { name: 'Load the week before' }).click()
+    await expect(row(page, 'Port the docs search to Pagefind')).toBeVisible()
+    await expect(note).toBeFocused()
+    await expect(note).toHaveCount(1)
+    await expect(page.getByText("That's every conversation.")).toHaveCount(0)
+  })
 })
 
 test.describe('conversations on a touch screen', () => {

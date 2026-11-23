@@ -283,6 +283,7 @@ export function normalizeConversationsView(raw: unknown): ConversationsView {
     // A missing or empty next means no older conversation remains.
     ...(typeof v.next === 'string' && v.next !== '' ? { next: v.next } : {}),
     ...(typeof v.matches === 'number' ? { matches: v.matches } : {}),
+    ...(typeof v.cloudNote === 'string' && v.cloudNote !== '' ? { cloudNote: v.cloudNote } : {}),
     tools: arr(v.tools).map(normalizeConversationSource),
     conversations: arr(v.conversations).map(normalizeConversation),
   }
