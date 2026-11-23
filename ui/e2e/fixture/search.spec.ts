@@ -265,7 +265,7 @@ test.describe('search across sections', () => {
     tools.items.push({ ...github, path: '.agnostic-ai/mcps/team/github.yaml', layer: 'user' })
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('./?view=context')
-    await page.keyboard.press(modK)
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
     await dialog.getByRole('combobox').fill('github')
     await expect(dialog.getByRole('option', { name: /\.agnostic-ai\/mcps\/github\.yaml/ })).toHaveCount(1)
@@ -281,7 +281,7 @@ test.describe('search across sections', () => {
     }
     await page.route('**/api/views/overview', (route) => route.fulfill({ json: data }))
     await page.goto('./?view=context')
-    await page.keyboard.press(modK)
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
     const dialog = page.getByRole('dialog', { name: 'Search all configuration' })
     await dialog.getByRole('combobox').fill('generated')
     await expect(dialog.locator('.search-dialog-status')).toHaveText('Showing the first 50 of 500 results. Add words to narrow them.')
