@@ -42,6 +42,8 @@ Two jobs in `release.yml` handle the companion:
 1. `companion` builds the archives and disk images with `scripts/companion-release.sh`, signed ad hoc, and uploads them as an artifact. It fetches and runs dependency code, so it reads no secret.
 2. `companion-sign` downloads that artifact by its id and runs `scripts/companion-sign.sh` with `COMPANION_SIGNING_P12`. It sets up no toolchain and runs only this repository's scripts. It uploads the signed files as a new artifact, whose id the candidate build (`goreleaser`) downloads.
 
+If macOS leaves a newly built image attached in CI, the build detaches its device without force before verifying its checksum. CI runs the macOS CLI tests in parallel with archive building and signing, using the Go version selected from the CLI's `go.mod`.
+
 `scripts/companion-sign.sh`:
 
 1. Imports the secret into a temporary keychain and stops unless it holds the certificate whose hash is pinned at the top of the script (`companion_release_cert`). A lookup by name would also match a certificate whose name only contains the expected one.

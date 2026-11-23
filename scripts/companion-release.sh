@@ -35,13 +35,40 @@ image_diagnostics() {
   hdiutil info >&2 || true
 }
 
-# On some runners verify fails at once with "Resource temporarily
-# unavailable" for as long as the job runs, and the runner then kills an
-# orphan diskimages-helper that `hdiutil create` left behind. On CI, ask a
-# helper that holds the new, unattached image to stop; verify checks the
+attached_image_device() {
+  python3 -c '
+import plistlib
+import re
+import sys
+
+def canonical_path(path):
+    if not isinstance(path, str) or not path:
+        raise ValueError("missing image path")
+    return path[8:] if path.startswith("/private/var/") else path
+
+images = plistlib.loads(sys.stdin.buffer.read())["images"]
+if not isinstance(images, list):
+    sys.exit(1)
+path = canonical_path(sys.argv[1])
+matches = [image for image in images if canonical_path(image["image-path"]) == path]
+if not matches:
+    sys.exit(0)
+if len(matches) != 1:
+    sys.exit(1)
+
+# hdiutil lists the image disk first, before partitions and synthesized disks.
+device = matches[0]["system-entities"][0]["dev-entry"]
+if not re.fullmatch(r"/dev/disk[0-9]+", device):
+    sys.exit(1)
+print(device)
+' "$1"
+}
+
+# On CI, detach the newly built image if create left it attached, or ask
+# an orphan helper holding the unattached image to stop. Verify checks the
 # checksums right after. Elsewhere, only report who holds it.
 release_image() {
-  local image="$1" pid pids attached helper_pids helpers="" waited=0
+  local image="$1" pid pids attached device helper_pids helpers="" waited=0
   pids="$(lsof -t -- "$image" 2>/dev/null)" || true
   [ -z "$pids" ] && return 0
   echo "hdiutil create left $image open" >&2
@@ -49,12 +76,16 @@ release_image() {
   if [ "${GITHUB_ACTIONS:-}" != true ]; then
     return 0
   fi
-  if ! attached="$(hdiutil info -plist 2>/dev/null)"; then
+  if ! attached="$(hdiutil info -plist 2>/dev/null)" ||
+    ! device="$(attached_image_device "$image" 2>/dev/null <<< "$attached")"; then
     echo "could not check whether $image is attached; leaving its holder alone" >&2
     return 0
   fi
-  if grep -qF -e "<string>$image</string>" -e "<string>/private$image</string>" <<< "$attached"; then
-    echo "$image is attached; leaving its helper alone" >&2
+  if [ -n "$device" ]; then
+    echo "detaching $device for $image" >&2
+    if ! hdiutil detach "$device"; then
+      echo "could not detach $device for $image; leaving its helper alone" >&2
+    fi
     return 0
   fi
   helper_pids="$(pgrep -f '^/System/Library/PrivateFrameworks/DiskImages\.framework/Resources/diskimages-helper([[:space:]]|$)')" || true
