@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "mailbox-stats/v1",
+  "since": null,
+  "threads": {
+    "total": 52,
+    "open": 52,
+    "paused": 0,
+    "closing": 0,
+    "closed": 0,
+    "reachedCapWithoutDone": 0
+  },
+  "messages": {
+    "total": 52,
+    "byType": {
+      "question": 0,
+      "finding": 0,
+      "review_request": 52,
+      "handoff": 0,
+      "done": 0
+    },
+    "byState": {
+      "held": 0,
+      "waiting": 2,
+      "reserved": 0,
+      "staged": 0,
+      "delivered": 50,
+      "rejected": 0,
+      "cancelled": 0
+    },
+    "bySender": {
+      "human": 52,
+      "agent": 0
+    }
+  },
+  "refusals": {
+    "total": 0,
+    "withThread": 0,
+    "withoutThread": 0,
+    "byGuard": {},
+    "perSendAttempt": 0
+  },
+  "deliverySeconds": {
+    "count": 50,
+    "median": 1.6825785,
+    "p90": 3.202489
+  },
+  "humanActions": {
+    "pause": 0,
+    "resume": 0,
+    "stop": 0,
+    "approve": 0,
+    "reject": 0,
+    "raiseCap": 0,
+    "queue": 0,
+    "per10Threads": 0
+  },
+  "handoffs": {
+    "offered": 0,
+    "accepted": 0,
+    "declined": 0,
+    "conflicts": 0,
+    "conflictsPer10Handoffs": null
+  },
+  "reviews": {
+    "requests": 52,
+    "crossModel": 26,
+    "sameModel": 26,
+    "unknownModel": 0,
+    "firstThreadToFirstEmittedReviewSeconds": 0.357507
+  }
+}
