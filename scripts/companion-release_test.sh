@@ -118,14 +118,16 @@ function test_it_fails_at_once_on_any_other_error() {
 
 # lsof reports $1 as holding the image until it is signalled, then for
 # $HOLDER_LINGERS more checks. Its full command is $2, signals go to $3,
-# and hdiutil info lists $HOLDER_ATTACHED as attached.
+# and hdiutil info lists $HOLDER_ATTACHED as attached, when set.
 function stub_image_holder() {
   HOLDER_PID="$1"
   HOLDER_NAME="$2"
   KILLED="$3"
   HOLDER_CHECKS="$KILLED.checks"
+  DETACHED="$KILLED.detached"
   : > "$KILLED"
   : > "$HOLDER_CHECKS"
+  : > "$DETACHED"
   # shellcheck disable=SC2329
   function lsof() {
     if [ "$1" = -t ]; then
@@ -152,11 +154,44 @@ function stub_image_holder() {
   }
   # shellcheck disable=SC2329
   function hdiutil() {
-    if [ "$*" = "info -plist" ]; then
-      echo "<string>${HOLDER_ATTACHED:-none}</string>"
-    else
-      echo "hdiutil $*"
-    fi
+    case "$*" in
+      "info -plist")
+        case "${HOLDER_INFO:-ok}" in
+          unavailable) return 1 ;;
+          malformed) echo '<plist><dict>'; return 0 ;;
+        esac
+        cat <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict><key>images</key><array>
+<dict>
+  <key>image-path</key><string>/different/image.dmg</string>
+  <key>system-entities</key><array><dict><key>dev-entry</key><string>/dev/disk2</string></dict></array>
+</dict>
+PLIST
+        if [ -n "${HOLDER_ATTACHED:-}" ]; then
+          local n
+          for ((n=0; n<${HOLDER_MATCHES:-1}; n++)); do
+            cat <<PLIST
+<dict>
+  <key>image-path</key><string>$HOLDER_ATTACHED</string>
+  <key>system-entities</key><array>
+    <dict><key>dev-entry</key><string>${HOLDER_DEVICE-/dev/disk7}</string></dict>
+    <dict><key>dev-entry</key><string>/dev/disk7s1</string></dict>
+    <dict><key>dev-entry</key><string>/dev/disk8</string></dict>
+  </array>
+</dict>
+PLIST
+          done
+        fi
+        echo '</array></dict></plist>'
+        ;;
+      detach\ *)
+        echo "$*" >> "$DETACHED"
+        return "${HOLDER_DETACH_STATUS:-0}"
+        ;;
+      *) echo "hdiutil $*" ;;
+    esac
   }
   # shellcheck disable=SC2329
   function kill() { echo "$*" >> "$KILLED"; }
@@ -164,7 +199,7 @@ function stub_image_holder() {
 
 function unstub_image_holder() {
   unset -f lsof ps pgrep hdiutil kill sleep
-  unset HOLDER_LINGERS HOLDER_ATTACHED GITHUB_ACTIONS IMAGE
+  unset HOLDER_LINGERS HOLDER_ATTACHED HOLDER_DEVICE HOLDER_MATCHES HOLDER_INFO HOLDER_DETACH_STATUS GITHUB_ACTIONS IMAGE
 }
 
 function run_release_image() {
@@ -175,6 +210,7 @@ function run_release_image() {
   status=0
   output="$(release_image "${IMAGE:-image.dmg}" 2>&1)" || status=$?
   killed="$(tr '\n' '|' < "$tmp/killed")"
+  detached="$(cat "$tmp/killed.detached")"
   slept="$(wc -l < "$tmp/slept" | tr -d ' ')"
   unstub_image_holder
 }
@@ -210,20 +246,21 @@ function test_release_image_waits_up_to_ten_seconds_without_a_second_signal() {
   assert_contains "image.dmg is still open after 10s" "$output"
 }
 
-function test_release_image_leaves_the_helper_of_an_attached_image_alone() {
-  local tmp output killed slept status
+function test_release_image_detaches_only_the_staged_whole_disk_on_ci() {
+  local tmp output killed detached slept status
   tmp="$(mktemp -d)"
   export GITHUB_ACTIONS=true
   HOLDER_ATTACHED=image.dmg
   run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
   rm -rf "$tmp"
 
-  assert_contains "image.dmg is attached" "$output"
+  assert_same "0" "$status"
+  assert_same "detach /dev/disk7" "$detached"
   assert_empty "$killed"
 }
 
 function test_release_image_matches_an_attached_image_under_private() {
-  local tmp output killed slept status
+  local tmp output killed detached slept status
   tmp="$(mktemp -d)"
   export GITHUB_ACTIONS=true
   HOLDER_ATTACHED=/private/var/x/image.dmg
@@ -232,20 +269,56 @@ function test_release_image_matches_an_attached_image_under_private() {
   rm -rf "$tmp"
 
   assert_same "0" "$status"
-  assert_contains "/var/x/image.dmg is attached" "$output"
+  assert_same "detach /dev/disk7" "$detached"
   assert_empty "$killed"
 }
 
 function test_release_image_only_reports_the_holder_off_ci() {
-  local tmp output killed slept status
+  local tmp output killed detached slept status
   tmp="$(mktemp -d)"
   export GITHUB_ACTIONS=false
+  HOLDER_ATTACHED=image.dmg
   run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
   rm -rf "$tmp"
 
   assert_contains "lsof -- image.dmg" "$output"
   assert_not_contains "stopping" "$output"
+  assert_empty "$detached"
   assert_empty "$killed"
+}
+
+function test_release_image_leaves_the_helper_alone_if_detach_fails() {
+  local tmp output killed detached slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  HOLDER_ATTACHED=image.dmg
+  HOLDER_DETACH_STATUS=16
+  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  rm -rf "$tmp"
+
+  assert_contains "could not detach" "$output"
+  assert_same "detach /dev/disk7" "$detached"
+  assert_empty "$killed"
+}
+
+function test_release_image_leaves_uncertain_attachments_alone() {
+  local tmp output killed detached slept status uncertainty
+  for uncertainty in malformed unavailable duplicate missing partition; do
+    tmp="$(mktemp -d)"
+    export GITHUB_ACTIONS=true
+    HOLDER_ATTACHED=image.dmg
+    case "$uncertainty" in
+      malformed|unavailable) HOLDER_INFO="$uncertainty" ;;
+      duplicate) HOLDER_MATCHES=2 ;;
+      missing) HOLDER_DEVICE= ;;
+      partition) HOLDER_DEVICE=/dev/disk7s1 ;;
+    esac
+    run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+    rm -rf "$tmp"
+
+    assert_empty "$detached"
+    assert_empty "$killed"
+  done
 }
 
 function test_release_image_leaves_other_holders_alone() {
