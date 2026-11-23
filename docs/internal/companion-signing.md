@@ -126,7 +126,7 @@ Use two consecutive published releases with disk images. Test in a separate macO
 2. Install the older disk image in Applications, open it, and grant Accessibility.
 3. Choose **Update to vX.Y.Z**, then **Update and restart**. The list should show each step, and the app should come back on the new version.
 4. Check the version in the app and with the bundled CLI's `--version`. Open the settings and confirm the old choices are still shown.
-5. Check that the new app opened without a Gatekeeper dialog and still has Accessibility access.
+5. Check that the new app still has Accessibility access. Record any Gatekeeper prompt during the update. Check the first launch of a quarantined disk image install separately. After verifying that download, use **Open Anyway** if Gatekeeper blocks the launch.
 6. Confirm the release checksum and, when `gh` is available and logged in, the build provenance. Check that an app signed with a different certificate is refused before swap, and install it by hand to verify certificate rotation.
 7. Check that `~/Library/Application Support/agnostic-ai/companion-update.log` has the line `Replaced the companion app.`
 
@@ -136,7 +136,11 @@ On macOS 27.2.1 (arm64), the checksums and release workflow attestations matched
 
 With the v0.97.0 app running from a scratch folder and using a scratch home, its bundled CLI ran `companion update-app --app <scratch-app> --version 0.98.0`. The update verified the downloaded image's checksum and build provenance using the published attestation bundle, then checked its signature and swapped the app. A new process started from the same path with the same scratch home. Both executable versions were 0.98.0. The log reported `Replaced the companion app.` The small circle, animation and automatic update preferences survived. The running app saved the circle's position, so the scratch settings file changed. The original companion was restarted and its settings file kept the same checksum.
 
-Still to check on a desktop: starting the update from the panel, Accessibility after the swap, Gatekeeper with a quarantined download, and installing a copy signed with a new certificate by hand.
+The published npm CLI upgraded from v0.97.0 to v0.98.0 in a scratch prefix using `upgrade --companion-confirmed-release 0.98.0`. The scratch installation held only the CLI. With a Finder-like `PATH` that lacked npm, the v0.97.0 CLI still offered the update. The upgrade failed with `npm: command not found` and exit status 127. `--version` still reported v0.97.0. Browser tests exercised **Copy command** and **Release page** in the fallback and failure states.
+
+A quarantined scratch copy of the published v0.98.0 app passed `codesign --verify --deep --strict`. Gatekeeper assessment with `spctl --assess --type execute` rejected it, and `syspolicy_check distribution` reported a missing notarization ticket. Strict signature verification also passed for the terminal-installed app with its per-Mac certificate. Each app failed verification against the other's certificate requirement.
+
+The remaining Mac desktop checks are the panel update for both install types, the Finder launch and copy fallback, Accessibility after the swap, the first-launch Gatekeeper prompt and **Open Anyway**, and a manual install after certificate rotation.
 
 ## Troubleshooting
 
