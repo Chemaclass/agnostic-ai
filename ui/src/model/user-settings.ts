@@ -50,7 +50,7 @@ export const COMPANION_APPROVALS_HINT = 'Approve or deny requests on the chat ro
 export const APPROVALS_SETUP_HINT = 'Setup changes your tools’ settings files, so you can review the changes first.'
 
 export function companionApprovalsNeedSetup(doc: SettingsView): boolean {
-  return doc.approvals.companion && Boolean(doc.approvals.problem || Object.keys(doc.approvals.companionSetup ?? {}).length || doc.sync.reasons.some((reason) =>
+  return doc.approvals.companion && Boolean(doc.approvals.problem || doc.approvals.companionUnavailable || Object.keys(doc.approvals.companionSetup ?? {}).length || doc.sync.reasons.some((reason) =>
     /^(claude|codex): the hook is not installed/.test(reason) || reason === 'approvals is not in builtins in the home config'))
 }
 
@@ -66,6 +66,7 @@ export function approvalsStatus(doc: SettingsView, toolName: (target: string) =>
   const approvals = doc.approvals
   if (approvals.problem) lines.push('The approvals settings could not be read. Check your home configuration.')
   if (doc.sync.needed) lines.push(approvalSetupLine(doc.sync.reasons, toolName))
+  if (approvals.companionUnavailable) lines.push('Add Claude Code or Codex to your configured tools to answer requests from the companion.')
   for (const [tool, setup] of Object.entries(approvals.companionSetup ?? {})) {
     if (setup === 'trust') lines.push('Open /hooks in Codex and trust the permission entry.')
     if (setup === 'disabled') lines.push('Open /hooks in Codex and enable the permission entry.')

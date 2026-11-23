@@ -144,6 +144,15 @@ test('companion permission setup stays pending while Codex needs trust', () => {
   assert.equal(companionApprovalsNeedSetup({ ...doc, approvals: { companion: true } }), false)
 })
 
+test('companion permission setup names a missing supported tool without offering to write settings', () => {
+  const doc = { approvals: { companion: true, companionUnavailable: true }, sync: { needed: false, reasons: [] } }
+  assert.equal(companionApprovalsNeedSetup(doc), true)
+  assert.deepEqual(approvalsStatusOf(doc), {
+    lines: ['Add Claude Code or Codex to your configured tools to answer requests from the companion.'],
+    apply: false,
+  })
+})
+
 test('the sync question lists every file and says it applies all pending changes', () => {
   const question = syncConfirmOf({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }] })
   assert.deepEqual(question.files, ['create /h/.codex/hooks.json'])

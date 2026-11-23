@@ -239,6 +239,28 @@ func TestSettings_CompanionShowsInstalledButInactivePermissionSetup(t *testing.T
 	}
 }
 
+func TestSettings_CompanionSetupIgnoresUnconfiguredCodex(t *testing.T) {
+	h, _ := settingsFixture(t, "version: 1\ntargets: [claude]\nbuiltins: [approvals]\napprovals:\n  mode: review\n  companion: true\n")
+	claudeHome := t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", claudeHome)
+	writeFile(t, filepath.Join(claudeHome, "settings.json"), `{"hooks":{"PermissionRequest":[{"hooks":[{"type":"command","command":"agnostic-ai hook approve --target claude"}]}]}}`)
+	rec, doc := getSettings(t, h, "")
+	if rec.Code != http.StatusOK || len(doc.Approvals.CompanionSetup) != 0 {
+		t.Errorf("settings = %d, companion setup = %+v", rec.Code, doc.Approvals.CompanionSetup)
+	}
+}
+
+func TestSettings_CompanionSetupNamesAnUnsupportedTargetList(t *testing.T) {
+	h, _ := settingsFixture(t, "version: 1\ntargets: [cursor]\napprovals:\n  companion: true\n")
+	rec, doc := getSettings(t, h, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("settings = %d, %s", rec.Code, rec.Body)
+	}
+	if !doc.Approvals.CompanionUnavailable || doc.Sync.Needed {
+		t.Errorf("settings offer setup without a configured companion target: %s", rec.Body)
+	}
+}
+
 func TestSettings_BuiltinAddedOnlyWhenMissing(t *testing.T) {
 	const shared = "version: 1\ntargets: [claude]\nbuiltins: [approvals]\n"
 	h, source := settingsFixture(t, shared)

@@ -215,7 +215,10 @@ function UserSettingsPage() {
             <p className="muted">{APPROVALS_SETUP_HINT}</p>
             <button type="button" className="button button-primary" disabled={busy} onClick={() => void sync()}>Finish setup…</button>
           </div>
-        : <p className="muted">Open the companion to finish setup.</p>)}
+        : <details>
+            <summary>Finish setup in a terminal</summary>
+            <p className="muted">Run <code>agnostic-ai sync --scope user</code>.</p>
+          </details>)}
 
       {question && (
         <div className="user-settings-confirm" role="group" aria-labelledby={`${id}-question`}>

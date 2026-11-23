@@ -966,14 +966,16 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadNextOf({ status, held, waiting }, recipient) {
+export function threadNextOf({ status, held, waiting, delivering, count, cap }, { recipient, summary = false } = {}) {
   if (status === 'closed') return 'This thread has ended.'
   if (status === 'paused') return 'Resume the thread to send and deliver messages again.'
   if (held) return 'Review the message that needs your approval.'
   if (waiting && recipient) return `If automatic delivery is set up, ${recipient} gets the message with its next prompt.`
   if (waiting) return 'The message is waiting. Open the thread for the recipient and delivery options.'
+  if (delivering) return 'Automatic delivery is in progress.'
   if (status === 'closing') return 'The thread will end after its remaining messages are handled.'
-  return 'You can reply to this thread.'
+  if (count >= cap) return `This thread reached its ${cap}-message limit. Choose Allow 8 more to reply.`
+  return summary ? 'Open the thread for delivery status or to reply.' : 'You can reply to this thread.'
 }
 
 export function messageStateLabelOf(state, how) {
@@ -984,14 +986,21 @@ export function messageStateLabelOf(state, how) {
   }[state]
 }
 
-export function messageActionsOf({ state }, { status }) {
-  switch (state) {
+export function reservationRetryAt({ state, reservedAt }) {
+  if (state !== 'reserved') return undefined
+  const reserved = Date.parse(reservedAt)
+  // The mailbox allows a retry strictly after the 60-second reservation expires.
+  return Number.isFinite(reserved) ? reserved + 60_001 : Infinity
+}
+
+export function messageActionsOf(message, { status }, now = Date.now()) {
+  switch (message.state) {
     case 'held':
       return ['approve', 'reject']
     case 'waiting':
       return status === 'paused' ? [] : ['type', 'copy']
     case 'reserved':
-      return status === 'open' || status === 'closing' ? ['type', 'copy'] : []
+      return (status === 'open' || status === 'closing') && reservationRetryAt(message) <= now ? ['type', 'copy'] : []
     case 'staged':
       return status === 'open' || status === 'closing' ? ['queue'] : []
     default:
@@ -1762,7 +1771,7 @@ const missingApprovalSetup = 'the hook is not installed'
 
 export function companionApprovalsNeedSetup(doc) {
   return Boolean(doc?.approvals?.companion && (
-    doc.approvals.problem || Object.keys(doc.approvals.companionSetup ?? {}).length || doc.sync?.reasons?.some((reason) =>
+    doc.approvals.problem || doc.approvals.companionUnavailable || Object.keys(doc.approvals.companionSetup ?? {}).length || doc.sync?.reasons?.some((reason) =>
       /^(claude|codex): the hook is not installed/.test(reason) || reason === 'approvals is not in builtins in the home config')
   ))
 }
@@ -1793,6 +1802,7 @@ export function approvalsStatusOf(doc) {
   const lines = []
   if (approvals.problem) lines.push('The approvals settings could not be read. Check them in the dashboard.')
   if (doc.sync?.needed) lines.push(approvalSetupLine(doc.sync.reasons))
+  if (approvals.companionUnavailable) lines.push('Add Claude Code or Codex to your configured tools to answer requests from the companion.')
   for (const [tool, setup] of Object.entries(approvals.companionSetup ?? {})) {
     if (setup === 'trust') lines.push('Open /hooks in Codex and trust the permission entry.')
     if (setup === 'disabled') lines.push('Open /hooks in Codex and enable the permission entry.')

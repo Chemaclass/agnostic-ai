@@ -94,6 +94,17 @@ test.describe('user settings', () => {
     await expect(permissionSwitch).toHaveAccessibleDescription('Approve or deny requests on the chat row. You can still answer in the terminal.')
   })
 
+  test('a locked dashboard offers terminal setup without the companion', async ({ page }) => {
+    const state = await serve(page)
+    state.doc.approvals.companion = true
+    state.doc.sync = { needed: true, reasons: ['claude: ' + REASON] }
+    await page.goto(tab)
+    await expect(page.getByRole('button', { name: 'Finish setup…' })).toHaveCount(0)
+    await page.getByText('Finish setup in a terminal', { exact: true }).click()
+    await expect(page.getByText('agnostic-ai sync --scope user', { exact: true })).toBeVisible()
+    expect(state.writes).toEqual([])
+  })
+
   test('the unlock link unlocks the tab, removes the code, and a looser mode asks first', async ({ page }) => {
     const state = await serve(page)
     await page.goto(`${tab}#unlock=abc123`)

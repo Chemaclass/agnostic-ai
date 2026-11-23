@@ -62,6 +62,14 @@ describe('user settings', () => {
     expect(companionApprovalsNeedSetup(doc({ companion: true }))).toBe(false)
   })
 
+  it('requires a configured tool for companion permission requests', () => {
+    const saved = doc({ companion: true, companionUnavailable: true })
+    expect(companionApprovalsNeedSetup(saved)).toBe(true)
+    expect(approvalsStatus(saved, name)).toEqual([
+      'Add Claude Code or Codex to your configured tools to answer requests from the companion.',
+    ])
+  })
+
   it('lists every file and note before a sync and says what it wrote after', () => {
     const question = syncConfirm({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }], commands: ['hook staged: curl x | sh'], notes: ['a note'] })
     expect(question).toMatchObject({ files: ['create /h/.codex/hooks.json'], commands: ['hook staged: curl x | sh'], notes: ['a note'], go: 'Apply' })

@@ -1061,10 +1061,39 @@ test('pause refuses a mailbox reply in one click and resume allows the draft', a
   await expect(mailboxSummary(page)).not.toContainText('of 8 messages')
 })
 
+test('a thread prioritizes pasteable messages while automatic delivery holds a reservation', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'mailbox' } })
+  expect(reset.ok()).toBe(true)
+  await page.clock.install({ time: NOW })
+  await page.goto('/panel.html')
+  await askMailbox(page)
+
+  await page.route('**/api/mailbox/threads?*', async (route) => {
+    const response = await route.fetch()
+    const data = await response.json()
+    for (const thread of data.threads) {
+      const [message] = thread.messages
+      thread.messages = [
+        { ...message, state: 'reserved', reservedAt: NOW.toISOString() },
+        { ...message, n: 2, body: 'A later message.' },
+      ]
+    }
+    await route.fulfill({ response, json: data })
+  })
+  await mailboxSummary(page).click()
+  const thread = mailboxThread(page)
+  const primary = thread.locator('#mailbox-thread-actions > .mailbox-send')
+  await expect(primary).toHaveAttribute('data-mailbox-control', 'type-2')
+  await expect(thread.locator('[data-mailbox-control="type-1"]')).toHaveCount(0)
+  await page.clock.fastForward('01:01')
+  await expect(primary).toHaveAttribute('data-mailbox-control', 'type-1')
+})
+
 test('the message after the mailbox cap is refused, and Allow 8 more raises the cap', async ({ page }) => {
   await openPanel(page, 'mailbox-cap')
+  await expect(mailboxSummary(page)).toContainText('Choose Allow 8 more to reply.')
   await mailboxSummary(page).click()
-  await expect(mailboxThread(page)).toContainText('This thread reached its 8-message limit.')
+  await expect(mailboxThread(page)).toContainText('Choose Allow 8 more to reply.')
   await replyInMailbox(page, 'One more?')
   await expect(page.locator('#toast[data-tone=error]')).toContainText('guard: cap')
   await expect(page.locator('#toast')).toContainText('raise the limit')
@@ -1143,6 +1172,7 @@ test('typing refusal keeps the mailbox block waiting until Copy message succeeds
   await expect(mailboxThread(page)).toContainText('Question · Waiting for delivery')
   await (await threadControl(mailboxThread(page), 'copy-1')).click()
   await expect(mailboxThread(page)).toContainText('Question · Copied by you')
+  await expect(mailboxSummary(page)).toContainText('Open the thread for delivery status or to reply.')
   const block = await page.evaluate(() => navigator.clipboard.readText())
   expect(block.match(/<\/agnostic-ai-mailbox>/g)).toHaveLength(1)
   expect(block).toContain('\\u003c')
