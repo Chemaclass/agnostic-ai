@@ -14,43 +14,48 @@ delete-an-archived-chat = "@/docs/cli-reference/companion-list.md"
 
 # Companion
 
-A small circle that floats over every app and counts the Claude Code, Codex and Cursor conversations that wait for you. Click it for a searchable list: see [Companion list](@/docs/cli-reference/companion-list.md).
-
-Use the row menu to [stop a forgotten Claude Code shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
+A small circle floats over every app and counts the Claude Code, Codex and Cursor conversations that wait for you. Click it for a searchable [list](@/docs/cli-reference/companion-list.md), where a row's menu can also [stop a forgotten Claude Code shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
 
 <span id="companion" hidden></span>
 
 ## Install and start {#install}
 
-The disk image works on macOS 13 Ventura or later and includes the companion, the matching CLI, and the full web dashboard. You can open the app without setting up agnostic-ai or installing a separate CLI.
+The disk image needs macOS 13 Ventura or later. It holds the companion, the matching CLI and the web dashboard, so it works without a separate agnostic-ai install.
 
 1. Open **Apple menu > About This Mac**. An Apple chip uses the **Apple silicon** (`arm64`) download. An Intel processor uses **Intel** (`amd64`).
 2. Open the [latest stable release](https://github.com/Chemaclass/agnostic-ai/releases/latest) and download the matching `.dmg`. If the release has no disk image for your Mac, [install from the terminal](#install-from-terminal).
 3. Open the disk image, drag **agnostic-ai companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder.
 4. Click the floating circle to see your conversations. Use **Open the dashboard** in the list header to open the full web interface in your browser.
 
-The companion and dashboard use your [user-level settings](@/docs/global-configuration.md) in `~/.agnostic-ai` by default. Existing sessions from supported tools appear as they are discovered. If the list is empty, start a conversation in a supported tool such as Claude Code or Codex. See the [Companion list](@/docs/cli-reference/companion-list.md) for the conversations it can show.
+The companion and dashboard use your [user-level settings](@/docs/global-configuration.md) in `~/.agnostic-ai`. Sessions from supported tools show up as the companion finds them. If the list is empty, start a conversation in Claude Code or Codex. The [Companion list](@/docs/cli-reference/companion-list.md) says which conversations it can show.
 
-{% <details summary="First-launch checks and macOS permissions"> %}
-The app is signed without an Apple Developer ID and is not notarized. Gatekeeper may say it cannot verify the developer or check the app. [Verify the downloaded disk image](@/docs/verify-a-release.md) and see [Apple's guide to macOS alerts](https://support.apple.com/en-us/102445).
+{% <details summary="First launch: Apple could not verify the app, and macOS permissions"> %}
+The app is signed without an Apple Developer ID and is not notarized, so the first launch says Apple could not verify it. [Verify the downloaded disk image](@/docs/verify-a-release.md), then open it once this way:
 
-macOS may ask for Automation when you [open a terminal chat](@/docs/cli-reference/companion-list.md#open-a-chat), or for Accessibility when you [paste into a terminal](@/docs/cli-reference/companion-list.md#send-copied-text). These permissions are for those actions.
+1. Click **Done** in the alert.
+2. Open **System Settings > Privacy & Security** and scroll to **Security**.
+3. Click **Open Anyway** next to "agnostic-ai companion". It shows for about an hour after the blocked launch.
+4. Confirm with **Open** and your password. Later launches open normally.
+
+On macOS 15 and later, right-click **Open** no longer skips the alert. See [Apple's guide to macOS alerts](https://support.apple.com/en-us/102445).
+
+macOS may ask for Automation when you [open a terminal chat](@/docs/cli-reference/companion-list.md#open-a-chat), or for Accessibility when you [paste into a terminal](@/docs/cli-reference/companion-list.md#send-copied-text). Only those actions need them.
 {% </details> %}
 
 {% <details summary="Use a different configuration folder or install the command line tool"> %}
-The app uses `AGNOSTIC_AI_HOME` when that variable is set in its environment. A Finder launch normally uses the default folder. An override in a shell startup file such as `.zshrc` applies to that shell and processes that inherit its environment.
+The app uses `AGNOSTIC_AI_HOME` when its environment sets it. A Finder launch normally does not, so it uses the default folder: a setting in `.zshrc` reaches only that shell and what it starts.
 
 To use the command in a terminal, right-click the circle and choose **Install command line tool**. The app links the bundled CLI into `/usr/local/bin` when that folder is writable and on `PATH`, or into `~/.local/bin`. Add the reported folder to your shell's `PATH` if needed. Existing commands, including npm and Homebrew installs, stay in place. Keep the app in Applications so the link still works.
 {% </details> %}
 
 {% <details summary="Update the disk-image app"> %}
-The bundled CLI checks quietly on start and every 24 hours. A successful release check stays fresh for 24 hours across restarts. A failed check is tried again at the next start. Offline, the app keeps the last verified disk image offer. When a newer stable release has a disk image for this Mac, both menus show **Update to vX.Y.Z** and the ⋯ button shows a dot. **Check for updates** checks now and reports release or checksum list errors. Turn off **Check for updates automatically** in either menu to stop automatic checks.
+The bundled CLI checks for a release on start and every 24 hours. A good answer is reused for 24 hours, even across restarts; a failed check runs again at the next start. Offline, the app keeps the last verified offer. When a newer stable release has a disk image for this Mac, both menus show **Update to vX.Y.Z** and the ⋯ button shows a dot. **Check for updates** checks now and reports release or checksum errors. **Check for updates automatically**, in either menu, turns the automatic checks off.
 
-Choose **Update to vX.Y.Z**, then **Update and restart**. The list shows download, verification, and restart progress as the app and bundled CLI update together. The download uses the CLI installer's checksum and provenance checks. The update works without `gh` because the replacement must match the installed app's project certificate before it runs or replaces the app. After a certificate change, install the next disk image by hand once. Move the app to Applications before updating from the disk image or a read-only folder.
+Choose **Update to vX.Y.Z**, then **Update and restart**. The app and its bundled CLI update together, and the list shows download, verification and restart progress. The download gets the CLI installer's checksum and provenance checks. It works without `gh`: the new app must match the installed app's project certificate before it runs or replaces it. After a certificate change, install the next disk image by hand once. An app still on the disk image, or in a read-only folder, must move to Applications before it can update.
 
-The updater keeps the earlier app until the new one stays open for a few seconds. If macOS refuses to open the replacement, or it quits or never appears, the updater tries to restore and open the earlier app. If restoration fails, it saves the earlier bundle and logs its path. The list shows the failure and offers **Retry**, including after restart. When the earlier app runs again, the failure says whether the new app could not take its place or could not start. A second install, update or uninstall of the same app stops until the first one ends. The log is at `~/Library/Application Support/agnostic-ai/companion-update.log`.
+The updater keeps the earlier app until the new one has stayed open for a few seconds. If macOS refuses to open the new app, or it quits or never appears, the updater restores and opens the earlier one. If that fails, it saves the earlier app and logs its path. The list shows the failure and offers **Retry**, also after a restart, and says whether the new app could not take its place or could not start. A second install, update or uninstall of the same app waits for the first to end. The log is `~/Library/Application Support/agnostic-ai/companion-update.log`.
 
-`agnostic-ai upgrade` from a bundled CLI link directs you to the app menu. The app looks past bundle links for a separate CLI, such as Homebrew or npm. If that CLI is older, the list shows both versions and a command to copy and run in your terminal.
+`agnostic-ai upgrade` run through the bundled CLI link points you to the app menu. The app also looks for a separate CLI, such as a Homebrew or npm install. If that one is older, the list shows both versions and a command to run in your terminal.
 {% </details> %}
 
 ### Install from the terminal {#install-from-terminal}
@@ -61,8 +66,6 @@ Use an existing CLI to install and start the companion:
 2. Run `agnostic-ai companion`. It starts the companion and returns.
 3. Run it again to bring back a hidden companion and open its list.
 
-If a release ships without the companion archive, the installer builds the companion from source. That needs Go and the Xcode Command Line Tools on macOS.
-
 | System | Status |
 |--------|--------|
 | macOS | Supported (macOS 13 or later). |
@@ -70,22 +73,16 @@ If a release ships without the companion archive, the installer builds the compa
 | Linux | Builds and runs in containers, on X11 and Wayland. Not yet tried on a desktop with a real screen. [Help with #3222](https://github.com/Chemaclass/agnostic-ai/issues/3222). |
 
 {% <details summary="Details: download, build, signing, login item"> %}
-- Built and run on macOS 27 (arm64). The released companion needs macOS 13 or later.
-- CI builds and tests it on Windows and Linux. On Windows it ran only on a GitHub Actions runner: see [What ran on Windows](#windows-runs). On Linux it ran only in containers: see [What ran on Linux](#linux-runs).
-- Running `agnostic-ai companion` again tells you when the companion was built for another release, or installed by an `agnostic-ai` built from another commit. When the companion cannot run, it says so and names its path.
-- On a Mac older than macOS 13, install stops and says why.
-- Download: on macOS the companion that the release built for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` that runs through Rosetta gets the Apple silicon one. It needs no compiler.
-- Checks: the download is checked against the release's `checksums.txt`. When `gh` is installed and logged in, it is also checked against the release's build provenance, as `agnostic-ai upgrade` checks the CLI.
-- A download that does not verify stops the install and leaves the installed companion as it was. When `gh` itself fails, `AGNOSTIC_AI_VERIFY_ATTESTATION=0` installs on the checksum alone.
-- Ctrl-C stops the install and removes its build folder. The next install also removes a build folder an earlier one left over an hour ago.
+- Built and run on macOS 27 (arm64). On a Mac older than macOS 13, install stops and says why.
+- Running `agnostic-ai companion` again tells you when the companion was built for another release, or by an `agnostic-ai` from another commit. When the companion cannot run, it says so and names its path.
+- Download: on macOS, the release's build for your Mac (Apple silicon or Intel). An Intel `agnostic-ai` running through Rosetta gets the Apple silicon one. No compiler needed.
+- Checks: the download must match the release's `checksums.txt`. With `gh` installed and logged in, it must also match the release's build provenance, as `agnostic-ai upgrade` checks the CLI. A download that fails either check stops the install and leaves the installed companion as it was. When `gh` itself fails, `AGNOSTIC_AI_VERIFY_ATTESTATION=0` installs on the checksum alone.
+- Ctrl-C stops the install and removes its build folder. The next install also removes build folders older than an hour.
 - When neither the new app nor the old one can take its place, the old one stays in the build folder, and the error names both paths.
-- Build instead of download: a release that ships no built companion, an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and `--source`.
-- A build uses the same commit as the `agnostic-ai` you run, and prints each step.
-- Build needs on macOS: Go and the Xcode Command Line Tools.
-- Build needs on Windows: Go.
-- Build needs on Linux: Go, a C compiler, `pkg-config`, and the GTK 4, WebKitGTK 6.0 and X11 development packages. The command names every missing one at once, with one install line for `apt`, `dnf` or `pacman`, whichever the machine has. Without `pkg-config` it names that first, since the libraries are checked with it.
-- When something is missing, the command names it, says how to get it, and builds nothing.
-- A build that fails leaves the installed companion as it was.
+- It builds instead of downloading for a release that ships no built companion, for an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and with `--source`. A build uses the same commit as the `agnostic-ai` you run, and prints each step.
+- Build needs: Go everywhere, plus the Xcode Command Line Tools on macOS. Linux also needs a C compiler, `pkg-config`, and the GTK 4, WebKitGTK 6.0 and X11 development packages.
+- When something is missing, the command names all of it at once, with how to get it, and builds nothing. On Linux that is one install line for `apt`, `dnf` or `pacman`, whichever the machine has. Without `pkg-config` it names that first, since the other packages are checked with it.
+- A failed build leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
 - On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. The app stays out of the Dock.
 - The terminal installer signs the app on your machine with `codesign`, without a developer identity. It makes a certificate for this Mac on the first install and keeps it in the companion folder, so each later install keeps the app's Accessibility access. Uninstalling removes the certificate.
@@ -167,11 +164,18 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
 | `companion install-command --app /Applications/agnostic-ai\ companion.app` | Links the app's bundled CLI into a command folder on macOS. |
 | `companion update-app --app /Applications/agnostic-ai\ companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
-| `companion update-status --json` | Prints the installed and latest stable release, the install method, its upgrade command, whether `agnostic-ai upgrade` can run it (`oneClick`), whether the CLI can check an approved release before upgrading (`confirmsRelease`), and on macOS whether the newer release lists a disk image for this Mac (`image`), or why that is unknown (`imageError`). The companion reads it to offer an update. The answer is cached for up to a day, shared with `agnostic-ai upgrade`; an automatic check can use the last verified answer offline. `--refresh` asks GitHub now and reports a failed check. |
+| `companion update-status --json` | Prints what the companion needs to offer an update: installed and latest release, install method and upgrade command. `--refresh` asks GitHub now. |
+
+{% <details summary="Details: update-status fields"> %}
+- `oneClick`: `agnostic-ai upgrade` can run the upgrade command.
+- `confirmsRelease`: the CLI can check an approved release before upgrading.
+- `image`, macOS only: the newer release lists a disk image for this Mac. `imageError` says why that is unknown.
+- The answer is cached for up to a day and shared with `agnostic-ai upgrade`. An automatic check can use the last verified answer offline. With `--refresh`, a failed check is reported.
+{% </details> %}
 
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` with nothing running succeeds and says so.
-- **Quit Agnostic AI companion** in the menus does the same as `stop`.
+- **Quit Agnostic AI companion** in the menus does the same as `stop`, after asking.
 - `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) with its lock, `companion-state.json`, `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
 - When the companion cannot run, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
@@ -192,7 +196,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Small companion** | A 40px circle instead of 60px. |
 | **Start at login** | Starts it when you log in. |
 | **When a tool asks permission** and **Approve and deny from this list** | [Approvals settings](@/docs/approvals.md#change-it-from-the-companion). List menu only. |
-| **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. Only the list's ⋯ menu shows it. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
+| **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. List menu only. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
 | **Check for updates** | Checks for a newer release now. Reads **Update to vX.Y.Z** when one is known; choosing it asks, then updates and restarts. See [Install and start](#install) for the disk-image app and [Upgrade the companion](#upgrade-the-companion) for a terminal install. |
@@ -201,15 +205,14 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
 - The circle shows a solid orange count with a lock and a halo for chats waiting for you (a terminal when all wait on a shell). Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.
-- The circle and the list's ⋯ menu hold the same items in the same order, except the mailbox approval switch, which only the ⋯ menu shows.
 - Animate companion, Dim when idle and Small companion are kept across restarts.
 - With Animate off, or Reduce Motion on, the count keeps updating. For what the list shows while animated, see [Working rows and subagents](@/docs/cli-reference/companion-list.md#working-rows).
 - Send copied text: the shortcut is Ctrl+Alt+V until you change it.
 - Dim: pointing at the circle, or any conversation that needs you, brings back full color.
 - Small: its mark, working ring, count and window shrink with it, so clicks just outside the small circle reach the app behind it. It keeps the screen edges it sits nearest.
-- Open from anywhere: in the right-click menu, choosing it opens the list on its ⋯ menu to change the keys.
+- Open from anywhere: choosing it in the right-click menu opens the list's ⋯ menu, where you change the keys.
 - The open and send shortcuts cannot share keys.
-- Keys the system refuses are kept, and the menu says why the shortcut is not active.
+- When the system refuses a shortcut, the keys are kept and the menu says why it is not active.
 {% </details> %}
 
 ## Hide and quit {#hide-and-quit}
@@ -230,7 +233,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 - Chats that already waited when you hid it do not bring it back.
 - **Dim when idle** does not change a dimmed circle. **Animate companion** still applies to it.
 - None of the shown, hidden and dimmed states is saved. A restart starts shown.
-- Quit asks first. The question offers **Quit**, **Hide instead** and **Cancel**. Escape or a click elsewhere cancels.
+- The quit question offers **Quit**, **Hide instead** and **Cancel**. Escape or a click elsewhere cancels.
 - Quit ends the companion and its server, as `companion stop` does. Start at login stays as you set it.
 - `stop`, `install`, `upgrade`, `uninstall` and logging out never ask.
 - Your AI tool running `agnostic-ai companion` also starts it again.
@@ -259,7 +262,7 @@ With an active reviewer or approvals hook, some requests no longer need your ans
 - A `review` prompt reaches you as soon as the tool asks. For Claude Code with its reviewer on, the row says "The tool's reviewer left this to you".
 - Codex waits for the hook before it prompts, so a Codex wait is never held.
 - A cloud session runs no local hook. When a live cloud session waits for permission and its approvals mode is `review` or `yolo`, the row says "Approvals do not reach cloud sessions".
-- The count comes from `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file. The count covers hook decisions. Native reviewers do not add entries. A logged detail that may hold a credential is left out.
+- The count comes from `$AGNOSTIC_AI_HOME/local/approvals/decisions.jsonl` and its older file, so it covers only hook decisions, not native reviewers. A logged detail that may hold a credential is left out.
 - The mode is resolved per row from its tool and folder, by the order `approvals status` uses. A session started with `AGNOSTIC_AI_APPROVALS=ask` in its own environment is not known to the companion: its prompt can still wait up to 10 seconds when the companion sees an active `yolo` hook.
 {% </details> %}
 
@@ -323,21 +326,21 @@ A project server lists none, because a cloud session names no folder. To send th
 - The Claude Code sign-in is the claude.ai login in the macOS keychain (`Claude Code-credentials`). On Linux and Windows it is `.credentials.json` in `$CLAUDE_CONFIG_DIR` (default `~/.claude`), where Claude Code 2.1.330 for Linux and for Windows writes it. No real Linux or Windows sign-in was tried yet. The Codex sign-in is the ChatGPT login in `auth.json`, in `$CODEX_HOME` (default `~/.codex`).
 - Claude Code sessions open `https://claude.ai/code/session_<id>` in the browser. Codex threads open `codex://threads/<id>?hostId=durable`, handled by the Codex app.
 - Claude Code `working` shows only while the worker runs. Codex waits on an approval or on your input.
-- Limit: at most 100 sessions or threads. It does not page past them yet.
+- Limit: at most 100 sessions or threads per cloud.
 - It uses their id, title or name, status and times. It never reads their messages.
 - The sign-in is sent only to its own host. It is never kept, printed or logged, and the refresh token is never used.
 - Codex sign-in: without `auth.json` it asks nothing and says nothing, because you do not use Codex. A login with an API key has no cloud threads, and `cloudNote` says so.
 - Flag off: without `--cloud-sessions`, nothing reads your sign-in or leaves this machine.
 - Refresh: at most once a minute, with a 5-second timeout and no retry.
 - A cloud change reaches the list at most a minute late. The web interface shows it when you open or reload the page. The companion asks every 5 seconds, so it shows there at most 65 seconds late.
-- Failures: local conversations still list.
-- A refusal, no answer in time, or an answer this version cannot read passes by itself. The last good list stands in for up to 10 minutes and `cloudNote` stays empty.
-- After that, no cloud row shows and `cloudNote` says why. A missing or expired sign-in does the same at once.
+- Failures never hide local conversations.
+- After a refusal, a timeout, or an answer this version cannot read, the last good list stays for up to 10 minutes and `cloudNote` stays empty.
+- After those 10 minutes, no cloud row shows and `cloudNote` says why. A missing or expired sign-in does this at once.
 - A system with no supported sign-in store lists none and says nothing.
 - `cloudNote` holds one sentence for each cloud that could not be read.
-- The Claude Code session page is the only kind of web page the server opens.
-- Other statuses are not live.
-- No process on this machine can be checked for a cloud conversation, so either cloud's status is believed for a day after the conversation's last write.
+- The Claude Code session page is the only web page the server opens.
+- Any other status counts as not live.
+- No local process shows whether a cloud conversation still runs, so its status is trusted for a day after its last write.
 - After that day, a Claude Code cloud session is active, or unread, under Active. It is never archived by its age.
 {% </details> %}
 
