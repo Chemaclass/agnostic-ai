@@ -6,7 +6,7 @@
 // only posts which one and shows the reply. A static snapshot has no
 // server to read the chats, so it only says what it needs.
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
@@ -69,6 +69,8 @@ export function ConversationsPage() {
     const cached = firstPages.get(cacheKey)
     return cached ? [cached] : []
   })
+  const cloudNote = pages.reduce<string | undefined>((note, page) => page.cloudNote ?? note, undefined)
+  const matchesCloudNote = useEffectEvent((note: string | undefined) => note === cloudNote)
   const [error, setError] = useState<Error>()
   const [refresh, setRefresh] = useState(0)
   const [shellFeedback, setShellFeedback] = useState<ReadonlyMap<string, ShellFeedback>>(() => new Map())
@@ -127,7 +129,7 @@ export function ConversationsPage() {
           if (conversation.live) openedChats.delete(rowKey(conversation))
         }
         setOpened(new Set(openedChats))
-        if (cached && sameFirstPage(cached, loaded.data)) return
+        if (cached && sameFirstPage(cached, loaded.data) && matchesCloudNote(loaded.data.cloudNote)) return
         if (!searched) firstPages.set(cacheKey, loaded.data)
         // A week loaded or loading after the kept page may leave a gap
         // before the fresh one, so the list starts over from it.
@@ -221,7 +223,6 @@ export function ConversationsPage() {
   const matching = filterConversations(rows, '', tool)
   const groups = groupConversations(matching, now)
   const matches = pages[0]?.matches
-  const cloudNote = pages.reduce<string | undefined>((note, page) => page.cloudNote ?? note, undefined)
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 

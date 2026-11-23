@@ -939,17 +939,43 @@ test.describe('conversations by week', () => {
     await expect(page.getByText("That's every conversation.")).toHaveCount(0)
   })
 
-  test('shows a cloud problem first reported by an older page', async ({ page }) => {
+  test('shows a cloud problem from an older page and clears it after a refresh', async ({ page }) => {
     const cloudNote = 'Codex cloud threads are not listed: the cloud service did not answer.'
-    await mockServer(page, opened, (before) => ({ json: before ? { ...weekBefore, cloudNote } : firstWeek }))
+    const title = 'Add a Conversations page to the local UI'
+    const shell = { pid: 37, procStart: 'shell-start', since: '2026-11-07T14:45:00Z', command: 'npm run dev', processCount: 2 }
+    const first = {
+      ...firstWeek,
+      conversations: firstWeek.conversations.map((chat: Row) => chat.title === title
+        ? { ...chat, state: 'blocked', activity: 'working', waiting: { for: 'shell' }, stuckShells: [shell] }
+        : chat),
+    }
+    let stopped = false
+    await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
+    await mockServer(page, opened, (before) => ({ json: before ? { ...weekBefore, cloudNote: stopped ? undefined : cloudNote } : first }))
+    await page.route('**/api/conversations/stop-shell', (route) => {
+      stopped = true
+      return route.fulfill({ status: 409, json: { error: 'The shell changed before it could be stopped.' } })
+    })
     await page.goto('/')
-    await expect(page.getByRole('button', { name: 'Load the week before' })).toBeVisible()
+    const older = page.getByRole('button', { name: 'Load the week before' })
+    await expect(older).toBeVisible()
     await expect(page.getByText(cloudNote, { exact: true })).toHaveCount(0)
 
-    await scrollToEnd(page)
+    await older.click()
     await expect(row(page, 'Port the docs search to Pagefind')).toBeVisible()
     await expect(page.getByText(cloudNote, { exact: true })).toBeVisible()
     await expect(page.getByText("That's every conversation.")).toHaveCount(0)
+
+    const working = row(page, title)
+    await working.hover()
+    await working.getByRole('button', { name: 'Stop shell…', exact: true }).click()
+    const confirm = page.getByRole('dialog', { name: 'Stop this shell?' })
+    await confirm.getByRole('button', { name: 'Stop shell', exact: true }).click()
+    await expect(working.getByText('The shell changed before it could be stopped.')).toBeVisible()
+    await expect(page.getByText(cloudNote, { exact: true })).toHaveCount(0)
+
+    await older.click()
+    await expect(page.getByText("That's every conversation.")).toBeVisible()
   })
 })
 
