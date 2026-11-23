@@ -408,6 +408,40 @@ test.describe('conversations', () => {
     await expect(copy).toHaveCount(1)
   })
 
+  test('keeps the local resume command after opening the cloud copy', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const title = 'Nightly dependency audit'
+    const chat = conversations.conversations.find((item: Row) => item.title === title)
+    const cloud = { id: 'cse_nightly_audit', link: 'https://claude.ai/code/cse_nightly_audit' }
+    const command = `claude --resume ${chat.id}`
+    const cloudMessage = 'Opened on claude.ai.'
+    const localMessage = 'Resumed it in a new Terminal tab.'
+    const mocks = await mockServer(page, (body) => ({
+      json: { opened: true, message: (body as { id: string }).id === cloud.id ? cloudMessage : localMessage },
+    }), () => ({
+      json: { ...conversations, conversations: [{ ...chat, live: false, open: { ...chat.open, command }, cloud }] },
+    }))
+    await page.goto('/')
+    const shared = row(page, title)
+    const copy = shared.getByRole('button', { name: `Copy the command that resumes ${title}` })
+    const openCloud = shared.getByRole('button', { name: `Open on claude.ai: ${title}` })
+    await expect(copy).toHaveCount(1)
+    await openCloud.click()
+
+    await expect(shared.getByRole('status')).toHaveText(cloudMessage)
+    expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: cloud.id, editor: 'cursor' }])
+    await expect(openCloud).toBeFocused()
+    await expect(copy).toHaveCount(1)
+    await copy.click()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+
+    await shared.getByRole('button', { name: `Open in Terminal: ${title}` }).click()
+    await expect(shared.getByRole('status')).toHaveText(localMessage)
+    expect(mocks.opens.at(-1)?.body).toEqual({ tool: 'claude', id: chat.id, editor: 'cursor' })
+    await expect(shared.getByRole('button', { name: 'Copied', exact: true })).toHaveCount(0)
+    await expect(copy).toHaveCount(0)
+  })
+
   test('hides the resume command of a chat it opened, since it may run now', async ({ page }) => {
     let answer!: () => void
     const answered = new Promise<void>((resolve) => { answer = resolve })
