@@ -177,3 +177,119 @@ func TestSend_CursorAgentChatWhoseHolderCheckFailedSaysSo(t *testing.T) {
 		t.Errorf("reply %+v, calls %v", reply, launcher.calls)
 	}
 }
+
+type processesWithStarts struct {
+	codexArgvProcesses
+	starts map[int]string
+}
+
+func (p processesWithStarts) Alive(pid int, started string) bool {
+	start, alive := p.starts[pid]
+	return alive && (started == "" || started == start)
+}
+
+func (p processesWithStarts) AliveAmong(processes []ProcessRef) (map[int]bool, error) {
+	alive := make(map[int]bool)
+	for _, process := range processes {
+		if p.Alive(process.PID, process.ProcStart) {
+			alive[process.PID] = true
+		}
+	}
+	return alive, nil
+}
+
+func TestReopen_UsesTheCodexTabOnlyWhileItsClientRuns(t *testing.T) {
+	const (
+		id        = "01a1c738-eda0-7be0-b151-023a3e0ab7ee"
+		clientPID = 17199
+		daemonPID = 6923
+	)
+	terminal := ghosttyTab("/dev/ttys002", 16953, clientPID, "codex")
+	table := append(ghosttyTable(terminal), ProcessInfo{PID: daemonPID, Command: "codex"})
+	processes := processesWithStarts{
+		codexArgvProcesses: codexArgvProcesses{
+			fakeProcesses: fakeProcesses{table: table},
+			argv:          map[int][]string{clientPID: {"codex", "resume", id}},
+		},
+		starts: map[int]string{daemonPID: "", clientPID: terminal[2].Started},
+	}
+	c := Conversation{
+		Tool: ToolCodex, ID: id, Folder: "/repo",
+		Open:    Route{Kind: RouteFocus, Command: "codex resume " + id},
+		process: &liveProcess{PID: daemonPID},
+	}
+	if !place(&c, newCodexClients(table, nil, processes), table, processes.Args) {
+		t.Fatal("the resumed client has a Ghostty tab")
+	}
+	if c.placed.process.ProcStart != terminal[2].Started {
+		t.Errorf("placed client start = %q, want %q", c.placed.process.ProcStart, terminal[2].Started)
+	}
+
+	for _, tc := range []struct {
+		name        string
+		clientStart string
+		switches    bool
+	}{
+		{name: "same client", clientStart: terminal[2].Started, switches: true},
+		{name: "client exited"},
+		{name: "client PID reused", clientStart: "Tue Nov 10 22:00:00 2026"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			processes := processes
+			processes.starts = map[int]string{daemonPID: ""}
+			if tc.clientStart != "" {
+				processes.starts[clientPID] = tc.clientStart
+			}
+
+			scanner, _ := testScanner(t, noSQLite, processes)
+			scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+			now := time.Date(2026, 11, 10, 22, 5, 0, 0, time.UTC)
+			scanner.Now = func() time.Time { return now }
+			if err := scanner.Mark(ToolCodex, id, MarkCompleted); err != nil {
+				t.Fatal(err)
+			}
+			key := markKey(ToolCodex, id)
+			before := storedMarks(t, scanner.MarksPath).Marks[key]
+			opts := ScanOptions{}
+			scanner.keepRead(scanner.beginRead(), opts, []sourceResult{found(ToolCodex, []Conversation{c})})
+			now = now.Add(time.Second)
+
+			launcher := &fakeLauncher{focusOK: true}
+			scanner.lock()
+			reply, found := scanner.Reopen(context.Background(), ToolCodex, id, opts, launcher)
+			scanner.unlock()
+
+			after := storedMarks(t, scanner.MarksPath).Marks[key]
+			if !found || reply.Opened != tc.switches || reply.Guessed || reply.Command != "" {
+				t.Errorf("found %t, reply %+v, want opened %t and no guess or resume", found, reply, tc.switches)
+			}
+			if tc.switches {
+				if got := strings.Join(launcher.calls, "; "); got != "focus Ghostty /dev/ttys002" {
+					t.Errorf("open calls %q, want focus on the live client's tab", got)
+				}
+				if after.CompletedAt != "" || after.SeenAt == before.SeenAt {
+					t.Errorf("confirmed open left stale marks: before %+v, after %+v", before, after)
+				}
+			} else {
+				if len(launcher.calls) != 0 || !strings.Contains(reply.Message, "Could not confirm") {
+					t.Errorf("open calls %v, reply %+v, want no focus and a message", launcher.calls, reply)
+				}
+				if after.CompletedAt != before.CompletedAt || after.SeenAt != before.SeenAt {
+					t.Errorf("stale placement changed marks: before %+v, after %+v", before, after)
+				}
+			}
+
+			launcher.calls = nil
+			if err := TitleTab(context.Background(), c, processes, launcher, "New title"); err != nil {
+				t.Errorf("title error: %v", err)
+			}
+			wantTitle := ""
+			if tc.switches {
+				wantTitle = "title Ghostty /dev/ttys002 New title"
+			}
+			if got := strings.Join(launcher.calls, "; "); got != wantTitle {
+				t.Errorf("title calls %q, want %q", got, wantTitle)
+			}
+		})
+	}
+}

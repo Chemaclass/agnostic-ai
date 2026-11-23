@@ -34,31 +34,19 @@ func procargsEnvironments(pids []int) (map[int][]string, error) {
 	return environments, nil
 }
 
-// procargsEnvironment reads the environment out of a kern.procargs2
-// value: the argument count as a 32-bit integer, the executable path,
-// the NUL bytes that pad it, that many arguments, then the environment
-// entries up to an empty one. Every string ends with a NUL byte, so an
-// argument or a value with spaces stays one entry. ok is false when the
-// value ends before its arguments do: then nothing tells an argument
-// from an entry.
+func processArgv(pid int) []string {
+	raw, err := unix.SysctlRaw("kern.procargs2", pid)
+	if err != nil {
+		return nil
+	}
+	argv, _, _ := procargsParts(raw)
+	return argv
+}
+
 func procargsEnvironment(raw []byte) (entries []string, ok bool) {
-	if len(raw) < 4 {
+	_, rest, ok := procargsParts(raw)
+	if !ok {
 		return nil, false
-	}
-	argc := int(binary.NativeEndian.Uint32(raw[:4]))
-	rest := raw[4:]
-	path, rest, found := cutNUL(rest)
-	if !found || path == "" {
-		return nil, false
-	}
-	for len(rest) > 0 && rest[0] == 0 {
-		rest = rest[1:]
-	}
-	for range argc {
-		_, rest, found = cutNUL(rest)
-		if !found {
-			return nil, false
-		}
 	}
 	for {
 		entry, after, found := cutNUL(rest)
@@ -68,6 +56,35 @@ func procargsEnvironment(raw []byte) (entries []string, ok bool) {
 		entries = append(entries, entry)
 		rest = after
 	}
+}
+
+// procargsParts splits the NUL-terminated arguments from the environment.
+// The count precedes the executable path and its padding.
+func procargsParts(raw []byte) (argv []string, environment []byte, ok bool) {
+	if len(raw) < 4 {
+		return nil, nil, false
+	}
+	argc := int(binary.NativeEndian.Uint32(raw[:4]))
+	path, rest, found := cutNUL(raw[4:])
+	if !found || path == "" {
+		return nil, nil, false
+	}
+	for len(rest) > 0 && rest[0] == 0 {
+		rest = rest[1:]
+	}
+	if argc < 0 || argc > len(rest) {
+		return nil, nil, false
+	}
+	argv = make([]string, 0, argc)
+	for range argc {
+		arg, after, found := cutNUL(rest)
+		if !found {
+			return nil, nil, false
+		}
+		argv = append(argv, arg)
+		rest = after
+	}
+	return argv, rest, true
 }
 
 // cutNUL splits raw at its first NUL byte.

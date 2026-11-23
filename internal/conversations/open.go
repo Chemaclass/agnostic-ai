@@ -565,6 +565,9 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	if placed == nil {
 		return resumeElsewhere(fmt.Sprintf("It is open (process %d), but the terminal that runs it could not be found, as in a detached tmux session or after its tab closed. Switch to it there.", c.process.PID), c.Open.Command)
 	}
+	if c.Tool == ToolCodex && !placed.clientStillRuns(c.process.PID, processes) {
+		return OpenReply{Message: "Could not confirm that the Codex terminal still shows this thread."}
+	}
 	if placed.claudeBackground {
 		return openClaudeBackground(ctx, c, processes, launcher)
 	}
@@ -650,7 +653,10 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 // chose. It does nothing for a session that ended or runs where no tab
 // can be named.
 func TitleTab(ctx context.Context, c Conversation, processes Processes, launcher Launcher, title string) error {
-	if c.process == nil || c.placed == nil || len(c.placed.ttys) > 0 || !tabApps[c.placed.host.App] || !processes.Alive(c.process.PID, c.process.ProcStart) {
+	if c.process == nil || c.placed == nil || len(c.placed.ttys) > 0 || !tabApps[c.placed.host.App] {
+		return nil
+	}
+	if !processes.Alive(c.process.PID, c.process.ProcStart) || (c.Tool == ToolCodex && !c.placed.clientStillRuns(c.process.PID, processes)) {
 		return nil
 	}
 	ok, err := launcher.TitleTab(ctx, c.placed.host.App, c.placed.host.TTY, title)
@@ -658,6 +664,10 @@ func TitleTab(ctx context.Context, c Conversation, processes Processes, launcher
 		err = fmt.Errorf("no %s tab shows %s", c.placed.host.App, shortTTY(c.placed.host.TTY))
 	}
 	return err
+}
+
+func (p placement) clientStillRuns(holderPID int, processes Processes) bool {
+	return p.process.PID == holderPID || processes.Alive(p.process.PID, p.process.ProcStart)
 }
 
 func shortTTY(tty string) string { return strings.TrimPrefix(tty, "/dev/") }

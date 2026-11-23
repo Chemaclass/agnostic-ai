@@ -5,3 +5,5 @@ package conversations
 // environmentReader is nil here: this system has no reader for another
 // process's environment.
 var environmentReader environmentRead
+
+func processArgv(int) []string { return nil }
