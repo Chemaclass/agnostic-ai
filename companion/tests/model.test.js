@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helperTreeOf, helpersToggleOf, subtreeToggleOf, isDrag, lateFailureReplaces, keyOf, keycapsOf, lateOpenFailureOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helperTreeOf, helpersToggleOf, subtreeToggleOf, isDrag, lateNoticeReplaces, keyOf, keycapsOf, lateOpenNoticeOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
@@ -621,6 +621,7 @@ test('a notice is an error when what was asked did not happen, and info when it 
       shellProcessesLeft: 'info',
       sessionNotStopped: 'error',
       subagent: 'info',
+      guessedTab: 'info',
     },
   )
   for (const notice of Object.values(NOTICES)) assert.notEqual(notice.label, '')
@@ -752,18 +753,27 @@ test('a subagent row says what its click does', () => {
   assert.equal(helperTooltipOf(helper('echo@team', 'working', 1, { reach: 'pane' })), 'Switch to its pane')
 })
 
-test('an open that reached the chat a subagent runs in leaves the reply as a notice; any other open leaves none', () => {
+test('a guessed open leaves a neutral notice that a late failure can replace', () => {
+  const message = 'Switched to the Ghostty tab with the only Codex session that may show this thread.'
+  const reply = { opened: true, guessed: true, message }
+  assert.equal(openFailureOf(reply), undefined)
+  const notice = openNoticeOf(reply)
+  assert.deepEqual(notice, { message, hint: true, about: NOTICES.guessedTab })
+  assert.equal(lateNoticeReplaces(notice), true)
+})
+
+test('an open that reached the chat a subagent runs in leaves the reply as a notice', () => {
   const said = 'Switched to the Terminal tab that runs it. Press the down arrow to pick \'Find call sites\' below the prompt, then Enter.'
   const explore = { tool: 'claude', id: 'explore' }
-  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: explore, reached: 'parent' }), { message: said, hint: true })
-  assert.deepEqual(subagentNoticeOf({ opened: true, message: said, helper: explore }), { message: said, hint: true }, 'a reply without reached reads as the parent')
+  assert.deepEqual(openNoticeOf({ opened: true, message: said, helper: explore, reached: 'parent' }), { message: said, hint: true, about: NOTICES.subagent })
+  assert.deepEqual(openNoticeOf({ opened: true, message: said, helper: explore }), { message: said, hint: true, about: NOTICES.subagent }, 'a reply without reached reads as the parent')
   const finished = 'That subagent has finished. Its chat is open.'
-  assert.deepEqual(subagentNoticeOf({ opened: true, message: finished, reached: 'parent' }), { message: finished, hint: true })
+  assert.deepEqual(openNoticeOf({ opened: true, message: finished, reached: 'parent' }), { message: finished, hint: true, about: NOTICES.subagent })
   const codex = 'Switched to the Ghostty tab that runs it. Type /subagents to switch to \'Aquinas\'.'
-  assert.deepEqual(subagentNoticeOf({ opened: true, message: codex, reached: 'parent' }), { message: codex, hint: true })
-  assert.equal(subagentNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.', helper: explore, reached: 'subagent' }), undefined)
-  assert.equal(subagentNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.' }), undefined)
-  assert.equal(subagentNoticeOf({ opened: false, message: 'Terminal could not be opened.', helper: explore, reached: 'parent' }), undefined)
+  assert.deepEqual(openNoticeOf({ opened: true, message: codex, reached: 'parent' }), { message: codex, hint: true, about: NOTICES.subagent })
+  assert.equal(openNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.', helper: explore, reached: 'subagent' }), undefined)
+  assert.equal(openNoticeOf({ opened: true, message: 'Switched to the Terminal tab that runs it.' }), undefined)
+  assert.equal(openNoticeOf({ opened: false, message: 'Terminal could not be opened.', helper: explore, reached: 'parent' }), undefined)
 })
 
 test('subagents show as a tree of any depth, each under its real parent, newest first on each level', () => {
@@ -801,9 +811,9 @@ test('a subagent whose parent is gone, or whose parents lead back to it, sits at
 })
 
 test('a late open failure replaces no notice or a subagent hint, and never another failure', () => {
-  assert.equal(lateFailureReplaces(undefined), true)
-  assert.equal(lateFailureReplaces(subagentNoticeOf({ opened: true, message: 'Opened.', helper: { tool: 'claude', id: 'x' } })), true)
-  assert.equal(lateFailureReplaces({ message: 'Terminal could not be opened.' }), false)
+  assert.equal(lateNoticeReplaces(undefined), true)
+  assert.equal(lateNoticeReplaces(openNoticeOf({ opened: true, message: 'Opened.', helper: { tool: 'claude', id: 'x' } })), true)
+  assert.equal(lateNoticeReplaces({ message: 'Terminal could not be opened.' }), false)
 })
 
 test('a row with an unread marker may still be marked read while the list holds it unchanged', () => {
@@ -827,18 +837,27 @@ test('a resumed chat with an unread marker offers Mark as read, and its tooltip 
 
 test('a late open failure the person dismissed while it was read does not show again', () => {
   const failure = { id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.' }
-  assert.equal(lateOpenFailureOf(failure, 3), undefined)
-  assert.equal(lateOpenFailureOf(failure, 2).id, 3)
+  assert.equal(lateOpenNoticeOf(failure, 3), undefined)
+  assert.equal(lateOpenNoticeOf(failure, 2).id, 3)
+})
+
+test('a late guessed open names its chat and uses the neutral tab notice', () => {
+  assert.deepEqual(lateOpenNoticeOf({ id: 4, title: 'Draft the release notes', message: 'The tab may show this thread.', guessed: true }), {
+    message: 'Draft the release notes: The tab may show this thread.',
+    late: true,
+    id: 4,
+    about: NOTICES.guessedTab,
+  })
 })
 
 test('a late open failure names its chat when the list holds it', () => {
-  assert.deepEqual(lateOpenFailureOf({ id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.', command: 'claude --resume done-2' }), {
+  assert.deepEqual(lateOpenNoticeOf({ id: 3, title: 'Tidy the old branches', message: 'macOS blocked opening Terminal.', command: 'claude --resume done-2' }), {
     message: 'Tidy the old branches: macOS blocked opening Terminal.',
     late: true,
     id: 3,
     command: 'claude --resume done-2',
   })
-  assert.deepEqual(lateOpenFailureOf({ id: 4, message: 'agnostic-ai did not answer.' }), { message: 'agnostic-ai did not answer.', late: true, id: 4 })
+  assert.deepEqual(lateOpenNoticeOf({ id: 4, message: 'agnostic-ai did not answer.' }), { message: 'agnostic-ai did not answer.', late: true, id: 4 })
 })
 
 // What the person sees, per mode (issue #3700). The server shapes each row from the decision log: a request the

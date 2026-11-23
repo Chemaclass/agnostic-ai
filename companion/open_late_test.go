@@ -267,6 +267,22 @@ func TestInbox_AnOpenThatSucceedsLateShowsNothing(t *testing.T) {
 	}
 }
 
+func TestInbox_KeepsALateGuessedTabAsANotice(t *testing.T) {
+	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{
+		"a": `{"opened":true,"guessed":true,"message":"Switched to the only tab that may show this Codex thread."}`,
+	}}
+	in, _ := lateInbox(t, fake)
+	openPendingNamed(t, in, "a", "Draft the release notes")
+	<-in.refresh
+	close(fake.release)
+	waitSignal(t, in.refresh, "a list read after the open")
+
+	const kept = `{"id":1,"title":"Draft the release notes","message":"Switched to the only tab that may show this Codex thread.","guessed":true}`
+	if status, body := readLate(t, in); status != http.StatusOK || body != kept {
+		t.Errorf("late guessed tab = %d %s, want %s", status, body, kept)
+	}
+}
+
 func TestInbox_ANewerOpenWinsOverAnOlderLateFailure(t *testing.T) {
 	fake := &heldOpens{release: make(chan struct{}), replies: map[string]string{"a": blocked, "b": `{"opened":true,"message":"Opened."}`}}
 	in, _ := lateInbox(t, fake)

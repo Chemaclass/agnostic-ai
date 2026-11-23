@@ -72,11 +72,11 @@ export function openConversation(conversation) {
 }
 
 /**
- * Why an open the companion stopped waiting for did not open, as `{id, title?, message, command?}`; undefined
- * when there is none. The companion keeps it until `dismissLateOpenFailure(id)` or a newer open.
+ * A late failure or guessed switch, as `{id, title?, message, command?, guessed?}`. The companion keeps
+ * the notice until dismissal or a newer open.
  */
-export const readLateOpenFailure = () => call('/api/open/late')
-export const dismissLateOpenFailure = (id) => post('/api/open/late/dismiss', { id })
+export const readLateOpenNotice = () => call('/api/open/late')
+export const dismissLateOpenNotice = (id) => post('/api/open/late/dismiss', { id })
 
 /**
  * mark is `seen`, `completed`, `open` or `hidden`; answers {version}. With `later`, such as each mark of a run but the

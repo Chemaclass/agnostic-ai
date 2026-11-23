@@ -411,6 +411,8 @@ type OpenReply struct {
 	Opened  bool   `json:"opened"`
 	Message string `json:"message"`
 	Command string `json:"command,omitempty"`
+	// Guessed says the only possible Codex tab came forward.
+	Guessed bool `json:"guessed,omitempty"`
 	// Helper is the Claude Code subagent the open was asked for, when
 	// one was named; the chat it runs in is what opened.
 	Helper *helper `json:"helper,omitempty"`

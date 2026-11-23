@@ -223,15 +223,15 @@ export function openFailureOf(reply) {
 }
 
 /**
- * The notice for an open that failed after the companion stopped waiting for it, named after its chat when the
- * companion knows it; undefined for the failure `dismissed` names, which a read already on its way may still return.
- * `late` keeps it on screen when the list opens to send copied text, and `id` dismisses it.
+ * A late open's notice names the chat if known. `late` keeps it on screen when sending copied text.
+ * The dismissed ID stops a reply already on its way from showing the notice again.
  */
-export function lateOpenFailureOf(failure, dismissed) {
-  if (failure.id === dismissed) return undefined
-  const message = failure.title ? failure.title + ': ' + failure.message : failure.message
-  const shown = { message, late: true, id: failure.id }
-  return failure.command ? { ...shown, command: failure.command } : shown
+export function lateOpenNoticeOf(reply, dismissed) {
+  if (reply.id === dismissed) return undefined
+  const message = reply.title ? reply.title + ': ' + reply.message : reply.message
+  const shown = { message, late: true, id: reply.id }
+  if (reply.guessed === true) return { ...shown, about: NOTICES.guessedTab }
+  return reply.command ? { ...shown, command: reply.command } : shown
 }
 
 /**
@@ -250,6 +250,7 @@ export const NOTICES = {
   shellProcessesLeft: { label: 'Processes still running', tone: 'info' },
   sessionNotStopped: { label: 'Why the chat could not be stopped', tone: 'error' },
   subagent: { label: 'How to reach the subagent', tone: 'info' },
+  guessedTab: { label: 'Possible Codex tab', tone: 'info' },
 }
 
 /** How a screen reader takes a message of this tone: an error at once, anything else when it is free. */
@@ -1425,18 +1426,17 @@ export function helperTooltipOf(helper) {
   return 'Open the chat it runs in, and show how to reach this subagent'
 }
 
-/**
- * The notice an open of a subagent leaves when its own view did not come to the front: which one it was and how
- * to reach it, or that it finished; undefined for any other open. A server older than `reached` names the helper
- * only, which reads as the chat it runs in. It is a `hint`: any failure that comes after it takes its place.
- */
-export function subagentNoticeOf(reply) {
-  if (!reply.opened || reply.reached === 'subagent') return undefined
-  return reply.reached === 'parent' || reply.helper ? { message: reply.message, hint: true } : undefined
+/** A guessed tab or an open that reached a subagent's parent leaves a hint a later failure can replace. */
+export function openNoticeOf(reply) {
+  if (!reply.opened) return undefined
+  if (reply.guessed === true) return { message: reply.message, hint: true, about: NOTICES.guessedTab }
+  if (reply.reached !== 'subagent' && (reply.reached === 'parent' || reply.helper)) {
+    return { message: reply.message, hint: true, about: NOTICES.subagent }
+  }
 }
 
-/** Whether a late open failure may take the notice's place: none shows, or only a hint does. */
-export function lateFailureReplaces(shown) {
+/** Whether a late open may take the notice's place: none shows, or only a hint does. */
+export function lateNoticeReplaces(shown) {
   return !shown || shown.hint === true
 }
 

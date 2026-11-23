@@ -174,7 +174,12 @@ function parseOpenReply(raw: unknown): ConversationOpenReply | undefined {
   if (!raw || typeof raw !== 'object') return undefined
   const reply = raw as Record<string, unknown>
   if (typeof reply.opened !== 'boolean' || typeof reply.message !== 'string') return undefined
-  return { opened: reply.opened, message: reply.message, ...(typeof reply.command === 'string' && reply.command ? { command: reply.command } : {}) }
+  return {
+    opened: reply.opened,
+    message: reply.message,
+    ...(reply.opened && reply.guessed === true ? { guessed: true } : {}),
+    ...(typeof reply.command === 'string' && reply.command ? { command: reply.command } : {}),
+  }
 }
 
 /** Asks the server to open one conversation where it lives. A failed request resolves with its reason, never throws. */

@@ -99,26 +99,25 @@ type inbox struct {
 	// opens counts the opens the pages asked for, so a late answer knows
 	// whether a newer open came after it.
 	opens uint64
-	// lateFailure is why an open the page stopped waiting for did not
-	// open, until the person dismisses it or a newer open begins; nil
-	// when none.
-	lateFailure *lateFailure
+	// lateNotice is what a late open has to report until it is dismissed
+	// or a newer open begins.
+	lateNotice *lateOpenNotice
 }
 
-// lateFailure is a kept failure: id is the number of its open, and tool
+// lateOpenNotice is a kept notice: id is the number of its open, and tool
 // and chat name the conversation, whose title the list gives when read.
 // sentTitle is the title the page sent, for a chat the list does not hold.
-type lateFailure struct {
+type lateOpenNotice struct {
 	id         uint64
 	tool, chat string
 	sentTitle  string
-	failure    openFailure
+	notice     openNotice
 }
 
-// openFailure is a failed open as the panel shows it.
-type openFailure struct {
-	Message string `json:"message"`
-	Command string `json:"command,omitempty"`
+type openNotice struct {
+	message string
+	command string
+	guessed bool
 }
 
 func newInbox(server *server, builtFor string, changed func()) *inbox {
@@ -552,8 +551,8 @@ func (in *inbox) answer(w http.ResponseWriter, answer reply, err error) {
 }
 
 // passOpen hands an open to the server. After openWait the page gets a
-// pending reply, and the call goes on up to openLateWait: a failure
-// that arrives then is kept for the panel, unless a newer open began.
+// pending reply, and the call goes on up to openLateWait. A late failure
+// or guessed switch is kept for the panel until a newer open starts.
 func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	body, title := withoutTitle(body)
 	var named struct {
@@ -564,7 +563,7 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	in.mu.Lock()
 	in.opens++
 	this := in.opens
-	in.lateFailure = nil
+	in.lateNotice = nil
 	in.mu.Unlock()
 	type outcome struct {
 		answer reply
@@ -595,7 +594,7 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 	}
 	go func() {
 		got := <-settled
-		in.settleLate(lateFailure{id: this, tool: named.Tool, chat: named.ID, sentTitle: title}, lateOutcomeOf(got.answer, got.err))
+		in.settleLate(lateOpenNotice{id: this, tool: named.Tool, chat: named.ID, sentTitle: title}, lateOutcomeOf(got.answer, got.err))
 	}()
 }
 
@@ -604,12 +603,11 @@ func (in *inbox) passOpen(w http.ResponseWriter, r *http.Request, body []byte) {
 // seconds, which says nothing about whether the chat opened.
 const noLateAnswer = "agnostic-ai did not answer in time. The chat may still have opened."
 
-// lateOutcome is how an open ended after its pending reply: failure is
-// what the panel shows, nil when there is nothing to show; said is the
-// outcome the log gets, without the reason.
+// lateOutcome is how an open ended after its pending reply. The notice is
+// for the panel; said is the outcome the log gets, without the reason.
 type lateOutcome struct {
-	failure *openFailure
-	said    string
+	notice *openNotice
+	said   string
 }
 
 func lateOutcomeOf(answer reply, err error) lateOutcome {
@@ -617,12 +615,13 @@ func lateOutcomeOf(answer reply, err error) lateOutcome {
 	case errors.Is(err, errResting):
 		return lateOutcome{said: "the companion quit first"}
 	case err != nil:
-		return lateOutcome{failure: &openFailure{Message: noLateAnswer}, said: "no answer"}
+		return lateOutcome{notice: &openNotice{message: noLateAnswer}, said: "no answer"}
 	case answer.status >= 300:
-		return lateOutcome{failure: &openFailure{Message: errorOf(answer)}, said: "not opened"}
+		return lateOutcome{notice: &openNotice{message: errorOf(answer)}, said: "not opened"}
 	}
 	var told struct {
 		Opened  *bool  `json:"opened"`
+		Guessed bool   `json:"guessed"`
 		Message string `json:"message"`
 		Command string `json:"command"`
 	}
@@ -630,24 +629,26 @@ func lateOutcomeOf(answer reply, err error) lateOutcome {
 		return lateOutcome{said: "no word on whether it opened"}
 	}
 	if *told.Opened {
+		if told.Guessed {
+			return lateOutcome{notice: &openNotice{message: told.Message, guessed: true}, said: "switched to a possible tab"}
+		}
 		return lateOutcome{said: "opened"}
 	}
-	return lateOutcome{failure: &openFailure{Message: told.Message, Command: told.Command}, said: "not opened"}
+	return lateOutcome{notice: &openNotice{message: told.Message, command: told.Command}, said: "not opened"}
 }
 
-// settleLate keeps the failure of the open late names for the panel,
-// and asks for a new list either way.
-func (in *inbox) settleLate(late lateFailure, outcome lateOutcome) {
+// settleLate keeps the latest open's notice and asks for a fresh list.
+func (in *inbox) settleLate(late lateOpenNotice, outcome lateOutcome) {
 	defer in.refreshSoon()
 	log.Print("an open the page stopped waiting for: " + outcome.said)
-	if outcome.failure == nil {
+	if outcome.notice == nil {
 		return
 	}
 	in.mu.Lock()
 	newest := late.id == in.opens
 	if newest {
-		late.failure = *outcome.failure
-		in.lateFailure = &late
+		late.notice = *outcome.notice
+		in.lateNotice = &late
 	}
 	in.mu.Unlock()
 	if newest {
@@ -655,21 +656,22 @@ func (in *inbox) settleLate(late lateFailure, outcome lateOutcome) {
 	}
 }
 
-// lateOpenReply is a kept failure as the panel reads it. Title is the
+// lateOpenReply is a kept notice as the panel reads it. Title is the
 // chat's name in the list held now; empty when the list does not hold it.
 type lateOpenReply struct {
 	ID      uint64 `json:"id"`
 	Title   string `json:"title,omitempty"`
 	Message string `json:"message"`
 	Command string `json:"command,omitempty"`
+	Guessed bool   `json:"guessed,omitempty"`
 }
 
-// lateOpen answers GET /api/open/late with the kept failure of an open
+// lateOpen answers GET /api/open/late with the kept notice of an open
 // the page stopped waiting for; 204 when there is none. Reading it keeps
 // it: the panel shows it again until the person dismisses it.
 func (in *inbox) lateOpen(w http.ResponseWriter, _ *http.Request) {
 	in.mu.Lock()
-	late, latest := in.lateFailure, in.latest
+	late, latest := in.lateNotice, in.latest
 	in.mu.Unlock()
 	if late == nil {
 		w.Header().Set("Cache-Control", "no-store")
@@ -680,7 +682,7 @@ func (in *inbox) lateOpen(w http.ResponseWriter, _ *http.Request) {
 	if title == "" {
 		title = late.sentTitle
 	}
-	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: title, Message: late.failure.Message, Command: late.failure.Command})
+	writeJSON(w, http.StatusOK, lateOpenReply{ID: late.id, Title: title, Message: late.notice.message, Command: late.notice.command, Guessed: late.notice.guessed})
 }
 
 // titleIn is the title list gives the chat; empty when it does not list it.
@@ -704,8 +706,8 @@ func titleIn(list json.RawMessage, tool, chat string) string {
 }
 
 // dismissLateOpen answers POST /api/open/late/dismiss {id}: the person
-// dismissed that failure, so it is no longer kept. Another id changes
-// nothing, since a newer failure may have replaced it.
+// dismissed that notice. Another id changes nothing, since a newer
+// notice may have replaced it.
 func (in *inbox) dismissLateOpen(w http.ResponseWriter, r *http.Request) {
 	var dismissed struct {
 		ID uint64 `json:"id"`
@@ -715,8 +717,8 @@ func (in *inbox) dismissLateOpen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in.mu.Lock()
-	if in.lateFailure != nil && in.lateFailure.id == dismissed.ID {
-		in.lateFailure = nil
+	if in.lateNotice != nil && in.lateNotice.id == dismissed.ID {
+		in.lateNotice = nil
 	}
 	in.mu.Unlock()
 	w.WriteHeader(http.StatusNoContent)

@@ -95,45 +95,51 @@ func TestHostOf_FindsTheAppAndTheTTY(t *testing.T) {
 }
 
 func pick(c Conversation, threads []threadStart, table []ProcessInfo, processes Processes) (int, []string) {
-	return newCodexClients(table, threads, processes).pick(c)
+	pid, candidates := newCodexClients(table, threads, processes).pick(c)
+	return pid, codexClientTTYs(candidates)
 }
 
 // threadsInRepo is threads created in /repo at each time.
 func threadsInRepo(created ...string) []threadStart {
 	threads := make([]threadStart, len(created))
 	for i, at := range created {
-		threads[i] = threadStart{created: at, folder: "/repo"}
+		threads[i] = threadStart{id: at, created: at, folder: "/repo"}
 	}
 	return threads
 }
 
-func TestPickCodexClient_ByIDThenStartNeverByFolder(t *testing.T) {
+func threadStartsFor(c Conversation, others ...string) []threadStart {
+	return append([]threadStart{{id: c.ID, created: c.StartedAt, folder: c.Folder}}, threadsInRepo(others...)...)
+}
+
+func TestPickCodexClient_UsesResumeIDOrNamesCandidates(t *testing.T) {
 	thread := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T21:49:19Z"}
 	first := ghosttyTab("/dev/ttys002", 16953, 17199, "codex")
 	second := ghosttyTab("/dev/ttys005", 46075, 46288, "codex")
 	second[2].Started = "Tue Nov 10 22:33:41 2026"
 	table := ghosttyTable(first, second)
 	both := processesWithTable(table)
+	both.cwds = map[int]string{17199: "/repo", 46288: "/repo"}
 
-	if pid, ttys := pick(thread, threadsInRepo(thread.StartedAt), table, both); pid != 17199 || ttys != nil {
-		t.Errorf("the client that started just before the thread: %d, %v", pid, ttys)
+	if pid, ttys := pick(thread, threadStartsFor(thread), table, both); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+		t.Errorf("the client that started just before the thread is a candidate: %d, %v", pid, ttys)
 	}
 	later := thread
 	later.StartedAt = "2026-11-10T23:00:00Z"
-	inRepo := both
-	inRepo.cwds = map[int]string{17199: "/repo", 46288: "/repo"}
-	if pid, ttys := pick(later, threadsInRepo(later.StartedAt), table, inRepo); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
+	second[2].Started = first[2].Started
+	competing := ghosttyTable(first, second)
+	if pid, ttys := pick(later, threadStartsFor(later), competing, both); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys005" {
 		t.Errorf("two clients in the folder and neither started with the thread: %d, %v", pid, ttys)
 	}
 	resumed := both
 	resumed.args = map[int]string{46288: "codex resume " + thread.ID}
-	if pid, _ := pick(later, threadsInRepo(later.StartedAt), table, resumed); pid != 46288 {
+	if pid, _ := pick(later, threadStartsFor(later), table, resumed); pid != 46288 {
 		t.Errorf("a client started with the thread's id holds it: %d", pid)
 	}
 	elsewhere := both
 	elsewhere.cwds = map[int]string{17199: "/repo", 46288: "/other"}
-	if pid, ttys := pick(later, threadsInRepo(later.StartedAt), table, elsewhere); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
-		t.Errorf("the only client in the folder may show an empty tab, so it is named, never picked: %d, %v", pid, ttys)
+	if pid, ttys := pick(later, threadStartsFor(later), table, elsewhere); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+		t.Errorf("a later client in another folder does not end the first client's window: %d, %v", pid, ttys)
 	}
 }
 
@@ -164,7 +170,7 @@ func TestCodexClients_ReadArgsAndFoldersOnce(t *testing.T) {
 	clients := newCodexClients(table, threadsInRepo(created...), processes)
 
 	for _, created := range created {
-		clients.pick(Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: created})
+		clients.pick(Conversation{Tool: ToolCodex, ID: created, Folder: "/repo", StartedAt: created})
 	}
 
 	if processes.argsCalls != 1 || processes.cwdsCalls != 1 {
@@ -172,17 +178,81 @@ func TestCodexClients_ReadArgsAndFoldersOnce(t *testing.T) {
 	}
 }
 
-func TestPickCodexClient_EachClientHoldsTheFirstThreadAfterItStarted(t *testing.T) {
+func TestPickCodexClient_FirstThreadInEachWindowHasOneCandidate(t *testing.T) {
 	first := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
 	first[2].Started = "Tue Nov 10 22:55:27 2026"
 	second := ghosttyTab("/dev/ttys004", 81131, 81453, "codex")
 	second[2].Started = "Tue Nov 10 22:55:32 2026"
 	table := ghosttyTable(first, second)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/repo", 81453: "/repo"}
 	created := []string{"2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z", "2026-11-10T22:58:00Z"}
-	for at, want := range map[string]int{created[0]: 80312, created[1]: 81453, created[2]: 0} {
-		thread := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: at}
-		if pid, _ := pick(thread, threadsInRepo(created...), table, processesWithTable(table)); pid != want {
-			t.Errorf("thread created %s: client %d, want %d", at, pid, want)
+	for at, want := range map[string]string{created[0]: "/dev/ttys002", created[1]: "/dev/ttys004", created[2]: ""} {
+		thread := Conversation{Tool: ToolCodex, ID: at, Folder: "/repo", StartedAt: at}
+		if pid, ttys := pick(thread, threadsInRepo(created...), table, processes); pid != 0 || strings.Join(ttys, ",") != want {
+			t.Errorf("thread created %s: client %d, candidates %v, want %q", at, pid, ttys, want)
+		}
+	}
+}
+
+func TestPickCodexClient_KeepsOverlappingClientsWithoutTheirOwnThreadAsCandidates(t *testing.T) {
+	first := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	first[2].Started = "Tue Nov 10 22:55:27 2026"
+	second := ghosttyTab("/dev/ttys004", 81131, 81453, "codex")
+	second[2].Started = "Tue Nov 10 22:55:32 2026"
+	table := ghosttyTable(first, second)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/repo", 81453: "/repo"}
+	created := []string{"2026-11-10T22:55:33Z", "2026-11-10T22:58:00Z"}
+
+	for _, at := range created {
+		thread := Conversation{Tool: ToolCodex, ID: at, Folder: "/repo", StartedAt: at}
+		if pid, ttys := pick(thread, threadsInRepo(created...), table, processes); pid != 0 ||
+			strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys004" {
+			t.Errorf("either client could show thread created at %s: %d, %v", at, pid, ttys)
+		}
+	}
+
+	processes.args = map[int]string{81453: "codex resume --last"}
+	thread := Conversation{Tool: ToolCodex, ID: "target", Folder: "/repo", StartedAt: "2026-11-10T22:55:30Z"}
+	if pid, ttys := pick(thread, threadStartsFor(thread), table, processes); pid != 0 ||
+		strings.Join(ttys, ",") != "/dev/ttys002,/dev/ttys004" {
+		t.Errorf("a resume picker can show the same thread: %d, %v", pid, ttys)
+	}
+}
+
+func TestPickCodexClient_FirstThreadCouldBelongToAClientThatExited(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	c := Conversation{Tool: ToolCodex, ID: "held-by-daemon", Folder: "/repo", StartedAt: "2026-11-10T22:56:05Z"}
+	threads := threadStartsFor(c)
+
+	if pid, candidates := pick(c, threads, table, processes); pid != 0 || len(candidates) != 0 {
+		t.Errorf("a client with an unknown folder must not be a sole candidate: %d, %v", pid, candidates)
+	}
+
+	processes.cwds = map[int]string{80312: "/repo"}
+	if pid, candidates := pick(c, threads, table, processes); pid != 0 || strings.Join(candidates, ",") != "/dev/ttys002" {
+		t.Errorf("an earlier client in the folder is only a candidate: %d, %v", pid, candidates)
+	}
+}
+
+func TestPickCodexClient_SameSecondThreadsAreAmbiguous(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 79980, 80312, "codex")
+	client[2].Started = "Tue Nov 10 22:55:27 2026"
+	table := ghosttyTable(client)
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{80312: "/repo"}
+	at := "2026-11-10T22:55:33Z"
+	ids := []string{"01a1c775-7c2b-7011-a261-3a61edc96e71", "01a1c775-911c-7893-bd08-5f77cc835aa3"}
+	threads := []threadStart{{id: ids[0], created: at, folder: "/repo"}, {id: ids[1], created: at, folder: "/repo"}}
+
+	for _, id := range ids {
+		thread := Conversation{Tool: ToolCodex, ID: id, Folder: "/repo", StartedAt: at}
+		if pid, ttys := pick(thread, threads, table, processes); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+			t.Errorf("the terminal can show either thread, including %s: %d, %v", id, pid, ttys)
 		}
 	}
 }
@@ -195,6 +265,7 @@ func TestPickCodexClient_AClientShowingAnotherThreadIsNotAGuess(t *testing.T) {
 	processes.cwds = map[int]string{80312: "/repo"}
 	threads := threadsInRepo("2026-11-10T22:55:27Z", "2026-11-10T22:55:33Z")
 	quit := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: threads[1].created}
+	threads[1].id = quit.ID
 
 	if pid, ttys := pick(quit, threads, table, processes); pid != 0 || ttys != nil {
 		t.Errorf("the client in the folder shows its own first thread: %d, %v", pid, ttys)
@@ -208,7 +279,7 @@ func TestPickCodexClient_AClientResumingAnotherThreadIsNeverTimed(t *testing.T) 
 	processes := processesWithTable(table)
 	processes.cwds = map[int]string{80312: "/repo"}
 	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
-	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+	threads := threadStartsFor(created)
 
 	for _, args := range []string{"codex resume 01a1c738-eda0-7be0-b151-023a3e0ab7ee", "codex resume --last", "codex resume", "codex -m gpt-5 resume nightly"} {
 		processes.args = map[int]string{80312: args}
@@ -225,7 +296,7 @@ func TestPickCodexClient_ANewThreadIsTimedWhateverItsArgumentsSay(t *testing.T) 
 	processes := processesWithTable(table)
 	processes.cwds = map[int]string{80312: "/repo"}
 	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
-	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+	threads := threadStartsFor(created)
 
 	for _, args := range []string{
 		"/opt/homebrew/bin/codex resume the migration where we left it",
@@ -234,8 +305,8 @@ func TestPickCodexClient_ANewThreadIsTimedWhateverItsArgumentsSay(t *testing.T) 
 		"/opt/homebrew/bin/codex fork 01a1c738-eda0-7be0-b151-023a3e0ab7ee",
 	} {
 		processes.args = map[int]string{80312: args}
-		if pid, _ := pick(created, threads, table, processes); pid != 80312 {
-			t.Errorf("%q starts a new thread, so it is timed: %d", args, pid)
+		if pid, ttys := pick(created, threads, table, processes); pid != 0 || strings.Join(ttys, ",") != "/dev/ttys002" {
+			t.Errorf("%q starts a new thread, so it is a candidate: %d, %v", args, pid, ttys)
 		}
 	}
 	forked := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T20:00:00Z"}
@@ -252,7 +323,7 @@ func TestPickCodexClient_AClientResumingWithoutAnIDMayShowAnOlderThread(t *testi
 	processes := processesWithTable(table)
 	processes.cwds = map[int]string{80312: "/repo"}
 	older := Conversation{Tool: ToolCodex, ID: "01a1c738-eda0-7be0-b151-023a3e0ab7ee", Folder: "/repo", StartedAt: "2026-11-10T20:00:00Z"}
-	threads := []threadStart{{created: older.StartedAt, folder: "/repo"}}
+	threads := threadStartsFor(older)
 
 	for _, args := range []string{"codex resume --last", "codex resume", "codex resume nightly"} {
 		processes.args = map[int]string{80312: args}
@@ -273,12 +344,12 @@ func TestPickCodexClient_AClientStartedInAnotherFolderHasNoKnownFolder(t *testin
 	processes := processesWithTable(table)
 	processes.cwds = map[int]string{80312: "/home"}
 	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
-	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+	threads := threadStartsFor(created)
 
 	for _, args := range []string{"codex -C /repo", "codex --cd /repo", "codex --cd=/repo"} {
 		processes.args = map[int]string{80312: args}
-		if pid, _ := pick(created, threads, table, processes); pid != 80312 {
-			t.Errorf("%q works in another folder than its process: %d", args, pid)
+		if pid, ttys := pick(created, threads, table, processes); pid != 0 || len(ttys) != 0 {
+			t.Errorf("%q has no confirmed folder, so it cannot be the only candidate: %d, %v", args, pid, ttys)
 		}
 	}
 }
@@ -290,7 +361,7 @@ func TestPickCodexClient_AThreadInAnotherFolderIsNotTheClientsFirst(t *testing.T
 	processes := processesWithTable(table)
 	processes.cwds = map[int]string{80312: "/other"}
 	created := Conversation{Tool: ToolCodex, ID: "01a1c775-911c-7893-bd08-5f77cc835aa3", Folder: "/repo", StartedAt: "2026-11-10T22:55:33Z"}
-	threads := []threadStart{{created: created.StartedAt, folder: "/repo"}}
+	threads := threadStartsFor(created)
 
 	if pid, ttys := pick(created, threads, table, processes); pid != 0 || ttys != nil {
 		t.Errorf("a client in another folder did not create the thread: %d, %v", pid, ttys)
@@ -315,6 +386,7 @@ func TestScan_CodexThreadHeldByTheDaemonSwitchesToItsTerminalClient(t *testing.T
 	table = append(table, ProcessInfo{PID: 6923, PPID: 1, Stat: "S", Started: "Sun Nov  8 10:58:14 2025", Command: "/Users/you/.codex/packages/app-server-daemon/bin/codex"})
 	processes := processesWithTable(table)
 	processes.held = map[string]int{thread + ".lock": 6923}
+	processes.cwds = map[int]string{17199: "/repo"}
 	scanner.Processes = processes
 	scanner.Now = func() time.Time { return time.UnixMilli(1762811600000) }
 	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
@@ -324,11 +396,22 @@ func TestScan_CodexThreadHeldByTheDaemonSwitchesToItsTerminalClient(t *testing.T
 	if !found || c.Open.Kind != RouteFocus || c.Open.Label != "Switch to Ghostty" {
 		t.Fatalf("the open thread switches to Ghostty: %s", asJSON(t, c))
 	}
-	launcher := &fakeLauncher{focusOK: true}
-	reply := Open(context.Background(), c, scanner.Processes, launcher)
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	if err := scanner.Mark(ToolCodex, thread, MarkCompleted); err != nil {
+		t.Fatal(err)
+	}
+	marksBefore := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolCodex, thread)]
+	scanner.Now = func() time.Time { return time.UnixMilli(1762811660000) }
 
-	if strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" || reply != (OpenReply{Opened: true, Message: "Switched to the Ghostty tab that runs it."}) {
-		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
+	launcher := &fakeLauncher{focusOK: true}
+	reply, found := scanner.Reopen(context.Background(), ToolCodex, thread, ScanOptions{}, launcher)
+	if !found || strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" ||
+		!reply.Opened || !strings.Contains(asJSON(t, reply), `"guessed": true`) {
+		t.Errorf("found %t, calls %v, reply %+v", found, launcher.calls, reply)
+	}
+	marksAfter := storedMarks(t, scanner.MarksPath).Marks[markKey(ToolCodex, thread)]
+	if marksAfter.CompletedAt != marksBefore.CompletedAt || marksAfter.SeenAt != marksBefore.SeenAt {
+		t.Errorf("guessed switch changed completion or seen marks: before %+v, after %+v", marksBefore, marksAfter)
 	}
 }
 
@@ -337,7 +420,7 @@ func TestScan_TwoCodexClientsInOneFolderEachSwitchToTheirOwnTab(t *testing.T) {
 	scanner, stores := testScanner(t, fakeStores(t, map[string]string{
 		"state_5.sqlite|FROM threads": `[
 			{"id":"` + first + `","cwd":"/repo","created_at_ms":1762815327400,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"First"},
-			{"id":"` + second + `","cwd":"/repo","created_at_ms":1762815333100,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"Second"},
+			{"id":"` + second + `","cwd":"/repo","created_at_ms":1762815370100,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"Second"},
 			{"id":"` + quit + `","cwd":"/repo","created_at_ms":1762815000000,"updated_at_ms":1762815400000,"originator":"codex-tui","source":"vscode","name":"Quit"}
 		]`,
 	}), nil)
@@ -366,6 +449,87 @@ func TestScan_TwoCodexClientsInOneFolderEachSwitchToTheirOwnTab(t *testing.T) {
 		if want == "" && (reply.Command != "" || !strings.Contains(reply.Message, "Codex keeps this thread open in the background")) {
 			t.Errorf("a thread no client shows must not offer a second resume: %+v", reply)
 		}
+	}
+}
+
+func TestPlaceLive_CodexHelpersDoNotCountAsAClientsFirstThread(t *testing.T) {
+	scanner, _ := testScanner(t, noSQLite, nil)
+	client := ghosttyTab("/dev/ttys002", 16953, 17199, "codex")
+	client[2].Started = "Tue Nov 10 11:16:01 2026"
+	daemon := liveProcess{PID: 6923}
+	table := append(ghosttyTable(client), ProcessInfo{PID: daemon.PID, Command: "codex"})
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{17199: "/repo"}
+	scanner.Processes = processes
+	results := []sourceResult{{
+		conversations: []Conversation{{
+			Tool: ToolCodex, App: AppCLI, ID: "parent", Folder: "/repo",
+			StartedAt: "2026-11-10T11:16:39Z", Open: Route{Kind: RouteFocus}, process: &daemon,
+		}},
+		unlisted: []Conversation{{
+			Tool: ToolCodex, App: AppCLI, ID: "helper", Folder: "/repo",
+			StartedAt: "2026-11-10T11:16:03Z", Open: Route{Kind: RouteFocus}, process: &daemon,
+		}},
+	}}
+
+	scanner.placeLive(results, processes.Table)
+
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), results[0].conversations[0], processes, launcher)
+	if !reply.Opened || strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" {
+		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
+	}
+}
+
+func TestPlace_OnlyPossibleCodexClientIsUsedOnlyForFocus(t *testing.T) {
+	client := ghosttyTab("/dev/ttys002", 16953, 17199, "codex")
+	daemon := liveProcess{PID: 6923}
+	table := append(ghosttyTable(client), ProcessInfo{PID: daemon.PID, Command: "codex"})
+	processes := processesWithTable(table)
+	processes.cwds = map[int]string{17199: "/repo"}
+	c := Conversation{
+		Tool: ToolCodex, ID: "resumed", Activity: idleActivity[ToolCodex],
+		Folder: "/repo", StartedAt: "2026-11-10T10:00:00Z",
+		Open: Route{Kind: RouteFocus, Command: "codex resume resumed"}, process: &daemon,
+	}
+	threads := threadStartsFor(c)
+	if pid, candidates := pick(c, threads, table, processes); pid != 0 || len(candidates) != 0 {
+		t.Errorf("a fresh client that started later is not a candidate: %d, %v", pid, candidates)
+	}
+
+	processes.args = map[int]string{17199: "codex resume --last"}
+	clients := newCodexClients(table, threads, processes)
+	if place(&c, clients, table, processes.Args) {
+		t.Error("an uncertain terminal must not be remembered")
+	}
+
+	launcher := &fakeLauncher{focusOK: true}
+	reply := Open(context.Background(), c, processes, launcher)
+	if !reply.Opened || !strings.Contains(reply.Message, "may show") || reply.Command != "" ||
+		strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" {
+		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
+	}
+
+	launcher.calls = nil
+	replySend := SendComposed(context.Background(), c, "hello", processes, launcher)
+	if replySend.Sent || len(launcher.calls) > 0 {
+		t.Errorf("a guessed tab must not receive text: calls %v, reply %+v", launcher.calls, replySend)
+	}
+	if err := TitleTab(context.Background(), c, processes, launcher, "New title"); err != nil || len(launcher.calls) > 0 {
+		t.Errorf("a guessed tab must not be renamed: calls %v, error %v", launcher.calls, err)
+	}
+
+	replySend = Send(context.Background(), c, "hello", processes, launcher)
+	if replySend.Sent || !strings.Contains(replySend.Message, "Check the thread") ||
+		strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" {
+		t.Errorf("copied text needs a check before pasting: calls %v, reply %+v", launcher.calls, replySend)
+	}
+
+	launcher.calls = nil
+	delete(processes.alive, 17199)
+	reply = Open(context.Background(), c, processes, launcher)
+	if reply.Opened || reply.Command != "" || len(launcher.calls) > 0 {
+		t.Errorf("a closed candidate must not be focused: calls %v, reply %+v", launcher.calls, reply)
 	}
 }
 
@@ -579,8 +743,10 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 			reply:        OpenReply{Message: "Codex keeps this thread open in the background and does not say which of its sessions shows it (ttys002, ttys007). Switch to it there."},
 		},
 		"one Codex client could hold it": {
-			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{ttys: []string{"/dev/ttys002"}}},
-			reply:        OpenReply{Message: "Codex keeps this thread open in the background, and the terminal that shows it could not be identified. It may be the Codex session on ttys002."},
+			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: "Ghostty", TTY: "/dev/ttys002"}, ttys: []string{"/dev/ttys002"}}},
+			launcher:     fakeLauncher{focusOK: true},
+			reply:        OpenReply{Opened: true, Guessed: true, Message: "Switched to the Ghostty tab with the only Codex session that may show this thread."},
+			calls:        "focus Ghostty /dev/ttys002",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

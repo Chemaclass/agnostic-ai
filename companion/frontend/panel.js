@@ -1,8 +1,8 @@
 import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
-import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenFailure, dismissLateOpenFailure, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
+import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenNotice, dismissLateOpenNotice, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenFailureOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateFailureReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, subagentNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
@@ -1249,35 +1249,33 @@ function show(reply, problem) {
   keepStopShellCurrent()
 }
 
-/**
- * An open the companion stopped waiting for may fail later. The companion keeps that failure until the person
- * dismisses it or opens a chat, and the panel shows it each time the list shows or changes, the way a failed
- * open's shows. A notice on screen wins while it shows, and an open on its way wins over an older failure.
- */
-async function showLateOpenFailure() {
+/** The latest late open can show a failure or a guessed tab until dismissed. */
+async function showLateOpenNotice() {
   if (opensOnTheirWay > 0) return
-  let failure
+  const thisOpen = latestOpen
+  let reply
   try {
-    failure = await readLateOpenFailure()
+    reply = await readLateOpenNotice()
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     return
   }
-  const shown = failure && lateOpenFailureOf(failure, lastDismissedLate)
-  if (!shown || !lateFailureReplaces(state.openFailure) || opensOnTheirWay > 0) return
-  showOpenFailure(shown, NOTICES.notOpened)
+  const shown = reply && lateOpenNoticeOf(reply, lastDismissedLate)
+  if (!shown || !lateNoticeReplaces(state.openFailure) || thisOpen !== latestOpen || opensOnTheirWay > 0) return
+  showOpenFailure(shown, shown.about ?? NOTICES.notOpened)
+  if (shown.about === NOTICES.guessedTab && !listShown) await peekOpenNotice()
 }
 
-/** The late failure dismissed last; a read already past the companion when it was dismissed may return it. */
+/** The last dismissed late notice may still come back on a read already on its way. */
 let lastDismissedLate
 
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
-// back to say why only when the conversation did not open. An open the
+// back with a hint or the reason it did not open. An open the
 // companion gave up waiting for (`pending`) may still happen, so it is
 // no failure and the panel stays hidden.
 let latestOpen = 0
-/** Opens sent and not yet answered: the companion drops an older late failure as each one arrives. */
+/** Opens sent and not yet answered: the companion drops an older late notice as each one arrives. */
 let opensOnTheirWay = 0
 
 async function openRow(conversation) {
@@ -1292,25 +1290,22 @@ async function openRow(conversation) {
     const reply = await openConversation(conversation)
     pending = reply.pending === true
     failure = reply.pending ? undefined : openFailureOf(reply)
-    note = reply.pending ? undefined : subagentNoticeOf(reply)
+    note = reply.pending ? undefined : openNoticeOf(reply)
   } catch (error) {
     if (!(error instanceof CallError)) throw error
     failure = { message: error.message }
   } finally {
     opensOnTheirWay -= 1
   }
-  // A late failure may have landed while this answer was on its way, when the panel skipped it.
-  if (pending) showLateOpenFailure()
+  // A late notice may have landed while this answer was on its way, when the panel skipped it.
+  if (pending) showLateOpenNotice()
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (thisOpen !== latestOpen) return
   // The note shows at once, in the panel shown beside the circle without taking the keys from the terminal.
   // Where the panel cannot show, it waits there for its next showing, unless a failure replaces it.
-  if (note) showOpenFailure(note, NOTICES.subagent)
+  if (note) showOpenFailure(note, note.about)
   if (note && !failure) {
-    // Set before the call: the panel-shown it may cause can arrive before its answer, and takes returning back.
-    state.returning = true
-    const peeked = await peekPanel().catch(() => ({ shown: false }))
-    if (!peeked?.shown) state.returning = false
+    await peekOpenNotice()
     return
   }
   if (!failure) return
@@ -1320,6 +1315,13 @@ async function openRow(conversation) {
     state.returning = false
     sayFailure(error)
   })
+}
+
+async function peekOpenNotice() {
+  // The panel-shown event can arrive before the peek's reply and takes returning back.
+  state.returning = true
+  const peeked = await peekPanel().catch(() => ({ shown: false }))
+  if (!peeked?.shown) state.returning = false
 }
 
 /**
@@ -1588,12 +1590,12 @@ document.getElementById('notice-dismiss').addEventListener('click', () => {
   const dismissed = state.openFailure
   showOpenFailure(undefined)
   queryInput.focus()
-  // A late failure stays with the companion until dismissed; any other notice may have covered one.
+  // A late notice stays with the companion until dismissed; another notice may have covered it.
   if (dismissed?.late) {
     lastDismissedLate = dismissed.id
-    dismissLateOpenFailure(dismissed.id).catch(sayFailure)
+    dismissLateOpenNotice(dismissed.id).catch(sayFailure)
   }
-  else showLateOpenFailure()
+  else showLateOpenNotice()
 })
 
 /**
@@ -2736,7 +2738,7 @@ function opened(data) {
   draw({ force: true })
   return refresh().then(() => {
     if (jump) jumpToWaiting()
-    return showLateOpenFailure()
+    return showLateOpenNotice()
   })
 }
 
@@ -2780,10 +2782,10 @@ setInterval(() => draw(), 30 * 1000)
 Events.On('inbox', (event) => {
   // A search costs the server a read of every week it covers; a closed list asks again when it opens.
   if (!listShown && state.query !== '') {
-    showLateOpenFailure()
+    showLateOpenNotice()
     return
   }
-  refresh({ version: event?.data }).then(showLateOpenFailure)
+  refresh({ version: event?.data }).then(showLateOpenNotice)
 })
 Events.On('panel-shown', (event) => opened(event.data))
 Events.On('panel-hidden', () => {

@@ -552,7 +552,12 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 		case placed == nil:
 			return OpenReply{Message: fmt.Sprintf("Codex keeps this thread open in the background (process %d), but no Codex terminal shows it.", c.process.PID)}
 		case len(placed.ttys) == 1:
-			return OpenReply{Message: "Codex keeps this thread open in the background, and the terminal that shows it could not be identified. It may be the Codex session on " + shortTTY(placed.ttys[0]) + "."}
+			if !processes.Alive(placed.process.PID, placed.process.ProcStart) {
+				return OpenReply{Message: "Could not confirm that the only Codex terminal that may show this thread is still open."}
+			}
+			reply := switchToHost(ctx, c.Folder, *placed, processes, launcher, "")
+			reply.Guessed = reply.Opened
+			return reply
 		default:
 			return OpenReply{Message: fmt.Sprintf("Codex keeps this thread open in the background and does not say which of its sessions shows it (%s). Switch to it there.", strings.Join(shortTTYs(placed.ttys), ", "))}
 		}
@@ -588,11 +593,18 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		if client, err := launcher.ShowTmuxPane(ctx, placed.host.tmuxServer, placed.host.TTY); err == nil && client != 0 {
 			if table, err := processes.Table(); err == nil {
 				if outer, _ := hostOf(table, client); outer.TTY != "" && outer.App != "tmux" {
-					return switchToHost(ctx, folder, placement{process: placed.process, host: outer}, processes, launcher, resume)
+					placed.host = outer
+					return switchToHost(ctx, folder, placed, processes, launcher, resume)
 				}
 			}
 		}
 		app = ""
+	}
+	where := "It runs"
+	tab := "the " + app + " tab that runs it"
+	if len(placed.ttys) == 1 {
+		where = "It may run"
+		tab = "the " + app + " tab with the only Codex session that may show this thread"
 	}
 	cannot := "its tab cannot be selected from outside"
 	setupNeeded := false
@@ -605,40 +617,40 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		case errors.Is(err, errNoTabCommand):
 			// Without its command the app still comes forward below.
 		case ok && errors.Is(err, errNotInFront):
-			return switchThere(fmt.Sprintf("Selected the %s tab that runs it. Its window may be behind other windows.", app))
+			return switchThere("Selected " + tab + ". Its window may be behind other windows.")
 		case errors.Is(err, errAutomationDenied):
 			return switchThere(allowControl("switching to", app, "then click again"))
 		case errors.Is(err, context.DeadlineExceeded):
 			return switchThere(waitingForPrompt(app))
 		case err != nil || !ok:
-			return resumeElsewhere(fmt.Sprintf("It runs in %s on %s (process %d), but no tab shows that terminal. Switch to it there.", app, tty, pid), resume)
+			return resumeElsewhere(fmt.Sprintf("%s in %s on %s (process %d), but no tab shows that terminal. Switch to it there.", where, app, tty, pid), resume)
 		default:
-			return OpenReply{Opened: true, Message: fmt.Sprintf("Switched to the %s tab that runs it.", app)}
+			return OpenReply{Opened: true, Message: "Switched to " + tab + "."}
 		}
 	}
 	if editor, ok := editorTerminals[app]; ok && folder != "" {
 		if err := launcher.OpenFolder(ctx, editor, folder); err != nil {
-			return switchThere(fmt.Sprintf("It runs in %s's terminal on %s (process %d). Switch to it there.", app, tty, pid))
+			return switchThere(fmt.Sprintf("%s in %s's terminal on %s (process %d). Switch to it there.", where, app, tty, pid))
 		}
-		return switchThere(fmt.Sprintf("Brought its %s window to the front, but the terminal inside it cannot be selected from outside. It runs on %s (process %d).", app, tty, pid))
+		return switchThere(fmt.Sprintf("Brought its %s window to the front, but the terminal inside it cannot be selected from outside. %s on %s (process %d).", app, where, tty, pid))
 	}
 	if app == "" {
-		return resumeElsewhere(fmt.Sprintf("It runs on %s (process %d) in an app this version cannot switch to. Switch to it there.", tty, pid), resume)
+		return resumeElsewhere(fmt.Sprintf("%s on %s (process %d) in an app this version cannot switch to. Switch to it there.", where, tty, pid), resume)
 	}
 	if err := launcher.ActivateApp(ctx, app); err != nil {
 		if setupNeeded {
-			return switchThere(fmt.Sprintf("It runs in %s on %s (process %d), but %s. Switch to it there.", app, tty, pid, cannot))
+			return switchThere(fmt.Sprintf("%s in %s on %s (process %d), but %s. Switch to it there.", where, app, tty, pid, cannot))
 		}
-		return switchThere(fmt.Sprintf("It runs in %s on %s (process %d). Switch to it there.", app, tty, pid))
+		return switchThere(fmt.Sprintf("%s in %s on %s (process %d). Switch to it there.", where, app, tty, pid))
 	}
-	return switchThere(fmt.Sprintf("Brought %s to the front, but %s. It runs on %s (process %d).", app, cannot, tty, pid))
+	return switchThere(fmt.Sprintf("Brought %s to the front, but %s. %s on %s (process %d).", app, cannot, where, tty, pid))
 }
 
 // TitleTab gives the tab that runs a live session the name the person
 // chose. It does nothing for a session that ended or runs where no tab
 // can be named.
 func TitleTab(ctx context.Context, c Conversation, processes Processes, launcher Launcher, title string) error {
-	if c.process == nil || c.placed == nil || !tabApps[c.placed.host.App] || !processes.Alive(c.process.PID, c.process.ProcStart) {
+	if c.process == nil || c.placed == nil || len(c.placed.ttys) > 0 || !tabApps[c.placed.host.App] || !processes.Alive(c.process.PID, c.process.ProcStart) {
 		return nil
 	}
 	ok, err := launcher.TitleTab(ctx, c.placed.host.App, c.placed.host.TTY, title)
