@@ -108,11 +108,17 @@ Time from turning the `mailbox` built-in on to the first delivered cross-model r
 |---|---|
 | Median `deliverySeconds` | 1.68 seconds across 50 delivered requests |
 | Changes with a review abandoned or pasted by hand (of 25) | 0 |
-| Minutes from built-in on to first delivered cross-model review | 4:00 in the scripted pilot. The docs-only walkthrough still needs a run. |
+| Minutes from built-in on to first delivered cross-model review | 4:58 in the Companion walkthrough |
 
 The [raw mailbox counts](cross-model-review-stats.json) include 52 requests. Two Codex requests did not deliver because the scratch setup trusted the worktree path and Codex used the common Git checkout path. Fresh sessions received the same requests after that was corrected. Both undelivered attempts are excluded from scoring.
 
 The driver started reviewers when their requests were ready. It queued Claude Code requests before launching the process and Codex requests after creating the thread. The reply timings include that startup difference. Waiting for a person to return to an idle session remains unmeasured.
+
+### Setup walkthrough
+
+On macOS arm64, agnostic-ai v0.98.0 delivered a review request in 4 minutes 58 seconds from turning on the built-in in a fresh Git project. Both CLIs were already signed in. The setup followed the [mailbox guide](https://agnostic-ai.org/docs/mailbox/) and trusted both generated hooks in Codex's `/hooks` menu. Scripted clicks in an isolated native Companion window opened **Message another session…**, selected **Review request**, previewed the base and commit, and sent the request from Claude Code to Codex. The Codex prompt hook delivered it on the next prompt. Codex used the previewed base, commit and two paths in its diff command.
+
+The time includes trying Claude Code in print mode and reopening it interactively when the chat did not appear in the Companion. The scratch mailbox recorded one delivered cross-model request and 37.24 seconds from queuing to delivery. This setup measurement is separate from the 50 scored reviews. The earlier driver-based pilot took 4 minutes.
 
 ## Decision
 
@@ -122,4 +128,5 @@ Stop expanding the cross-model review workflow on this evidence. Leave the [sess
 
 ## Change log
 
-- 2026-11-23. Corrected the Codex hook trust location after two setup attempts. The sample, scoring and keep rule stayed fixed. The timed pilot used the local driver, so the docs-only timing is still open.
+- 2026-11-23. Corrected the Codex hook trust location after two setup attempts. The sample, scoring and keep rule stayed fixed.
+- 2026-11-23. Timed the Companion walkthrough after the driver-based pilot.
