@@ -24,13 +24,15 @@ The disk image needs macOS 13 Ventura or later. It holds the companion, the matc
 
 1. Open **Apple menu > About This Mac**. An Apple chip uses the **Apple silicon** (`arm64`) download. An Intel processor uses **Intel** (`amd64`).
 2. Open the [latest stable release](https://github.com/Chemaclass/agnostic-ai/releases/latest) and download the matching `.dmg`. If the release has no disk image for your Mac, [install from the terminal](#install-from-terminal).
-3. Open the disk image, drag **agnostic-ai companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder.
+3. Open the disk image, drag **agnostic-ai companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder. If macOS says Apple could not verify it, click **Done**, then **Open Anyway** under **System Settings > Privacy & Security**.
 4. Click the floating circle to see your conversations. Use **Open the dashboard** in the list header to open the full web interface in your browser.
+
+To skip that alert, [install from the terminal](#install-from-terminal) instead. macOS checks apps downloaded in a browser, not the one the CLI installs.
 
 The companion and dashboard use your [user-level settings](@/docs/global-configuration.md) in `~/.agnostic-ai`. Sessions from supported tools show up as the companion finds them. If the list is empty, start a conversation in Claude Code or Codex. The [Companion list](@/docs/cli-reference/companion-list.md) says which conversations it can show.
 
 {% <details summary="First launch: Apple could not verify the app, and macOS permissions"> %}
-The app is signed without an Apple Developer ID and is not notarized, so the first launch says Apple could not verify it. [Verify the downloaded disk image](@/docs/verify-a-release.md), then open it once this way:
+The app is signed without an Apple Developer ID and is not notarized, so the first launch says Apple could not verify it. [Verify the downloaded disk image](@/docs/verify-a-release.md), then open it once:
 
 1. Click **Done** in the alert.
 2. Open **System Settings > Privacy & Security** and scroll to **Security**.
