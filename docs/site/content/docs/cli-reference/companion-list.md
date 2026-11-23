@@ -50,9 +50,9 @@ If a chat does not open, the reason stays above the list until dismissed or anot
 - The first time, macOS asks to let the companion control each terminal app.
 - An ended terminal chat resumes in a new tab of the app it last ran in.
 - On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window. It runs in your shell, so its startup files set `PATH`. Without that command, or with no display, the list offers **Copy resume command**. A chat that last ran in WezTerm, kitty or Konsole resumes in a new tab there instead.
-- On Linux a running chat in WezTerm, kitty, Konsole, or `tmux` shown in one of them gets its tab selected. agnostic-ai does not bring the window forward on Linux, so the list says "Selected the kitty tab that runs it" and that its window may be behind. In GNOME Terminal, Ptyxis, Alacritty, foot, xterm, Tilix or Xfce Terminal the list names the terminal and its device, such as "It runs in GNOME Terminal on pts/3".
+- On Linux, WezTerm, kitty, Konsole and tmux inside them select the tab. The window can stay behind. For GNOME Terminal, Ptyxis, Alacritty, foot, xterm, Tilix and Xfce Terminal, the notice names the terminal and device.
 - When only the app can come forward, the list stays open and says where the chat runs.
-- Codex can find a tab after a delayed first prompt. If the first chat has been released and only one chat and one terminal remain in the project, it can also suggest the tab for a later chat. If the notice says **Possible Codex tab**, check before pasting.
+- Codex can find a tab after a delayed first prompt. After the earlier chat ends, a lone live chat and terminal in the project can give a **Possible Codex tab**. Check it before pasting.
 - `claude --bg` runs in Claude's own background service, not in a terminal app.
 - The tab is found by its short id, such as `e3469759`, or its exact full name. A tab attached with the start of an id or part of a name is not recognized, since it may be another session.
 - With no such tab, a new tab runs `claude attach <id>` in the session's folder, in the app it last ran in when it remembers one.
