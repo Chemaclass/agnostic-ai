@@ -127,7 +127,7 @@ agnostic-ai mailbox claim [--worktree <dir>] <path>...
 agnostic-ai mailbox release [--worktree <dir>] <path>...
 ```
 
-Claim paths for this session, or release them, with the same rules as the companion's [**Claim files…**](@/docs/mailbox.md#hand-off-files). `--worktree` defaults to the Git root of the current folder, and a claim must run inside that worktree. A path another session holds is refused with `ownership` and names the holder.
+Claim paths for this session, or release them, with the same rules as the companion's [**Note files this chat is working on…**](@/docs/mailbox.md#hand-off-files). `--worktree` defaults to the Git root of the current folder, and a claim must run inside that worktree. A path another session holds is refused with `ownership` and names the holder.
 
 ```text
 Claimed 1 path in /Users/you/Code/app.

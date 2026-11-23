@@ -109,12 +109,12 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   decide how to open it. Copying keeps the chat state and marks.
 - Choose **Message another session…** on a local Claude Code or Codex chat to start
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). Pick a receiver and send the default **Handoff** to hand a session over.
-  The thread appears under both chats. Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
-  A message an agent sends shows as **Held for you** until you choose **Approve** or **Reject**.
-  **Queue for delivery** hands a staged message back to the
+  The thread appears under both chats and says what happens next. Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
+  A message an agent sends shows as **Held for you** until you choose **Approve message** or **More → Reject message**.
+  **More → Queue for delivery** hands a message you copied or pasted back to the
   [mailbox built-in](https://agnostic-ai.org/docs/mailbox/#deliver-with-the-next-prompt),
   which delivers it with the session's next prompt.
-- Choose **Claim files…** to record which paths a session is working on. A claim does not block edits. A row with claims shows a chip such as "2 paths claimed", and the footer's **File claims** button shows only while a claim exists. When two sessions want one path, both rows move under Needs you until the holder releases it or the requester dismisses it. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
+- Choose **Note files this chat is working on…** to record which paths a session is working on. A claim does not block edits. A row with claims shows a chip such as "2 paths claimed", and the footer's **File claims** button shows only while a claim exists. When two sessions want one path, both rows move under Needs you until the holder releases it or the requester dismisses it. Send a **Handoff** to offer those paths to another chat. The claim moves when the receiver accepts it.
 - On a chat in Needs you, the same menu offers **Mark as read**. It takes the
   chat out of Needs you without opening it, for a reply you already read in
   its terminal. The next thing written in the chat puts it back.
@@ -413,7 +413,7 @@ What you see is never older than this:
 - `dashboard.go`: opens the full web interface.
 - `place.go`: where the list opens beside the circle, and whether a saved place is still on a screen.
 - `settings.go`: what the companion remembers between runs.
-- `frontend/panel-approvals.js`: the approvals rows' status line, the question before a looser mode, and Apply to my tools.
+- `frontend/panel-approvals.js`: the approvals rows' status line, the question before a looser mode, and Finish setup.
 - `frontend/`: the pages, in plain HTML, CSS and JavaScript with no build step.
   `menu.json` lists the settings both menus show, in order, so they cannot drift
   apart. `model.js` holds the logic and has no DOM in it. `look.js` turns your

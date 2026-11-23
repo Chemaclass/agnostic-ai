@@ -966,14 +966,21 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadLabelOf({ count, cap, waiting, held }) {
-  return `${count} of ${cap} messages${waiting ? `, ${waiting} waiting` : ''}${held ? `, ${held} held for you` : ''}`
+export function threadNextOf({ status, held, waiting }, recipient) {
+  if (status === 'closed') return 'This thread has ended.'
+  if (status === 'paused') return 'Resume the thread to send and deliver messages again.'
+  if (held) return 'Review the message that needs your approval.'
+  if (waiting && recipient) return `If automatic delivery is set up, ${recipient} gets the message with its next prompt.`
+  if (waiting) return 'The message is waiting. Open the thread for the recipient and delivery options.'
+  if (status === 'closing') return 'The thread will end after its remaining messages are handled.'
+  return 'You can reply to this thread.'
 }
 
-export function messageStateLabelOf(state) {
+export function messageStateLabelOf(state, how) {
   return {
-    held: 'Held for you', waiting: 'Waiting', reserved: 'Delivering', delivered: 'Delivered',
-    staged: 'Staged', rejected: 'Rejected', cancelled: 'Cancelled',
+    held: 'Held for you', waiting: 'Waiting for delivery', reserved: 'Delivering', delivered: 'Delivered',
+    staged: { copy: 'Copied by you', type: 'Pasted by you' }[how] ?? 'Copied or pasted by you',
+    rejected: 'Rejected', cancelled: 'Cancelled',
   }[state]
 }
 
@@ -1751,27 +1758,26 @@ const APPROVALS_TOOL_LABELS = { ...TOOL_LABELS, kiro: 'Kiro', qwen: 'Qwen Code',
 
 const approvalsToolLabelOf = (tool) => APPROVALS_TOOL_LABELS[tool] ?? tool
 
-/**
- * The reasons a sync would fix, short: the server words a tool's as "codex: the hook is not installed; add …", and
- * the advice after the semicolon is what Apply to my tools does. Tools with the same reason share one clause.
- */
-function syncReasonsOf(reasons) {
-  const tools = new Map()
-  const clauses = []
-  for (const reason of reasons) {
-    const match = /^([a-z-]+): ([^;]*)/.exec(reason)
-    if (!match) {
-      clauses.push(reason)
-      continue
-    }
-    const [, tool, text] = match
-    if (!tools.has(text)) {
-      tools.set(text, [])
-      clauses.push(text)
-    }
-    tools.get(text).push(approvalsToolLabelOf(tool))
-  }
-  return clauses.map((clause) => (tools.has(clause) ? `${clause} for ${listed.format(tools.get(clause))}` : clause)).join('; ')
+const missingApprovalSetup = 'the hook is not installed'
+
+export function companionApprovalsNeedSetup(doc) {
+  return Boolean(doc?.approvals?.companion && (
+    doc.approvals.problem || Object.keys(doc.approvals.companionSetup ?? {}).length || doc.sync?.reasons?.some((reason) =>
+      /^(claude|codex): the hook is not installed/.test(reason) || reason === 'approvals is not in builtins in the home config')
+  ))
+}
+
+function approvalSetupLine(reasons) {
+  const missing = reasons.filter((reason) => reason.split(': ')[1]?.startsWith(missingApprovalSetup))
+    .map((reason) => approvalsToolLabelOf(reason.split(': ')[0]))
+  if (missing.length === 0 || missing.length !== reasons.length) return 'Approval changes still need setup.'
+  return `${listed.format(missing)} ${missing.length === 1 ? 'needs' : 'need'} setup.`
+}
+
+function approvalProblemText(reason) {
+  if (reason.startsWith('Codex has not trusted the hook')) return 'Allow permission requests in Codex’s /hooks screen'
+  if (/\bhooks?\b|\bsync\b/i.test(reason)) return 'Check its permission settings in the dashboard'
+  return reason
 }
 
 const counted = (n, one, many) => `${n} ${n === 1 ? one : many}`
@@ -1779,17 +1785,23 @@ const counted = (n, one, many) => `${n} ${n === 1 ? one : many}`
 /**
  * The status line under the approvals rows, from the settings document: `{ lines, apply }`. The lines say why the
  * asked mode is not in effect yet, which tools still ask and why, how many tools and folders have their own mode,
- * and which shared keys a local block hides. `apply` offers Apply to my tools when a sync would fix it.
+ * and which shared keys a local block hides. `apply` offers Finish setup when tool settings can be updated.
  */
 export function approvalsStatusOf(doc) {
   const approvals = doc?.approvals
   if (!approvals) return { lines: [], apply: false }
   const lines = []
-  if (approvals.problem) lines.push(`The approvals settings could not be read: ${approvals.problem}`)
-  if (doc.sync?.needed) lines.push(`Not in effect yet: ${syncReasonsOf(doc.sync.reasons)}.`)
+  if (approvals.problem) lines.push('The approvals settings could not be read. Check them in the dashboard.')
+  if (doc.sync?.needed) lines.push(approvalSetupLine(doc.sync.reasons))
+  for (const [tool, setup] of Object.entries(approvals.companionSetup ?? {})) {
+    if (setup === 'trust') lines.push('Open /hooks in Codex and trust the permission entry.')
+    if (setup === 'disabled') lines.push('Open /hooks in Codex and enable the permission entry.')
+    if (setup === 'reviewer') lines.push('Review mode turns off companion answers for Codex. Set Codex to Ask me to answer from the companion.')
+    if (setup === 'unavailable') lines.push('Check permissions in ' + approvalsToolLabelOf(tool) + '’s settings before answering from the companion.')
+  }
   const fixed = new Set(doc.sync?.reasons ?? [])
-  const asking = (approvals.tools ?? []).filter((tool) => tool.mode !== 'ask' && tool.effective === 'ask' && tool.reason && !fixed.has(`${tool.tool}: ${tool.reason}`))
-  for (const tool of asking.slice(0, 3)) lines.push(`${approvalsToolLabelOf(tool.tool)} still asks: ${tool.reason}.`)
+  const asking = (approvals.tools ?? []).filter((tool) => tool.mode !== 'ask' && tool.effective === 'ask' && tool.reason && !approvals.companionSetup?.[tool.tool] && !fixed.has(`${tool.tool}: ${tool.reason}`))
+  for (const tool of asking.slice(0, 3)) lines.push(`${approvalsToolLabelOf(tool.tool)} still asks: ${approvalProblemText(tool.reason)}.`)
   if (asking.length > 3) lines.push(`${counted(asking.length - 3, 'more tool still asks', 'more tools still ask')}.`)
   const { tools = 0, projects = 0 } = approvals.overrides ?? {}
   if (tools + projects > 0) {
@@ -1805,8 +1817,8 @@ export function syncConfirmOf(plan) {
   const files = (plan.files ?? []).map((file) => `${file.change} ${file.path}`)
   if (files.length === 0) return { title: 'Nothing to apply', body: 'Your tools already match your user configuration.', files }
   return {
-    title: 'Apply to my tools?',
-    body: 'This applies all pending changes of your user configuration, not only approvals:',
+    title: 'Finish setup?',
+    body: 'Review all pending changes to your tool settings, including approvals, before applying them.',
     files,
     commands: plan.commands ?? [],
     notes: plan.notes ?? [],

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -199,6 +200,42 @@ func TestSettings_CompanionOnWithoutTheHookAsksForASync(t *testing.T) {
 	}
 	if reply.Settings.Approvals.Mode != config.ApprovalsAsk || !reply.Settings.Sync.Needed || !strings.Contains(strings.Join(reply.Settings.Sync.Reasons, "\n"), "claude: the hook is not installed") {
 		t.Errorf("document = %s", rec.Body)
+	}
+}
+
+func TestSettings_CompanionShowsInstalledButInactivePermissionSetup(t *testing.T) {
+	h, source := settingsFixture(t, "version: 1\nbuiltins: [approvals]\napprovals:\n  companion: true\n")
+	claudeHome, codexHome := t.TempDir(), t.TempDir()
+	t.Setenv("CLAUDE_CONFIG_DIR", claudeHome)
+	t.Setenv("CODEX_HOME", codexHome)
+	writeFile(t, filepath.Join(claudeHome, "settings.json"), "{\"disableAllHooks\":true,\"hooks\":{\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"agnostic-ai hook approve --target claude\"}]}]}}")
+	writeFile(t, filepath.Join(codexHome, "hooks.json"), "{\"hooks\":{\"PermissionRequest\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"agnostic-ai hook approve --target codex\",\"timeout\":10}]}]}}")
+
+	rec, doc := getSettings(t, h, "")
+	if rec.Code != http.StatusOK || doc.Sync.Needed {
+		t.Errorf("settings = %d %s", rec.Code, rec.Body)
+	}
+	for tool, want := range map[string]string{"claude": "unavailable", "codex": "trust"} {
+		if got := doc.Approvals.CompanionSetup[tool]; got != want {
+			t.Errorf("%s companion setup = %q, want %q", tool, got, want)
+		}
+	}
+
+	resolvedHome, err := filepath.EvalSymlinks(codexHome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	key := filepath.Join(resolvedHome, "hooks.json") + ":permission_request:0:0"
+	writeFile(t, filepath.Join(codexHome, "config.toml"), fmt.Sprintf("[hooks.state.%q]\nenabled = false\n", key))
+	_, doc = getSettings(t, h, "")
+	if got := doc.Approvals.CompanionSetup["codex"]; got != "disabled" {
+		t.Errorf("disabled Codex companion setup = %q, want disabled", got)
+	}
+
+	writeFile(t, filepath.Join(source, config.ConfigFileName), "version: 1\nbuiltins: [approvals]\napprovals:\n  companion: true\n  tools:\n    codex: review\n")
+	_, doc = getSettings(t, h, "")
+	if got := doc.Approvals.CompanionSetup["codex"]; got != "reviewer" {
+		t.Errorf("Codex companion setup with review configured = %q, want reviewer", got)
 	}
 }
 

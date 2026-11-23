@@ -197,7 +197,7 @@ Right-click the circle, or open the list's ⋯ menu. A settings change in one sh
 | **Dim when idle** | Fades the circle while nothing needs you. |
 | **Small companion** | A 40px circle instead of 60px. |
 | **Start at login** | Starts it when you log in. |
-| **When a tool asks permission** and **Approve and deny from this list** | [Approvals settings](@/docs/approvals.md#change-it-from-the-companion). List menu only. |
+| **When a tool asks permission** and **Answer permission requests from the companion** | [Approvals settings](@/docs/approvals.md#change-it-from-the-companion). List menu only. |
 | **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. List menu only. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |

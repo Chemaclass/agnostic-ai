@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { SettingsView } from '../contract'
-import { approvalsStatus, canChange, loosens, modeConfirm, syncConfirm, syncFailure, syncResult } from './user-settings'
+import { approvalsStatus, canChange, companionApprovalsNeedSetup, loosens, modeConfirm, syncConfirm, syncFailure, syncResult } from './user-settings'
 
 const doc = (patch: Partial<SettingsView['approvals']> = {}, rest: Partial<SettingsView> = {}): SettingsView => ({
   schemaVersion: 'settings/v1',
@@ -44,7 +44,7 @@ describe('user settings', () => {
     const reason = 'the hook is not installed; add approvals to builtins in the home config and run sync --scope user'
     const lines = approvalsStatus(doc({ mode: 'yolo', overrides: { tools: 2, projects: 1, alwaysAsk: 1 }, shadowed: ['approvals.tools'] }, { sync: { needed: true, reasons: [`claude: ${reason}`, `codex: ${reason}`] } }), name)
     expect(lines).toEqual([
-      'Not in effect yet: the hook is not installed for Claude Code and Codex.',
+      'Claude Code and Codex need setup.',
       '2 tools and 1 folder have their own mode. Edit them in the home config.',
       '1 extra pattern always asks.',
       'Your local home config hides approvals.tools from the shared one.',
@@ -52,10 +52,20 @@ describe('user settings', () => {
     expect(approvalsStatus(doc(), name)).toEqual([])
   })
 
+  it('keeps companion setup pending while a tool needs trust or settings changes', () => {
+    const saved = doc({ companion: true, companionSetup: { claude: 'unavailable', codex: 'trust' } })
+    expect(companionApprovalsNeedSetup(saved)).toBe(true)
+    expect(approvalsStatus(saved, name)).toEqual([
+      'Check permissions in Claude Code’s settings before answering from the companion.',
+      'Open /hooks in Codex and trust the permission entry.',
+    ])
+    expect(companionApprovalsNeedSetup(doc({ companion: true }))).toBe(false)
+  })
+
   it('lists every file and note before a sync and says what it wrote after', () => {
     const question = syncConfirm({ id: 'x', files: [{ path: '/h/.codex/hooks.json', change: 'create' }], commands: ['hook staged: curl x | sh'], notes: ['a note'] })
     expect(question).toMatchObject({ files: ['create /h/.codex/hooks.json'], commands: ['hook staged: curl x | sh'], notes: ['a note'], go: 'Apply' })
-    expect(question.body).toMatch(/all pending changes of your user configuration/)
+    expect(question.body).toMatch(/all pending changes to your tool settings/)
     expect(syncConfirm({ id: 'x', files: [], commands: [], notes: [] }).go).toBeUndefined()
     expect(syncResult({ written: ['a', 'b'], notes: ['Trust it.'], settings: doc() })).toBe('Applied: 2 files written. Trust it.')
     expect(syncFailure('conflict.', 'agnostic-ai sync --scope user')).toBe('conflict. Run agnostic-ai sync --scope user in a terminal.')

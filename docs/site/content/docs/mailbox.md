@@ -20,14 +20,14 @@ Keep a question or finding beside the two chats it concerns. The [companion](@/d
 
 The **To** list holds the local Claude Code and Codex chats the companion has loaded, grouped like the main list. With the mailbox built-in on, an archived chat gets the message when it is resumed. An ID that matches no loaded chat still sends, and the server checks it.
 
-Choose **Type into session** to put it in the existing terminal tab. Press Enter in that tab when you are ready to send it. The Terminal app uses the clipboard to paste it. **Copy message** lets you paste it yourself in any app. A message marked **Staged** has been typed or copied by you. A failed attempt leaves it waiting. With the [mailbox built-in](#deliver-with-the-next-prompt) on, a waiting message also reaches the session with your next prompt.
+The line under each chat tells you what happens next. With the [mailbox built-in](#deliver-with-the-next-prompt) on, the receiving chat gets a waiting message with its next prompt. To move it now, choose **Paste into chat**, then press Enter in the receiving terminal. Use **More → Copy message** to paste it yourself. The thread shows **Pasted by you** or **Copied by you** after either action succeeds.
 
 ## Request a code review
 
 1. Open **Message another session…** from the chat in the Git worktree you want reviewed. Choose **Review request** and pick the reviewer’s chat.
 2. Check the base that the form fills from `origin/HEAD`, or enter a base such as `main` yourself.
 3. Check the worktree, commit, base and changed-file count in the preview. Commit local changes first if they belong in the review.
-4. Send the request and stage it from the thread. The reviewer can send back a **Finding**.
+4. Send the request and use **Paste into chat** to deliver it by hand. The reviewer can send back a **Finding**.
 
 The message carries Git references and has no text field for a brief or verdict. The commit and base stay fixed after sending, even if a branch moves. Git metadata such as branch names and commit messages can still influence a review.
 
@@ -51,15 +51,15 @@ Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path i
 
 From a session, you can also run [`agnostic-ai mailbox send`](@/docs/cli-reference/mailbox.md#mailbox-send) with the receiver and `"type": "handoff"`. You can write a [handoff note](@/docs/handoff.md) before or after sending.
 
-The request includes the source worktree, branch, commit and any saved note. It arrives on the recipient's next prompt. The recipient tells you it arrived and waits for you to ask it to resume. On resume it finds the newest note in the source project, including one saved after you sent the request.
+Open **Handoff details** for the source worktree, branch, short commit hash and saved note, if there is one. Use **More → Copy full commit hash** to copy the full value. With automatic delivery set up, the request arrives on the recipient’s next prompt. The recipient tells you it arrived and waits for you to ask it to resume. On resume it finds the newest note in the source project, including one saved after you sent the request.
 
 ## Hand off files
 
 A file claim notes which session works on which paths of a Git worktree. It does not block edits: any session can still change a claimed file. Claims help two sessions avoid working on the same file, and a handoff moves them from one session to another.
 
-1. Choose **Claim files…** on the source chat and enter paths relative to its Git worktree. A directory claims its contents. Use `.` to claim the whole worktree.
+1. Choose **Note files this chat is working on…** on the source chat and enter paths relative to its Git worktree. A directory claims its contents. Use `.` to claim the whole worktree.
 2. Open **Message another session…** and choose **Handoff**. Open **Also give claimed files (optional)** and enter the paths. Leave it open when you send. Add a note if the receiver needs more context.
-3. Open the thread from the receiving chat and choose **Accept**. The files move to its claim when the offer is accepted. **Decline** leaves ownership with the sender.
+3. Open the thread from the receiving chat and choose **Accept files**. The files move to its claim when the offer is accepted. **More → Decline files** leaves ownership with the sender.
 
 If a path is free, claim it from the handoff form before sending. An overlap names the path and the session that holds it. Use **Release** to free a path when work on it ends.
 
@@ -87,7 +87,7 @@ It adds two hooks to Claude Code and Codex. A session gets its waiting messages 
 
 A message marked **Delivered** was printed in full into the session's context. That does not mean the model read it or acted on it. If the hook stops after printing and before saving, the message prints again a minute later. Each message carries its thread ID and number, so a repeat is easy to spot.
 
-The hook skips messages that are held, rejected, cancelled or staged, and every message of a paused or closed thread. A closing thread delivers what it already accepted, then closes. One delivery prints at most 6,000 bytes. Messages that do not fit wait for the next prompt, oldest first. **Queue for delivery** on a staged message hands it back to the hook.
+The hook skips messages that are held, rejected, cancelled or staged, and every message of a paused or closed thread. A closing thread delivers what it already accepted, then closes. One delivery prints at most 6,000 bytes. Messages that do not fit wait for the next prompt, oldest first. **More → Queue for delivery** hands a message you copied or pasted back to automatic delivery.
 
 The hook never blocks a prompt. When the mailbox is missing, busy or broken, it prints nothing and the messages keep waiting.
 
@@ -97,7 +97,7 @@ Codex runs a new hook only after you review and trust it. Open `/hooks` in Codex
 
 ## Approve agent messages
 
-A message an agent sends waits as **Held for you** until you approve it. **Approve** checks the thread again: a paused thread refuses it, and a handoff whose paths changed owner is refused. A stopped thread has already cancelled it. **Reject** records the refusal in the thread, and the message no longer counts toward the limit. Messages you write in the companion are never held.
+A message an agent sends waits as **Held for you** until you approve it. **Approve message** checks the thread again: a paused thread refuses it, and a handoff whose paths changed owner is refused. A stopped thread has already cancelled it. **More → Reject message** records the refusal in the thread, and the message no longer counts toward the limit. Messages you write in the companion are never held.
 
 Approve, reject and every other action the mailbox records as yours need the secret the companion hands its server at launch. A request without it gets 403 and nothing changes, and a server started without a secret refuses them all. [What the secret stops](@/docs/approvals.md#who-can-change-this) has a limit.
 
@@ -128,11 +128,14 @@ The guards keep cooperating sessions to the supported mailbox actions. Read a he
 
 ## Manage a thread
 
+The card shows the next action for the thread. Open **More** to see the other actions, including these thread controls.
+
 | Action | What happens |
 |---|---|
-| **Pause** | Puts new sends and staging on hold until you resume it. |
-| **Close thread** | Queues a final `done` message. The thread closes as soon as its waiting messages are staged. |
-| **Stop** | Closes the thread right away and cancels waiting messages. Both sessions keep running. |
+| **Pause thread** | Holds new sends and delivery until you choose **Resume thread**. |
+| **Finish thread** | Queues a final done message and ends the thread after its waiting messages are handled. |
+| **Cancel thread…** | Asks before ending the thread immediately and cancelling waiting messages. Both chats keep running. |
+| **Hide thread card** | Hides the card. The thread carries on. |
 | **Allow 8 more** | Raises this thread’s limit after eight content messages. |
 
 {% <details summary="Message format and refusals"> %}

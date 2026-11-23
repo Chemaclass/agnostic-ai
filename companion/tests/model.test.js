@@ -141,13 +141,15 @@ test('offers Message another session only on local top-level Claude Code and Cod
   }
 })
 
-test('shows mailbox counts and only the thread controls available in its state', async () => {
-  const { threadActionsOf, threadLabelOf, threadsOf } = await import('../frontend/model.js')
+test('says who acts next and keeps thread actions available by state', async () => {
+  const { threadActionsOf, threadNextOf, threadsOf } = await import('../frontend/model.js')
   const thread = { status: 'open', count: 3, cap: 8, waiting: 1 }
   assert.deepEqual(threadsOf(row('a', 'active')), [])
   assert.deepEqual(threadsOf(row('a', 'active', { threads: [thread] })), [thread])
-  assert.equal(threadLabelOf(thread), '3 of 8 messages, 1 waiting')
-  assert.equal(threadLabelOf({ ...thread, waiting: 0 }), '3 of 8 messages')
+  assert.equal(threadNextOf(thread), 'The message is waiting. Open the thread for the recipient and delivery options.')
+  assert.equal(threadNextOf({ ...thread, waiting: 0 }), 'You can reply to this thread.')
+  assert.equal(threadNextOf({ ...thread, status: 'paused', held: 1 }), 'Resume the thread to send and deliver messages again.')
+  assert.equal(threadNextOf({ ...thread, held: 1 }), 'Review the message that needs your approval.')
   assert.deepEqual(threadActionsOf(thread), ['reply', 'pause', 'close', 'stop'])
   assert.deepEqual(threadActionsOf({ ...thread, count: 8 }), ['reply', 'pause', 'close', 'raise-cap', 'stop'])
   assert.deepEqual(threadActionsOf({ ...thread, status: 'paused' }), ['reply', 'resume', 'stop'])
@@ -156,9 +158,11 @@ test('shows mailbox counts and only the thread controls available in its state',
 })
 
 test('labels message states and offers approve, reject and queue only where they apply', async () => {
-  const { messageActionsOf, messageStateLabelOf, threadLabelOf } = await import('../frontend/model.js')
+  const { messageActionsOf, messageStateLabelOf } = await import('../frontend/model.js')
   assert.deepEqual(['held', 'delivered', 'rejected', 'reserved'].map(messageStateLabelOf), ['Held for you', 'Delivered', 'Rejected', 'Delivering'])
-  assert.equal(threadLabelOf({ count: 2, cap: 8, waiting: 0, held: 1 }), '2 of 8 messages, 1 held for you')
+  assert.equal(messageStateLabelOf('staged', 'copy'), 'Copied by you')
+  assert.equal(messageStateLabelOf('staged', 'type'), 'Pasted by you')
+  assert.equal(messageStateLabelOf('staged'), 'Copied or pasted by you')
   const open = { status: 'open' }
   assert.deepEqual(messageActionsOf({ state: 'held' }, open), ['approve', 'reject'])
   assert.deepEqual(messageActionsOf({ state: 'held' }, { status: 'paused' }), ['approve', 'reject'])

@@ -1414,6 +1414,28 @@ body {
   padding: 0 8px;
 }
 
+.menu-row-with-hint {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 12px;
+  padding-block: 6px;
+}
+
+.menu-row-with-hint .menu-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--paper-dim);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.menu-setup-state {
+  grid-column: 1;
+  color: var(--paper);
+  font-size: 11.5px;
+  font-weight: 620;
+}
+
 .menu-label {
   font-size: 12.5px;
   color: var(--paper);
@@ -1504,7 +1526,7 @@ kbd {
   display: none;
 }
 
-/* Approvals: a choice of three modes, a status line and Apply to my tools. */
+/* Approvals: a choice of three modes, a status line and Finish setup. */
 
 .menu {
   /* The card is 16px in from each window edge, so size against it: 8px from its top, above the footer. */
@@ -1572,6 +1594,7 @@ kbd {
   display: none;
 }
 
+.menu-approvals > p,
 .menu-approvals-lines p,
 .menu-approvals-said {
   margin: 2px 0;
@@ -1668,10 +1691,15 @@ kbd {
 .row-menu {
   right: auto;
   bottom: auto;
-  width: auto;
-  min-width: 132px;
+  width: 236px;
+  max-width: calc(100% - 16px);
   padding: 4px;
   transform-origin: top left;
+}
+
+.row-menu [role='separator'] {
+  margin: 3px 4px;
+  border-block-start: 1px solid var(--hairline-strong);
 }
 
 .row-menu .menu-item {
@@ -2010,6 +2038,55 @@ button:focus-visible {
 
 .mailbox-actions > p {
   flex-basis: 100%;
+}
+
+.mailbox-more[open] {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.mailbox-more > summary,
+.mailbox-handoff-details > summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--paper-dim);
+}
+
+.mailbox-more > summary {
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(242, 237, 229, 0.08);
+  color: var(--paper);
+  font-size: 11.5px;
+}
+
+.mailbox-more-options {
+  display: grid;
+  gap: 7px;
+  max-height: 132px;
+  overflow-y: auto;
+  margin-block-start: 5px;
+  padding: 4px;
+}
+
+.mailbox-more-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.mailbox-more-group > p {
+  flex-basis: 100%;
+}
+
+.mailbox-more > summary:focus-visible,
+.mailbox-handoff-details > summary:focus-visible {
+  outline: 2px solid var(--action);
+  outline-offset: 1px;
+}
+
+.mailbox-short-hash {
+  white-space: nowrap;
 }
 
 .mailbox-send {

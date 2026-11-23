@@ -1,26 +1,31 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadLabelOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
+import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadNextOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
 
-const MESSAGE_ACTIONS = {
-  approve: 'Approve',
-  reject: 'Reject',
+const ACTION_LABELS = {
+  approve: 'Approve message',
+  reject: 'Reject message',
   queue: 'Queue for delivery',
-  type: 'Type into session',
+  type: 'Paste into chat',
   copy: 'Copy message',
-}
-const ACTIONS = {
+  accept: 'Accept files',
+  decline: 'Decline files',
+  'copy-commit': 'Copy full commit hash',
   reply: 'Reply',
-  pause: 'Pause',
-  resume: 'Resume',
-  close: 'Close thread',
+  pause: 'Pause thread',
+  resume: 'Resume thread',
+  close: 'Finish thread',
   'raise-cap': 'Allow 8 more',
-  stop: 'Stop',
+  stop: 'Cancel thread…',
+}
+const ACTION_TIPS = {
+  type: 'Pastes the message into the receiving chat’s terminal, where you press Enter to send it.',
+  close: 'Sends a final done message and ends the thread after its queued messages are handled.',
+  stop: 'Ends the thread immediately and cancels waiting messages while both chats keep running.',
 }
 const REVIEW = 'review_request'
 const HANDOFF = 'handoff'
 const REF_PREVIEW_DELAY = 220
 const TYPES = { question: 'Question', finding: 'Finding', done: 'Done', [REVIEW]: 'Review request', [HANDOFF]: 'Handoff' }
-const STATES = { open: 'Open', paused: 'Paused', closing: 'Closing', closed: 'Closed' }
 const refOf = ({ tool, id }) => ({ tool, id })
 
 function element(tag, className, text) {
@@ -38,11 +43,19 @@ function button(label, action, clicked, className = 'confirm-cancel') {
   return control
 }
 
+function actionButton(action, run, n) {
+  const control = button(ACTION_LABELS[action], n === undefined ? action : `${action}-${n}`, run)
+  if (ACTION_TIPS[action]) control.title = ACTION_TIPS[action]
+  return control
+}
+
 function referenceDetails(fields) {
   const details = element('dl', 'mailbox-ref-details')
-  for (const [label, value] of fields) {
+  for (const [label, value, full] of fields) {
     const data = element('dd')
-    data.append(element('code', '', value))
+    const code = element('code', full ? 'mailbox-short-hash' : '', value)
+    if (full) code.title = full
+    data.append(code)
     details.append(element('dt', '', label), data)
   }
   return details
@@ -85,7 +98,7 @@ function pathDetails({ worktree, paths, except }) {
 
 function threadCount({ cap, messages }) {
   const count = messages.filter(({ type, state }) => type !== 'done' && state !== 'rejected').length
-  const waiting = messages.filter(({ state }) => state === 'waiting').length
+  const waiting = messages.filter(({ state }) => state === 'waiting' || state === 'reserved').length
   const held = messages.filter(({ state }) => state === 'held').length
   return { cap, count, waiting, held }
 }
@@ -569,6 +582,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     if (opened?.pending) return
     opened?.reading?.abort()
     opened = undefined
+    messages.replaceChildren()
+    actions.replaceChildren()
     details.hidden = true
     if (focus) focusRows()
   }
@@ -739,7 +754,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
         dismiss.focus()
         load(opened)
       }, 'mailbox-summary')
-      control.append(element('strong', '', `With ${other}`), element('span', '', [TYPES[thread.lastType], STATES[thread.status], threadLabelOf(thread)].filter(Boolean).join(' · ')))
+      control.append(element('strong', '', `With ${other}`), element('span', '', [TYPES[thread.lastType], threadNextOf(thread)].filter(Boolean).join(' · ')))
       for (const conflict of thread.conflicts ?? []) control.append(element('span', 'mailbox-refusal', conflictText(conflict)))
       box.append(control)
     }
@@ -770,8 +785,9 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   function render(current) {
     const focused = document.activeElement?.dataset.mailboxControl
     if (focused && details.contains(document.activeElement)) current.focus = focused
+    const expanded = new Set([...details.querySelectorAll('details[open]')].map((node) => node.dataset.disclosure))
     const thread = current.thread
-    meta.textContent = thread ? [STATES[thread.status], threadLabelOf(threadCount(thread))].join(' · ') : ''
+    meta.textContent = ''
     messages.replaceChildren()
     actions.replaceChildren()
     result.textContent = current.result ?? ''
@@ -785,66 +801,153 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     for (const conflict of current.summary.conflicts ?? []) {
       messages.append(element('p', 'mailbox-refusal', conflictText(conflict)))
     }
-    for (const message of thread.messages) {
-      const entry = element('article', 'mailbox-message')
-      const model = message.refs ? undefined : statedModelOf(thread, message)
-      entry.append(element('p', 'mailbox-muted', [nameOf(message.from), senderKindOf(message), model, TYPES[message.type] ?? message.type, messageStateLabelOf(message.state), handoffAnswerOf(thread, message), sentAt(message.at)].filter(Boolean).join(' · ')))
-      if (message.body) entry.append(element('p', 'mailbox-body', message.body))
-      if (message.refs) {
-        const models = thread.models ?? {}
-        const refs = element('div', 'mailbox-review-refs')
-        refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(modelLabelOf(models, message.from), modelLabelOf(models, message.to))))
-        entry.append(refs)
-      }
-      if (message.resume) {
-        const { worktree, project, branch, head, note } = message.resume
-        const fields = [['Worktree', worktree]]
-        if (project) fields.push(['Project', project])
-        fields.push(['Branch', branch || 'Detached HEAD'], ['Commit', head], ['Note', note || 'No note saved when sent'])
-        entry.append(referenceDetails(fields))
-      }
-      if (message.gives) {
-        entry.append(...pathDetails(message.gives))
-        if (message.handoff === 'offered' && !['held', 'rejected', 'cancelled'].includes(message.state) && thread.status !== 'paused' && keyOf(current.from) === keyOf(message.to)) {
-          const controls = element('div', 'mailbox-actions')
-          if (thread.status !== 'closed') controls.append(button('Accept', `accept-${message.n}`, () => respondHandoff(current, message.n, 'accept')))
-          controls.append(button('Decline', `decline-${message.n}`, () => respondHandoff(current, message.n, 'decline')))
-          entry.append(controls)
-        }
-      }
-      const offered = messageActionsOf(message, thread)
-      if (offered.length) {
-        const controls = element('div', 'mailbox-actions')
-        for (const action of offered) {
-          controls.append(button(MESSAGE_ACTIONS[action], `${action}-${message.n}`, () => messageAction(current, message.n, action)))
-        }
-        entry.append(controls)
-      }
-      messages.append(entry)
+    const counts = threadCount(thread)
+    const threadControls = threadActionsOf({ status: thread.status, ...counts })
+      .map((action) => actionButton(action, () => threadAction(current, action)))
+    const messageGroups = thread.messages.map((message) => renderMessage(current, message, expanded))
+    const primary = choosePrimary(threadControls, messageGroups, thread.status)
+    const pendingMessage = messageGroups.find((group) => group.controls.includes(primary))?.message
+    const recipient = pendingMessage && nameOf(pendingMessage.to)
+    const action = primary?.dataset.mailboxControl
+    meta.textContent = action?.startsWith('accept-')
+      ? 'Accept the file offer to move the file notes to the receiving chat.'
+      : threadNextOf({ status: thread.status, ...counts }, recipient)
+    if (action?.startsWith('type-') && counts.waiting === 1) {
+      meta.textContent += ' You can paste it into the chat now.'
+    }
+    if (pendingMessage && thread.messages.length > 1) {
+      meta.textContent = `Message ${pendingMessage.n}. ${meta.textContent}`
+    }
+    if (thread.status === 'open' && counts.count >= counts.cap) {
+      meta.textContent += ` This thread reached its ${counts.cap}-message limit.`
     }
     for (const refusal of thread.refusals ?? []) {
       messages.append(element('p', 'mailbox-refusal', `Refused (guard: ${refusal.guard})${refusal.reason ? `. ${refusal.reason}` : '.'}`))
     }
     if (current.confirmStop) {
       actions.append(
-        element('p', 'mailbox-muted', 'Stop this thread and cancel its waiting messages?'),
+        element('p', 'mailbox-muted', 'Cancel this thread and its waiting messages? Both chats will keep running.'),
         button('Keep thread', 'keep', () => cancelStop(current)),
-        button('Stop thread', 'confirm-stop', () => update(current, 'stop'), 'confirm-delete'),
+        button('Cancel thread now', 'confirm-stop', () => update(current, 'stop'), 'confirm-delete'),
       )
     } else {
-      for (const action of threadActionsOf({ status: thread.status, ...threadCount(thread) })) {
-        actions.append(button(ACTIONS[action], action, () => threadAction(current, action)))
+      renderActions(current, primary, threadControls, messageGroups, expanded.has('more'))
+    }
+    for (const control of details.querySelectorAll('button[data-mailbox-control]')) control.disabled = Boolean(current.pending)
+    restoreDetailFocus(current)
+  }
+
+  function renderMessage(current, message, expanded) {
+    const thread = current.thread
+    const entry = element('article', 'mailbox-message')
+    const sender = nameOf(message.from)
+    const model = message.refs ? undefined : statedModelOf(thread, message)
+    const type = TYPES[message.type] ?? message.type
+    const how = message.state === 'staged' && thread.events?.findLast(({ n, action }) => n === message.n && ['type', 'copy'].includes(action))?.action
+    const number = thread.messages.length > 1 ? `Message ${message.n}` : undefined
+    entry.append(element('p', 'mailbox-muted', [number, sender, senderKindOf(message), model, type, messageStateLabelOf(message.state, how), handoffAnswerOf(thread, message), sentAt(message.at)].filter(Boolean).join(' · ')))
+    if (message.body) entry.append(element('p', 'mailbox-body', message.body))
+    if (message.refs) {
+      const models = thread.models ?? {}
+      const refs = element('div', 'mailbox-review-refs')
+      refs.append(...refDetails(message.refs), element('p', 'mailbox-muted', modelComparison(modelLabelOf(models, message.from), modelLabelOf(models, message.to))))
+      entry.append(refs)
+    }
+    if (message.resume) renderHandoffDetails(entry, message, expanded)
+    const controls = []
+    if (message.gives) {
+      entry.append(...pathDetails(message.gives))
+      if (message.handoff === 'offered' && !['held', 'rejected', 'cancelled'].includes(message.state) && thread.status !== 'paused' && keyOf(current.from) === keyOf(message.to)) {
+        if (thread.status !== 'closed') controls.push(actionButton('accept', () => respondHandoff(current, message.n, 'accept'), message.n))
+        controls.push(actionButton('decline', () => respondHandoff(current, message.n, 'decline'), message.n))
       }
     }
-    for (const control of details.querySelectorAll('[data-mailbox-control]')) control.disabled = Boolean(current.pending)
-    restoreDetailFocus(current)
+    for (const action of messageActionsOf(message, thread)) {
+      controls.push(actionButton(action, () => messageAction(current, message.n, action), message.n))
+    }
+    if (message.resume?.head) controls.push(actionButton('copy-commit', () => copyHandoffCommit(current, message.resume.head), message.n))
+    messages.append(entry)
+    return { message, label: `Message ${message.n} · ${type} from ${sender}`, controls }
+  }
+
+  function renderHandoffDetails(entry, message, expanded) {
+    const { worktree, project, branch, head, note } = message.resume
+    const fields = [['Worktree', worktree]]
+    if (project) fields.push(['Project', project])
+    fields.push(['Branch', branch || 'Detached HEAD'])
+    if (head) fields.push(['Commit', head.slice(0, 7), head])
+    if (note) fields.push(['Note', note])
+    const disclosure = element('details', 'mailbox-handoff-details')
+    disclosure.dataset.disclosure = `details-${message.n}`
+    disclosure.open = expanded.has(disclosure.dataset.disclosure)
+    const summary = element('summary', '', 'Handoff details')
+    summary.dataset.mailboxControl = disclosure.dataset.disclosure
+    disclosure.append(summary, referenceDetails(fields))
+    entry.append(disclosure)
+  }
+
+  async function copyHandoffCommit(current, head) {
+    try {
+      await copyBlock(Promise.resolve(head))
+      current.result = 'Full commit hash copied.'
+    } catch {
+      current.result = 'Could not copy the commit hash.'
+    }
+    if (opened !== current) return
+    result.textContent = current.result
+    result.hidden = false
+  }
+
+  function choosePrimary(threadControls, messageGroups, status) {
+    if (status === 'paused') return threadControls.find((control) => control.dataset.mailboxControl === 'resume')
+    const controls = messageGroups.flatMap((group) => group.controls)
+    for (const prefix of ['approve-', 'accept-', 'type-']) {
+      const control = controls.find((item) => item.dataset.mailboxControl.startsWith(prefix))
+      if (control) return control
+    }
+    return threadControls.find((control) => control.dataset.mailboxControl === 'raise-cap')
+      ?? threadControls.find((control) => control.dataset.mailboxControl === 'reply')
+  }
+
+  function renderActions(current, primary, threadControls, messageGroups, expanded) {
+    if (primary) {
+      primary.classList.replace('confirm-cancel', 'mailbox-send')
+      actions.append(primary)
+    }
+    const menu = element('details', 'mailbox-more')
+    menu.dataset.disclosure = 'more'
+    menu.open = expanded && !current.pending
+    const summary = element('summary', '', 'More')
+    summary.dataset.mailboxControl = 'more'
+    menu.append(summary)
+    const options = element('div', 'mailbox-more-options')
+    const secondaryThread = threadControls.filter((control) => control !== primary)
+    if (secondaryThread.length) options.append(actionGroup('Thread actions', secondaryThread))
+    for (const { label, controls } of messageGroups) {
+      const secondary = controls.filter((control) => control !== primary)
+      if (secondary.length) options.append(actionGroup(label, secondary))
+    }
+    if (options.childElementCount) {
+      menu.append(options)
+      actions.append(menu)
+    }
+  }
+
+  function actionGroup(label, controls) {
+    const group = element('div', 'mailbox-more-group')
+    group.setAttribute('role', 'group')
+    group.setAttribute('aria-label', label)
+    group.append(element('p', 'mailbox-muted', label), ...controls)
+    return group
   }
 
   function restoreDetailFocus(current) {
     if (!current.focus || current.pending || details.hidden) return
     if (document.activeElement === document.body || details.contains(document.activeElement)) {
       const focusedControl = details.querySelector(`[data-mailbox-control="${CSS.escape(current.focus)}"]`)
-      const control = focusedControl ?? dismiss
+      const more = actions.querySelector('.mailbox-more')
+      if (focusedControl?.closest('.mailbox-more-options')) more.open = true
+      const control = focusedControl ?? more?.querySelector('summary') ?? dismiss
       control.focus()
     }
     current.focus = undefined
@@ -853,7 +956,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   function cancelStop(current) {
     current.confirmStop = false
     render(current)
-    actions.querySelector('[data-mailbox-control="stop"]')?.focus()
+    actions.querySelector('[data-mailbox-control="more"]')?.focus()
   }
 
   function threadAction(current, action) {
@@ -968,7 +1071,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
         await hideForTyping()
       }
       const { body, version } = await stageMessage(id, n, how, { confirm: browserCopied })
-      current.result = body.message || (body.staged ? 'Message staged.' : 'The message is still waiting.')
+      current.result = body.message || (body.staged ? (how === 'copy' ? 'Message copied.' : 'Message pasted into the chat.') : 'The message is still waiting.')
       if (body.staged) {
         await afterChange(version)
         if (how === 'copy') say(current.result)
@@ -1018,7 +1121,13 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     } else if (opened?.confirmStop) {
       cancelStop(opened)
     } else {
-      closeDetails()
+      const more = actions.querySelector('.mailbox-more[open]')
+      if (more) {
+        more.open = false
+        more.querySelector('summary').focus()
+      } else {
+        closeDetails()
+      }
     }
   }
 
