@@ -58,7 +58,7 @@ The cloud session starts from the pushed branch. A Claude Code session puts its 
 
 - The agent's last reply starts with the session link, so the local chat shows where the work went.
 - The session shows as a Cloud row in the [companion](@/docs/cli-reference/companion.md#claude-code-cloud-sessions) within about a minute, and in the user web interface when it runs with `agnostic-ai serve --scope user --cloud-sessions`, after a reload. It opens in the browser for Claude Code and in the Codex app for Codex. A project web interface lists no cloud sessions.
-- Bring the work back with `claude --teleport <session-id>`, or with `codex cloud diff <url>` and then `codex cloud apply <url>`.
+- For Claude Code, **Copy resume command** in the companion or web Conversations gives you `claude --teleport <session-id>` to run in a terminal. For Codex, use `codex cloud diff <url>` and then `codex cloud apply <url>`.
 
 ## Limits
 

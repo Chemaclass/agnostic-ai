@@ -21,7 +21,7 @@ function openOf(tool, app, id, folder, live) {
   return live ? { kind: 'focus', label: 'Open in Terminal', command } : { kind: 'terminal', label: 'Resume in Terminal', command }
 }
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, shared, live = LIVE_STATES.has(state) || shared !== undefined } = {}) {
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, cloudResumeCommand, shared, live = LIVE_STATES.has(state) || shared !== undefined } = {}) {
   const cloud = app === 'cloud'
   return {
     ...(deleteUnsupported ? { deleteUnsupported } : {}),
@@ -32,6 +32,7 @@ function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/a
     // Like the server: a live Claude Code session in a terminal can be stopped.
     ...(live && tool === 'claude' && app === 'cli' ? { stoppable: { pid: 4000 + id.length, procStart: 'Fri Nov 20 09:00:00 2026' } } : {}),
     ...(shared ? { cloud: { id: shared, link: 'https://claude.ai/code/' + shared.replace(/^cse_/, 'session_') } } : {}),
+    ...(cloudResumeCommand ? { cloudResumeCommand } : {}),
     tool,
     app,
     id,
@@ -82,7 +83,7 @@ function archived(now) {
 function shared(now) {
   return [
     conversation(now, 'claude', 'rc-1', 'Review the payment retries', 'blocked', { minutesAgo: 3, shared: 'cse_rc1' }),
-    conversation(now, 'claude', 'cloud-3', 'Write the onboarding guide', 'active', { app: 'cloud', minutesAgo: 60 }),
+    conversation(now, 'claude', 'cloud-3', 'Write the onboarding guide', 'active', { app: 'cloud', minutesAgo: 60, cloudResumeCommand: 'claude --teleport session_cloud-3' }),
     conversation(now, 'claude', 'local-3', 'Plan the sync dry run', 'active', { minutesAgo: 300 }),
   ]
 }

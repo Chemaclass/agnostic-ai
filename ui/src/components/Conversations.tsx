@@ -394,6 +394,7 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
   const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
   const command = opened ? undefined : rowCommand(route)
+  const cloudResumeCommand = conversation.cloudResumeCommand
   const shells = conversation.stuckShells ?? []
   const chooseShell = (shell: StuckShell) => {
     setStatus(undefined)
@@ -461,9 +462,10 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
             Open on claude.ai
           </button>
         )}
-        {(command || (canOpen && shells.length > 0)) && (
+        {(command || cloudResumeCommand || (canOpen && shells.length > 0)) && (
           <RowActions label={title.text}>
             {command && <CopyButton text={command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />}
+            {cloudResumeCommand && <CopyButton text={cloudResumeCommand} label="Copy resume command" ariaLabel={`Copy resume command for ${title.text}`} />}
             {canOpen && shells.map((shell) => (
               <button key={shellKey(shell)} type="button" className="button button-quiet" aria-haspopup="dialog" onClick={() => chooseShell(shell)}>
                 {shells.length === 1 ? 'Stop shell…' : `Stop shell (PID ${shell.pid})…`}

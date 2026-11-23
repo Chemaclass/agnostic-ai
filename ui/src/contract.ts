@@ -987,6 +987,8 @@ export interface Conversation {
   parent?: { tool: ConversationTool; id: string }
   /** Set on a live local Claude Code session that Remote Control also shows on claude.ai: that cloud session's id and its page. Its cloud row is not listed apart. Open its page with `POST /api/conversations/open` and the cloud id. */
   cloud?: { id: string; link: string }
+  /** The terminal command to resume a Claude Code cloud session. */
+  cloudResumeCommand?: string
   /** What the approvals hook decided for this session. Absent when it decided nothing and has nothing to say about a wait. */
   approvals?: ConversationApprovals
   threads?: ConversationThreadSummary[]

@@ -75,6 +75,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "live": true,
     "activity": "working",
     "state": "",
+    "cloudResumeCommand": "claude --teleport session_working01",
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
@@ -90,6 +91,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "live": true,
     "activity": "waiting",
     "state": "",
+    "cloudResumeCommand": "claude --teleport session_blocked01",
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
@@ -103,6 +105,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "title": "Rename the flag",
     "updatedAt": "2026-11-08T05:00:00Z",
     "state": "",
+    "cloudResumeCommand": "claude --teleport session_review01",
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
@@ -116,6 +119,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "title": "Ship it",
     "updatedAt": "2026-11-07T07:00:00Z",
     "state": "",
+    "cloudResumeCommand": "claude --teleport session_done01",
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
@@ -129,6 +133,7 @@ func TestClaudeCloud_ListsSessionsAsConversations(t *testing.T) {
     "title": "Something new",
     "updatedAt": "2026-11-06T07:00:00Z",
     "state": "",
+    "cloudResumeCommand": "claude --teleport session_new01",
     "open": {
       "kind": "link",
       "label": "Open on claude.ai",
@@ -171,6 +176,8 @@ func TestClaudeCloud_SaysWhyTheListCouldNotBeRead(t *testing.T) {
 			"claude.ai answered with something this version cannot read.", "session list has no data field"},
 		{"a row with an id of another kind", answerWith(http.StatusOK, `{"data": [{"id": "../etc", "last_event_at": "2026-11-09T09:00:00Z"}]}`), CloudUnreadable,
 			"claude.ai answered with something this version cannot read.", `session list row 0: id "../etc" is not a cloud session id`},
+		{"a row with shell syntax in its cloud id", answerWith(http.StatusOK, `{"data": [{"id": "cse_abc;echo", "last_event_at": "2026-11-09T09:00:00Z"}]}`), CloudUnreadable,
+			"claude.ai answered with something this version cannot read.", `session list row 0: id "cse_abc;echo" is not a cloud session id`},
 		{"a row with no time", answerWith(http.StatusOK, `{"data": [{"id": "cse_a1"}]}`), CloudUnreadable,
 			"claude.ai answered with something this version cannot read.", "session list row 0: neither last_event_at nor updated_at is set"},
 		{"a row with a time of another form", answerWith(http.StatusOK, `{"data": [{"id": "cse_a1", "last_event_at": "yesterday"}]}`), CloudUnreadable,

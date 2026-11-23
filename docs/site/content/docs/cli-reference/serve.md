@@ -93,6 +93,7 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 |-------------|---------|
 | Reopen a chat | Use the row's action. |
 | Resume an ended chat by hand | **Copy command**. |
+| Resume a Claude Code cloud session in a terminal | **Copy resume command**. |
 | Find a chat | Search, or the tool filter beside it. |
 | See older chats | Scroll to the end, or **Load the week before**. |
 
