@@ -71,7 +71,7 @@ Codex and Cursor stores are read with `sqlite3`.
 Returns `tools` and `conversations`:
 
 - `tools` is `{tool, label, found, count, shown, note?, needs?}`. `count` is every conversation the tool holds, `shown` those on this page, `note` why a store was not read, `needs` the missing command (`sqlite3`).
-- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, approvals?, threads?, claimCount?, claimedPaths?, claimConflicts?, open}`.
+- Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, cloudResumeCommand?, approvals?, threads?, claimCount?, claimedPaths?, claimConflicts?, open}`.
 - With the [mailbox](@/docs/mailbox.md#hand-off-files), a row that holds file claims has `claimCount` and `claimedPaths`, a row in an active path conflict has `claimConflicts`, each with an `id` for the dismiss route, and the view has `mailboxClaims: {paths, stale, conflicts}` while any claim or conflict exists.
 - `approvalsMode` is the loosest active mode for the project or user list, `review` or `yolo`. It is omitted when inactive.
 - [Mailbox routes](@/docs/mailbox.md#mailbox-api).
@@ -90,7 +90,8 @@ Conversation fields:
 - [`stuckShells`](@/docs/cli-reference/conversations-shell-api.md#stuck-shells) lists forgotten shells.
 - [`stoppable`](@/docs/cli-reference/conversations-shell-api.md#stoppable) marks a chat the server can stop.
 - `unread` is `true` only on an `active` row whose latest write you have not seen: a terminal session resumed by hand after it closed with a reply. It stays until you open the chat or mark it read. It does not count toward `needsYou`. An archived row is never `unread`.
-- `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It is the sentence that says why, such as a Codex thread or a cloud session.
+- `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It says why, such as for a Codex thread or a cloud session.
+- `cloudResumeCommand`, on Claude Code cloud rows only, resumes the session in a terminal.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
 - `parent` is `{tool, id}`, the conversation this one continues. It is read from the line `Continues <tool>:<id>` that starts the first prompt, which [`conversations start`](@/docs/cli-reference/conversations.md#conversations-start) writes. That line is cut from `title`, `opening` and `prompt`. The parent may be on no page: hidden, older than the page, of another tool than the filter, or deleted. Hiding, archiving or renaming a parent never changes its children.
 - `cloud` is `{id, link}`, set on a local Claude Code session that Remote Control also shows on claude.ai: a live one, or one that closed while this server ran and whose cloud session wrote nothing more than two minutes after the session's last write. A restarted server sets it again only once the session runs; the cloud row it lists meanwhile is not `unread` for a write the local row showed, except a last reply that reached claude.ai after this server last read the list while the session ran and was never marked read. That cloud session is not listed as its own row. `POST /api/conversations/open` with the cloud `id` opens `link`. See [Remote Control](@/docs/cli-reference/companion.md#claude-code-cloud-sessions).

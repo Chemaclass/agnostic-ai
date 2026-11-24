@@ -84,7 +84,7 @@ MSG
 
 4. After offering, stop editing those paths.
 
-When a handoff offered to you arrives, answer with `agnostic-ai mailbox accept --thread <id> --n <n>` or `agnostic-ai mailbox decline --thread <id> --n <n>`, after you tell the user. After accepting, work only in the given worktree and paths. Release paths you no longer need with `agnostic-ai mailbox release <path>...`.
+When a handoff that offers paths (`gives`) arrives, tell the user, then answer with `agnostic-ai mailbox accept --thread <id> --n <n>` or `agnostic-ai mailbox decline --thread <id> --n <n>`. A handoff without `gives` takes no answer. After accepting, work only in the given worktree and paths. Release paths you no longer need with `agnostic-ai mailbox release <path>...`.
 
 ## When a message arrives
 
