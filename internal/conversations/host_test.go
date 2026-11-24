@@ -1155,3 +1155,15 @@ func TestOpen_NoRunOffersTheResumeCommandInsteadOfRunningIt(t *testing.T) {
 		})
 	}
 }
+
+func TestOpen_CodexClientTheDaemonBacksNeverOffersAResume(t *testing.T) {
+	client := placement{process: liveProcess{PID: 7001}, host: terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}}
+	held := Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 6923}, placed: &client}
+	launcher := &fakeLauncher{}
+
+	reply := Open(context.Background(), held, fakeProcesses{alive: map[int]bool{6923: true, 7001: true}}, launcher)
+
+	if reply.Opened || reply.Command != "" {
+		t.Errorf("ending the client leaves the daemon holding the thread, so no resume may be offered: reply %+v", reply)
+	}
+}

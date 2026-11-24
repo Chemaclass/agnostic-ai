@@ -571,7 +571,12 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 	if placed.claudeBackground {
 		return openClaudeBackground(ctx, c, processes, launcher)
 	}
-	return switchToHost(ctx, c.Folder, *placed, processes, launcher, c.Open.Command)
+	resume := c.Open.Command
+	// The daemon keeps holding the thread after its client ends, so a resume would compete with it.
+	if c.Tool == ToolCodex && placed.process.PID != c.process.PID {
+		resume = ""
+	}
+	return switchToHost(ctx, c.Folder, *placed, processes, launcher, resume)
 }
 
 // resumeElsewhere is the reply for a session a process holds where no
