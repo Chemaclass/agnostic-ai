@@ -712,6 +712,11 @@ body {
   background: rgba(242, 237, 229, 0.07);
 }
 
+.row:focus {
+  outline: 2px solid var(--rust);
+  outline-offset: -2px;
+}
+
 .row.has-workers {
   min-height: 68px;
 }
@@ -993,12 +998,6 @@ body {
 .row .title[data-tooltip] {
   width: fit-content;
   max-width: 100%;
-}
-
-.row .title[data-tooltip]:focus-visible {
-  outline: 2px solid var(--rust);
-  outline-offset: 1px;
-  border-radius: 3px;
 }
 
 .card:not(.is-picking, .is-mailbox-composing) .row .title[data-tooltip]:hover {

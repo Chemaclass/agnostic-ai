@@ -58,6 +58,48 @@ test('search, select and open names the chosen conversation', async ({ page }) =
   expect((await opened).postDataJSON()).toEqual({ tool: 'cursor', id: 'active-1', title: 'Fix the login redirect' })
 })
 
+test('Tab from search focuses a conversation and Enter opens it after a refresh', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Approve the database migration')
+  await page.keyboard.press('Tab')
+  await expect(target).toBeFocused()
+  await expect(target).toHaveAttribute('aria-selected', 'true')
+  await expect(target).toHaveCSS('outline-width', '2px')
+
+  const next = row(page, 'Draft the release notes')
+  await page.keyboard.press('ArrowDown')
+  await expect(next).toBeFocused()
+  await page.keyboard.press('ArrowUp')
+  await expect(target).toBeFocused()
+  await next.hover()
+  await expect(target).toHaveAttribute('aria-selected', 'true')
+
+  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+  await expect(row(page, 'Answer the review comments')).toBeVisible()
+  await expect(target).toBeFocused()
+
+  const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await page.keyboard.press('Enter')
+  expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'waits-1', title: 'Approve the database migration' })
+  await expect(page.getByLabel('New name')).toHaveCount(0)
+})
+
+test('forward Tab reaches header and group controls after the initial jump to a row', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Tab')
+  await expect(row(page, 'Approve the database migration')).toBeFocused()
+
+  const dashboard = page.getByRole('button', { name: 'Open the dashboard' })
+  for (let step = 0; step < 40 && !(await dashboard.evaluate((button) => button === document.activeElement)); step += 1) {
+    await page.keyboard.press('Tab')
+  }
+  await expect(dashboard).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(groupTitle(page, 'Needs you')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Mark all as read' })).toBeFocused()
+})
+
 test('Escape clears a search first and then closes the list', async ({ page }) => {
   await openPanel(page)
   const search = page.getByLabel('Search every conversation')
@@ -142,24 +184,19 @@ test('a click on the name starts the rename and opens nothing; Escape cancels it
   expect(calls).not.toContain('/api/rename')
 })
 
-test('the name is a keyboard control: Enter on it renames, and F2 on a row button renames that row', async ({ page }) => {
+test('F2 renames the focused row or the row of a focused button', async ({ page }) => {
   await openPanel(page)
-  const target = row(page, 'Plan the sync dry run')
-  const title = target.getByRole('button', { name: 'Plan the sync dry run', exact: true })
-  await expect(title).toHaveAccessibleDescription('Rename')
-  await expect(title).toHaveAttribute('aria-keyshortcuts', 'F2')
-  await expect(target).toHaveAccessibleName(/^Plan the sync dry run /)
-  await title.focus()
-  await expect(target).toHaveAttribute('aria-selected', 'true')
-  // A redraw keeps the keys on the name.
-  expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
-  await expect(row(page, 'Answer the review comments')).toBeVisible()
-  await expect(title).toBeFocused()
-  await title.press('Enter')
+  const first = row(page, 'Approve the database migration')
   const field = page.getByLabel('New name')
+  await page.keyboard.press('Tab')
+  await expect(first).toBeFocused()
+  await expect(first).toHaveAttribute('aria-keyshortcuts', 'F2')
+  await page.keyboard.press('F2')
   await expect(field).toBeFocused()
+  await expect(field).toHaveValue('Approve the database migration')
   await field.press('Escape')
 
+  const target = row(page, 'Plan the sync dry run')
   await target.locator('.meta').hover({ position: { x: 4, y: 4 } })
   await completeButton(target).focus()
   await page.keyboard.press('F2')
@@ -3055,8 +3092,10 @@ test('Cmd+Shift+V picks a conversation for the copied text, and Enter sends it t
   expect(calls).not.toContain('/api/panel/show')
 })
 
-test('pick mode starts on the one row the text can be typed into, and still waits for Enter', async ({ page }) => {
+test('pick mode starts on the one row the text can be typed into even from another focused row', async ({ page }) => {
   await openPanel(page, 'one-terminal')
+  await page.keyboard.press('Tab')
+  await expect(row(page, 'Approve the database migration')).toBeFocused()
   await page.keyboard.press('Meta+Shift+KeyV')
 
   await expect(selected(page)).toContainText('Plan the sync dry run')
@@ -3064,6 +3103,28 @@ test('pick mode starts on the one row the text can be typed into, and still wait
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
   await page.keyboard.press('Enter')
   expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('Space sends the copied text to the focused picker row', async ({ page }) => {
+  await openPanel(page, 'one-terminal')
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(selected(page)).toContainText('Plan the sync dry run')
+  await page.keyboard.press('Tab')
+  await expect(row(page, 'Plan the sync dry run')).toBeFocused()
+
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'), { timeout: 5000 })
+  await page.keyboard.press('Space')
+  expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('Space chooses the focused row as the mailbox recipient', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await composeMailbox(page)
+  const recipient = row(page, 'Draft the tests')
+  await recipient.focus()
+  await page.keyboard.press('Space')
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
 test('a double click sends once, and Escape while the chip flies takes the send back', async ({ page }) => {
