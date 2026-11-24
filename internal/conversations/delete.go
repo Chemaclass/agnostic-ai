@@ -25,7 +25,7 @@ type DeleteRefusal string
 const (
 	// DeleteNotListed: this server does not list the conversation, or the person hid it.
 	DeleteNotListed DeleteRefusal = "not-listed"
-	// DeleteNotArchived: the conversation is not completed or dormant now.
+	// DeleteNotArchived: the current read did not establish that the conversation is completed or dormant.
 	DeleteNotArchived DeleteRefusal = "not-archived"
 	// DeleteRunning: a process or a background job still holds it.
 	DeleteRunning DeleteRefusal = "running"
@@ -99,12 +99,17 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if c.Live || c.App == AppBackground {
 		return DeleteReply{}, refuse(DeleteRunning, "This conversation is still running. Close it in Claude Code, then delete it.")
 	}
-	archived, changed, ok := archivedAsOf(stateOf(c, entry, file.baseline(c, entry, parseStamp(file.Since)), now), entry, c.readAt)
+	since := file.baseline(c, entry, parseStamp(file.Since))
+	c.State = stateOf(c, entry, since, now)
+	archived, changed, ok := archivedAsOf(c.State, entry, c.readAt)
 	if !ok {
 		return DeleteReply{}, refuse(DeleteNotArchived, "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.")
 	}
 	if reason := s.deleteUnsupported(c); reason != "" {
 		return DeleteReply{}, refuse(DeleteUnsupported, reason)
+	}
+	if deleteNeedsClosure(c, entry, since, now) {
+		return DeleteReply{}, refuse(DeleteNotArchived, deleteNeedsClosureMessage)
 	}
 	paths, err := s.claudeSessionPaths(c)
 	if err != nil {
@@ -196,6 +201,16 @@ func (s *Scanner) deleteUnsupported(c Conversation) string {
 		return "agnostic-ai cannot delete this kind of conversation."
 	}
 	return ""
+}
+
+const deleteNeedsClosureMessage = "agnostic-ai could not confirm that this Claude Code session is still closed."
+
+func deleteNeedsClosure(c Conversation, entry markEntry, since, now time.Time) bool {
+	if c.State != StateDormant || entry.ClosedWrittenAt == "" || knownClosed(c) {
+		return false
+	}
+	entry.ClosedWrittenAt = ""
+	return stateOf(c, entry, since, now) == StateUnread
 }
 
 // claudeSessionPaths lists the locations Claude Code names after the

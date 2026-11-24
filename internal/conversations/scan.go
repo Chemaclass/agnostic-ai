@@ -347,8 +347,9 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 		}
 	}
 	s.shown.start()
+	startedAt := s.Now()
 	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, marksErr := s.applyMarks(results, ctx.Err() == nil)
+	needsYou, marksErr := s.applyMarks(results, startedAt, ctx.Err() == nil)
 	read = keptSearch{needsYou: needsYou, calm: map[Ref]bool{}, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
 		for _, c := range result.conversations {

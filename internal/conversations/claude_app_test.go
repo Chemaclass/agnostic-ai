@@ -2,6 +2,7 @@ package conversations
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -243,6 +244,34 @@ func TestScan_CountsAClaudeChatTheAssistantAnsweredUntilSeen(t *testing.T) {
 	}
 	if view := scanner.Scan(context.Background(), ScanOptions{}); view.NeedsYou != 0 {
 		t.Fatalf("after seeing it: needsYou = %d", view.NeedsYou)
+	}
+}
+
+func TestScan_KeepsAnAppReplyWrittenDuringTheFirstScanUnread(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := scanner.Now()
+	scanner.Now = func() time.Time { return now }
+	oldWrite := now.Add(-time.Hour).Format(time.RFC3339)
+	newWrite := now.Add(30 * time.Minute).Format(time.RFC3339)
+	writeClaudeApp(t, stores, chatListQuery(obj{"archived": false}, chat(appChatID, "Old chat", oldWrite, nil)))
+	write(t, filepath.Join(stores.CodexDir, "state_5.sqlite"), "")
+	// Codex reads its index after the Claude app's list has been read.
+	scanner.SQLite = func(context.Context, string, string) ([]json.RawMessage, error) {
+		writeClaudeApp(t, stores, chatListQuery(obj{"archived": false}, chat(appChatID, "Chat with a new reply", newWrite, nil)))
+		now = now.Add(time.Hour)
+		return nil, errNoSQLite
+	}
+	ctx := context.Background()
+
+	first := scanner.Scan(ctx, ScanOptions{})
+	if row := byID(t, first, appChatID); row.UpdatedAt != oldWrite || row.State != StateActive || first.NeedsYou != 0 {
+		t.Fatalf("first scan: write = %s, state = %s, Needs you = %d", row.UpdatedAt, row.State, first.NeedsYou)
+	}
+	scanner.SQLite = noSQLite
+	second := scanner.Scan(ctx, ScanOptions{})
+	if row := byID(t, second, appChatID); row.UpdatedAt != newWrite || row.State != StateUnread || second.NeedsYou != 1 {
+		t.Errorf("second scan: write = %s, state = %s, Needs you = %d", row.UpdatedAt, row.State, second.NeedsYou)
 	}
 }
 

@@ -427,7 +427,7 @@ A chat that cannot be deleted says why when you choose the item.
 - Closed means right away for a Claude Code, Codex or `cursor-agent` chat run in a terminal, and after a day for an editor panel or a background job.
 - A chat that went quiet by itself is checked again when you confirm. If it closed with a reply you have not read, or anything was written in it while the delete runs, it is not deleted.
 - A refused or partial delete keeps the row. The reason stays above the list until you dismiss it, with any folder still on disk.
-- [`POST /api/conversations/delete`](@/docs/cli-reference/conversations-api.md#post-api-conversations-delete) lists what is removed and what stays, such as Claude Code's own prompt history.
+- [`POST /api/conversations/delete`](@/docs/cli-reference/conversations-delete-api.md#post-api-conversations-delete) lists what is removed and what stays, such as Claude Code's own prompt history.
 - Limit: a session that starts in the moment between the last check and the removal is not seen.
 - Limit: a forked Claude Code session may still point at saved tool output in its parent's folder. Deleting the parent removes that output.
 {% </details> %}

@@ -188,12 +188,12 @@ func DefaultMarksPath() string {
 	return filepath.Join(dir, "agnostic-ai", "conversation-marks.json")
 }
 
-// readMarks loads the marks file. A missing file begins now.
-func readMarks(path string, now time.Time) (file marksFile, created bool, err error) {
+// readMarks loads the marks file. A missing file uses since as its baseline.
+func readMarks(path string, since time.Time) (file marksFile, created bool, err error) {
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
 		return marksFile{
-			SchemaVersion: marksSchemaVersion, Since: stamp(now),
+			SchemaVersion: marksSchemaVersion, Since: stamp(since),
 			Marks: map[string]markEntry{}, HistorySince: map[historySource]time.Time{},
 		}, true, nil
 	}
@@ -335,7 +335,7 @@ func needsPerson(state State) bool {
 // work ends. The entry keeps its seen mark and chosen name. Without a
 // marks path, or with a file that cannot be read, nothing is unread,
 // completed or hidden.
-func (s *Scanner) applyMarks(results []sourceResult, scanFinished bool) (needsYou int, err error) {
+func (s *Scanner) applyMarks(results []sourceResult, startedAt time.Time, scanFinished bool) (needsYou int, err error) {
 	now := s.Now()
 	file := marksFile{Marks: map[string]markEntry{}}
 	changed := false
@@ -345,7 +345,7 @@ func (s *Scanner) applyMarks(results []sourceResult, scanFinished bool) (needsYo
 		release, lockErr := lockMarks(s.MarksPath)
 		if lockErr == nil {
 			defer release()
-			read, created, readErr := readMarks(s.MarksPath, now)
+			read, created, readErr := readMarks(s.MarksPath, startedAt)
 			if readErr == nil {
 				file, changed = read, created
 			}
@@ -402,6 +402,9 @@ func (s *Scanner) applyMarks(results []sourceResult, scanFinished bool) (needsYo
 			c.CompletedAt = entry.CompletedAt
 			if c.State == StateCompleted || c.State == StateDormant {
 				c.DeleteUnsupported = s.deleteUnsupported(c)
+				if c.DeleteUnsupported == "" && deleteNeedsClosure(c, entry, since, now) {
+					c.DeleteUnsupported = deleteNeedsClosureMessage
+				}
 			}
 			if needsPerson(c.State) {
 				needsYou++

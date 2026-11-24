@@ -41,7 +41,7 @@ Each row has a `state`, the first of these that holds:
 3. `dormant`: [archived in its app](@/docs/cli-reference/companion-list.md#chats-archived-in-their-app).
 4. `completed`: you marked it completed. It holds until something is written or its tool reports work.
 5. `dormant`: a terminal session no process holds, even with a reply you have not read.
-6. `unread`: written after you last saw it.
+6. `unread`: written after you last saw it, the applicable history cutoff, and any last write the server recorded while the session was closed.
 7. `active`: open; a desktop, chat, Cowork or cloud conversation of any age; or written within 24 hours when the server cannot tell whether it is closed.
 8. `dormant`: otherwise.
 
@@ -89,7 +89,7 @@ Conversation fields:
 - [`helpers`](@/docs/cli-reference/conversations-helpers-api.md#helpers) lists the subagents, teammates and `codex exec` runs a chat started that still work.
 - [`stuckShells`](@/docs/cli-reference/conversations-shell-api.md#stuck-shells) lists forgotten shells.
 - [`stoppable`](@/docs/cli-reference/conversations-shell-api.md#stoppable) marks a chat the server can stop.
-- `unread` is `true` only on an `active` row whose latest write you have not seen: a terminal session resumed by hand after it closed with a reply. It stays until you open the chat or mark it read. It does not count toward `needsYou`. An archived row is never `unread`.
+- `unread` is `true` on an `active` row when the server confirms the session is open and you have yet to see its latest write. This happens when you resume a terminal session by hand after the server recorded a reply while it was closed. It stays until you open the chat or mark it read. It does not count toward `needsYou`.
 - `deleteUnsupported` is set only on a `completed` or `dormant` row that `POST /api/conversations/delete` cannot delete. It says why, such as for a Codex thread or a cloud session.
 - `cloudResumeCommand`, on Claude Code cloud rows only, resumes the session in a terminal.
 - `opening` holds up to three lines of the first prompt, and `prompt` holds the latest one.
@@ -113,11 +113,13 @@ A process that ends shows within a minute: the server reads processes again at m
 
 Desktop app sessions, Claude chats, Cowork tasks, ChatGPT chats and cloud sessions stay `active` until you archive them here or in their app. Quitting the app archives none of them. A cloud session whose status says it works or waits, and that wrote nothing for 24 hours, no longer counts as working or waiting; it is `active` or `unread`, never archived by its age.
 
-Editor panels and Claude Code background jobs keep the 24 hours: nothing reliable says when they close. So does every chat whose process read failed or cannot run: Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps` or `lsof` failed. So does a Codex lock or `cursor-agent` store that `lsof` cannot reach: under a folder it cannot read, or behind a link, since `lsof` skips both without saying so. So does every Claude Code session while a session file cannot be read and the process its name gives still runs; the Claude Code tool's `note` then names the file. A file whose process is gone, as a crash leaves it, is skipped. Such a failure never shows a session closed, so an unread reply there stays `unread`.
+Editor panels and Claude Code background jobs keep the 24 hours: nothing reliable says when they close. So does every chat whose process read failed or cannot run: Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps` or `lsof` failed. So does a Codex lock or `cursor-agent` store that `lsof` cannot reach: under a folder it cannot read, or behind a link, since `lsof` skips both without saying so. So does every Claude Code session while a session file cannot be read and the process its name gives still runs; the Claude Code tool's `note` then names the file. A file whose process is gone, as a crash leaves it, is skipped. When a process read fails, whether the terminal session is closed remains unknown.
 
 Process ids are read on this computer only. A conversation store shared with a container, WSL or another user account can name a process this computer cannot see, so that session may show closed while it runs elsewhere. The server does not detect another process namespace.
 
-After you resume a closed session by hand, the reply it had while closed does not count as new: the server keeps the time of the last write it read while the session was closed, without marking it seen. The row is `active` with `unread` until you open it or mark it read. A later reply counts. The server can only keep what it read: a session closed and resumed between two reads, within the same minute, shows its old reply as new.
+The server saves the time of the last write it read while a terminal session was confirmed closed, leaving your seen mark as it was. That write stays out of `needsYou` after a manual resume or a failed process read. After a confirmed resume, an unseen reply can show on an `active` row with `unread: true`. If the latest write is still the saved one and the process read fails, the terminal row falls back to `active` for writes less than 24 hours old and `dormant` for older writes, unless an earlier state in the list above applies. Later writes can count even if the process read still fails. If a session closes and resumes between reads, the server can show its old reply as new.
+
+The saved write time affects the list. Deleting a session still requires a fresh check that no process or job holds it.
 
 A Claude Code session that began in the desktop app or an editor, and was last used in a terminal, is a terminal session only while a terminal holds it. Once closed it opens where it began and follows that app's rule.
 
@@ -136,7 +138,8 @@ Marks:
 - `seenAt` and `completedAt` are your marks, when set.
 - `needsYou` counts the blocked and unread conversations of every age and tool the server lists, whatever the page or the search. With the mailbox, it also counts each session in an active path conflict once, and the first page holds those sessions.
 - The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids, times, the names you chose, the folder of each store and where each conversation's own file sits, never conversation text. A Claude Code project folder's name spells the folder the session ran in, and a Codex rollout outside `CODEX_HOME` is kept as a full path.
-- The first read starts the file, and what was written before it counts as seen.
+- When a scan creates the marks file, it uses the start of that scan as the initial history cutoff. For Claude chats, local Cowork tasks, remote Cowork tasks and ChatGPT chats, the first successful read of each source can move its own cutoff later. This uses the read of the app's local list before the server filters its rows. For example, a project scan reads the Claude app's list and can set its cutoffs. A project scan skips the ChatGPT query, so it leaves that cutoff unset if it did not already exist.
+- An existing marks file without source cutoffs uses the later of the file's initial cutoff and the v0.96.0 release time for those four sources. Older history alone stays out of `needsYou`. Later writes can count, and explicit seen, completed and hidden marks still apply. A live session waiting for you can still count.
 - An older `serve` that still runs after an upgrade drops the chosen names when it rewrites the file. Restart it, and the companion, after you upgrade.
 - A read clears a completion or a hiding once a later message overtook it or the conversation started working. The entry keeps its seen time and chosen name. After a new message the conversation is unread. After work that wrote nothing it is active again when the work ends.
 - `marksNote` says why the file could not be read or written. Rows then carry no marks.
@@ -265,50 +268,6 @@ Renames a conversation in its own tool first, then saves the name for every serv
 When the tool does not take the name, the reply is `{"error": "..."}` with a sentence for the person that names the tool and what to do. What the tool said goes to the server's standard error only.
 {% </details> %}
 
-## `POST /api/conversations/delete`
+## `POST /api/conversations/delete` {#post-api-conversations-delete}
 
-Body: `{tool, id}` with `Content-Type: application/json`, from the server's own origin.
-
-Deletes one conversation under Archived from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
-
-- Its `state` is `completed` or `dormant`, read from a fresh scan.
-- No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.
-- None of its files was written at or after the moment it was archived. For `completed` that is your archive mark: archiving it again makes a new mark. For `dormant` it is the moment the server read the row for this request, so a write in that second or later is refused.
-- Its session id names exactly one transcript.
-
-{% <details summary="What delete removes, what stays, status codes and limits"> %}
-
-What it removes, each only when its name is exactly the session id:
-
-- `projects/<project>/<id>/`: subagent transcripts, saved tool output and the chosen title.
-- `file-history/<id>/`: file backups for undo.
-- `session-env/<id>/`: hook environment.
-- `uploads/<id>/`: images pasted into the session.
-- `projects/<project>/<id>.jsonl`: the transcript, last, so a failure leaves the row listed and the delete can be retried.
-- Its marks and its remembered terminal tab.
-
-What stays:
-
-- `history.jsonl`: Claude Code's prompt history, one file shared by every session.
-- `projects/<project>/memory/`: project memory, shared by every session of the project.
-- `tasks/session-<prefix>/` and `telemetry/` files: named after part of the id, or after more than the id, so the server cannot prove they belong to this session alone.
-
-A location that is a link, or that holds a link, is refused, since the data it points to would stay.
-
-Accepted limits:
-
-- A session that starts in the moment between the last check and the removal is not seen.
-- A forked session may still point at saved tool output under its parent's `projects/<project>/<parent id>/tool-results/`. Deleting the parent removes that output.
-
-| Status | Meaning |
-|--------|---------|
-| 200 | `{deleted: true, freedBytes?, note?}`, sent only once the transcript is gone. `freedBytes` is what its files held. `note` says what could not be tidied after the data went, such as its entry in the marks file. |
-| 400 | for an unknown tool or any other field. |
-| 403 | for a request without the companion's secret or a tab's [session key](@/docs/approvals.md#who-can-change-this), or from another origin. Nothing is deleted. |
-| 404 | for a conversation outside the list, or one you hid. |
-| 409 | `{error, reason}` with `reason` `not-archived` (not `completed` or `dormant` now), `running` (a process or job holds it) or `changed` (a file was written at or after the moment it was archived). |
-| 422 | `{error, reason: "unsupported"}`: Codex threads (Codex deletes a thread even while it is open, so close it first and run `codex delete <id>` yourself), Cursor editor chats (Cursor keeps them all in one shared database), `cursor-agent` chats, cloud sessions. Also a session whose files the server cannot verify: its id is in two project folders, or its transcript or one of its locations is not a regular file or folder, such as a link. |
-| 500 | `{error, reason: "failed", removed?, remaining?}`. Nothing was removed when the marks could not be locked or read, the files could not be measured, or the process list could not be read. When a removal began and then stopped, `removed` and `remaining` list what is gone and what is still on disk: a removal failed, or the session started running before its transcript went. The marks are kept. |
-
-`error` is always a complete sentence.
-{% </details> %}
+See the [conversation deletion API](@/docs/cli-reference/conversations-delete-api.md#post-api-conversations-delete).
