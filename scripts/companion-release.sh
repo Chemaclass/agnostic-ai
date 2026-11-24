@@ -44,7 +44,7 @@ import sys
 def canonical_path(path):
     if not isinstance(path, str) or not path:
         raise ValueError("missing image path")
-    return path[8:] if path.startswith("/private/var/") else path
+    return path[8:] if path.startswith(("/private/var/", "/private/tmp/", "/private/etc/")) else path
 
 images = plistlib.loads(sys.stdin.buffer.read())["images"]
 if not isinstance(images, list):

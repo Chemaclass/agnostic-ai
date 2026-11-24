@@ -273,6 +273,20 @@ function test_release_image_matches_an_attached_image_under_private() {
   assert_empty "$killed"
 }
 
+function test_release_image_matches_an_attached_image_under_private_tmp() {
+  local tmp output killed detached slept status
+  tmp="$(mktemp -d)"
+  export GITHUB_ACTIONS=true
+  HOLDER_ATTACHED=/private/tmp/x/image.dmg
+  IMAGE=/tmp/x/image.dmg
+  run_release_image "$tmp" 4242 /System/Library/PrivateFrameworks/DiskImages.framework/Resources/diskimages-helper
+  rm -rf "$tmp"
+
+  assert_same "0" "$status"
+  assert_same "detach /dev/disk7" "$detached"
+  assert_empty "$killed"
+}
+
 function test_release_image_only_reports_the_holder_off_ci() {
   local tmp output killed detached slept status
   tmp="$(mktemp -d)"
