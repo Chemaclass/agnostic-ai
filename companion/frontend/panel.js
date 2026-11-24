@@ -299,12 +299,10 @@ function claimChip(conversation, text) {
   return chip
 }
 
-/** True while a redraw puts the keys back on a name, which is not a person choosing that row. */
-let restoringFocus = false
-
 function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
   const needsYou = needsPersonOf(conversation)
+  const canRename = renames(conversation)
   const quiet = conversation.state === 'completed' || conversation.state === 'dormant'
   const row = element('div', 'row')
   row.classList.toggle('needs-you', needsYou)
@@ -315,7 +313,9 @@ function rowOf(conversation, order, folderNames, under) {
   row.dataset.key = key
   row.id = rowId(key)
   row.style.setProperty('--order', String(Math.min(order, STAGGERED_ROWS)))
+  row.tabIndex = 0
   row.setAttribute('role', 'option')
+  if (canRename) row.setAttribute('aria-keyshortcuts', 'F2')
   row.setAttribute('aria-selected', String(key === state.activeKey))
   const now = Date.now()
   const tip = rowTooltipOf(conversation, now)
@@ -328,7 +328,7 @@ function rowOf(conversation, order, folderNames, under) {
   if (renaming) {
     text.append(renameField(conversation, renaming))
   } else {
-    text.append(renames(conversation) ? renamableTitle(conversation, tip) : element('div', 'title', titleOf(conversation)))
+    text.append(canRename ? renamableTitle(conversation, tip) : element('div', 'title', titleOf(conversation)))
   }
   const approval = approvalOf(conversation)
   const reply = replyOf(conversation)
@@ -392,11 +392,10 @@ function rowOf(conversation, order, folderNames, under) {
   if (actions.childElementCount > 0 && !renaming) text.append(actions)
   row.append(stateMark(conversation), text)
   row.addEventListener('click', () => chooseRow(conversation))
-  row.addEventListener('mousemove', () => setActive(key))
-  // F2 and Enter answer the selected row, so a focused name or button selects its row.
-  row.addEventListener('focusin', () => {
-    if (!restoringFocus) setActive(key)
+  row.addEventListener('mousemove', () => {
+    if (!document.activeElement.matches('#list .row')) setActive(key)
   })
+  row.addEventListener('focusin', () => setActive(key))
   row.addEventListener('contextmenu', (event) => {
     // Right-clicking only offers the menu: the chat stays closed and unread.
     event.preventDefault()
@@ -754,22 +753,10 @@ const RENAME_TIP = 'Click to rename, or press F2'
 function renamableTitle(conversation, rowTip) {
   const title = element('div', 'title', titleOf(conversation))
   title.dataset.tooltip = rowTip + '\n' + RENAME_TIP
-  title.tabIndex = 0
-  title.setAttribute('role', 'button')
-  // A label would replace the name in the row's own accessible name, which the search reads out.
-  title.setAttribute('aria-description', 'Rename')
-  title.setAttribute('aria-keyshortcuts', 'F2')
   title.addEventListener('click', (event) => {
     if (state.pick || mailbox.composing) return
     event.stopPropagation()
     startRename(conversation)
-  })
-  title.addEventListener('keydown', (event) => {
-    if ((event.key !== 'Enter' && event.key !== ' ') || event.repeat) return
-    event.preventDefault()
-    event.stopPropagation()
-    if (state.pick || mailbox.composing) chooseRow(conversation)
-    else startRename(conversation)
   })
   return title
 }
@@ -788,7 +775,6 @@ function renameField(conversation, renaming) {
   input.addEventListener('input', () => { renaming.draft = input.value })
   input.addEventListener('keydown', (event) => {
     event.stopPropagation()
-    // A key held on the name that opened the field would save it at once, or type over it.
     if (event.repeat && (event.key === 'Enter' || event.key === ' ')) {
       event.preventDefault()
       return
@@ -911,6 +897,7 @@ function draw({ force } = { force: false }) {
   note.hidden = said === ''
   note.textContent = said
   drawApprovals(state.view)
+  const focusedRow = document.activeElement.matches('#list .row') ? document.activeElement : null
   if (state.searching) {
     // The rows on screen answer another question, so they give way until this one's answer is here.
     state.drawn = undefined
@@ -918,6 +905,7 @@ function draw({ force } = { force: false }) {
     const waiting = element('div', 'empty is-searching')
     waiting.append(element('strong', '', 'Searching…'), 'Looking through every conversation.')
     list.replaceChildren(waiting)
+    if (focusedRow) queryInput.focus()
     announceActive()
     return
   }
@@ -927,6 +915,7 @@ function draw({ force } = { force: false }) {
     summary.textContent = ''
     list.replaceChildren()
     if (!said) list.append(element('p', 'loading-conversations', 'Loading conversations…'))
+    if (focusedRow) queryInput.focus()
     announceActive()
     return
   }
@@ -947,10 +936,10 @@ function draw({ force } = { force: false }) {
 
   const groups = grouped(view.conversations)
   const scroll = list.scrollTop
-  const focusedName = document.activeElement?.matches?.('#list .row .title[role="button"]') ? document.activeElement.closest('.row').dataset.key : undefined
   list.replaceChildren()
   if (groups.length === 0) {
     list.append(emptyMessage(), ...asidesOf(view))
+    if (focusedRow) queryInput.focus()
     announceActive()
     return
   }
@@ -971,12 +960,7 @@ function draw({ force } = { force: false }) {
   }
   list.append(...asidesOf(view))
   list.scrollTop = scroll
-  if (focusedName !== undefined) {
-    // Giving the name its keys back must not move the selection the keys or the pointer set since.
-    restoringFocus = true
-    refocus(`.row[data-key="${CSS.escape(focusedName)}"] .title[role="button"]`)
-    restoringFocus = false
-  }
+  if (focusedRow) (document.getElementById(focusedRow.id) ?? queryInput).focus({ preventScroll: true })
   mailbox.markRows()
   holdWorkPhase(list)
   announceActive()
@@ -1107,13 +1091,14 @@ function announceActive() {
   else queryInput.removeAttribute('aria-activedescendant')
 }
 
-function moveActive(step) {
+function moveActive(step, focusRow) {
   const key = neighbour(visibleKeys(), state.activeKey, step)
   if (key === undefined) return
   setActive(key)
   const row = list.querySelector('.row.is-active')
-  row?.scrollIntoView({ block: 'nearest' })
   if (row) {
+    if (focusRow) row.focus({ preventScroll: true })
+    row.scrollIntoView({ block: 'nearest' })
     tip.pointer = undefined
     tipSoon(row)
   }
@@ -2678,12 +2663,17 @@ document.addEventListener('keydown', (event) => {
     openRowMenu(conversation, { clientX: bounds.left, clientY: bounds.bottom })
     return
   }
+  if (event.key === 'Tab' && event.target === queryInput && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {
+    const row = list.querySelector('.row.is-active') ?? list.querySelector('.row')
+    if (!row) return
+    event.preventDefault()
+    row.focus()
+    return
+  }
   const step = KEY_STEPS[event.key]
   if (step !== undefined) {
     event.preventDefault()
-    // The keys move the selection from the search, so a focused name, which F2 and Enter would answer, gives them back.
-    if (event.target.closest('.row .title[role="button"]')) queryInput.focus()
-    moveActive(step)
+    moveActive(step, event.target.matches('.row'))
     return
   }
   if (!mailbox.composing && startsRename(event)) {
@@ -2698,11 +2688,13 @@ document.addEventListener('keydown', (event) => {
   }
   // A focused button takes Enter as its own click.
   if (event.target.closest('button')) return
-  if (event.key === 'Enter') {
-    // The selected row answers the last search, not the one on its way.
+  if (event.key === 'Enter' && !event.repeat && !confirmsCandidate(event)) {
     if (state.pick && state.searching) return
     const conversation = activeConversation()
-    if (conversation) chooseRow(conversation)
+    if (conversation) {
+      event.preventDefault()
+      chooseRow(conversation)
+    }
   }
 })
 
