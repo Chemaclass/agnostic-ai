@@ -981,7 +981,7 @@ export function threadNextOf({ status, held, waiting, delivering, count, cap }, 
   if (waiting) return 'The message is waiting. Open the thread for the recipient and delivery options.'
   if (delivering) return 'Automatic delivery is in progress.'
   if (status === 'closing') return 'The thread will end after its remaining messages are handled.'
-  if (count >= cap) return `This thread reached its ${cap}-message limit. Choose Allow 8 more to reply.`
+  if (count >= cap) return `This thread reached its ${cap}-message limit. ${summary ? 'Open it to allow more.' : 'Choose Allow 8 more to reply.'}`
   return summary ? 'Open the thread for delivery status or to reply.' : 'You can reply to this thread.'
 }
 

@@ -853,7 +853,7 @@ test('copies the Claude Code cloud resume command without opening or marking the
   await item.press('Enter')
 
   await expect(page.getByRole('menu', { name: 'Conversation' })).toBeHidden()
-  await expect(page.locator('#toast[role=status]')).toHaveText('Resume command copied.')
+  await expect(page.locator('#toast[role=status]')).toHaveText('Resume command copied. Paste it in a terminal.')
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('claude --teleport session_cloud-3')
   expect((await calledPaths(page)).filter((path) => path === '/api/mark' || path === '/api/open')).toEqual([])
 
@@ -1121,7 +1121,7 @@ test('a thread prioritizes pasteable messages while automatic delivery holds a r
 
 test('the message after the mailbox cap is refused, and Allow 8 more raises the cap', async ({ page }) => {
   await openPanel(page, 'mailbox-cap')
-  await expect(mailboxSummary(page)).toContainText('Choose Allow 8 more to reply.')
+  await expect(mailboxSummary(page)).toContainText('Open it to allow more.')
   await mailboxSummary(page).click()
   await expect(mailboxThread(page)).toContainText('Choose Allow 8 more to reply.')
   await replyInMailbox(page, 'One more?')
@@ -1522,6 +1522,11 @@ test('a handoff excludes paths when their disclosure is closed', async ({ page }
   await composer.getByLabel('Paths, one per line').fill(handoffPath)
   await mailboxType(page).selectOption('question')
   await mailboxType(page).selectOption('handoff')
+  await expect(composer.getByLabel('Paths, one per line')).toBeHidden()
+  await claimedFilesDetails(page).click()
+  await expect(composer.getByLabel('Paths, one per line')).toHaveValue('')
+  await composer.getByLabel('Paths, one per line').fill(handoffPath)
+  await claimedFilesDetails(page).click()
   await expect(composer.getByLabel('Paths, one per line')).toBeHidden()
 
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
@@ -2236,6 +2241,14 @@ test('a page of an older search never draws over a newer one', async ({ page }) 
 test('an empty inbox says so', async ({ page }) => {
   await openPanel(page, 'empty')
   await expect(page.getByText('No conversations yet')).toBeVisible()
+})
+
+test('an empty place filter names the place, not an empty inbox', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await page.getByRole('button', { name: 'Cloud', exact: true }).click()
+  await expect(page.getByText('No cloud conversations')).toBeVisible()
+  await expect(page.getByText('Choose All to see every conversation.')).toBeVisible()
+  await expect(page.getByText('No conversations yet')).toHaveCount(0)
 })
 
 test('a missing cloud gets one quiet line and local rows still show', async ({ page }) => {

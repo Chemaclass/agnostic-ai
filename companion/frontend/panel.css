@@ -2097,8 +2097,11 @@ button:focus-visible {
   font-weight: 620;
 }
 
+/* A dimmed orange still reads as ready on the dark panel, so a disabled send turns neutral. */
 .mailbox-send:disabled {
-  opacity: 0.65;
+  background: var(--row-lit);
+  color: var(--paper-faint);
+  cursor: default;
 }
 
 .mailbox-threads {

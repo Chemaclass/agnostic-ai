@@ -479,7 +479,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     if (draft.typing) showTyping(false)
     else fillReceivers()
     updateComposerControls()
-    const field = type.value === REVIEW ? base : type.value === HANDOFF ? send : body
+    const blocked = handoff.open && send.disabled
+    const field = type.value === REVIEW ? base : type.value !== HANDOFF ? body : blocked ? handoffWorktree : send
     field.focus()
     return true
   }
@@ -509,9 +510,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     updateComposerControls()
   })
   handoff.addEventListener('toggle', () => {
-    if (!draft || handoff.hidden) return
-    if (handoff.open) previewWorktree()
-    else stopPreview()
+    if (!draft) return
+    if (handoff.open) {
+      if (!handoff.hidden) previewWorktree()
+    } else {
+      // A closed section gives no files, so it keeps no paths that could look offered.
+      stopPreview()
+      handoffPaths.value = ''
+      handoffStatus.textContent = ''
+    }
     updateComposerControls()
   })
   handoffPaths.addEventListener('input', updateComposerControls)
