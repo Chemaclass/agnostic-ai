@@ -268,9 +268,12 @@ func TestInstallCompanion_DownloadsOnlyAReleaseForMacOSFetchedFromItsCommit(t *t
 						into = filepath.Dir(args[i+1])
 					}
 				}
-				for _, entry := range env {
-					if gobin, ok := strings.CutPrefix(entry, "GOBIN="); ok {
-						into = gobin
+				// As in go build, -o wins over a GOBIN the environment may already hold.
+				if into == "" {
+					for _, entry := range env {
+						if gobin, ok := strings.CutPrefix(entry, "GOBIN="); ok {
+							into = gobin
+						}
 					}
 				}
 				return os.WriteFile(filepath.Join(into, companionProgramName(build.goos)), []byte("built"), 0o700)

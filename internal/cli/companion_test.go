@@ -46,7 +46,8 @@ func builtTools(t *testing.T, lines ...string) companionTools {
 			for _, text := range lines {
 				line(text)
 			}
-			for _, entry := range env {
+			// The last GOBIN wins, as in the Go command: the build appends its own after any inherited one.
+			for _, entry := range slices.Backward(env) {
 				if into, ok := strings.CutPrefix(entry, "GOBIN="); ok {
 					return os.WriteFile(filepath.Join(into, "companion"), []byte("built from "+args[len(args)-1]), 0o700)
 				}
