@@ -99,7 +99,7 @@ func (s *Scanner) Delete(ctx context.Context, tool Tool, id string, opts ScanOpt
 	if c.Live || c.App == AppBackground {
 		return DeleteReply{}, refuse(DeleteRunning, "This conversation is still running. Close it in Claude Code, then delete it.")
 	}
-	archived, changed, ok := archivedAsOf(stateOf(c, entry, parseStamp(file.Since), now), entry, c.readAt)
+	archived, changed, ok := archivedAsOf(stateOf(c, entry, file.baseline(c, entry, parseStamp(file.Since)), now), entry, c.readAt)
 	if !ok {
 		return DeleteReply{}, refuse(DeleteNotArchived, "Only a conversation under Archived can be deleted. This one is not there any more: something was written in it, or it was opened. Refresh the list.")
 	}

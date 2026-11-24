@@ -27,7 +27,7 @@ func TestStateOf_AKnownClosedTerminalSessionIsArchivedWhateverItsReply(t *testin
 		{"resumed and waiting on the reply read while closed", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityWaiting, liveRead: true}, markEntry{SeenAt: at(2 * time.Hour), ClosedWrittenAt: at(time.Hour)}, StateActive},
 		{"resumed with a later reply", Conversation{UpdatedAt: at(time.Minute), Live: true, Activity: ActivityIdle, liveRead: true}, markEntry{SeenAt: at(2 * time.Hour), ClosedWrittenAt: at(time.Hour)}, StateUnread},
 		{"resumed and waiting after a later write", Conversation{UpdatedAt: at(time.Minute), Live: true, Activity: ActivityWaiting, liveRead: true}, markEntry{SeenAt: at(2 * time.Hour), ClosedWrittenAt: at(time.Hour)}, StateBlocked},
-		{"unknown read with a reply read while closed stays unread", Conversation{UpdatedAt: at(time.Hour)}, markEntry{SeenAt: at(2 * time.Hour), ClosedWrittenAt: at(time.Hour)}, StateUnread},
+		{"unknown read with a reply recorded while closed stays active", Conversation{UpdatedAt: at(time.Hour)}, markEntry{SeenAt: at(2 * time.Hour), ClosedWrittenAt: at(time.Hour)}, StateActive},
 		{"live, first seen open, with a reply never read while closed", Conversation{UpdatedAt: at(time.Hour), Live: true, Activity: ActivityIdle, liveRead: true}, markEntry{SeenAt: at(2 * time.Hour)}, StateUnread},
 	}
 	for _, tc := range cases {
@@ -155,7 +155,7 @@ func TestScan_AWorkingHelperStaysListedWhenItsParentIsArchived(t *testing.T) {
 	}
 }
 
-func TestScan_AFailedReadAfterAClosureKeepsTheReplyUnread(t *testing.T) {
+func TestScan_RestartWithFailedProcessReadKeepsAClosedReplyOutOfNeedsYou(t *testing.T) {
 	const id = "11111111-1111-4111-8111-111111111111"
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{alive: map[int]bool{}})
 	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
@@ -171,10 +171,20 @@ func TestScan_AFailedReadAfterAClosureKeepsTheReplyUnread(t *testing.T) {
 	}
 
 	now = now.Add(freshSpan)
-	scanner.Processes = fakeProcesses{readFails: true}
-	view := scanner.Scan(context.Background(), ScanOptions{})
+	restarted := &Scanner{
+		Stores: stores, MarksPath: scanner.MarksPath, SQLite: noSQLite, Now: scanner.Now,
+		Processes: fakeProcesses{readFails: true},
+	}
+	view := restarted.Scan(context.Background(), ScanOptions{})
+	if c := byID(t, view, id); c.liveRead || c.State != StateActive || c.Unread || view.NeedsYou != 0 {
+		t.Errorf("the same reply with no process read: %s, Needs you = %d", asJSON(t, c), view.NeedsYou)
+	}
+
+	now = now.Add(time.Hour)
+	writeMarkedSession(t, stores, id, "2026-11-07T13:30:00Z")
+	view = restarted.Scan(context.Background(), ScanOptions{})
 	if c := byID(t, view, id); c.State != StateUnread || view.NeedsYou != 1 {
-		t.Errorf("a failed read keeps the reply unread and counted: %s, needsYou %d", asJSON(t, c), view.NeedsYou)
+		t.Errorf("a later reply with no process read: %s, Needs you = %d", asJSON(t, c), view.NeedsYou)
 	}
 }
 

@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -77,6 +80,48 @@ func TestScan_ListsTheChatGPTAppsChats(t *testing.T) {
 	}
 	if source, ok := chatGPTSource(t, view); !ok || !source.Found {
 		t.Errorf("source = %s", asJSON(t, view.Tools))
+	}
+}
+
+func TestScan_BaselinesChatGPTHistoryOnTheFirstSuccessfulUnfilteredRead(t *testing.T) {
+	rows := "[]"
+	var listErr error
+	scanner, stores := testScanner(t, func(ctx context.Context, path, query string) ([]json.RawMessage, error) {
+		if listErr != nil {
+			return nil, listErr
+		}
+		return chatGPTCatalog(t, rows)(ctx, path, query)
+	}, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	write(t, scanner.MarksPath, `{"schemaVersion":"conversation-marks/v1","since":"2026-11-07T09:00:00Z",
+		"historySince":{},"marks":{"chatgpt:`+chatGPTAsync+`":{"seenAt":"2026-11-07T10:00:00Z"}}}`)
+	writeChatGPTApp(t, stores)
+	now := time.Date(2026, 11, 7, 10, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	ctx := context.Background()
+
+	scanner.Scan(ctx, ScanOptions{Within: []string{"/project"}})
+	listErr = errors.New("app database unavailable")
+	now = now.Add(time.Hour)
+	scanner.Scan(ctx, ScanOptions{})
+	listErr = nil
+	now = now.Add(time.Hour)
+	scanner.Scan(ctx, ScanOptions{})
+
+	chatRow := func(id string, updated time.Time) string {
+		return fmt.Sprintf(`{"thread_id":%q,"display_title":"Cached chat","source_updated_at":%d}`, id, updated.Unix())
+	}
+	rows = "[" + strings.Join([]string{
+		chatRow(chatGPTDone, now.Add(-30*time.Minute)),
+		chatRow(chatGPTRunning, now.Add(30*time.Minute)),
+		chatRow(chatGPTAsync, now.Add(-30*time.Minute)),
+	}, ",") + "]"
+	now = now.Add(time.Hour)
+	view := scanner.Scan(ctx, ScanOptions{})
+	chats := chatGPTRows(view)
+	if view.NeedsYou != 2 || chats[chatGPTDone].State != StateActive || chats[chatGPTRunning].State != StateUnread || chats[chatGPTAsync].State != StateUnread {
+		t.Errorf("Needs you = %d, historical chat = %s, new chat = %s, marked chat = %s",
+			view.NeedsYou, chats[chatGPTDone].State, chats[chatGPTRunning].State, chats[chatGPTAsync].State)
 	}
 }
 

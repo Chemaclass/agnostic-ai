@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -87,10 +88,64 @@ type marksFile struct {
 	// started marking are not all unread.
 	Since string               `json:"since"`
 	Marks map[string]markEntry `json:"marks"`
+	// HistorySince is the first successful read of a source added after marks already existed.
+	HistorySince map[historySource]time.Time `json:"historySince"`
 	// Stores maps each store a mark names to its folder; see pruneMarks.
 	Stores map[string]string `json:"stores,omitempty"`
 
 	extra unknownJSON
+}
+
+type historySource string
+
+const (
+	historyClaudeChat         historySource = "claude-chat"
+	historyClaudeCoworkLocal  historySource = "claude-cowork-local"
+	historyClaudeCoworkRemote historySource = "claude-cowork-remote"
+	historyChatGPT            historySource = "chatgpt"
+)
+
+type historyRead struct {
+	source historySource
+	at     time.Time
+}
+
+func historyOf(c Conversation) historySource {
+	switch {
+	case c.Tool == ToolClaude && c.App == AppChat:
+		return historyClaudeChat
+	case c.Tool == ToolClaude && c.App == AppCowork && strings.HasPrefix(c.ID, "local_"):
+		return historyClaudeCoworkLocal
+	case c.Tool == ToolClaude && c.App == AppCowork:
+		return historyClaudeCoworkRemote
+	case c.Tool == ToolChatGPT:
+		return historyChatGPT
+	default:
+		return ""
+	}
+}
+
+func (f *marksFile) recordHistory(results []sourceResult) (changed bool) {
+	for _, result := range results {
+		for _, read := range result.history {
+			if _, known := f.HistorySince[read.source]; known {
+				continue
+			}
+			f.HistorySince[read.source] = read.at.UTC()
+			changed = true
+		}
+	}
+	return changed
+}
+
+func (f marksFile) baseline(c Conversation, entry markEntry, since time.Time) time.Time {
+	if entry.SeenAt != "" || entry.CompletedAt != "" || c.Live && c.Activity == ActivityWaiting {
+		return since
+	}
+	if first := f.HistorySince[historyOf(c)]; first.After(since) {
+		return first
+	}
+	return since
 }
 
 type markEntry struct {
@@ -133,12 +188,14 @@ func DefaultMarksPath() string {
 	return filepath.Join(dir, "agnostic-ai", "conversation-marks.json")
 }
 
-// readMarks loads the marks file. A missing file is a new one that
-// begins now; created says so.
+// readMarks loads the marks file. A missing file begins now.
 func readMarks(path string, now time.Time) (file marksFile, created bool, err error) {
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return marksFile{SchemaVersion: marksSchemaVersion, Since: stamp(now), Marks: map[string]markEntry{}}, true, nil
+		return marksFile{
+			SchemaVersion: marksSchemaVersion, Since: stamp(now),
+			Marks: map[string]markEntry{}, HistorySince: map[historySource]time.Time{},
+		}, true, nil
 	}
 	if err != nil {
 		return marksFile{}, false, fmt.Errorf("read conversation marks: %w", err)
@@ -151,6 +208,14 @@ func readMarks(path string, now time.Time) (file marksFile, created bool, err er
 	}
 	if file.Marks == nil {
 		file.Marks = map[string]markEntry{}
+	}
+	if file.HistorySince == nil {
+		// These sources first shipped in v0.96.0. Keep unmarked replies that could already have been listed.
+		firstRelease := time.Date(2026, 11, 20, 22, 12, 23, 0, time.UTC)
+		file.HistorySince = map[historySource]time.Time{
+			historyClaudeChat: firstRelease, historyClaudeCoworkLocal: firstRelease,
+			historyClaudeCoworkRemote: firstRelease, historyChatGPT: firstRelease,
+		}
 	}
 	return file, false, nil
 }
@@ -186,14 +251,14 @@ func parseStamp(value string) time.Time {
 // is dormant, the state of a closed one, while that archive holds.
 // A terminal session no process holds, by a full process read, is
 // archived even with a reply not seen.
-// Once a process holds it again, a write read while it was closed needs
-// nobody. Any other row, a failed read included, goes by the seen mark.
+// A write read while a session was closed needs nobody, even after a
+// resume or a failed process read. Other writes go by the seen mark.
 func stateOf(c Conversation, entry markEntry, since, now time.Time) State {
 	written := lastWritten(c)
 	completedAt := parseStamp(entry.CompletedAt)
 	seenAt := seenSince(entry, since)
 	attendedAt := seenAt
-	if closedWrittenAt := parseStamp(entry.ClosedWrittenAt); c.Live && closedWrittenAt.After(attendedAt) {
+	if closedWrittenAt := parseStamp(entry.ClosedWrittenAt); closedWrittenAt.After(attendedAt) {
 		attendedAt = closedWrittenAt
 	}
 	switch {
@@ -242,8 +307,8 @@ func unseen(c Conversation, entry markEntry, since time.Time) bool {
 // unreadMarker: an unseen write on an active row, which does not count
 // toward NeedsYou: a session resumed by hand whose reply came while it
 // was closed, until the person reads it. An archived row has no read state.
-func unreadMarker(state State, unseen bool) bool {
-	return unseen && state == StateActive
+func unreadMarker(c Conversation, unseen bool) bool {
+	return unseen && c.Live && c.State == StateActive
 }
 
 // knownClosed: a full process read found no process that holds this
@@ -270,7 +335,7 @@ func needsPerson(state State) bool {
 // work ends. The entry keeps its seen mark and chosen name. Without a
 // marks path, or with a file that cannot be read, nothing is unread,
 // completed or hidden.
-func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
+func (s *Scanner) applyMarks(results []sourceResult, scanFinished bool) (needsYou int, err error) {
 	now := s.Now()
 	file := marksFile{Marks: map[string]markEntry{}}
 	changed := false
@@ -289,10 +354,15 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			err = lockErr
 		}
 	}
-	if err == nil && s.MarksPath != "" && s.pruneMarks(&file, results, now) {
-		changed = true
+	if err == nil && s.MarksPath != "" {
+		if scanFinished && file.recordHistory(results) {
+			changed = true
+		}
+		if s.pruneMarks(&file, results, now) {
+			changed = true
+		}
 	}
-	since := parseStamp(file.Since)
+	initialSince := parseStamp(file.Since)
 	for r := range results {
 		// The rows that stay are written over the start of the same list.
 		listed := results[r].conversations[:0]
@@ -315,6 +385,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 				continue
 			}
 			entry = withTwinSeen(file, c, entry)
+			since := file.baseline(c, entry, initialSince)
 			if s.MarksPath != "" && showTwin(file, c, entry, since) {
 				changed = true
 			}
@@ -326,7 +397,7 @@ func (s *Scanner) applyMarks(results []sourceResult) (needsYou int, err error) {
 			c.renamed = entry.Title
 			c.showChosenName()
 			c.State = stateOf(c, entry, since, now)
-			c.Unread = unreadMarker(c.State, unseen(c, entry, since))
+			c.Unread = unreadMarker(c, unseen(c, entry, since))
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
 			if c.State == StateCompleted || c.State == StateDormant {

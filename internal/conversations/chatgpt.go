@@ -75,6 +75,7 @@ func (s *Scanner) scanChatGPT(ctx context.Context, opts ScanOptions) sourceResul
 		return found(ToolChatGPT, nil)
 	}
 	path := chatGPTCatalogPath(s.Stores.CodexDir)
+	at := s.Now()
 	rows, err := queryRows[chatGPTRow](ctx, s.SQLite, path, chatGPTChatsQuery)
 	if errors.Is(err, errNoSQLite) {
 		return needsSQLite(ToolChatGPT, "Reading ChatGPT chats needs the sqlite3 command")
@@ -89,7 +90,9 @@ func (s *Scanner) scanChatGPT(ctx context.Context, opts ScanOptions) sourceResul
 		}
 		conversations = append(conversations, s.chatGPTConversation(row))
 	}
-	return found(ToolChatGPT, conversations)
+	result := found(ToolChatGPT, conversations)
+	result.history = []historyRead{{source: historyChatGPT, at: at}}
+	return result
 }
 
 // chatGPTConversation builds a chat's row. Its title goes through the

@@ -246,6 +246,84 @@ func TestScan_CountsAClaudeChatTheAssistantAnsweredUntilSeen(t *testing.T) {
 	}
 }
 
+func TestScan_UpgradeKeepsHistoricalAppChatsOutOfNeedsYou(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{readFails: true})
+	marksPath := filepath.Join(t.TempDir(), "conversation-marks.json")
+	scanner.MarksPath = marksPath
+	now := time.Date(2026, 11, 23, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	write(t, marksPath, `{"schemaVersion":"conversation-marks/v1","since":"2026-11-19T09:00:00Z","marks":{
+		"claude:`+appChat2ID+`":{"seenAt":"2026-11-20T10:00:00Z","completedAt":"2026-11-20T10:00:00Z"},
+		"claude:`+appCloudID+`":{"seenAt":"2026-11-20T10:00:00Z","hiddenAt":"2026-11-20T10:00:00Z"}
+	}}`)
+	writeMarkedSession(t, stores, idSafari, "2026-11-20T11:00:00Z")
+	list := func(updated string) {
+		writeClaudeApp(t, stores,
+			chatListQuery(obj{"archived": false},
+				chat(appChatID, "Historical chat", updated, nil),
+				chat(appChat2ID, "Completed chat", "2026-11-20T09:30:00Z", nil),
+				chat(idCache, "Already pending", "2026-11-21T11:00:00Z", nil),
+			),
+			obj{"queryKey": []any{"cowork-local-sessions", "org"}, "state": obj{"data": obj{"rows": []any{
+				coworkTask(appTaskID, "Historical task", "2026-11-20T11:00:00Z", false, false),
+			}}}},
+			obj{"queryKey": []any{"cowork-remote-sessions", "org", true}, "state": obj{"data": []any{
+				coworkTask(appCloudID, "Hidden task", "2026-11-20T09:30:00Z", false, false),
+			}}},
+		)
+	}
+	list("2026-11-20T11:00:00Z")
+	check := func(view View, chatState State, count int) {
+		t.Helper()
+		rows := appRows(view)
+		if view.NeedsYou != count || rows[appChatID].State != chatState || rows[appTaskID].State != StateActive {
+			t.Errorf("Needs you = %d, chat = %s, task = %s", view.NeedsYou, rows[appChatID].State, rows[appTaskID].State)
+		}
+		if _, listed := rows[appCloudID]; listed || rows[appChat2ID].State != StateCompleted {
+			t.Errorf("completed chat = %s, hidden task was listed = %t", rows[appChat2ID].State, listed)
+		}
+		if terminal := byID(t, view, idSafari); terminal.State != StateUnread {
+			t.Errorf("already tracked terminal session = %s", terminal.State)
+		}
+		if rows[idCache].State != StateUnread {
+			t.Errorf("app reply pending since the earlier release = %s", rows[idCache].State)
+		}
+	}
+
+	check(scanner.Scan(context.Background(), ScanOptions{}), StateActive, 2)
+	restarted := &Scanner{Stores: stores, MarksPath: marksPath, Now: scanner.Now, SQLite: noSQLite, Processes: scanner.Processes}
+	now = now.Add(time.Hour)
+	check(restarted.Scan(context.Background(), ScanOptions{}), StateActive, 2)
+	list("2026-11-23T12:30:00Z")
+	check(restarted.Scan(context.Background(), ScanOptions{}), StateUnread, 3)
+}
+
+func TestScan_BaselinesLocalAndRemoteCoworkListsIndependently(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
+	scanner.Now = func() time.Time { return now }
+	local := func(rows []any) obj {
+		return obj{"queryKey": []any{"cowork-local-sessions", "org"}, "state": obj{"data": obj{"rows": rows}}}
+	}
+	ctx := context.Background()
+	writeClaudeApp(t, stores, local([]any{}))
+	scanner.Scan(ctx, ScanOptions{})
+
+	now = now.Add(time.Hour)
+	writeClaudeApp(t, stores,
+		local([]any{coworkTask(appTaskID, "New local task", "2026-11-07T12:30:00Z", false, false)}),
+		obj{"queryKey": []any{"cowork-remote-sessions", "org", true}, "state": obj{"data": []any{
+			coworkTask(appCloudID, "Historical remote task", "2026-11-07T12:30:00Z", false, false),
+		}}},
+	)
+	view := scanner.Scan(ctx, ScanOptions{})
+	rows := appRows(view)
+	if view.NeedsYou != 1 || rows[appTaskID].State != StateUnread || rows[appCloudID].State != StateActive {
+		t.Errorf("Needs you = %d, local task = %s, remote task = %s", view.NeedsYou, rows[appTaskID].State, rows[appCloudID].State)
+	}
+}
+
 func TestStamp_ChangesWhenTheClaudeAppWritesItsCache(t *testing.T) {
 	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
 	before := scanner.Stamp()
