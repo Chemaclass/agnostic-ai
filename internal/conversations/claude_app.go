@@ -110,7 +110,9 @@ type claudeAppRead struct {
 	note string
 	// sidebarRead: the read found the sidebar's chat list and decoded it.
 	// Only such a read tells which chats left the list.
-	sidebarRead bool
+	sidebarRead      bool
+	coworkLocalRead  bool
+	coworkRemoteRead bool
 }
 
 // claudeAppRows returns the chats and Cowork tasks the Claude app has
@@ -118,19 +120,21 @@ type claudeAppRead struct {
 // not, is kept until the app's storage files change, so the next write
 // reads them again. An app that was never used gives no rows and no
 // note.
-func (s *Scanner) claudeAppRows(opts ScanOptions) ([]Conversation, string) {
+func (s *Scanner) claudeAppRows(opts ScanOptions) claudeAppRead {
 	if s.Stores.ClaudeAppDir == "" {
-		return nil, ""
+		return claudeAppRead{}
 	}
 	stamp := fileStamp(s.claudeAppFiles()...)
 	if s.claudeApp.stamp != stamp {
 		s.claudeApp = cached[claudeAppRead]{stamp: stamp, value: s.readClaudeApp(s.claudeAppDB())}
 	}
-	rows := slices.Clone(s.claudeApp.value.rows)
-	if s.claudeApp.value.sidebarRead {
+	read := s.claudeApp.value
+	rows := slices.Clone(read.rows)
+	if read.sidebarRead {
 		rows = append(rows, s.claudeChatsGone(rows)...)
 	}
-	return within(rows, opts.Within), s.claudeApp.value.note
+	read.rows = within(rows, opts.Within)
+	return read
 }
 
 // claudeChatsGone remembers the chats of the app's cached list and
@@ -227,6 +231,8 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 	}
 	var rows []Conversation
 	sidebarRead := false
+	coworkLocalRead := false
+	coworkRemoteRead := false
 	seen := map[string]bool{}
 	keep := func(c Conversation) {
 		if seen[c.ID] {
@@ -247,7 +253,8 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 			}
 		case claudeCoworkLocalQuery:
 			var data claudeCoworkLocalData
-			if json.Unmarshal(query.State.Data, &data) == nil {
+			if json.Unmarshal(query.State.Data, &data) == nil && data.Rows != nil {
+				coworkLocalRead = true
 				for _, task := range data.Rows {
 					if c, ok := s.claudeCoworkRow(task); ok {
 						keep(c)
@@ -256,7 +263,8 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 			}
 		case claudeCoworkRemoteQuery:
 			var tasks []claudeCowork
-			if json.Unmarshal(query.State.Data, &tasks) == nil {
+			if json.Unmarshal(query.State.Data, &tasks) == nil && tasks != nil {
+				coworkRemoteRead = true
 				for _, task := range tasks {
 					if c, ok := s.claudeCoworkRow(task); ok {
 						keep(c)
@@ -265,7 +273,7 @@ func (s *Scanner) readClaudeApp(dir string) claudeAppRead {
 			}
 		}
 	}
-	return claudeAppRead{rows: rows, sidebarRead: sidebarRead}
+	return claudeAppRead{rows: rows, sidebarRead: sidebarRead, coworkLocalRead: coworkLocalRead, coworkRemoteRead: coworkRemoteRead}
 }
 
 // claudeAppReason is why the reader failed with err, or no reason for
@@ -308,7 +316,7 @@ func claudeChatsOf(query claudeAppQuery) (chats []claudeChat, sidebar bool) {
 		return nil, false
 	}
 	var data claudeChatListData
-	if json.Unmarshal(query.State.Data, &data) != nil {
+	if json.Unmarshal(query.State.Data, &data) != nil || data.Pages == nil {
 		return nil, false
 	}
 	for _, page := range data.Pages {

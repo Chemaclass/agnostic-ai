@@ -347,8 +347,9 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 		}
 	}
 	s.shown.start()
+	startedAt := s.Now()
 	results, cloudNote := s.readAll(ctx, opts)
-	needsYou, marksErr := s.applyMarks(results)
+	needsYou, marksErr := s.applyMarks(results, startedAt, ctx.Err() == nil)
 	read = keptSearch{needsYou: needsYou, calm: map[Ref]bool{}, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
 		for _, c := range result.conversations {
@@ -646,12 +647,22 @@ func (s *Scanner) readAll(ctx context.Context, opts ScanOptions) (results []sour
 			s.sharedClouds[markKey(c.Tool, c.ID)] = c.Cloud.ID
 		}
 	}
-	appRows, appNote := s.claudeAppRows(opts)
-	if len(appRows) > 0 {
+	appAt := s.Now()
+	app := s.claudeAppRows(opts)
+	if len(app.rows) > 0 {
 		claude.source.Found = true
 	}
-	claude.conversations = append(claude.conversations, readAt(s.Now(), sourceResult{conversations: appRows}).conversations...)
-	claude.source.Note = joinNotes(claude.source.Note, appNote)
+	claude.conversations = append(claude.conversations, readAt(appAt, sourceResult{conversations: app.rows}).conversations...)
+	claude.source.Note = joinNotes(claude.source.Note, app.note)
+	if app.sidebarRead {
+		claude.history = append(claude.history, historyRead{source: historyClaudeChat, at: appAt})
+	}
+	if app.coworkLocalRead {
+		claude.history = append(claude.history, historyRead{source: historyClaudeCoworkLocal, at: appAt})
+	}
+	if app.coworkRemoteRead {
+		claude.history = append(claude.history, historyRead{source: historyClaudeCoworkRemote, at: appAt})
+	}
 	codex := s.kept(ctx, ToolCodex, opts, s.codexFiles(), func() sourceResult { return s.scanCodex(ctx, opts) })
 	codexCloud, codexNote := s.cloudRows(ctx, opts, ToolCodex, s.CodexCloud)
 	codex.conversations = append(codex.conversations, codexCloud...)
@@ -752,6 +763,7 @@ func lastWritten(c Conversation) time.Time {
 type sourceResult struct {
 	source        Source
 	conversations []Conversation
+	history       []historyRead
 	// runs are the running Codex exec runs, listed under the session that started them.
 	runs []codexExecRun
 	// unlisted are threads that are no row but open from a row's helpers:

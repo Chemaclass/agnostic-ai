@@ -1096,6 +1096,56 @@ func TestDelete_DeletesAClosedSessionWithoutReadingItsReply(t *testing.T) {
 	assertFiles(t, files, false)
 }
 
+func TestDelete_RefusesAnUnreadSessionWithOnlyHistoricalClosure(t *testing.T) {
+	scanner, stores := testScanner(t, noSQLite, fakeProcesses{})
+	scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	now := quietAt.Add(-time.Hour)
+	scanner.Now = func() time.Time { return now }
+	ctx := context.Background()
+	scanner.Scan(ctx, ScanOptions{})
+
+	inventory := filepath.Join(stores.ClaudeDir, "sessions")
+	if err := os.MkdirAll(inventory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	written := quietAt.Format(time.RFC3339)
+	writeMarkedSession(t, stores, idSafari, written)
+	dateBefore(t, stores.ClaudeDir, quietAt)
+	transcript := filepath.Join(stores.ClaudeDir, "projects", "-tmp-app", idSafari+".jsonl")
+	data, err := os.ReadFile(transcript)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now = archivedAt
+	scanner.Scan(ctx, ScanOptions{})
+	key := markKey(ToolClaude, idSafari)
+	if entry := storedMarks(t, scanner.MarksPath).Marks[key]; entry.ClosedWrittenAt != written || entry.SeenAt != "" {
+		t.Fatalf("the closed reply should be recorded without a seen mark: %+v", entry)
+	}
+	if err := os.Remove(inventory); err != nil {
+		t.Fatal(err)
+	}
+
+	view := scanner.Scan(ctx, ScanOptions{})
+	row := byID(t, view, idSafari)
+	if row.State != StateDormant || view.NeedsYou != 0 {
+		t.Errorf("list after losing the session inventory: state = %s, Needs you = %d", row.State, view.NeedsYou)
+	}
+	const reason = "agnostic-ai could not confirm that this Claude Code session is still closed."
+	if row.DeleteUnsupported != reason {
+		t.Errorf("list delete reason = %q, want %q", row.DeleteUnsupported, reason)
+	}
+	reply, err := scanner.Delete(ctx, ToolClaude, idSafari, ScanOptions{})
+	refusal, ok := errors.AsType[*DeleteError](err)
+	if !ok || refusal.Kind != DeleteNotArchived || refusal.Message != row.DeleteUnsupported || reply.Deleted {
+		t.Errorf("delete = %+v, %v, want %s with the list reason %q", reply, err, DeleteNotArchived, reason)
+	}
+	assertFiles(t, map[string]string{transcript: string(data)}, true)
+	if entry := storedMarks(t, scanner.MarksPath).Marks[key]; entry.ClosedWrittenAt != written {
+		t.Errorf("the recorded closed reply should remain in the marks file: %+v", entry)
+	}
+}
+
 func TestDelete_RefusesWhenTheRunningProcessHidesItsStart(t *testing.T) {
 	scanner, stores, _, _ := deleteScanner(t, fakeProcesses{})
 	write(t, filepath.Join(stores.ClaudeDir, "sessions", "4242.json"), `{"pid":4242,"sessionId":"`+idSafari+`","procStart":"134397694254382773"}`)

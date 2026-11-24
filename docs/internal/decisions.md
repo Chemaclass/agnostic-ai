@@ -206,6 +206,8 @@ The [comparison and local proof](experiments/caveman-source-decision.md) record 
 
 **Update (2026-11-18, [#3596](https://github.com/Chemaclass/agnostic-ai/issues/3596)):** Archived means archived: an archived row has no read or unread state. A closed terminal session with an unseen reply is `dormant` without `unread`, can be deleted without being read, and is no longer pinned to the first page. `closedWrittenAt` is still saved, so a session resumed by hand is `active` with `unread: true` until read, as above. A claude.ai reply that stays folded into a closed shared row is therefore not flagged until the cloud row shows on its own.
 
+**Update (2026-11-24, [#3986](https://github.com/Chemaclass/agnostic-ai/issues/3986)):** A failed process read also honors `closedWrittenAt` when deciding whether a reply needs attention. The saved write time provides no evidence about which process holds the session now. Later writes use the usual fallback until a process read succeeds.
+
 ## 019: A mark goes after 30 days of full reads that miss its conversation
 
 **Date:** 2026-11-17

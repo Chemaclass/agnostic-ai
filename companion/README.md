@@ -328,6 +328,10 @@ again. The time updates about once a minute.
 
 When a status counts:
 
+- **Newly listed app history starts quiet.** On the first full read of the
+  available Claude chat, Cowork, or ChatGPT list, older chats without saved
+  read marks start outside Needs you. If you already have a marks file from
+  before this change, replies since v0.96.0 still count as usual.
 - **Looking counts.** Opening or archiving a chat that waits for you takes it
   out of Needs you. Its next prompt is a new write, which puts it back.
 - **Only looking here counts.** You see a conversation when you open it from
