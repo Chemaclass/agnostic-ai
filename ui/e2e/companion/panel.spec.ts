@@ -84,6 +84,22 @@ test('Tab from search focuses a conversation and Enter opens it after a refresh'
   await expect(page.getByLabel('New name')).toHaveCount(0)
 })
 
+test('forward Tab reaches header and group controls after the initial jump to a row', async ({ page }) => {
+  await openPanel(page)
+  await page.keyboard.press('Tab')
+  await expect(row(page, 'Approve the database migration')).toBeFocused()
+
+  const dashboard = page.getByRole('button', { name: 'Open the dashboard' })
+  for (let step = 0; step < 40 && !(await dashboard.evaluate((button) => button === document.activeElement)); step += 1) {
+    await page.keyboard.press('Tab')
+  }
+  await expect(dashboard).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(groupTitle(page, 'Needs you')).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(page.getByRole('button', { name: 'Mark all as read' })).toBeFocused()
+})
+
 test('Escape clears a search first and then closes the list', async ({ page }) => {
   await openPanel(page)
   const search = page.getByLabel('Search every conversation')
@@ -3076,8 +3092,10 @@ test('Cmd+Shift+V picks a conversation for the copied text, and Enter sends it t
   expect(calls).not.toContain('/api/panel/show')
 })
 
-test('pick mode starts on the one row the text can be typed into, and still waits for Enter', async ({ page }) => {
+test('pick mode starts on the one row the text can be typed into even from another focused row', async ({ page }) => {
   await openPanel(page, 'one-terminal')
+  await page.keyboard.press('Tab')
+  await expect(row(page, 'Approve the database migration')).toBeFocused()
   await page.keyboard.press('Meta+Shift+KeyV')
 
   await expect(selected(page)).toContainText('Plan the sync dry run')
@@ -3085,6 +3103,28 @@ test('pick mode starts on the one row the text can be typed into, and still wait
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'))
   await page.keyboard.press('Enter')
   expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('Space sends the copied text to the focused picker row', async ({ page }) => {
+  await openPanel(page, 'one-terminal')
+  await page.keyboard.press('Meta+Shift+KeyV')
+  await expect(selected(page)).toContainText('Plan the sync dry run')
+  await page.keyboard.press('Tab')
+  await expect(row(page, 'Plan the sync dry run')).toBeFocused()
+
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/send'), { timeout: 5000 })
+  await page.keyboard.press('Space')
+  expect((await sent).postDataJSON()).toMatchObject({ tool: 'claude', id: 'active-2' })
+})
+
+test('Space chooses the focused row as the mailbox recipient', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await composeMailbox(page)
+  const recipient = row(page, 'Draft the tests')
+  await recipient.focus()
+  await page.keyboard.press('Space')
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  expect(await calledPaths(page)).not.toContain('/api/open')
 })
 
 test('a double click sends once, and Escape while the chip flies takes the send back', async ({ page }) => {

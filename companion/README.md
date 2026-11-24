@@ -81,7 +81,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   the chat it came from while both are in the same group. A child that waits
   for you stays under Needs you, even when its parent is active or archived.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click
-  anywhere on the row but its name. **Tab** from search focuses a chat.
+  anywhere on the row but its name. **Tab** focuses a chat after opening the list or using search.
   **F2** renames the selected chat.
   A running chat comes up in the Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab that runs it, ready
   for typing. Inside tmux, its pane is selected first. When only the app can come forward, the list comes back and

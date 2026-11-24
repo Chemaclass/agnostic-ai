@@ -42,6 +42,9 @@ const DONE_MS = 520
 const PLACE_KEY = 'place'
 const KEY_STEPS = { ArrowDown: 1, ArrowUp: -1 }
 
+// One jump from search leaves the header and group controls reachable on the next Tab cycle.
+let tabToConversation = true
+
 /** The place chosen last time, or all. A web view that keeps no storage starts at all each run. */
 function storedPlace() {
   let stored
@@ -1402,8 +1405,9 @@ async function enterPick() {
   showPick(clip)
   state.activeKey = shownView() ? pickKey(undefined) : undefined
   drawPlaces()
-  draw({ force: true })
+  tabToConversation = true
   queryInput.focus()
+  draw({ force: true })
   return true
 }
 
@@ -2212,6 +2216,7 @@ async function markAll(rows, mark, keep = () => true) {
 
 let searchTimer
 function searchSoon() {
+  tabToConversation = true
   const typed = queryInput.value.trim()
   clearButton.hidden = queryInput.value === ''
   if (typed === state.query) return
@@ -2231,6 +2236,7 @@ function clearSearch() {
 }
 
 queryInput.addEventListener('input', searchSoon)
+queryInput.addEventListener('pointerdown', () => { tabToConversation = true })
 clearButton.addEventListener('click', clearSearch)
 // Settings
 
@@ -2663,16 +2669,18 @@ document.addEventListener('keydown', (event) => {
     openRowMenu(conversation, { clientX: bounds.left, clientY: bounds.bottom })
     return
   }
-  if (event.key === 'Tab' && event.target === queryInput && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {
+  if (tabToConversation && event.key === 'Tab' && event.target === queryInput && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {
     const row = list.querySelector('.row.is-active') ?? list.querySelector('.row')
     if (!row) return
     event.preventDefault()
+    tabToConversation = false
     row.focus()
     return
   }
   const step = KEY_STEPS[event.key]
   if (step !== undefined) {
     event.preventDefault()
+    if (event.target === queryInput) tabToConversation = true
     moveActive(step, event.target.matches('.row'))
     return
   }
@@ -2686,9 +2694,10 @@ document.addEventListener('keydown', (event) => {
     startRename(conversation)
     return
   }
-  // A focused button takes Enter as its own click.
+  // A focused button handles its own activation keys.
   if (event.target.closest('button')) return
-  if (event.key === 'Enter' && !event.repeat && !confirmsCandidate(event)) {
+  const choosesWithSpace = event.key === ' ' && event.target.matches('.row') && (state.pick || mailbox.composing)
+  if ((event.key === 'Enter' || choosesWithSpace) && !event.repeat && !confirmsCandidate(event)) {
     if (state.pick && state.searching) return
     const conversation = activeConversation()
     if (conversation) {
@@ -2734,6 +2743,7 @@ function opened(data) {
     state.query = ''
     state.searching = false
   }
+  tabToConversation = true
   queryInput.focus()
   queryInput.select()
   draw({ force: true })
