@@ -851,7 +851,10 @@ function groupHead(group) {
 
 function emptyMessage() {
   const empty = element('div', 'empty')
-  if (state.query === '') {
+  const place = state.pick ? 'all' : state.place
+  if (state.query === '' && place !== 'all') {
+    empty.append(element('strong', '', `No ${place} conversations`), 'Choose All to see every conversation.')
+  } else if (state.query === '') {
     empty.append(element('strong', '', 'No conversations yet'), 'Chats from Claude Code, Codex and Cursor show up here.')
   } else {
     empty.append(element('strong', '', 'Nothing matches'), 'Try a title, a folder, a branch or words from your last prompt or the latest reply.')
@@ -1811,7 +1814,7 @@ function bindRowCopy(item, field, copied, failed) {
   })
 }
 bindRowCopy('copy-session-id', 'id', 'Session ID copied.', 'Could not copy the session ID.')
-bindRowCopy('copy-cloud-resume', 'cloudResumeCommand', 'Resume command copied.', 'Could not copy the resume command.')
+bindRowCopy('copy-cloud-resume', 'cloudResumeCommand', 'Resume command copied. Paste it in a terminal.', 'Could not copy the resume command.')
 menuItems['send-to'].addEventListener('click', () => {
   const conversation = rowMenuTarget('send-to')
   closeRowMenu()
