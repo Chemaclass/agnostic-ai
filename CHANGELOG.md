@@ -6,6 +6,45 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.99.0 - 2026-11-24
+
+### Highlights
+
+- Copy the terminal command that resumes a Claude Code cloud session from the companion or web Conversations (#3978).
+- The companion brings the right Codex terminal forward more often and never offers a resume that competes with a running thread (#3957, #3969, #3981).
+- The companion explains its chat menu, permission setup and mailbox actions, and its empty and disabled states say what they mean (#3954, #3984).
+- Web Conversations says when cloud chats could not be loaded and keeps the local resume command on shared chats (#3968, #3975).
+
+### General
+
+- The web Conversations page says when cloud chats could not be loaded (#3975).
+- Opening a shared chat on claude.ai leaves its local resume command available in the web Conversations view (#3968).
+
+### By tool
+
+#### Codex
+
+- The companion finds a Codex tab after a delayed first prompt and brings a lone candidate forward as a guess (#3957).
+- It suggests the terminal for a later Codex chat when that chat is the only live one in the project and one terminal can show it (#3969).
+- Opening a thread the Codex background service still holds never offers a resume command that would compete with it (#3981).
+- Opening or renaming a Codex chat leaves the old terminal tab alone after its client exits (#3965).
+- Codex terminals are found even when the prompt mentions `app-server` (#3966).
+
+#### Companion
+
+- The chat menu and permission setup explain themselves, and mailbox threads show one main action with the rest under More (#3954).
+- Closing "Also give claimed files" clears its paths, so a handoff never keeps paths it will not send (#3984).
+- A Send button that cannot send looks disabled, and an empty Local or Cloud filter names that place (#3984).
+- A slow subagent switch keeps its instructions, and a detached tmux pane offers its attach command (#3967).
+
+#### Claude Code
+
+- The companion and web Conversations copy the `claude --teleport` command that resumes a cloud session (#3978, #3984).
+
+### Site
+
+- The home page links the companion disk images for Apple silicon and Intel Macs and offers the terminal install (#3953, #3956).
+
 ## v0.98.0 - 2026-11-23
 
 ### Highlights
