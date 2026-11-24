@@ -9,9 +9,9 @@ group = "Reference"
 
 # Conversations API
 
-These routes of the [local API](@/docs/cli-reference/serve-api.md) serve the Conversations list and the [companion](@/docs/cli-reference/companion.md). Use them to list your AI chats, reopen one where it lives, send it text, or mark it read.
+The [local API](@/docs/cli-reference/serve-api.md) powers the Conversations list and [companion](@/docs/cli-reference/companion.md). Call these routes to list chats, reopen them, send text, or mark them read.
 
-The three most common calls, against `agnostic-ai serve --scope user` on the default port:
+Start `agnostic-ai serve --scope user` on the default port to try these calls.
 
 ```bash
 curl -s "http://127.0.0.1:4310/api/views/conversations?tool=claude"
@@ -21,7 +21,7 @@ curl -s -X POST http://127.0.0.1:4310/api/conversations/mark \
   -H 'Content-Type: application/json' -d '{"tool":"claude","id":"<id>","as":"seen"}'
 ```
 
-The first call lists chats and their `state`. The second brings a live one to the front; resuming an ended one [needs proof](#post-api-conversations-open). The third marks one read. POST routes must come from the server's own origin. See [Shell API](@/docs/cli-reference/conversations-shell-api.md) to stop a forgotten shell.
+The first call lists chats and their `state`. The second brings a live chat to the front. To resume an ended chat, [provide proof](#post-api-conversations-open). The third marks one read. POST routes must come from the server's own origin. See [Shell API](@/docs/cli-reference/conversations-shell-api.md) to stop a forgotten shell.
 
 ## `GET /api/views/conversations`
 
@@ -113,7 +113,11 @@ A process that ends shows within a minute: the server reads processes again at m
 
 Desktop app sessions, Claude chats, Cowork tasks, ChatGPT chats and cloud sessions stay `active` until you archive them here or in their app. Quitting the app archives none of them. A cloud session whose status says it works or waits, and that wrote nothing for 24 hours, no longer counts as working or waiting; it is `active` or `unread`, never archived by its age.
 
-Editor panels and Claude Code background jobs keep the 24 hours: nothing reliable says when they close. So does every chat whose process read failed or cannot run: Codex and `cursor-agent` chats on a system without `lsof`, Codex threads from a version that keeps no `thread-writer-locks` folder, Claude Code sessions from a version that writes no `sessions` folder, and every chat in a scan where `ps` or `lsof` failed. So does a Codex lock or `cursor-agent` store that `lsof` cannot reach: under a folder it cannot read, or behind a link, since `lsof` skips both without saying so. So does every Claude Code session while a session file cannot be read and the process its name gives still runs; the Claude Code tool's `note` then names the file. A file whose process is gone, as a crash leaves it, is skipped. When a process read fails, whether the terminal session is closed remains unknown.
+The list uses the 24-hour cutoff for editor panels and Claude Code background jobs because it cannot tell when they close. It also uses the cutoff whenever it cannot check which process holds a terminal session or when that check fails.
+
+That includes Codex and `cursor-agent` chats on systems without `lsof`, Codex versions without the `thread-writer-locks` folder, Claude Code versions without the `sessions` folder, and every chat in a scan where `ps` or `lsof` fails. The cutoff also applies when `lsof` cannot reach a Codex lock or `cursor-agent` store. It silently skips unreadable folders and links.
+
+If a Claude Code session file is unreadable and its named process still runs, the cutoff applies to every Claude Code session and the tool's `note` names the file. The server skips files whose process is gone, such as files left behind by a crash. A failed process read leaves the terminal session's closure unknown.
 
 Process ids are read on this computer only. A conversation store shared with a container, WSL or another user account can name a process this computer cannot see, so that session may show closed while it runs elsewhere. The server does not detect another process namespace.
 

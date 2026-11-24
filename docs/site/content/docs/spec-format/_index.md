@@ -20,7 +20,7 @@ mcp-servers = "@/docs/spec-format/mcps.md"
 
 A spec is a file under `.agnostic-ai/`. `agnostic-ai sync` writes it for each enabled tool in that tool's own path and format, such as `.claude/agents/`, `.cursor/rules/`, `.codex/config.toml`, or `.gemini/settings.json`.
 
-To add one: pick a folder below, write when the spec applies, what to do, and what to return. Check it with `agnostic-ai lint` and `agnostic-ai sync --dry-run`, then sync and run `agnostic-ai sync --check`.
+Choose the folder for your spec. Write when it applies, what to do, and what to return. Check it with `agnostic-ai lint` and `agnostic-ai sync --dry-run`, then sync and run `agnostic-ai sync --check`.
 
 ## Folders
 

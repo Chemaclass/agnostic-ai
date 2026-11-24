@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md) · [Decision 005](decisions.md#005-jev-triage-for-target-audits-optional-and-measured) · [Target audit skill](../../.agnostic-ai/skills/target-audit/SKILL.md)
 
-`scripts/jev-triage.sh` helps `/target-audit` choose which changed vendor pages to review. It asks TypeSafe's Jev, a model that returns structured answers, which pages probably contradict an agnostic-ai claim and which can be skipped. It is optional; audits still work without it.
+`scripts/jev-triage.sh` optionally uses TypeSafe's Jev to rank changed vendor pages for `/target-audit`. Jev returns structured answers about which pages may contradict an agnostic-ai claim and which can skip full review.
 
 Use `scripts/jev-triage.sh --lexical <run> <pending-deep-target>...` when every pending deep target is in `builtin-deep:`. Those targets need full review regardless of Jev scores. Other runs use the API mode when available. Limit either mode to pending deep targets to avoid repeating triage. Required evidence and review coverage stay the same.
 
@@ -19,7 +19,7 @@ The skill reviews targets with possible problems first and passes Jev's rows to 
 
 ## Per-run metrics
 
-When jq is available, the script writes versioned `triage-metrics.json` with the run identity, stage interval, mode, answered and capped requests, returned token usage, and research limits. Missing usage is null, distinct from measured zero; a known subtotal survives partial responses. The stderr format and TSV columns stay the same, with `unknown input tokens` when an answered request omits usage. Metrics failures preserve the offline fallback.
+With jq, the script writes a versioned `triage-metrics.json` with the run identity, stage interval, mode, answered and capped requests, token usage, and research limits. It records missing usage as null and keeps known subtotals for partial responses. The stderr format and TSV columns stay the same. When an answered request omits usage, stderr shows `unknown input tokens`. The offline fallback still works if writing metrics fails.
 
 The audit coordinator records the rest of the run with `scripts/audit-metrics.sh`, including overlapping stages, approved omitted reviews, samples, built-in overrides, and findings linked to known leads. Follow the [metrics reference](../../.agnostic-ai/skills/target-audit/references/metrics.md) for commands and report fields. Audit elapsed time ends before later fixes and merges. Counts of omitted reviews are routing observations, not time saved. Compare clean, vendor-change, and built-in-only runs with their provenance and research limits; replay on isolated excerpts does not measure full-run recall or prove a speedup.
 

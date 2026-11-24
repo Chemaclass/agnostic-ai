@@ -13,13 +13,11 @@ ignore = "@/docs/spec-format/ignore.md"
 overwrite-behaviour = "@/docs/spec-format/ignore.md"
 +++
 
-# Settings
-
-`settings/` sets what agents may run without asking, what they must never run, and which model and effort they start with. Claude Code keeps this in `.claude/settings.json`, Factory in command lists, Codex in `config.toml`. A settings spec states it once.
+<a id="settings-1"></a>
 
 # Settings
 
-`settings/` sets what agents may run without asking, what they must never run, and which model and effort they start with. Claude Code keeps this in `.claude/settings.json`, Factory in command lists, Codex in `config.toml`. A settings spec states it once.
+Use one spec in `settings/` to choose what agents may run without asking, what they must never run, and which model and effort they start with. Sync writes `.claude/settings.json` for Claude Code, command lists for Factory, and `config.toml` for Codex.
 
 ## Write one {#write-one}
 

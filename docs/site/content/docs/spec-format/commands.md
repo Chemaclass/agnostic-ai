@@ -9,7 +9,7 @@ group = "Reference"
 
 # Commands
 
-`commands/` holds slash commands: saved prompts you start by name, such as `/deploy`. The body is the prompt the tool sends.
+`commands/` holds slash commands, saved prompts that you run by name, such as `/deploy`. The tool sends the body as the prompt.
 
 Use a [skill](@/docs/spec-format/skills.md) instead when the model should pick the workflow itself, or when it needs bundled files. Set `outputs.<target>.emit-skills-as-commands: true` to get both from one skill.
 

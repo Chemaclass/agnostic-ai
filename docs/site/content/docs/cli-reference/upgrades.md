@@ -19,9 +19,9 @@ agnostic-ai upgrade --check              # show install details without updating
 agnostic-ai upgrade --version v0.92.0    # install a specific release
 ```
 
-Upgrading the tool and upgrading a project are two steps. If the latest release is installed but the project still requires an older one, the message points to `agnostic-ai upgrade --requires`.
+Install the new CLI before upgrading its projects. If you already have the latest release and the project requires an older one, the message points to `agnostic-ai upgrade --requires`.
 
-Stop `agnostic-ai sync --watch` first, and install the new release before anything else, since it holds the migrations. Then, in each project:
+Stop `agnostic-ai sync --watch` before upgrading. The new release includes the migrations. Run these steps in each project.
 
 1. Run `agnostic-ai upgrade --requires`. It raises `requires`, updates the editor schema URL, syncs, and lists applicable migrations. Old spec forms still work.
 2. Run `agnostic-ai migrate --dry-run`, review the changes, then run `agnostic-ai migrate`.

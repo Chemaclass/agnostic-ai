@@ -2,11 +2,11 @@
 
 [Contributor docs](README.md) · [Release process](release-process.md) · [Decision 023](decisions.md#023-the-macos-companion-is-signed-with-self-signed-certificates)
 
-The macOS companion app is signed with self-signed certificates, without an Apple Developer ID. This page explains why, how each install path signs, and how to make, store, rotate and check the release certificate by hand.
+The macOS companion uses self-signed certificates without an Apple Developer ID.
 
 ## Why the signature matters
 
-The companion needs Accessibility access to paste into a terminal. macOS stores that grant against the app's designated requirement: a rule, written into the signature, that says which code counts as this app.
+The companion needs Accessibility access to paste into a terminal. macOS ties that grant to the designated requirement in the signature. The rule identifies which code counts as the same app.
 
 | Signature | Designated requirement | After an update |
 |---|---|---|
@@ -23,7 +23,7 @@ The companion needs Accessibility access to paste into a terminal. macOS stores 
 | `agnostic-ai companion install` | One made on each Mac on the first install, named `agnostic-ai companion (this Mac)` | `signer.keychain-db` in the companion folder (`~/Library/Application Support/agnostic-ai/companion/`), with `signer.cer` beside it | `internal/cli/companion_sign_darwin.go` |
 | Release disk image (`.dmg`) | The project certificate, named `agnostic-ai companion release` | The GitHub secret `COMPANION_SIGNING_P12`, and private copies kept by maintainers | `scripts/companion-sign.sh`, `.github/workflows/release.yml` |
 
-The two certificates differ, so a user who switches between the disk image and the terminal installer grants Accessibility once more. Uninstalling the companion deletes the per-Mac certificate; the next install makes a new one.
+Grant Accessibility again when switching between the disk image and the terminal installer. They use different certificates. Uninstalling deletes the per-Mac certificate, and the next terminal install makes a new one.
 
 ### Terminal installer
 

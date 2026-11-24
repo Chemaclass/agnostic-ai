@@ -13,7 +13,7 @@ For actions on a listed conversation, see the [Conversations API](@/docs/cli-ref
 
 ## conversations start
 
-Start a second conversation from a running session, in a new terminal tab in the same folder. The brief you pass becomes its first prompt. The session you run it from goes on with its own task. The [`side-conversation` skill](@/docs/side-conversation.md) tells the agent when to run it.
+Start a second conversation from a running session. It opens in a new terminal tab in the same folder, with your brief as its first prompt. The original session keeps running. The [`side-conversation` skill](@/docs/side-conversation.md) tells the agent when to start another conversation.
 
 The [Conversations API](@/docs/cli-reference/conversations-api.md) names the session it came from as the new row's `parent`.
 

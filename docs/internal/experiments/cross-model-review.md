@@ -1,6 +1,6 @@
 # Cross-model review experiment
 
-**Status:** Ran 50 reviews on 2026-11-23. [Issue #3837](https://github.com/Chemaclass/agnostic-ai/issues/3837) wrote it; epic [#3831](https://github.com/Chemaclass/agnostic-ai/issues/3831). The sample and keep rule were set before collecting reviews. The change log records run adjustments.
+The experiment ran 50 reviews on 2026-11-23. The sample and keep rule were fixed before collection. The change log records adjustments made during the run. [Experiment issue #3837](https://github.com/Chemaclass/agnostic-ai/issues/3837) · [Mailbox epic #3831](https://github.com/Chemaclass/agnostic-ai/issues/3831)
 
 ## Question
 

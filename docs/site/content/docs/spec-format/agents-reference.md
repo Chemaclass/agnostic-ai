@@ -9,7 +9,7 @@ group = "Reference"
 
 # Agent reference
 
-Per-tool behavior for the fields on the [agents page](@/docs/spec-format/agents.md). Where a tool cannot honor a field, sync prints a note.
+See [Agents](@/docs/spec-format/agents.md) for the shared fields. Sync prints a note for fields a tool cannot honor.
 
 ## `effort` values by target {#effort-by-target}
 

@@ -34,7 +34,7 @@ set-up-this-tool = "@/docs/targets/codex.md#first-rule"
 ## Import {#import .legacy-anchor}
 
 
-Write instructions and rules once under `.agnostic-ai/`. Sync writes `AGENTS.md`, skill folders, and any agents, hooks, MCP servers, or settings. The same sources can feed Claude Code. Using this provider through Composer? See the [Composer setup guide](@/docs/composer.md).
+Write instructions and rules once under `.agnostic-ai/`. Sync writes `AGENTS.md`, skill folders, and any agents, hooks, MCP servers, or settings. Select the Claude Code target to use the same sources there. For Codex through Composer, follow the [Composer setup guide](@/docs/composer.md).
 
 ## First rule
 

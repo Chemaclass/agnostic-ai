@@ -7,7 +7,7 @@
 
 # agnostic-ai
 
-Keep the same project instructions across coding tools. Edit one source, then run `agnostic-ai sync` to write the files Claude Code, Codex, and your other tools read.
+Write project instructions once in Markdown and YAML. Run `agnostic-ai sync` to generate the files Claude Code, Codex, and your other tools read. Sync runs locally and needs no account.
 
 [![CI](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/Chemaclass/agnostic-ai/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/agnostic-ai?logo=npm&label=npm)](https://www.npmjs.com/package/agnostic-ai)
@@ -16,7 +16,7 @@ Keep the same project instructions across coding tools. Edit one source, then ru
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/Chemaclass/agnostic-ai/badge)](https://scorecard.dev/viewer/?uri=github.com/Chemaclass/agnostic-ai)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15088/badge)](https://www.bestpractices.dev/projects/15088)
 
-Each AI tool reads different instruction files. Hand-edited copies can fall out of sync. agnostic-ai generates them from Markdown and YAML in your repository, with no account or service. See [Why agnostic-ai](https://agnostic-ai.org/docs/why-agnostic-ai/).
+[Why share your coding tool setup?](https://agnostic-ai.org/docs/why-agnostic-ai/)
 
 <a id="set-up-manually"></a>
 <a id="install"></a>
@@ -30,15 +30,15 @@ npm install -g agnostic-ai
 agnostic-ai init
 ```
 
-Select the tools you use, for example Claude Code and Codex. If the project already has files such as `CLAUDE.md` or `AGENTS.md`, accept the offer to import them so their instructions are kept. If the project already has `agnostic-ai.yaml`, skip `init` and run `agnostic-ai sync`.
+Select your tools. Accept the import offer to keep instructions from existing files such as `CLAUDE.md` and `AGENTS.md`. If the project already has `agnostic-ai.yaml`, run `agnostic-ai sync` directly.
 
-`init` creates `.agnostic-ai/AGNOSTIC_AI.md`, the instructions every selected tool reads. Replace its placeholder comment with a project note, or add one below any imported instructions:
+`init` creates `.agnostic-ai/AGNOSTIC_AI.md`. Replace the placeholder comment with a project note, or add one below the imported instructions.
 
 ```markdown
 Run the project tests before finishing a change.
 ```
 
-Preview the files, write them, and check that they match the source:
+Preview, write, and check the generated files.
 
 ```bash
 agnostic-ai sync --plan
@@ -46,13 +46,13 @@ agnostic-ai sync
 agnostic-ai sync --check
 ```
 
-With Claude Code and Codex selected, your note is now in `AGENTS.md`, and `CLAUDE.md` points to it. To change what both tools read, edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again. Sync replaces generated files, so edit the source instead. It saves a hand edit as `.bak` first, and `agnostic-ai revert` restores it.
+If you selected Claude Code and Codex, `AGENTS.md` contains your note and `CLAUDE.md` points to it. Edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again to update both. Sync replaces generated files and saves hand edits in `.bak` files. Use `agnostic-ai revert` to restore them.
 
-Homebrew, the install script, Windows, and Go are on the [installation page](https://agnostic-ai.org/docs/installation/).
+See the [installation guide](https://agnostic-ai.org/docs/installation/) for Homebrew, the install script, Windows, and Go.
 
 ## Set up with a coding agent
 
-Paste this into Claude Code, Codex, Cursor, or another coding agent:
+Paste this into your coding agent.
 
 ```text
 Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setup.txt exactly. Preserve existing AI tool behavior. Before any sync, check for existing CLAUDE.md, AGENTS.md, and similar files, and ask me what to do with their content. Finish with agnostic-ai sync --check. Summarize the targets selected and every file changed.
@@ -60,20 +60,20 @@ Set up agnostic-ai in this repository. Follow https://agnostic-ai.org/agent-setu
 
 ## Next steps
 
-- [Set up your project](https://agnostic-ai.org/docs/getting-started/): the full walkthrough, Git choices, and everyday commands.
-- [Import an existing setup](https://agnostic-ai.org/docs/migration/): review your current tool files before the first sync.
-- [What you can share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when): rules, skills, agents, hooks, MCP servers, settings, and memory.
-- [Supported tools](https://agnostic-ai.org/docs/targets/): what each tool receives, and where.
-- [Install the floating companion](https://agnostic-ai.org/docs/cli-reference/companion/#install): choose a Mac disk image with the CLI and full dashboard included, or run `agnostic-ai companion install` with an existing CLI. See coding sessions, Claude chats, Cowork tasks, and ChatGPT chats from this computer. Updates keep your saved read and archive marks. When the list opens, press Tab to focus a session, then Enter to open it. For a running session in a supported terminal, this switches to its tab. You can also [stop background shells that Claude Code left running](https://agnostic-ai.org/docs/cli-reference/companion-list/#stop-a-forgotten-shell). The macOS companion keeps its Accessibility grant across updates that use the same signer. Automatic checks can keep a verified update offer offline.
-- [Open the web interface](https://agnostic-ai.org/docs/cli-reference/serve/#serve): view context size and edit hooks, MCP servers, and settings with `agnostic-ai ui`. The Conversations page explains when cloud chats could not be loaded.
-- [Save a session handoff](https://agnostic-ai.org/docs/handoff/): switch tools mid-task, or automate Git snapshots with Claude hooks.
-- [Start a side conversation](https://agnostic-ai.org/docs/side-conversation/): `agnostic-ai conversations start` opens a second task in a new terminal tab, linked to the session it came from.
-- [Message another session](https://agnostic-ai.org/docs/mailbox/): send questions, request code reviews and hand off work between local Claude Code and Codex sessions, from the companion or from the agents with `agnostic-ai mailbox`. The `mailbox` built-in delivers them with the next prompt, and agent messages wait for your approval first. Each thread shows the next action, with other controls under **More**. `agnostic-ai mailbox stats` counts what happened, with no message text.
-- [Answer routine permission prompts](https://agnostic-ai.org/docs/approvals/): with `approvals.mode: yolo` in your home config, a hook approves safe Claude Code, Codex, Kiro, Qwen Code and Qoder tool calls one at a time; risky ones still ask.
-- [Hand off to the cloud](https://agnostic-ai.org/docs/cloud-handoff/): say "send this to a remote agent" to push the task and continue it in a Claude Code or Codex cloud session. Copy a Claude Code cloud session's resume command from the companion or web interface.
-- [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why): `agnostic-ai why CLAUDE.md` names its source.
-- [Personal settings](https://agnostic-ai.org/docs/global-configuration/): keep them in `~/.agnostic-ai` and apply them with `agnostic-ai sync --scope user`.
-- [Troubleshooting](https://agnostic-ai.org/docs/troubleshooting/): when a file is missing or a check fails. `agnostic-ai doctor` explains drift.
+- [Set up your project](https://agnostic-ai.org/docs/getting-started/) and see what to commit and which commands to run after editing.
+- [Import an existing setup](https://agnostic-ai.org/docs/migration/) before the first sync.
+- [Choose what to share](https://agnostic-ai.org/docs/why-agnostic-ai/#what-to-add-and-when). Share rules, skills, agents, hooks, MCP servers, settings, and memory.
+- [See what each tool reads](https://agnostic-ai.org/docs/targets/).
+- [Install the floating companion](https://agnostic-ai.org/docs/cli-reference/companion/#install) from a Mac disk image that includes the CLI and dashboard, or run `agnostic-ai companion install` with an existing CLI. Browse coding sessions, Claude chats, Cowork tasks, and ChatGPT chats. Press Tab to focus a session and Enter to open it or switch to its running tab in a supported terminal. You can also [stop a forgotten Claude Code shell](https://agnostic-ai.org/docs/cli-reference/companion-list/#stop-a-forgotten-shell). Updates keep saved read and archive marks. On macOS, updates signed by the same signer keep Accessibility access, and automatic checks can show the last verified update offer offline.
+- [Open the web interface](https://agnostic-ai.org/docs/cli-reference/serve/#serve) with `agnostic-ai ui` to see context size and edit hooks, MCP servers, and settings. The Conversations page explains why cloud chats are missing.
+- [Save a session handoff](https://agnostic-ai.org/docs/handoff/) to switch tools mid-task or automate Git snapshots with Claude hooks.
+- [Start a side conversation](https://agnostic-ai.org/docs/side-conversation/) with `agnostic-ai conversations start`. It opens a terminal tab linked to the original session.
+- [Message another session](https://agnostic-ai.org/docs/mailbox/) to ask a question, request a review, or hand off work between local Claude Code and Codex sessions. The `mailbox` built-in delivers messages with the next prompt after any required approval. Each thread shows its next action and puts other controls under **More**. `agnostic-ai mailbox stats` reports counts without showing message text.
+- [Answer routine permission prompts](https://agnostic-ai.org/docs/approvals/) with `approvals.mode: yolo` in your home config. A hook handles safe calls one at a time for Claude Code, Codex, Kiro, Qwen Code, and Qoder. Riskier calls still ask.
+- [Hand off to the cloud](https://agnostic-ai.org/docs/cloud-handoff/) by saying "send this to a remote agent" in Claude Code or Codex. The skill pushes the branch and starts a cloud session. Copy a Claude Code cloud session's resume command from the companion or web interface.
+- [Trace a generated file](https://agnostic-ai.org/docs/cli-reference/inspect/#why) with `agnostic-ai why CLAUDE.md`.
+- [Keep personal settings](https://agnostic-ai.org/docs/global-configuration/) in `~/.agnostic-ai` and apply them with `agnostic-ai sync --scope user`.
+- [Find a missing file or a failed check](https://agnostic-ai.org/docs/troubleshooting/) with `agnostic-ai doctor`.
 
 ## Contribute
 

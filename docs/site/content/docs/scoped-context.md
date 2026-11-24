@@ -52,7 +52,7 @@ To change the rule, edit the source and sync again. Preview it with `agnostic-ai
 agnostic-ai explain --file services/payments/handler.go --target cursor
 ```
 
-For Claude Code, Codex, or Cursor, the report lists each instruction's source spec, output path, condition, and status. It shows planned output, not what the model loaded. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. Status values: [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
+For Claude Code, Codex, or Cursor, the report lists each instruction's source spec, output path, condition, and status as planned by sync. The instructions a model loads can differ. A shared `services/payments/AGENTS.md` replaces a `.mdc` rule when another tool needs it. For status values, see the [CLI reference](@/docs/cli-reference/inspect.md#explain-a-source-file).
 
 <details>
 <summary>Set directory scope and understand Codex directory patterns</summary>

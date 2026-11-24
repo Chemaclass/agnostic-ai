@@ -17,7 +17,7 @@ group = "Reference"
 agnostic-ai new environment development
 ```
 
-It creates `.agnostic-ai/environments/development.yaml` with no commands. Add the commands you have reviewed, and create any script they call before syncing:
+The command creates `.agnostic-ai/environments/development.yaml` with no commands. Add reviewed commands and create the scripts they call before syncing.
 
 ```yaml
 name: dev

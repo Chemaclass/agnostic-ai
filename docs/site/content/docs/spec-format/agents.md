@@ -20,7 +20,7 @@ color-support-by-target = "@/docs/spec-format/agents-reference.md"
 
 `agents/` defines subagents for the main agent, each with its own instructions, tools, and model. A reviewer can be read-only, and a test writer can use a cheaper model.
 
-Give each agent one responsibility: what it owns, what it returns, and how to check that. Use `description` to say when to delegate to it. The body loads only when the agent runs; descriptions load every session.
+Give each agent one responsibility. Say what it owns, what it returns, and how to check the result. In `description`, say when to delegate to it. Descriptions load every session. The body loads only when the agent runs.
 
 {% <details summary="Details: when to keep work in the main conversation"> %}
 - Keep work in the main conversation when it needs frequent back-and-forth, when planning, implementation, and testing share one context, or when speed matters.

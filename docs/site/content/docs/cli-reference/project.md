@@ -42,7 +42,11 @@ agnostic-ai project -- hook memory --target codex
 <details>
 <summary>How bootstrap works</summary>
 
-Bootstrap picks the package manager from `packageManager` or `devEngines.packageManager` in `package.json`, or an unambiguous root lockfile, and runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile`. It needs a declared agnostic-ai dependency and a committed lockfile (`bun.lock` or `bun.lockb` for bun) that installs an allowed version; it never changes `requires` or the manifest. Other package managers get an error naming their install command. Package scripts run as usual. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` stops a nested helper call from installing again; postinstall can still regenerate output. With the right binary in place, it installs nothing. A CLI that supports `project` must already be installed, globally or locally; hook managers can then call it without changing their own config.
+Bootstrap picks the package manager from `packageManager` or `devEngines.packageManager` in `package.json`, or an unambiguous root lockfile, and runs `npm ci`, `pnpm install --frozen-lockfile`, or `bun install --frozen-lockfile`. It needs a declared agnostic-ai dependency and a committed lockfile (`bun.lock` or `bun.lockb` for bun) that installs an allowed version. It leaves `requires` and the manifest unchanged. An error names the install command for any other package manager.
+
+With the right binary already installed, bootstrap skips installation. If it installs a binary, package scripts run as usual. `AGNOSTIC_AI_PROJECT_BOOTSTRAP=1` stops a nested helper call from installing again, while `postinstall` can still regenerate output.
+
+Install a CLI that supports `project` globally or locally before using bootstrap. Hook managers can then call it with their existing configuration.
 
 </details>
 

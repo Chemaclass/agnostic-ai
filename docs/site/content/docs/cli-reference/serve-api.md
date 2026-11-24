@@ -17,7 +17,7 @@ post-api-conversations-delete = "@/docs/cli-reference/conversations-api.md"
 
 # Local API
 
-`agnostic-ai serve` runs a JSON API on `127.0.0.1:4310` (change it with `--addr`). The web interface uses it, and scripts can too. See [Conversations API](@/docs/cli-reference/conversations-api.md) for the list, conversation actions and how to [stop a forgotten shell](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-shell).
+The web interface and scripts can call the JSON API served at `127.0.0.1:4310` by `agnostic-ai serve`. Use `--addr` to change the address. See the [Conversations API](@/docs/cli-reference/conversations-api.md) for chat routes and how to [stop a forgotten shell](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-shell).
 
 The calls most people use:
 

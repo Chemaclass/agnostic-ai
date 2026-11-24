@@ -1,5 +1,5 @@
 # Metaprogramming
 
-Work tracked in [issue #1323](https://github.com/Chemaclass/agnostic-ai/issues/1323): users guide their Agnostic AI setup through repeated self-improvement.
+Users review and refine their agnostic-ai setup over time. [Issue #1323](https://github.com/Chemaclass/agnostic-ai/issues/1323)
 
 A draft pull request is open. Design and implementation have not started.

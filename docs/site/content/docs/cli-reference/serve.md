@@ -9,7 +9,7 @@ group = "Reference"
 
 # Web interface
 
-`view` opens the web interface for the configuration you are in. `serve` keeps it running and adds a local JSON API. Its routes are in the [local API](@/docs/cli-reference/serve-api.md).
+`view` opens the current configuration in your browser. Use `serve` to leave the web interface running with a [local JSON API](@/docs/cli-reference/serve-api.md).
 
 ## view
 

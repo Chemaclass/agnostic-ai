@@ -9,7 +9,7 @@ group = "Reference"
 
 # Sync and gitignore settings
 
-These two keys of `agnostic-ai.yaml` control how `sync` writes files and what it adds to `.gitignore`. Other keys: [Configuration](@/docs/configuration.md).
+Use `sync` and `gitignore` in `agnostic-ai.yaml` to control how sync writes files and which paths it adds to `.gitignore`. See [Configuration](@/docs/configuration.md) for other keys.
 
 ## `sync`
 

@@ -1,6 +1,6 @@
 # Build dependency checks
 
-For a dependency alert, find the workflow below that uses the package. Check its selected version and verification steps. Release builds, editor packaging, vendor checks, and local experiments use different inputs.
+Trace a dependency alert to the workflow that uses the package. Check its selected version and how the workflow verifies it.
 
 | Workflow | Inputs and verification | Alert review |
 | --- | --- | --- |
@@ -12,13 +12,13 @@ For a dependency alert, find the workflow below that uses the package. Check its
 | Vendor load checks | Resolve current vendor releases to exact versions before installing. Create the lock in a temporary npm project with a fixed package name and version and private: true. Save the selected packages and their registry checksums. | Preserve the scheduled discovery check; review its intentional moving inputs separately from release builds. |
 | Caveman experiment | Install the committed CLI 2.1.0 lock with `npm ci --ignore-scripts`, then retain the entrypoint digest and signed engine checks. | Review the fixed lock and experiment scope. Debian package installation still uses current repository packages. |
 
-These checks do not record dismissed alerts. For each alert, record a confirmed fix or a reviewed exception backed by a fresh scan.
+Record a confirmed fix or a reviewed exception for each alert. Include a fresh scan. The checks leave dismissal records to reviewers.
 
 ## Check npm dependencies
 
 The [npm audit workflow](../../.github/workflows/npm-audit.yml) scans every tracked `package-lock.json` on pull requests, pushes to main, and daily. It includes development and optional dependencies, fails on findings outside the exact temporary exception below, and reads the lockfiles without installing packages. Dependabot alerts and security updates are enabled for the repository.
 
-Repeat a scan locally with Node 26:
+Repeat the scan locally with Node 26.
 
 ```sh
 npm audit --prefix editors/vscode --package-lock-only --ignore-scripts --include=dev --include=optional --audit-level=low

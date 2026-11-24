@@ -11,7 +11,7 @@ group = "Reference"
 
 `ignore/` lists paths supported tools leave out of context or indexing, such as generated code or large fixtures. An ignore spec writes the same patterns into each tool's own ignore file, such as `.cursorignore`, `.geminiignore`, `.aiignore`, or `.aiderignore`. Claude Code and Codex get none; the [target support table](@/docs/targets/_index.md#capability-matrix) lists supported tools.
 
-Depending on the tool, an ignore file covers reads, indexing, or shell commands. It does not block access on its own; use [permissions](@/docs/spec-format/settings-reference.md#support-by-target) for that.
+An ignore file can cover reads, indexing, or shell commands, depending on the tool. Use [permissions](@/docs/spec-format/settings-reference.md#support-by-target) to block access.
 
 ## Write one
 

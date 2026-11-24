@@ -88,7 +88,7 @@ PR CI runs on Ubuntu alone.
 
 `type` is `user`, `feedback`, `project`, or `reference`. The `sources:` setting does not move these folders.
 
-The `shared-memory-policy` rule asks tools to save only facts the code, history, and rules lack; to update a fact rather than add a duplicate; to check that named files and commands still exist; and to never save secrets. Review shared memory changes like code, because every tool reads them.
+The `shared-memory-policy` rule tells tools to save facts missing from the code, history, and rules. Update an existing fact in place. Check that the files and commands it names still exist, and keep secrets out of memory. Review changes to shared memory because every tool reads them.
 
 </details>
 

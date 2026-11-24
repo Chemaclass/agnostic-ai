@@ -33,11 +33,11 @@ Run `agnostic-ai sync`. Claude Code gets `CLAUDE.md`, Codex gets `AGENTS.md`, an
 
 ## What agnostic-ai does
 
-Source files, called **specs**, live in `.agnostic-ai/` as Markdown and YAML. Choose the coding tools, called **targets**, in `agnostic-ai.yaml`.
+Write **specs** in Markdown or YAML under `.agnostic-ai/`. Choose which coding tools receive the generated files by listing them as **targets** in `agnostic-ai.yaml`.
 
 Sync translates the specs into each tool's paths, formats, and setting names, and reports features a tool cannot use. `agnostic-ai sync --check` tells you whether the generated files still match the specs.
 
-You still install and sign in to the coding tools yourself. Instructions guide the model; tests and tool permissions enforce checks and limits. A connection to an outside service still needs that service's login or key.
+Install and sign in to your coding tools yourself. Instructions guide the model. Use tests and tool permissions to enforce checks and limits. Each outside service needs its own login or key.
 
 ## What to add, and when
 

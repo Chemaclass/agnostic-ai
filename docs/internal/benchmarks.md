@@ -2,13 +2,9 @@
 
 [Contributor docs](README.md)
 
-Use the benchmark suite to measure writing, comparing, and rendering output before and after changing frequently run code.
+Measure writing, comparing, and rendering output before and after changing frequently run code.
 
-Most benchmarks live in `internal/cli/bench_test.go`, in the same package so they can
-call the unexported sync internals directly. `BenchmarkImportWalks` lives in
-`internal/cli/import_bench_test.go`. `BenchmarkCompareToDisk` lives
-in `internal/adapters/internal/emit` beside the compare helper it measures.
-Test projects (fixtures) use Go's `testing` package only, with no external dependencies.
+Most benchmarks are in `internal/cli/bench_test.go`, where they can call unexported sync functions. Find `BenchmarkImportWalks` in `internal/cli/import_bench_test.go` and `BenchmarkCompareToDisk` in `internal/adapters/internal/emit`. Test projects use only Go's `testing` package.
 
 ## Run
 
@@ -34,7 +30,7 @@ go test -run '^$' -bench BenchmarkSyncEmit -benchmem ./internal/cli/
 go test -run '^$' -bench 'Fingerprint' -benchmem -benchtime=100x ./internal/cli/
 ```
 
-Benchmarks report measurements for local comparison; they do not decide whether continuous integration (CI) passes.
+Benchmarks support local comparisons. CI uses separate checks.
 
 To time the built binary end to end on the same test project (500 specs by
 default), including process startup and git calls the benchmarks skip:

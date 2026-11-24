@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Git hooks
 
-Git hooks check or regenerate files on commit and checkout. ([Coding-agent hooks](@/docs/spec-format/hooks.md) are different: they run inside a coding tool.) Pick a recipe by whether your team [commits or ignores outputs](@/docs/getting-started.md#commit-or-ignore-generated-outputs):
+Git hooks check or regenerate files on commit and checkout. [Coding-agent hooks](@/docs/spec-format/hooks.md) run inside a coding tool. Pick the recipe that matches how your team [handles generated files](@/docs/getting-started.md#commit-or-ignore-generated-outputs).
 
 - Committed outputs: [check the staged files](#check-staged-files) at commit time, so you never commit output you forgot to stage.
 - Ignored outputs: run `sync` once in each checkout, then [regenerate on checkout and pull](#regenerate-on-checkout) so coding agents find their files. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
@@ -21,7 +21,7 @@ agnostic-ai install-hook
 agnostic-ai install-hook --post-checkout
 ```
 
-The first installs the commit check. The second regenerates files after checkout and pull. Install once per checkout. With a hook manager, use its recipe instead of replacing its hooks.
+The first command adds the commit check. The second regenerates files after checkout and pull. Run them once per checkout. If you use a hook manager, follow its recipe to keep its hooks.
 
 <details>
 <summary>Use pre-commit, lefthook, or husky instead</summary>

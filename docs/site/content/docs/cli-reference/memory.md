@@ -11,7 +11,7 @@ group = "Reference"
 
 ## memory
 
-Check, list, locate, and repair the [shared memory](@/docs/memory.md) in the working directory: project memory in `.agnostic-ai/memory/`, then personal memory in `.agnostic-ai/local/memory/` (or the [shared personal folder](@/docs/memory.md#one-store-per-repository) with `memory.personal: repo`). Missing folders are skipped.
+Check, list, locate, and repair [shared memory](@/docs/memory.md) from the working directory. The command checks project memory in `.agnostic-ai/memory/` before personal memory in `.agnostic-ai/local/memory/`. With `memory.personal: repo`, it uses the [shared personal folder](@/docs/memory.md#one-store-per-repository). Missing folders are skipped.
 
 ```bash
 agnostic-ai memory lint     # run only the memory checks

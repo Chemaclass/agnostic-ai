@@ -11,7 +11,7 @@ group = "Reference"
 
 Copy a recipe into `.agnostic-ai/mcps/<name>.yaml` (or the directory `sources.mcps` sets). Replace example paths, and export each `${NAME}` variable before you start your coding tool. Run `agnostic-ai lint` and `agnostic-ai sync`, then confirm the server connects in the tool.
 
-The recipes were checked on 2026-10-03; compare each with its linked source. [MCP servers](@/docs/spec-format/mcps.md) lists the fields, and [environment references](@/docs/spec-format/mcps.md#environment-references) the values each tool cannot read.
+The recipes were checked on 2026-10-03. Compare each with its linked source. [MCP servers](@/docs/spec-format/mcps.md) lists the fields, and [environment references](@/docs/spec-format/mcps.md#environment-references) the values each tool cannot read.
 
 ## GitHub (remote)
 

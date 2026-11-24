@@ -53,7 +53,9 @@ Sections follow in sorted directory order. The condition is text the model reads
 
 ## Environment and MCP servers
 
-Ellipsis starts each session from the environment the session names. A review names it with the reviewer's `environment` key, and sync sets that key to the selected environment's name. A `x-ellipsis.reviewer.environment` that names another environment stops the review file, because the specs would disagree. With no `x-ellipsis.environment`, the key passes through as written, so an environment you manage by hand still works. Set `x-ellipsis.reviewer.environment: null` to keep the reviewer in Ellipsis' basic sandbox: sync then writes no `environment` key, with or without a selection.
+Ellipsis starts each session in the environment it names. For reviews, sync puts the selected environment's name in the reviewer's `environment` key. If `x-ellipsis.reviewer.environment` names a different environment, sync skips the review file. If you omit `x-ellipsis.environment`, the reviewer key passes through as written, including names of environments you manage by hand.
+
+Set `x-ellipsis.reviewer.environment: null` to use Ellipsis' basic sandbox. Sync then omits the reviewer's `environment` key even if you selected an environment.
 
 An environment selection writes `.ellipsis/environments/<name>.yaml`, even without portable environment or MCP specs. It needs a safe name and one repository. With no selection, environment and MCP specs produce a note instead of a file.
 
@@ -179,7 +181,9 @@ When the reviewer has no `environment` and an environment file imports too, impo
 
 Import stops with a message and writes nothing when the review file has more than one reviewer, is not a `code_review` file, has a field Ellipsis does not list, or has a reviewer without a prompt. Keep one reviewer and import again, or leave the file hand-written and list it under [`sync.unmanaged`](@/docs/sync-settings.md#syncunmanaged).
 
-An environment file it cannot express is left as written, with a note that names the reason: more than one repository, a field the schema does not list, a variable that holds a credential value, a credential in a server's `url` or `args`, or a server with both `url` and `command`. Several environment files are left too, since sync writes one. When the file is not at `.ellipsis/environments/<name>.yaml`, import says so, because sync writes there and Ellipsis would see two files with one name. `import all` detects the target from a `.ellipsis/` folder.
+Import leaves unsupported environment files intact and reports the reason. It refuses a file with more than one repository, a field outside the schema, a variable holding a credential, a credential in a server's `url` or `args`, or a server with both `url` and `command`.
+
+Import also leaves multiple environment files intact because sync writes one. It reports files outside `.ellipsis/environments/<name>.yaml` because sync writes there and Ellipsis would see two files with one name. `import all` detects Ellipsis from a `.ellipsis/` folder.
 
 ## Not covered
 

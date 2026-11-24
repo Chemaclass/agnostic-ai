@@ -12,7 +12,7 @@ Project layers, from lowest to highest priority:
 - **project** (`agnostic-ai.yaml` `sources`): checked-in specs.
 - **local** (`<project>/.agnostic-ai/local/`, gitignored): per-developer overrides.
 
-Tool configuration generated from user specs (`$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`) is a separate source for `sync --scope user` and does not participate in project layering.
+`sync --scope user` reads user specs from `$AGNOSTIC_AI_HOME` or `~/.agnostic-ai/`. Project sync uses the layers above.
 
 When two entries share `(Kind, Name)`, the higher-priority layer wins. `spec.LoadLayered` combines the layers. See [configuration.md](../site/content/docs/configuration-reference.md#layered-specs).
 

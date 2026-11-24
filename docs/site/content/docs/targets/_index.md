@@ -16,13 +16,13 @@ scripts = ["assets/scripts/capability-matrix.js"]
 # Targets
 
 
-A target writes configuration for one coding tool. Filter the table, then open a tool to see its paths, import support, and limits. Start with [one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule).
+A target writes configuration for one coding tool. Filter the table and open a target to check its output paths, import support, and limits. To try sync, write [one rule for Claude Code and Codex](@/docs/getting-started.md#first-rule).
 
 ## Tool support {#capability-matrix}
 
 {{ <capability_matrix /> }}
 
-Some tools are left out of the default target list and must be named in `targets`; see [select project targets](@/docs/configuration.md#targets).
+Add tools outside the default list to [`targets`](@/docs/configuration.md#targets).
 
 ## Tools without a target
 

@@ -14,7 +14,7 @@ disabled-support-by-target = "@/docs/spec-format/mcps-reference.md"
 
 # MCP servers
 
-`mcps/` connects agents to outside tools and data through the Model Context Protocol: a browser, a database, GitHub, an issue tracker. Each tool keeps servers in its own file and format, such as `.mcp.json`, `.cursor/mcp.json`, or `[mcp_servers.*]` in `.codex/config.toml`. One YAML file per server feeds all of them.
+Use one YAML file per server in `mcps/` to connect agents to tools and data over the Model Context Protocol, such as a browser, database, GitHub, or issue tracker. Sync writes each tool's format, such as `.mcp.json`, `.cursor/mcp.json`, or `[mcp_servers.*]` in `.codex/config.toml`.
 
 [`agnostic-ai compare claude cursor`](@/docs/cli-reference/inspect.md#compare) reports the connection fields each tool gets and the references it leaves out, without printing values or connecting to servers.
 

@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-External adapters are programs maintained outside this repository. agnostic-ai finds them by name on `PATH`, sends JSON through standard input, and reads JSON from standard output. You can write an adapter in any language.
+Write an external adapter in any language. agnostic-ai finds the program by name on `PATH` and exchanges JSON over standard input and output.
 
 ## Discovery
 
@@ -18,7 +18,7 @@ agnostic-ai runs the program once per target on each `sync`, or when `doctor` / 
 
 ## Wire format
 
-agnostic-ai writes one JSON document to standard input and reads one from standard output. Keep log messages on standard error; agnostic-ai shows them unchanged when the adapter exits with a nonzero status.
+agnostic-ai sends one JSON document and reads one in return. Write logs to standard error. agnostic-ai shows them unchanged when the adapter exits with a nonzero status.
 
 ### Input
 
@@ -98,7 +98,7 @@ agnostic-ai writes one JSON document to standard input and reads one from standa
 
 ## Reference helpers
 
-Define local types for the JSON fields your adapter reads and writes. The Go types under this repository's `internal/` directory are implementation details; Go does not allow unrelated modules to import them. The protocol above works without a library dependency.
+Define local types for the JSON fields your adapter reads and writes. You can implement the protocol without a library dependency. Unrelated Go modules cannot import this repository's `internal/` packages.
 
 ## Minimal Go adapter
 

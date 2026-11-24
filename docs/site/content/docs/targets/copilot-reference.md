@@ -28,7 +28,7 @@ A rule with `globs` or a folder scope (like `rules/backend/auth.md`) gets its ow
 
 - Scope and patterns combine: `scope: src/a` with `globs: tests/a/**` writes `applyTo: src/a/**,tests/a/**`.
 - An always-on rule with no scope (no globs, or `alwaysApply: true`) gets `applyTo: "**"`.
-- A rule with `alwaysApply: false` and no scope or globs gets no `applyTo`. VS Code loads it when its `description` matches the task ([custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions)). `import copilot` reads it back the same way.
+- A rule with `alwaysApply: false` and no scope or globs gets no `applyTo`. VS Code loads it when its `description` matches the task. `import copilot` preserves that rule's activation. [Custom instructions](https://code.visualstudio.com/docs/copilot/customization/custom-instructions)
 - `description` and every `x-copilot` key go next to `applyTo`.
 
 ### Agents
@@ -74,7 +74,9 @@ VS Code and Copilot CLI read different files, so sync writes both. Override them
 
 - `.vscode/mcp.json` uses the VS Code schema: top-level `servers`, each with a `type` (`stdio`, `http`, or `sse`). VS Code passes it to Copilot harness sessions, except servers that need interactive input ([VS Code MCP servers](https://code.visualstudio.com/docs/agent-customization/mcp-servers)). Sync owns `servers` and keeps other top-level keys, such as `inputs` and `sandbox`. It strips JSONC comments and reformats the file. Invalid JSONC stops the write.
 - `.github/mcp.json` carries the same servers under `mcpServers`, since Copilot CLI rejects the `servers` key ([Copilot CLI MCP docs](https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-mcp-servers)). Sync owns the whole file, and the whole root copy.
-- Native files (`.github/mcp.json`, the opted-in root copy, and user `mcp-config.json`) keep `tools`, integer `timeout` in milliseconds, `oidc`, `deferTools` (`auto` or `never`), `filterMapping` (`none`, `markdown` or `hidden_characters`), a whole `slowConnectionThresholdMs` from 1 to 2147483647, stdio `cwd` and `disableToolCache`, and HTTP/SSE `oauthClientId`, `oauthScopes`, `oauthPublicClient`, `oauthGrantType` (`authorization_code` or `client_credentials`). A value of the wrong type is skipped, and `oauthScopes` is skipped whole when any element is not a string. Set these at the spec's top level or under `x-copilot`; `x-copilot` wins. The editor file never gets them ([CLI command reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference)).
+- Native files (`.github/mcp.json`, the opted-in root copy, and user `mcp-config.json`) keep `tools`, integer `timeout` in milliseconds, `oidc`, `deferTools` (`auto` or `never`), `filterMapping` (`none`, `markdown`, or `hidden_characters`), and an integer `slowConnectionThresholdMs` from 1 to 2147483647. Stdio servers also keep `cwd` and `disableToolCache`. HTTP/SSE servers keep `oauthClientId`, `oauthScopes`, `oauthPublicClient`, and `oauthGrantType` (`authorization_code` or `client_credentials`).
+
+  Sync skips values of the wrong type. If any element of `oauthScopes` is not a string, it skips the whole field. Set these fields at the top level or under `x-copilot`, which wins. Sync leaves them out of the editor file. [CLI command reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-command-reference)
 - A per-server `tools` list of allowed tools defaults to `*`. The editor file has no such key, and Codex's `tools` means something else.
 - A `roots` list is copied as written. Neither VS Code nor GitHub documents it per server.
 - `.vscode/mcp.json` keeps the legacy editor fields ([VS Code MCP configuration](https://code.visualstudio.com/docs/agents/reference/mcp-configuration)). Set them at the spec's top level or under `x-copilot`; `x-copilot` wins:
@@ -108,7 +110,11 @@ The `claude` target writes `.mcp.json` too. A plain server is identical from bot
 
 `import --scope user copilot` reads those user files. It keeps matching handwritten handlers in their original file, so sync adds no duplicate. Unsupported entries stay native with a skip reason. If an imported neighboring handler changes, sync stops and names its file. Make the native entry match the spec, or move the original file outside the hooks directory before syncing. On a fresh machine, sync creates the imported handlers in the managed file.
 
-Hooks go to `.github/hooks/agnostic-ai.json` (override with `outputs.copilot.hooks-file`). Copilot CLI and cloud agent load every `.github/hooks/*.json` and merge them ([hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)). Copilot documents 14 events. With `builtins: [memory]`, a `SessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session. Its reply holds the index under `additionalContext`, which Copilot CLI reads, and under `hookSpecificOutput.additionalContext` with `hookEventName: "SessionStart"`, which VS Code reads. A spec with `commandWindows` writes `bash` (from `command`) and `powershell` (from `commandWindows`) instead of one `command`, which Copilot would run in both shells.
+Hooks go to `.github/hooks/agnostic-ai.json` unless `outputs.copilot.hooks-file` overrides the path. Copilot CLI and cloud agent merge every `.github/hooks/*.json` file. Copilot documents 14 events. [Hooks reference](https://docs.github.com/en/copilot/reference/hooks-reference)
+
+With `builtins: [memory]`, a `SessionStart` hook adds the [shared memory](@/docs/memory.md) index to the session. Copilot CLI reads the index from `additionalContext`. VS Code reads it from `hookSpecificOutput.additionalContext` with `hookEventName: "SessionStart"`.
+
+For a hook with one plain shell command, Copilot uses the same `command` in both shells. Set `commandWindows` to write `bash` from `command` and `powershell` from `commandWindows`.
 
 - The wrapper is `{"version": 1, "hooks": {...}}` with an **integer** version. Each entry is flat, `{"type": "command", "matcher": ..., "command": ..., "timeoutSec": ...}`, not Claude Code's nested `{matcher, hooks: [...]}` group.
 - `event:` is copied as written. Copilot accepts PascalCase (`PreToolUse`, the "VS Code compatible" format) and camelCase (`preToolUse`).

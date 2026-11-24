@@ -4,11 +4,9 @@
 
 The Authority API resolves an agent or session's permissions for one coding tool, records the source rules, and previews changes. `serve` exposes it at `/api/views/authority`. The [browser client](../../ui/README.md) displays the overview's Authority section.
 
-Keep [`internal/authority/types.go`](../../internal/authority/types.go), [`internal/overview/types.go`](../../internal/overview/types.go), and their TypeScript mirror, [`ui/src/contract.ts`](../../ui/src/contract.ts), in sync. Authority types are canonical. Changing a field's meaning requires a schema version bump; adding an optional field keeps `authority/v1`.
+Use the Authority types as the source of truth. Keep the Go types and their TypeScript mirror in sync. Bump the schema version when a field's meaning changes. Optional additions keep `authority/v1`. [Authority types](../../internal/authority/types.go) · [Overview types](../../internal/overview/types.go) · [TypeScript contract](../../ui/src/contract.ts)
 
 ## Four states, kept apart
-
-Each operation reports four separate states:
 
 | State | Field | Comes from | Values |
 |---|---|---|---|
@@ -29,7 +27,7 @@ Each operation reports four separate states:
 | `no-rule` | No rule applies |
 | `disabled` | The provider is switched off, and the tool honors that setting |
 
-When the generated file is stale, missing, or unchecked, `hypothetical` is true. Use conditional wording: "Would be permitted once synced".
+When the generated file is stale, missing, or unchecked, `hypothetical` is true. Use conditional wording such as "Would be permitted once synced".
 
 ## Precedence
 
@@ -103,7 +101,7 @@ Settings and config files expose `values` by dotted key, typed `list`, `bool`, o
 
 Lint and doctor findings attach to each matching file or containing skill folder. Unmatched findings attach to their named section, defaulting to Settings. The API stores findings on items and sections, without a separate list.
 
-The same comparison as `sync --check` sets each target's `sync` state: `in-sync`, `drifted` with differing files, or `not-checked`.
+The overview uses the `sync --check` comparison to set each target's `sync` state. It reports `in-sync`, `drifted` with differing files, or `not-checked`.
 
 ## Endpoints
 

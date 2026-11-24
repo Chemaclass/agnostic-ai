@@ -28,7 +28,7 @@ set-up-this-tool = "@/docs/targets/claude.md#first-rule"
 ## Import {#import .legacy-anchor}
 
 
-Write a rule once under `.agnostic-ai/`. Sync writes `.claude/rules/` for Claude Code and each other selected tool's own format. Skills, agents, hooks, MCP servers, and settings get native files too. Using this provider through Composer? See the [Composer setup guide](@/docs/composer.md).
+Write a rule once under `.agnostic-ai/`. Sync writes it to `.claude/rules/` for Claude Code and in the native format of each other selected tool. Sync also writes skills, agents, hooks, MCP servers, and settings to native files. For Claude Code through Composer, follow the [Composer setup guide](@/docs/composer.md).
 
 ## First rule
 

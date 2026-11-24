@@ -34,7 +34,7 @@ companion = "@/docs/cli-reference/companion.md#companion"
 
 ## Companion {#companion .legacy-anchor}
 
-The web interface, its API and the companion have their own pages: [`view` and `serve`](@/docs/cli-reference/serve.md), the [local API](@/docs/cli-reference/serve-api.md), and [`companion`](@/docs/cli-reference/companion.md).
+For the browser and companion, see [`view` and `serve`](@/docs/cli-reference/serve.md), the [local API](@/docs/cli-reference/serve-api.md), and [`companion`](@/docs/cli-reference/companion.md).
 
 `explain <spec>` finds a spec's output, `why <file>` finds a generated file's source, and `render <spec>` previews contents. Use `compare` before changing tools and `graph` for an overview.
 

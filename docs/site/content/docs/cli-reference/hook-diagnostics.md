@@ -26,7 +26,7 @@ codex: allow (exit 0, 9ms)
 hook protect-files: targets decide differently: claude block, codex allow
 ```
 
-For each configured tool the hook reaches, it runs every command sync wrote for that tool, from the project root, or from the handler's `cwd` on Copilot.
+For each configured tool the hook reaches, `hook run` executes every command sync wrote. It runs from the project root, or from the handler's `cwd` on Copilot.
 
 ### Build sample event data {#event-data-replies}
 
@@ -202,15 +202,15 @@ Exit 2 blocks on `PreToolUse` only. Exit 0 blocks with `permissionDecision: "den
 
 </details>
 
-The run exits 1, so it works as a CI check, when a counted command times out or errors, when two counted tools decide differently, or, with `--expect allow` or `--expect block`, when a counted tool decides otherwise.
+The run exits 1 if a counted command times out or errors, two counted tools disagree, or a counted tool disagrees with `--expect allow` or `--expect block`. Use this exit status for CI checks.
 
 ### Assumed results {#assumed-results}
 
-Some results use assumptions because vendor behavior is undocumented or the local preview does not fully model it. `hook run` runs those commands on an assumption and ends the result line in `(assumed: shell, timeout)`. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`.
+Undocumented behavior and gaps in the preview can lead to assumptions. `hook run` runs those commands and labels the results, for example `(assumed: shell, timeout)`. Pass `--include-assumed` to count those results in `--expect` and comparisons.
 
 {% <details summary="What is assumed, and how assumed results are counted"> %}
 
-Some results use assumptions because vendor behavior is undocumented or the local preview does not fully model it. `hook run` runs those commands on an assumption instead of skipping them, ends the result line in `(assumed: shell, timeout)`, and adds one line per assumption. An assumed result stays out of `--expect` and the comparison unless you pass `--include-assumed`. A warning flags an assumed result that disagrees with the counted ones, and a summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows what was left out. With `--expect`, a run where only assumed results ran fails and asks for `--include-assumed`, so a CI check never passes on nothing. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
+`hook run` prints one line per assumption. It warns when an assumed result disagrees with the counted results. A summary such as `0 checked, 1 assumed (not counted; --include-assumed to count)` shows which results counted. With `--expect`, a run with only assumed results fails and asks for `--include-assumed`. In JSON, each target has `assumptions` (`item`, `value`, `reason`) and `counted`.
 
 | Assumption | Targets | What `hook run` assumes |
 |---|---|---|

@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Spec packs
 
-A pack is a set of source specs (agents, skills, rules, hooks, and MCP server connections) shared as a Git repository or local folder. Use one to reuse conventions across projects instead of copying spec files.
+A pack shares agents, skills, rules, hooks, and MCP connections across projects. Keep the source specs in a Git repository or local folder.
 
 ## Install
 

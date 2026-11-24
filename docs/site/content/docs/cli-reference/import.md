@@ -11,7 +11,7 @@ group = "Reference"
 
 ## import
 
-Translate an existing AI CLI configuration into specs in the `sources:` directories. Run it after `init`. It writes nothing else. Preview diffs hide known [credential values](@/docs/cli-reference/sync.md#credential-previews) on both sides.
+Run `import` after `init` to turn existing AI CLI configuration into specs in the `sources:` directories. It writes only those specs. Diff previews hide known [credential values](@/docs/cli-reference/sync.md#credential-previews) on both sides.
 
 ```bash
 agnostic-ai import claude

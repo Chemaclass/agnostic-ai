@@ -17,7 +17,7 @@ targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 
 # User configuration
 
-This is the `user` [scope](@/docs/scopes.md). Releases up to v0.96.0 called it "global", and this page's address, some anchors, `state/global.json`, and the keys `sync.allow-global-names` and `sync.global-name-clash` keep that word.
+Use the `user` [scope](@/docs/scopes.md) for configuration shared across your projects. Releases up to v0.96.0 called it "global". That name remains in this page's URL and some anchors, `state/global.json`, `sync.allow-global-names`, and `sync.global-name-clash`.
 
 Keep instructions, rules, hooks, skills, agents, settings, and MCP servers for all your projects in one home folder. Run `agnostic-ai sync --scope user` to install them in each tool's user files. Put team defaults in a project or pack.
 

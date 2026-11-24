@@ -178,7 +178,9 @@ A bare action you set there, such as `"deny"`, becomes the `"*"` entry. A bare `
 
 A folder path with `*` or `?`, which OpenCode reads as wildcards, gets no `external_directory` entry and a note; move `AGNOSTIC_AI_HOME` or set `memory.personal: checkout`.
 
-With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree) under `permission.external_directory`. Existing memory and user permission rules stay, and a rule you or a spec wrote for that path, such as `deny` or `ask`, is never replaced. A main checkout path with `*` or `?` gets no grant. For a tracked, hand-written, or unmanaged file sync skips only this grant and reports the permission to add by hand (once you add it, it stays); the rest of its output is unchanged.
+With `handoff` or `handoff-hook` enabled in a linked worktree, sync also allows the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree) under `permission.external_directory`. It keeps memory and user permission rules, including a `deny` or `ask` you or a spec set for that path. If the main checkout path contains `*` or `?`, sync skips the grant.
+
+For a tracked, hand-written, or unmanaged file, sync skips only this grant and reports the permission to add by hand. It keeps that permission once you add it.
 
 ## Import
 
