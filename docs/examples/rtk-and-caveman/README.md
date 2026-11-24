@@ -1,6 +1,6 @@
 # Project packs for RTK and Caveman
 
-These packs work with Claude Code and a shell such as Bash on macOS or Linux. Each pack is a folder of shared specs. RTK adds a hook that calls an installed RTK; Caveman adds a response skill from a fixed upstream Git commit. Invoke `/caveman` in Claude before your task to use the skill.
+Use these packs with Claude Code and a shell such as Bash on macOS or Linux. Each pack holds shared specs. The RTK pack adds a hook that calls your RTK installation. The Caveman pack adds a response skill from a pinned upstream commit. Run `/caveman` in Claude before your task to use the skill.
 
 <a id="add-a-component"></a>
 
@@ -23,7 +23,7 @@ agnostic-ai sync --all
 agnostic-ai sync --check
 ```
 
-RTK must be installed separately and available on the hook's PATH to rewrite commands. Without RTK, the hook leaves commands unchanged. Missing executables do not change the generated configuration. The response skill needs no Caveman executable or separate compression program. The packs only write configuration. They install no software, forward no requests, contact no model provider, and do not start the skill automatically.
+Install RTK separately and put it on the hook's PATH to rewrite commands. If RTK is missing, the hook leaves commands unchanged and sync still writes the same configuration. The response skill needs no Caveman executable or separate compression program. The packs write configuration only. They install no software, forward no requests, contact no model provider, and leave skill activation to you.
 
 The RTK hook runs before Claude's `Bash` tool (`PreToolUse`), with this command:
 
@@ -31,7 +31,7 @@ The RTK hook runs before Claude's `Bash` tool (`PreToolUse`), with this command:
 command -v rtk >/dev/null 2>&1 || exit 0; rtk hook claude
 ```
 
-Do not add `decision: stdout`: RTK returns the JSON format Claude uses to replace a command, rather than agnostic-ai's shared decision format. The command needs no separate helper script. This recipe includes only the default Caveman skill. Its references in the original skill to `ultracave` and `megacave` do not install those modes.
+Leave `decision: stdout` unset. RTK returns Claude's command replacement JSON, so the hook can call it directly. The Caveman pack includes only the default skill. `ultracave` and `megacave` require separate skills.
 
 <a id="keep-or-transfer-existing-ownership"></a>
 
@@ -41,7 +41,7 @@ Before adding RTK, review project and global `.claude/settings.json` hooks, `.cl
 
 To keep an RTK-managed hook, leave the RTK pack out and add only Caveman. To keep a Caveman-managed skill, leave the Caveman pack out and add only RTK. Neither choice changes the existing installation.
 
-To let agnostic-ai manage an existing project hook, inspect that hook and copy its exact command. The example helper removes only that selected hook command, keeping unrelated settings and other hook commands. It refuses zero or multiple exact matches. Set `project` and `backup` to absolute paths; the backup must be a new file outside the directories where sync writes files.
+To let agnostic-ai manage an existing project hook, copy its exact command from the settings file. The helper removes that command and leaves other hooks and settings alone. It requires one exact match. Use absolute paths for `project` and `backup`. Choose a new backup file outside the directories where sync writes files.
 
 ```sh
 project=/absolute/path/to/your-project
@@ -57,7 +57,7 @@ The helper refuses a symlinked settings file or `.claude` directory. It replaces
 
 The backup records only the selected hook command, its group settings, event, and position. Keep it until you decide which tool will manage the hook. Review the resulting `PreToolUse` list and verify that only one RTK hook remains.
 
-To transfer a Caveman-managed project skill, move its entire directory outside `.claude/skills/` before installing the Caveman pack. Preserve this directory; it can contain files besides `SKILL.md`.
+To transfer a Caveman-managed project skill, move its entire directory outside `.claude/skills/` before installing the Caveman pack. Keep the whole directory because it can contain files besides `SKILL.md`.
 
 ```sh
 skill_backup=/absolute/path/to/upstream-caveman-backup
@@ -124,6 +124,6 @@ python3 "$example/verify.py" \
 
 [UPSTREAM.json](packs/caveman/UPSTREAM.json) records the source repository, exact revision, download URLs, and SHA-256 hashes (file-content fingerprints). The original Caveman skill is copied without changes. Its license and notices are in the [upstream repository](https://github.com/JuliusBrussee/caveman). agnostic-ai writes the skill's opening settings in each tool's format and adds a header identifying its source while retaining the instruction body.
 
-Local packs need no plugin or new project YAML setting. Their lock records a local path rather than a Git revision. To share this setup, commit the pack sources or publish each pack as its own Git repository and install a fixed tag or commit. Do not publish the combined parent directory as one pack: it holds two separate packs.
+Local packs need no plugin or new project YAML setting. Their lock records a local path. To share this setup, commit the pack sources or publish each pack as its own Git repository and install a fixed tag or commit. The parent directory holds two packs, so publish the two source directories separately.
 
 The test found no need for a plugin or new YAML setting. Both would still need rules for existing installations; a plugin would also need per-tool installation and removal rules, and a YAML setting would still need separately installed programs. agnostic-ai now also offers separate `rtk` and `caveman` names in its `builtins` list. See the [current setup guide](https://agnostic-ai.org/docs/rtk-and-caveman/) and choose one source for each tool. Compressing command output with a separate program, recovering its original text, actual Claude behavior, and model-provider savings require separate evidence.

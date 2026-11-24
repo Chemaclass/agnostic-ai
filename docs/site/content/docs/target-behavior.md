@@ -21,7 +21,7 @@ targets-left-out = "@/docs/global-configuration-reference.md#targets-left-out"
 
 ## User-level output {#global-output .legacy-anchor}
 
-One spec becomes different files per tool: a rule is `.claude/rules/<name>.md` for Claude Code and a section of `AGENTS.md` for Codex. Discovery, permissions, and fields differ too. [Compare targets](@/docs/compare.md) shows samples; `agnostic-ai compare` checks your specs.
+Sync writes a shared rule to `.claude/rules/<name>.md` for Claude Code and to a section of `AGENTS.md` for Codex. Tools also differ in how they find instructions, enforce permissions, and read fields. [Compare targets](@/docs/compare.md) shows examples. Run `agnostic-ai compare` to check your specs.
 
 ## Directory-specific instructions
 

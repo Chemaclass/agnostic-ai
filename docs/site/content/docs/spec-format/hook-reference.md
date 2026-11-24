@@ -11,7 +11,7 @@ group = "Reference"
 
 ## Portable events {#portable-events}
 
-Write `on` and `match` instead of a tool's own event name. Sync writes each tool's native event and matcher.
+Set `on` and `match` to let sync write each tool's native event and matcher.
 
 ```yaml
 name: no-force-push

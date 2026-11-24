@@ -9,7 +9,7 @@ group = "Reference"
 
 # Companion list
 
-The list of the [companion](@/docs/cli-reference/companion.md) shows your conversations. Each row opens its chat where it lives.
+Select a conversation in the [companion](@/docs/cli-reference/companion.md) to open it in its original tool.
 
 ## The list {#the-list}
 

@@ -9,7 +9,7 @@ group = "Reference"
 
 # Skill reference
 
-Per-tool details for the fields on the [skills page](@/docs/spec-format/skills.md).
+See [Skills](@/docs/spec-format/skills.md) for the shared fields.
 
 ## `disable-model-invocation` support by target {#disable-model-invocation-support-by-target}
 

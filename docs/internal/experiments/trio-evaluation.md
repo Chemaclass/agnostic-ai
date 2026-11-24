@@ -6,7 +6,7 @@ Two larger fixed transcripts cover one failure and two failures, including a Uni
 
 ## Prepare without provider requests
 
-Build the current CLI after the tool built-ins have merged. The bundled skill is copied from a recorded revision so the generated copy can be checked against it. Review its sources and licenses first.
+Build the current CLI after the tool built-ins merge. Review the bundled skill's sources and licenses. Its recorded revision lets you verify the generated copy.
 
 ```sh
 go build -o /tmp/trio-agnostic-ai ./cmd/agnostic-ai
@@ -25,7 +25,7 @@ The default preparation run writes each configuration's `builtins` list, runs sy
 
 Land the runner before collecting a published result. Run it from current main while local builds and checks are idle. Use a fresh output directory, the skill from the same recorded revision, and `--live`. The default runs 24 cases with `claude-haiku-5-5`, two repetitions, a $0.12 per-session limit, and a $2 total limit. Review those options before running. Supply existing Claude authentication through its supported environment without putting credentials in command arguments or files.
 
-First run a separate four-case trial with `--tasks short --repetitions 1 --live` and a fresh output directory. Keep it separate from the final 24 cases. It checks which skills and plugins Claude loads and verifies the unchanged short command before the complete comparison.
+Before the final 24 cases, run a four-case trial with `--tasks short --repetitions 1 --live` in a separate output directory. Use it to check which skills and plugins Claude loads and verify that the short command stays unchanged.
 
 Every configuration uses the same Bash and Skill tools and the same host settings. The three bundled skills remain available in every configuration. Only the generated Caveman skill changes between the baseline and skill configurations. The runner records the skills and plugins loaded at startup and requires the same bundled plugins across cases. Unexpected personal plugins or skills fail the setup check. A failed check stops further requests and retains the failed row and its known cost.
 

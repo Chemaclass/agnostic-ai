@@ -1,12 +1,12 @@
 # CodeGraph, Ponytail and Headroom: what helps this repo?
 
-Keep CodeGraph as a small navigation pilot. Skip Ponytail and Headroom for now. The trial's source answers were correct; savings in time, money, and model input remain unproven. Related to #2024.
-
 | Tool | Decision | Why and next step |
 |---|---|---|
 | CodeGraph | Pilot | It helps find source relationships, but answers still need source checks. Test a supported contributor setup and measure a clear benefit before adopting it. |
 | Ponytail | Skip | Its small-change and reuse guidance overlaps our rules. Revisit only if normal review misses known defects that its adapted prompt finds. |
 | Headroom | Skip | Adding its server does not compress other tools' replies. Revisit when a real noisy-output case needs compression before the model reads it, with the original text still recoverable. |
+
+The trial answered source questions correctly. Savings in time, money, and model input remain unproven. Related to #2024.
 
 ## What the answers established
 

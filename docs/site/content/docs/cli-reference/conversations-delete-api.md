@@ -13,7 +13,7 @@ group = "Reference"
 
 Body: `{tool, id}` with `Content-Type: application/json`, from the server's own origin.
 
-Deletes one conversation under Archived from this machine for good. Only a local Claude Code session can be deleted, and only when all of these hold:
+Permanently delete a local Claude Code session under Archived from this machine. The request must meet every condition below.
 
 - Its `state` is `completed` or `dormant`, read from a fresh scan.
 - No Claude Code process or background job holds it. The server asks again right before it removes anything, and once more before the transcript.

@@ -10,7 +10,7 @@ group = "Reference"
 
 # Configuration reference
 
-The keys you change most are in [Configuration](@/docs/configuration.md). This page holds the rest, in full.
+See [Configuration](@/docs/configuration.md) for commonly changed keys and examples.
 
 ## `memory`
 

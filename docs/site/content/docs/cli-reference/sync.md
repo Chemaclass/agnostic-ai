@@ -12,7 +12,7 @@ group = "Reference"
 
 ## sync
 
-Write each selected tool's files from your specs. A run that writes takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands); `--watch` holds it until it exits.
+Write each selected tool's files from your specs. A run that writes takes the [project lock](@/docs/cli-reference/_index.md#concurrent-commands). With `--watch`, the lock stays held until the process exits.
 
 ```bash
 agnostic-ai sync --only claude,cursor

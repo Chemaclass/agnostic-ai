@@ -18,7 +18,7 @@ nav_after = "configuration"
 agnostic-ai [command] [flags]
 ```
 
-Run project commands from the folder with `agnostic-ai.yaml`, unless the command documents subdirectories or `--scope user`. `agnostic-ai <command> --help` lists the options of your release. To troubleshoot, start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) or see [troubleshooting](@/docs/troubleshooting.md).
+Run project commands from the folder with `agnostic-ai.yaml`, unless the command supports subdirectories or `--scope user`. For the options in your installed release, run `agnostic-ai <command> --help`. Start with [`doctor`](@/docs/cli-reference/doctor.md#doctor) or see [Troubleshooting](@/docs/troubleshooting.md) to diagnose a problem.
 
 ## Find a command
 

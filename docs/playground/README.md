@@ -4,7 +4,7 @@
 
 Edit a spec and see the configuration for five coding tools as you type. Tabs are disabled when a tool does not support the selected spec kind. Follow the link to see other supported tools.
 
-The playground runs compiled Go code in your browser through WebAssembly. It needs only a static website host.
+The playground runs Go code as WebAssembly in your browser. A static web host can serve it.
 
 ## Try it
 
@@ -16,7 +16,7 @@ Open the [published playground](https://agnostic-ai.org/playground/). The [Pages
 make playground-serve       # builds the site and opens /playground/ on port 8080
 ```
 
-Open http://127.0.0.1:8080/playground/. This serves the playground with the Zola site's navigation assets. Opening the HTML file directly will not work: browsers refuse to fetch `.wasm` from a `file://` page.
+Open http://127.0.0.1:8080/playground/ to load the playground with the Zola site's navigation. Serve it over HTTP because browsers refuse to fetch `.wasm` from a `file://` page.
 
 ## What's in this directory
 
@@ -40,7 +40,7 @@ Open http://127.0.0.1:8080/playground/. This serves the playground with the Zola
   from its adapter declaration. The Pages build picks up
   `caps.Supports` changes without a separate playground data edit.
 
-The code that writes each tool's configuration records output in memory for the browser instead of writing files.
+Each adapter keeps its generated files in memory for the browser.
 
 ## Build size
 
@@ -51,4 +51,4 @@ ls -lh docs/playground/agnostic-ai.wasm
 gzip -c docs/playground/agnostic-ai.wasm | wc -c
 ```
 
-The first command shows raw size; the second shows gzip size in bytes. Transfer size depends on your static host's compression settings.
+The first command shows the raw size. The second shows the gzip size in bytes. Transfer size depends on the host's compression settings.

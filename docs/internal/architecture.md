@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-Use this map to find the code behind a behavior. An adapter writes configuration for one coding tool.
+Each adapter writes configuration for one coding tool.
 
 ## Code layout
 
@@ -69,9 +69,9 @@ The shared `emit` package stores each run's flags and buffers in a `Session`. A 
 | recording | still writes files; records paths only | `sync` with gitignore enabled |
 | backup | copies `<path>` → `<path>.bak` before overwrite | `sync --backup` |
 
-Modes can run together, for example recording and backup during a sync that updates `.gitignore`.
+Modes can run together. A sync can record paths for `.gitignore` and back up overwritten files.
 
-`sync --watch` wraps these. By default, fsnotify watches every source directory plus `agnostic-ai.yaml` / `agnostic-ai.local.yaml`, grouping changes received within 50 ms. `--watch-poll` checks modification times every 200 ms for filesystems where fsnotify is unreliable.
+`sync --watch` reruns sync when sources change. By default, fsnotify watches every source directory and both config files, `agnostic-ai.yaml` and `agnostic-ai.local.yaml`. It groups changes received within 50 ms. Use `--watch-poll` to check modification times every 200 ms on filesystems where fsnotify is unreliable.
 
 ## Core types
 
@@ -124,4 +124,4 @@ Mirrors `agnostic-ai.yaml`. See [internal/config/config.go](../../internal/confi
 | `internal/adapters/<target>/` | write files without parsing source specs |
 | `internal/adapters/internal/emit/` | shared write helpers |
 
-Adapter packages do not import each other. Each target works independently.
+Adapter packages do not import each other.

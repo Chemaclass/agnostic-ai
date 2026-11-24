@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Side conversations
 
-The built-in `side-conversation` skill follows a side idea in its own conversation without derailing the current task. The agent writes a brief and opens a new conversation in a new terminal tab, same folder. The current one goes on.
+Use the built-in `side-conversation` skill to start a separate task. The agent writes a brief and opens a new conversation in another terminal tab in the same folder. You can keep working in the original conversation.
 
 ## Enable the skill
 

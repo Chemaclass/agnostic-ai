@@ -10,7 +10,7 @@ group = "Reference"
 
 # MCP import credentials
 
-How `import` turns MCP credentials into `${NAME}` references, and which servers it leaves out. The [Tools page's **Import** action](@/docs/cli-reference/serve.md#serve) uses the same rules for one server, including on the user-level page.
+`import` replaces MCP credentials with `${NAME}` references and skips some servers. The [Tools page's **Import** action](@/docs/cli-reference/serve.md#serve) applies the same rules to one server. This includes the user-level page.
 
 ## What import writes
 

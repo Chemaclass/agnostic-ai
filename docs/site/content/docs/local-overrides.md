@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Local overrides
 
-Put personal specs and instructions in `.agnostic-ai/local/`. They extend or override the team's setup, and Git ignores the folder. Example `.agnostic-ai/local/AGNOSTIC_AI.md`:
+Use `.agnostic-ai/local/` to extend or override the team's setup. Git ignores that folder. Put personal instructions in `.agnostic-ai/local/AGNOSTIC_AI.md`.
 
 ```markdown
 Answer in Spanish.

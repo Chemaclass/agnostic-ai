@@ -11,9 +11,9 @@ echo "claude,cursor" | agnostic-ai init --demo
 agnostic-ai sync --dry-run
 ```
 
-The demo creates examples for agents, skills, rules, hooks, and MCP servers. Some coding tools cannot use every spec kind; the preview warns about anything they will skip. Edit or delete the samples before using them in a real project.
+The demo creates sample agents, skills, rules, hooks, and MCP servers. The preview warns when a tool skips an unsupported spec kind. Edit or delete the samples before using them in a real project.
 
-For language-specific starters, use `init --preset go`, `init --preset ts-react`, or `init --preset python`. The bundled sources live in [internal/cli/initdata](../../internal/cli/initdata/).
+Use `init --preset go`, `init --preset ts-react`, or `init --preset python` for a language-specific starter. The [bundled sources](../../internal/cli/initdata/) show what each starter contains.
 
 ## Try directory-specific instructions
 
@@ -27,4 +27,4 @@ Check [Targets](https://agnostic-ai.org/docs/targets/) for the fields your tool 
 
 ## Add RTK or Caveman independently
 
-[Project packs for RTK and Caveman](rtk-and-caveman/README.md) shows how to add an RTK hook or the Caveman response skill to Claude Code on macOS or Linux. It covers existing installations, removal, and configuration checks.
+Add an RTK hook or the Caveman response skill to Claude Code on macOS or Linux. The guide covers existing installations, removal, and configuration checks. [Project packs for RTK and Caveman](rtk-and-caveman/README.md)

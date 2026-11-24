@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-A pack is a Git repository or local directory with the same source layout as an agnostic-ai project. Users install it with `agnostic-ai packs add`; its specs become shared defaults for their project.
+A pack is a Git repository or local directory with the same source layout as an agnostic-ai project. Install it with `agnostic-ai packs add` to use its specs as project defaults.
 
 Start with one spec. Publish a version tag and test installation in a temporary project with the command under [Versioning](#versioning).
 
@@ -17,7 +17,7 @@ Start with one spec. Publish a version tag and test installation in a temporary 
 └── mcps/
 ```
 
-Leave out empty directories. No `agnostic-ai.yaml` is needed; the loader uses the default directory names.
+Leave out empty directories. The loader uses the default directory names without an `agnostic-ai.yaml`.
 
 ## Spec content
 

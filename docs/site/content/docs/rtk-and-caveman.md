@@ -14,7 +14,7 @@ group = "Workflows"
 
 ## Turn them on
 
-Add the names to `builtins` in `agnostic-ai.yaml`, next to any you already use:
+Both built-ins are off by default. Add the ones you want to the existing `builtins` list in `agnostic-ai.yaml`.
 
 ```yaml
 version: 1
@@ -22,7 +22,7 @@ targets: [claude]
 builtins: [rtk]
 ```
 
-Both are off by default; list both with `builtins: [rtk, caveman]`. Then run:
+To enable both, use `builtins: [rtk, caveman]`. Then sync.
 
 ```sh
 agnostic-ai sync
@@ -85,6 +85,6 @@ We ran 24 short debugging sessions in Claude Code 2.1.295 with RTK 0.51.0 and `c
 
 All 24 answers were correct. On a short command RTK does not shorten, RTK did not help.
 
-These are price estimates from a small test, not your bill; measure a full task in your project. See the [full results](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/experiments/trio-evaluation-results.md) and the [investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957).
+The figures are estimates from a small test. Measure a full task in your project to estimate your costs. See the [full results](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/experiments/trio-evaluation-results.md) and the [investigation](https://github.com/Chemaclass/agnostic-ai/issues/1957).
 
 </details>

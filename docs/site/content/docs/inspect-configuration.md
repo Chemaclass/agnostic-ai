@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Inspect your configuration
 
-Use the local browser interface to find warnings and the source files to fix.
+Find configuration warnings and open their source files in the local web interface.
 
 ## Open the project
 

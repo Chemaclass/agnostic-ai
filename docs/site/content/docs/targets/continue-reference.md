@@ -55,7 +55,7 @@ Start with the [Continue setup](@/docs/targets/continue.md). Output keys are lis
 - A scoped `regex` or scoped empty `globs` array is reported as unsupported. To filter by file only, omit `scope` and keep the source file outside any folder that sets scope.
 - Native activation: `x-continue.globs` and `x-continue.regex` keep activation exactly, as long as there is no portable `scope`. A rule in a subfolder stays there, even when the folder names no project directory. An explicit `scope` switches to scope plus patterns, with its selector limits.
 - Skills: read from `.continue/skills/` with bundled files.
-- MCP: read from `.continue/mcpServers/`. That means `*.yaml` blocks with one server, and `.json` files (read as JSONC) with an `mcpServers` map or one server named after the file.
+- MCP import reads `.continue/mcpServers/`. Each `*.yaml` block holds one server. Each `.json` file is read as JSONC and holds either an `mcpServers` map or one server named after the file.
 - A duplicate or unsafe MCP name fails before any spec is written. Connection options survive import and sync.
 - Sync removes `.continue/rules/skill-<name>.md` files that older versions wrote. Import still reads such a rule as a skill.
 

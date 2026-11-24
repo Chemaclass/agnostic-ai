@@ -2,7 +2,7 @@
 
 [Contributor docs](README.md)
 
-Presets are starter specs for a language or framework that `init --preset <name>` writes into a fresh project. The included presets are `go`, `ts-react`, and `python`.
+`init --preset <name>` writes starter specs for a language or framework into a fresh project. The bundled presets are `go`, `ts-react`, and `python`.
 
 ## Layout
 
@@ -15,7 +15,7 @@ internal/cli/initdata/presets/<name>/
 └── mcps/...
 ```
 
-Leave out spec types you do not need. Spec format: [docs/site/content/docs/spec-format/_index.md](../site/content/docs/spec-format/_index.md).
+Include only the spec types the preset needs. [Spec format](../site/content/docs/spec-format/_index.md)
 
 ## Steps
 
@@ -26,7 +26,7 @@ Leave out spec types you do not need. Spec format: [docs/site/content/docs/spec-
 5. Try `go run ./cmd/agnostic-ai init --preset <name>` in a temporary project and inspect the generated specs.
 6. Open a PR titled `feat: add <name> init preset`.
 
-`presetFS` uses `all:initdata/presets`, so new directories are included automatically. No registration step is needed.
+`presetFS` includes new directories automatically through `all:initdata/presets`.
 
 ## Style
 

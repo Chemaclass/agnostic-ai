@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Cloud handoffs
 
-The built-in `cloud-handoff` skill sends the task you are working on to a cloud session that goes on without this computer. The cloud session starts from a fresh clone, so the agent first pushes the work and writes down the goal. To pass a task to another tool on this machine, use a [handoff](@/docs/handoff.md); for a parallel task here, a [side conversation](@/docs/side-conversation.md).
+Use the built-in `cloud-handoff` skill to continue a task in the cloud while your computer is off. The cloud session starts from a fresh clone, so the agent first pushes the work and records the goal. Use a [handoff](@/docs/handoff.md) to pass a task to another tool on this machine. Start a [side conversation](@/docs/side-conversation.md) to run another task in parallel here.
 
 ## Enable the skill
 

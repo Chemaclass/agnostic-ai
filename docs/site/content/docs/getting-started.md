@@ -31,7 +31,7 @@ in-your-terminal = "@/docs/getting-started.md#install-agnostic-ai"
 
 # Set up your project {#getting-started}
 
-Write one project note, generate the files Claude Code and Codex read, then change the note once for both. Run each step from your project folder. Prefer to let your coding agent do it? [Paste this prompt](@/docs/agent-setup.md), then come back for [the daily loop](#daily-use).
+Write a project note and generate the files Claude Code and Codex read. Edit that note to update both tools. Run these steps from your project folder. To use a coding agent for setup, [paste this prompt](@/docs/agent-setup.md) and then follow the [daily commands](#daily-use).
 
 ## Install agnostic-ai
 

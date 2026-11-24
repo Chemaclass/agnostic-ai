@@ -9,7 +9,7 @@ group = "Reference"
 
 # Error codes
 
-Each error starts with an `[AAI-NNN]` code and ends with its fix. Find the code below. For a symptom without a code, see [Troubleshooting](@/docs/troubleshooting.md).
+Look up the `[AAI-NNN]` code at the start of an error to find its cause and fix. For symptoms without a code, see [Troubleshooting](@/docs/troubleshooting.md).
 
 ```
 [AAI-003] read config: no agnostic-ai.yaml or agnostic.config.yaml in /path/to/project

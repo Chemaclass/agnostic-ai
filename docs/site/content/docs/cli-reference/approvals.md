@@ -11,7 +11,7 @@ group = "Reference"
 
 ## approvals
 
-Shows and stops automatic answers to permission prompts. The [`approvals` setting](@/docs/global-configuration-reference.md#global-approvals) takes `review` and `yolo` only from the home config; a project file may set `mode: ask` and nothing else. [Approvals](@/docs/approvals.md) explains how to turn it on. Any other argument is an error.
+Use `approvals` to inspect or stop automatic answers to permission prompts. Set `review` or `yolo` in your [home config](@/docs/global-configuration-reference.md#global-approvals). For this setting, a project file accepts only `mode: ask`. For setup, see [Approvals](@/docs/approvals.md). Unknown subcommands and extra positional arguments return an error.
 
 ```bash
 agnostic-ai approvals status          # mode and route per tool, here

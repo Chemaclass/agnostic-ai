@@ -33,7 +33,7 @@ migrate = "@/docs/cli-reference/upgrades.md#migrate"
 ## Migrate {#migrate .legacy-anchor}
 
 
-Handoffs, generated-file recovery, packs, hook helpers, git hooks, completion, and the language server. See also [project CLI and readiness](@/docs/cli-reference/project.md), [upgrade and migrate](@/docs/cli-reference/upgrades.md), and [memory](@/docs/cli-reference/memory.md).
+Use these commands to list handoffs, recover generated files, manage packs and hooks, and set up completion or the language server. See also [project CLI and readiness](@/docs/cli-reference/project.md), [upgrade and migrate](@/docs/cli-reference/upgrades.md), and [memory](@/docs/cli-reference/memory.md).
 
 ## handoff list
 

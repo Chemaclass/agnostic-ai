@@ -6,7 +6,7 @@ weight = 120
 
 # Shared spec features
 
-These rules apply to every kind in [`.agnostic-ai/`](@/docs/spec-format/_index.md). Each kind's own page lists its fields.
+All spec kinds in [`.agnostic-ai/`](@/docs/spec-format/_index.md) follow these rules. Each kind's reference lists its fields.
 
 ## Nested layout: per-directory scope
 

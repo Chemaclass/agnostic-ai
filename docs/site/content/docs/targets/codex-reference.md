@@ -60,7 +60,9 @@ Imported `$CLAUDE_PROJECT_DIR` paths use the Git worktree root and need Git and 
 
 Reviews become `## Code Review Rules` in root or scoped `AGENTS.md`. Other tools reading that file see the review section too. A legacy `rules-file` override prevents root reviews and raises a note.
 
-Environment specs write the Codex app's `.codex/environments/environment.toml`. `setup`, `cleanup`, and `setup-windows` become native scripts; `dev-commands` become action buttons with name, command, and icon (default `run`). `cwd` prefixes the command with `cd`. Last top-level values win. Ports, environment maps, URLs, install, and terminals have no native key and get a note. An entry with a `url` and no `command` has nothing to run, so sync skips it with a note and lint reports it (LINT016).
+Environment specs write the Codex app's `.codex/environments/environment.toml`. `setup`, `cleanup`, and `setup-windows` become scripts. Each `dev-commands` entry becomes an action button with a name, command, and icon that defaults to `run`. `cwd` prefixes the command with `cd`. The last top-level value wins.
+
+Sync reports ports, environment maps, URLs, install, and terminals because they have no native keys. Sync also skips and reports any entry with a `url` but no `command`. Lint reports it as LINT016.
 
 ## MCP mappings
 
@@ -197,7 +199,7 @@ note: codex: agnostic-ai.yaml: permissions.allow rule Bash(git push) is not writ
 
 The rule is written when a deny or ask rule on the same or a shorter prefix already decides every command it would match, or when a wildcard `allow` such as `Bash(git:*)` already allows the extra arguments. `on-unsupported: error` fails on a left-out rule; `silent` omits the note. Exact `deny` and `ask` rules are always written.
 
-Only plain, unquoted words translate. A Bash rule with quotes, escapes, a `*` other than one trailing ` *` or `:*`, shell operators, expansions, assignments, or shell keywords gets a sync note. `on-unsupported: error` fails on it; `silent` omits it. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` sync note and never fail the sync. Use explicit `exec-policies` for a command that cannot translate.
+Sync translates plain, unquoted words. It reports quotes, escapes, shell operators, expansions, assignments, and shell keywords as unsupported. The only wildcard it accepts is one trailing ` *` or `:*`. Set `on-unsupported: error` to fail sync on an unsupported Bash rule or `silent` to omit it quietly. Rules for other tools, such as `Read(.env)` or `WebFetch`, share one `permissions` note and never fail sync. Use explicit `exec-policies` for commands sync cannot translate.
 
 An inline policy list (even `exec-policies: []`), `exec-policies-file` (even an empty file), or imported policy overlay wins. Sync skips translation, notes which source won, and never modifies the policy file.
 

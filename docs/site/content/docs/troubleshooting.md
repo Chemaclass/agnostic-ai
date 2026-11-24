@@ -15,7 +15,7 @@ Run `doctor` from the directory that holds `agnostic-ai.yaml` first:
 agnostic-ai doctor
 ```
 
-Follow its final **Next step**. Doctor changes nothing; [`doctor --fix`](@/docs/cli-reference/doctor.md#doctor) repairs. Rerun it afterward. If it cannot start, use the table.
+Follow the **Next step** it prints. Run `doctor` for a read-only check and [`doctor --fix`](@/docs/cli-reference/doctor.md#doctor) to repair. Rerun `doctor` after the repair. If the command cannot start, use the table.
 
 | Symptom | Next step |
 |---|---|

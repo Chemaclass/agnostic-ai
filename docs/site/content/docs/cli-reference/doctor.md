@@ -15,7 +15,7 @@ group = "Reference"
 agnostic-ai doctor
 ```
 
-Doctor checks the project and your local setup, then prints a final **Next step**. Read it before you repair anything. The [troubleshooting guide](@/docs/troubleshooting.md) covers symptoms.
+Run `doctor` to check the project and your local setup. Read the final **Next step** before making a repair. See [Troubleshooting](@/docs/troubleshooting.md) for common symptoms.
 
 It reports four kinds of generated file:
 

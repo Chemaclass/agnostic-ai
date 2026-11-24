@@ -57,7 +57,11 @@ An always-on rule has no frontmatter. Devin treats a file without frontmatter as
 
 `.agents/skills/<name>/SKILL.md`. Devin reads `.agents/skills/`, `.devin/skills/`, and `.windsurf/skills/`. This adapter writes the first, so a skill is written once even when other tools also write `.agents/skills/`. Files next to the skill and file modes are kept.
 
-- `disable-model-invocation: true` is written as `triggers: [user]`, which Devin documents to "prevent the agent from invoking a skill on its own" while `/skill-name` still runs it ([Devin skills](https://docs.devin.ai/cli/extensibility/skills/overview)). Commands become skills you run by name ([tools without commands](@/docs/spec-format/commands.md#tools-without-commands)). When another target shares the skills folder, sync drops the field with a note and skips commands to keep the files identical. Set `outputs.windsurf.skills-dir: .devin/skills` to retain the field and commands. Import reads `triggers: [user]` back as `disable-model-invocation: true`, so after import every selected tool treats that skill as user-only. Deleting `triggers` and importing with `--overwrite` lifts the restriction for Windsurf only when no other enabled target writes that folder. A shared folder keeps the restriction, because its files omit `triggers` during sync too.
+- Sync writes `disable-model-invocation: true` as `triggers: [user]`. Devin documents this setting to "prevent the agent from invoking a skill on its own" while `/skill-name` still runs it. Sync writes commands as [skills you run by name](@/docs/spec-format/commands.md#tools-without-commands). [Devin skills](https://docs.devin.ai/cli/extensibility/skills/overview)
+
+  If another target shares the skills folder, sync reports and drops the field and skips commands to keep the files identical. Set `outputs.windsurf.skills-dir: .devin/skills` to keep both.
+
+  Import reads `triggers: [user]` as `disable-model-invocation: true`, making the skill user-only for all selected tools. To lift the Windsurf restriction, remove `triggers` and import with `--overwrite`. This works only when Windsurf is the sole target writing that folder. The restriction stays for a shared folder because sync already omits `triggers` there.
 - Other native `triggers` live under `x-windsurf` in the spec and go back to top-level frontmatter on sync. This keeps `[model]` and combined invocation settings, and other tools never see a Devin-only field. An `x-windsurf.triggers` value wins over `disable-model-invocation`.
 
 ### Ignore
@@ -102,7 +106,9 @@ Portable `permissions` are merged into `.devin/config.json`, the committed proje
 - Devin's `Exec` matches only the start of a command, so an exact `Bash(...)` rule without `:*` would match more commands. On `allow` and `ask` that would approve commands you did not list, so the rule is dropped with a sync note. On `deny` it blocks more, which is safe: `Bash(rm -rf /)` becomes `Exec(rm -rf /)`. A command deny wins over a broader `ask` or `allow` (Devin CLI v3000.10.31).
 - `x-windsurf.permissions` writes Devin's rules directly and replaces that spec's portable ones.
 - With `memory.personal: repo`, sync adds `Write(<folder>/**)` to `permissions.allow`, so Devin CLI saves to the [personal memory folder](@/docs/memory.md#one-store-per-repository) without asking. Your own rules stay. A committed settings kind (`gitignore.commit`) keeps the rule out. A folder path with pattern characters, including parentheses, gets no rule and a note; move `AGNOSTIC_AI_HOME` or set `memory.personal: checkout`.
-- With `handoff` or `handoff-hook` enabled in a linked worktree, sync adds `Write(<store>/**)` for the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree). Existing memory and user rules stay. A main checkout path with pattern characters, including parentheses, gets no rule. For a tracked, hand-written, or unmanaged file sync skips only this grant and reports the permission to add by hand (once you add it, it stays); the rest of its output is unchanged.
+- With `handoff` or `handoff-hook` enabled in a linked worktree, sync adds `Write(<store>/**)` for the main checkout's ignored [handoff store](@/docs/handoff.md#write-from-a-linked-worktree). It keeps memory and user rules. If the main checkout path contains pattern characters such as parentheses, sync skips the grant.
+
+  For a tracked, hand-written, or unmanaged file, sync skips only this grant and reports the permission to add by hand. It keeps that permission once you add it.
 
 ### Workflows
 

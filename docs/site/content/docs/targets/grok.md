@@ -80,7 +80,7 @@ Scoped skills, agents, and commands go in the same directory under their source 
 
 {% <details summary="If the rule file is ignored"> %}
 - A root or global ignore pattern can still hide the file. Sync rejects that case before it writes Grok output. Remove the pattern yourself.
-- You can also turn off agnostic-ai's ignore management when your own policy keeps the rules visible.
+- Turn off agnostic-ai's ignore management if your own policy keeps the rules visible.
 - The check reads Grok's root `.gitignore` and global ignore file. It skips nested ignore files and `.git/info/exclude`.
 - A file under an ignored directory counts as hidden unless every parent directory is re-included.
 {% </details> %}

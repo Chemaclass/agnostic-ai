@@ -56,7 +56,7 @@ Start with the [Goose setup](@/docs/targets/goose.md). Output keys are listed un
 
 Goose [1.60.0 removed `goose review`](https://github.com/aaif-goose/goose/releases/tag/v1.60.0). Review specs are reported as unsupported, and sync writes no root or scoped review files. `outputs.goose.review-file` remains accepted but has no effect.
 
-Portable Review specs stay valid for other supported targets. `agnostic-ai import goose` still reads a legacy root `.agents/REVIEW.md` into a portable review spec. Scoped review files need manual reuse. Sync leaves user-owned review files untouched; previously generated review files follow the normal cleanup of managed output.
+Portable Review specs still work with other supported targets. `agnostic-ai import goose` reads a legacy root `.agents/REVIEW.md` into a portable review spec. Reuse scoped review files by hand. Sync keeps user-owned review files and cleans up its older generated files as it does other managed output.
 
 There is no automatic rewrite because Goose has no equivalent native review surface.
 
@@ -83,7 +83,7 @@ Skipped with a warning.
 - Import reads every enabled plugin, hand-installed ones too.
 - A plugin in `disabledPlugins` in the user, project, or local Goose settings is skipped. A plugin named in `enabledPlugins` in a closer file stays enabled.
 - The `plugins` switch in Goose's `config.yaml` is not read, so a plugin turned off there still imports.
-- `agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/REVIEW.md`, or a plugin with `hooks/hooks.json` under `.agents/plugins/`. Antigravity shares `.agents/plugins/`, and OpenHands, Antigravity, and others share `.agents/agents/` and `.agents/skills/`, so those alone do not count. For a project with only rules or plugin skills, run `agnostic-ai import goose`.
+- `agnostic-ai import all` detects Goose only from `.goosehints`, `.agents/REVIEW.md`, or a plugin with `hooks/hooks.json` under `.agents/plugins/`. Antigravity shares `.agents/plugins/`. OpenHands, Antigravity, and other tools share `.agents/agents/` and `.agents/skills/`. For a project with only rules or plugin skills, run `agnostic-ai import goose`.
 
 Import has these limits:
 

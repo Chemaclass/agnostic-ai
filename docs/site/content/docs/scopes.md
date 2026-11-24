@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Scopes
 
-A spec lives at one of three scopes. `--scope` names the one a command works on.
+Specs can live at the project, local, or user scope. Use `--scope` to select the scope a command reads or writes.
 
 | Scope | Who gets it | Lives in | In Git |
 |---|---|---|---|

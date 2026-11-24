@@ -10,7 +10,7 @@ group = "Reference"
 
 # User configuration reference
 
-Setup is in [User configuration](@/docs/global-configuration.md). This page holds the per-key and per-tool detail, and the [list of files `sync --scope user` writes](#global-output).
+Use this reference to look up user settings by key or tool and see [which files `sync --scope user` writes](#global-output). To get started, see [User configuration](@/docs/global-configuration.md).
 
 ## Shared names {#global-shared-names}
 

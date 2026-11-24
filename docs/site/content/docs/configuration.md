@@ -83,7 +83,7 @@ global-mcp-servers = "@/docs/configuration-reference.md#global-mcp-servers"
 
 ## entry-point-files {#entry-point-files .legacy-anchor}
 
-`agnostic-ai.yaml` sits at the project root. Every section is optional. This page covers the keys most people change. The rest are in the [reference](@/docs/configuration-reference.md); `sync` and `gitignore` have [their own page](@/docs/sync-settings.md).
+Keep `agnostic-ai.yaml` at the project root. Every section is optional. For more keys, see the [configuration reference](@/docs/configuration-reference.md) and [sync and Git ignore settings](@/docs/sync-settings.md).
 
 ## Minimal project config
 

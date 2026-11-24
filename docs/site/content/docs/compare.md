@@ -14,7 +14,7 @@ scripts = ["assets/scripts/compare-targets.js"]
 
 Pick two tools (or a third in Target C) to compare generated files by spec kind. The URL keeps your selection. With Claude Code and Codex, a shared rule becomes a Claude rule file and a Codex `AGENTS.md` section.
 
-These are sample paths. Before switching tools, run [`agnostic-ai compare`](@/docs/cli-reference/inspect.md#compare) on your own specs.
+The explorer shows sample paths. Run [`agnostic-ai compare`](@/docs/cli-reference/inspect.md#compare) on your own specs before switching tools.
 
 {{ <compare_targets /> }}
 

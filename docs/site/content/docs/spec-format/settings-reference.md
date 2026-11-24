@@ -9,7 +9,7 @@ group = "Reference"
 
 # Settings reference
 
-Per-tool details for the fields on the [settings page](@/docs/spec-format/settings.md).
+See [Settings](@/docs/spec-format/settings.md) for the shared fields.
 
 ## Effort by target {#effort-by-target}
 

@@ -1,6 +1,6 @@
 # Documentation
 
-Choose a guide below. For a coding agent, use the agent setup guide and name the tools to configure.
+If a coding agent sets up agnostic-ai, tell it which tools to configure.
 
 | Your goal | Start here |
 |---|---|

@@ -2,9 +2,7 @@
 
 [Contributor docs](README.md)
 
-Add support for a coding tool by writing an adapter, the code that turns portable specs into that tool's configuration. This guide uses `foo` as the target name.
-
-Before writing code, check the tool's official documentation for the files and fields it reads. Generate those files, test the output, and document the supported spec kinds.
+Check the coding tool's official documentation for the files and fields it reads. Write an adapter that turns portable specs into those files, test its output, and document every supported spec kind. The examples use `foo` as the target name.
 
 ## 1. Create the package
 
@@ -64,7 +62,7 @@ var registry = map[string]Adapter{
 }
 ```
 
-Add the target to `allTargets` in `internal/cli/init_interactive.go`. Decide separately whether to include it in `DefaultTargets()` in `internal/config/config.go`. Targets whose native restrictions need an explicit policy stay opt-in.
+Add the target to `allTargets` in `internal/cli/init_interactive.go`. Include it in `DefaultTargets()` in `internal/config/config.go` only if its native restrictions need no explicit policy. Otherwise, keep it opt-in.
 
 - Add native per-kind defaults to `emit.TargetVarPaths` in `internal/adapters/internal/emit/var_tables.go`, plus `dirRelativeVars` when a `dir` override moves them. Use an empty entry when the target has no dedicated paths. `TestTargetVarPaths_CoverEveryRegisteredTarget` and the emission parity tests check this table.
 - If settings merge `x-<target>` fields, register the target in `settingsPassThroughTargets` in `internal/cli/unread_overlays.go`. `TestSettingsPassThroughTargets_MatchAdapters` checks this registration.
@@ -187,7 +185,7 @@ A tool with no such hook still gets messages by hand: the companion's **Type int
 
 ## 10. Keeping the adapter true
 
-Vendors can move paths or rename keys, leaving sync writing files the tool no longer reads. Check both sources below:
+Check vendor docs when registering a target. Vendors can move paths or rename keys that sync relies on.
 
 - Add the target's doc and changelog URLs to `.agnostic-ai/skills/target-audit/references/sources.md`, with a `watch:` line naming the parts most likely to change. `tests/integration/target_audit_sources_test.go` requires this section before the adapter can merge. Follow the required URL line format: `scripts/docfetch.sh` parses those two lines, and `scripts/docfetch_test.sh` fails when either URL is missing. Run `scripts/docfetch.sh <target>` once and commit its new rows in `scripts/target-audit/sources.lock`.
 - Run `scripts/target-facts.sh <target>` and compare its capabilities, default paths, package comments, and target guidance with the vendor documentation. It reads compact and multiline capability declarations, plus output constants and inline calls across non-test files in the adapter package.

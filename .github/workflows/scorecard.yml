@@ -2,8 +2,8 @@ name: Scorecard
 
 # OpenSSF Scorecard rates this repository's supply-chain practices (pinned
 # dependencies, token permissions, branch protection, signed releases, and
-# more). Results publish to the public Scorecard API, which backs the README
-# badge, and to code scanning, where each finding links to its fix.
+# more). The upstream action updates the README badge through the public
+# Scorecard API. Both scan paths upload results to code scanning.
 on:
   push:
     branches: [main]
@@ -14,11 +14,45 @@ on:
 permissions: read-all
 
 jobs:
-  analysis:
+  image:
+    name: Check the Scorecard image
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      available: ${{ steps.pull.outputs.available }}
+      revision: ${{ steps.pull.outputs.revision }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - id: pull
+        name: Pull the pinned action's image
+        run: |
+          revision=$(sed -nE 's|^[[:space:]]*uses:[[:space:]]+ossf/scorecard-action@([0-9a-f]{40})([[:space:]].*)?$|\1|p' .github/workflows/scorecard.yml)
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          printf 'revision=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+          available=false
+          if metadata=$(curl --fail --silent --show-error --retry 2 --max-time 20 \
+            "https://raw.githubusercontent.com/ossf/scorecard-action/$revision/action.yaml"); then
+            image=$(awk '$1 == "image:" { gsub(/["\047]/, "", $2); print $2 }' <<< "$metadata")
+            if [[ "$image" == Dockerfile || "$image" == ./Dockerfile ]]; then
+              available=true
+            elif [[ "$image" =~ ^docker://ghcr\.io/ossf/scorecard-action(:[a-zA-Z0-9._-]+|@sha256:[a-f0-9]{64})$ ]] &&
+              timeout 90 docker pull "${image#docker://}"; then
+              available=true
+            fi
+          fi
+          printf 'available=%s\n' "$available" >> "$GITHUB_OUTPUT"
+
+  publish:
     name: Scorecard analysis
+    needs: image
+    if: needs.image.outputs.available == 'true' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      security-events: write
+      contents: read
       id-token: write
     steps:
       - name: Checkout
@@ -38,8 +72,68 @@ jobs:
         with:
           name: scorecard-results
           path: results.sarif
+          if-no-files-found: error
           retention-days: 5
 
+  analysis-fallback:
+    # The public Scorecard API accepts reports only from the upstream action job.
+    # Build the same action for code scanning during https://github.com/ossf/scorecard-action/issues/1752.
+    name: Scorecard analysis from source
+    needs: image
+    if: needs.image.outputs.available == 'false' || github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Build the pinned Scorecard action
+        env:
+          SCORECARD_REVISION: ${{ needs.image.outputs.revision }}
+        run: docker build --tag scorecard-from-source "https://github.com/ossf/scorecard-action.git#$SCORECARD_REVISION"
+      - name: Scan the default branch
+        env:
+          INPUT_REPO_TOKEN: ${{ github.token }}
+        run: |
+          docker run --rm --workdir /github/workspace \
+            --volume "$GITHUB_WORKSPACE:/github/workspace" \
+            --volume "$GITHUB_EVENT_PATH:/github/workflow/event.json:ro" \
+            --env GITHUB_REPOSITORY --env GITHUB_EVENT_NAME --env GITHUB_API_URL \
+            --env GITHUB_REF=refs/heads/main \
+            --env GITHUB_EVENT_PATH=/github/workflow/event.json \
+            --env GITHUB_WORKSPACE=/github/workspace \
+            --env INPUT_REPO_TOKEN --env INPUT_FILE_MODE=archive \
+            --env INPUT_RESULTS_FORMAT=sarif --env INPUT_RESULTS_FILE=results.sarif \
+            scorecard-from-source
+          test -s results.sarif
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: scorecard-results
+          path: results.sarif
+          if-no-files-found: error
+          retention-days: 5
+
+  analysis:
+    # Keep the analysis job ID so both paths update the same code scanning configuration.
+    name: Upload Scorecard results
+    needs: [publish, analysis-fallback]
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (needs.publish.result == 'success' || needs.analysis-fallback.result == 'success') }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: scorecard-results
       - name: Upload to code scanning
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
         with:

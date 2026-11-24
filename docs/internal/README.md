@@ -2,8 +2,6 @@
 
 [All docs](../README.md) · [Set up your checkout](../../CONTRIBUTING.md)
 
-Follow the contributor setup guide to build and run the CLI, then choose an area to change.
-
 | Task | Guide |
 |---|---|
 | Find the relevant package and understand the data flow | [Architecture](architecture.md) |

@@ -51,7 +51,9 @@ Run `agnostic-ai view --scope user` and open **Settings**, then **Approvals and 
 
 Its **Companion** group holds the companion's Animate, Dim when idle, Small companion and Check for updates switches. A running companion applies a change within 5 seconds. Turning off Check for updates needs an unlocked tab. While the companion runs, the group also shows both shortcuts and Start at login, read only; change those from the companion's menu. A shortcut another program writes into `companion.json` is put back.
 
-Only a tab that `view` opened can loosen approvals. `view` opens it through a file only your account can read, not through the address. The companion's **Dashboard** opens an unlocked tab the same way. A tab you open by typing the address or a bookmark can make approvals stricter but shows the looser choices locked. To unlock one, run `agnostic-ai view --scope user` again. It reuses the running server, the companion's included, and opens a new unlocked tab. If your system opens `.html` files in an editor, open the address `view` prints instead; that tab stays locked. On Windows no unlock file is written, so every tab stays locked: loosen approvals from the companion. See [who can change this](#who-can-change-this).
+To loosen approvals in your browser, open the companion's **Dashboard** or run `agnostic-ai view --scope user`. Both open an unlocked tab through a file only your account can read. `view` reuses the running server, including the companion's, and opens a new tab.
+
+A tab opened from an address or bookmark can make approvals stricter. To loosen them, open a new tab with `agnostic-ai view --scope user`. If your system opens `.html` files in an editor, use the address `view` prints. That tab stays locked. On Windows, all tabs stay locked because `view` does not write an unlock file. Use the companion to loosen approvals. See [who can change this](#who-can-change-this).
 
 ## Modes
 

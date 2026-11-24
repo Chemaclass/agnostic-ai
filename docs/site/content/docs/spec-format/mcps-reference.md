@@ -9,7 +9,7 @@ group = "Reference"
 
 # MCP reference
 
-Per-tool details for the fields on the [MCP servers page](@/docs/spec-format/mcps.md).
+See [MCP servers](@/docs/spec-format/mcps.md) for the shared fields.
 
 ## Target-only fields {#target-only-fields}
 

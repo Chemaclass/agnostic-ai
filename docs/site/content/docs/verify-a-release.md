@@ -9,7 +9,7 @@ group = "Reference"
 
 # Verify a release
 
-The install scripts and `agnostic-ai upgrade` check checksums, and, with the GitHub CLI logged in, [where the archive was built](#build-provenance). For a manual download, use the checks below. Replace `vX.Y.Z` and the archive name with yours.
+The install scripts and `agnostic-ai upgrade` verify checksums. If you are signed in to the GitHub CLI, they also verify [where the archive was built](#build-provenance). To check a manual download, replace `vX.Y.Z` and the archive name with yours.
 
 | Check | Proves | Command |
 |---|---|---|

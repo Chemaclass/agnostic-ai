@@ -61,11 +61,11 @@ sources = "@/docs/cli-reference/hook-diagnostics.md#sources"
 ## Sources {#sources .legacy-anchor}
 
 
-`hooks/` holds commands the AI tool runs at fixed points: when a session starts, before a tool call, after a file edit, when the agent stops. Hooks must be enabled and trusted in that tool.
+`hooks/` holds commands the tool runs at supported events, such as session start, before a tool call, after a file edit, or when the agent stops. Enable and trust the hooks in the coding tool.
 
 ## A typical session
 
-A session contains prompts, and a prompt can lead to several tool calls. The coding tool runs a hook when it reaches a supported event. A hook can report state, check an action, or run a command such as a formatter.
+A prompt can lead to several tool calls. Hooks along the way can report state, check an action, or run a command such as a formatter.
 
 {{ <hook_flow /> }}
 
