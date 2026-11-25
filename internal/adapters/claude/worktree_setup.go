@@ -96,7 +96,8 @@ func worktreeSetupScript(setup string) string {
 	var sb strings.Builder
 	sb.WriteString("#!/bin/sh\n")
 	sb.WriteString(emit.HeaderBlock(emit.FormatShell))
-	sb.WriteString(`[ "${` + emit.HookTargetEnv + `:-}" = ` + target + ` ] || exit 0
+	sb.WriteString(`[ "${CLAUDE_CODE_REMOTE:-}" != true ] || exit 0
+[ "${` + emit.HookTargetEnv + `:-}" = ` + target + ` ] || exit 0
 dir=$(sed -n 's/.*"cwd"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | sed 's/\\\\/\\/g' | head -n 1)
 cd "${dir:-.}" 2>/dev/null || exit 0
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0

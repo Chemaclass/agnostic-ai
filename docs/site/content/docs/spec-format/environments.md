@@ -31,7 +31,7 @@ dev-commands:
     auto-port: true
 ```
 
-A sandbox that runs an install step and keeps a terminal open (Cursor, OpenHands, Amp). Cursor runs `install` each time its VM starts, and Amp runs it again when it refreshes a snapshot, so make it safe to repeat:
+A sandbox that runs an install step and keeps a terminal open (Cursor, OpenHands, Amp). Cursor runs `install` when it creates a Build and reuses the prepared disk. Amp can rerun the script when it refreshes a snapshot. Make install commands safe to repeat.
 
 ```yaml
 install: go mod download
@@ -64,12 +64,36 @@ Fields a tool does not use get a no-effect note. Other tools report the spec as 
 |---|---|---|
 | [Cursor](@/docs/targets/cursor.md) | `setup`, `setup-windows`; every other key except `name`, `scope`, `description`, the target fields, `dev-commands`, and `cleanup` | `.cursor/worktrees.json`, `.cursor/environment.json` |
 | [Codex](@/docs/targets/codex.md) | `setup`, `setup-windows`, `cleanup`, `dev-commands` (as scripts and action buttons) | `.codex/environments/environment.toml` |
-| [Claude Code](@/docs/targets/claude.md) | `setup` ([worktree setup](#claude-code-worktree-setup)), `dev-commands` (a relative `cwd` reads from the project root, so no `${workspaceFolder}`) | `.claude/hooks/agnostic-ai-worktree-setup.sh`, `.claude/launch.json` |
+| [Claude Code](@/docs/targets/claude.md) | `setup` ([worktree setup](#claude-code-worktree-setup)), `install` ([cloud sessions](#cloud-sessions)), `dev-commands` (a relative `cwd` reads from the project root) | `.claude/hooks/agnostic-ai-worktree-setup.sh`, `.claude/hooks/agnostic-ai-cloud-install.sh`, `.claude/settings.json`, `.claude/launch.json` |
 | [OpenHands](@/docs/targets/openhands.md) | `install` (a setup script) | `.openhands/setup.sh` |
 | [Amp](@/docs/targets/amp.md) | `install` (a setup script), `terminals` (services) | `.agents/setup`, `.amp/services.yaml` |
 | [Ellipsis](@/docs/targets/ellipsis.md) | `install` as `hooks.build_base`, `setup` as `hooks.after_checkout`, each after `cd /sandbox/<repository>`, only for the environment `x-ellipsis.environment` selects | `.ellipsis/environments/<name>.yaml` |
 
 `import cursor`, `import codex`, and `import ellipsis` read their files back. After installation and sync, run the [project readiness checks](@/docs/cli-reference/project.md#project-readiness) before starting a cached environment. Installation alone does not check generated files.
+
+## Cloud sessions {#cloud-sessions}
+
+A cloud session starts from a clone. Commit the generated files it needs. If sync manages your `.gitignore`, use [`gitignore.commit`](@/docs/sync-settings.md#gitignore) for the environment and hook outputs you want to commit.
+
+| Tool | Reads from the repository | Set in the tool's UI |
+|---|---|---|
+| [Claude Code](https://code.claude.com/docs/en/cloud-environments) | `.claude/settings.json` and the install script it calls. Anthropic-hosted sessions read the hook for one repository outside a project's cloud threads. | Cached setup script, environment variables, network secrets, allowed domains |
+| [Cursor](https://cursor.com/docs/cloud-agent/setup) | `.cursor/environment.json`, including `egressAllowlist`, in Cursor-hosted single-repo runs. A saved environment must point at the file. | Saved environments, environment variables and secrets |
+| [GitHub Copilot](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/customize-the-agent-environment) | `.github/workflows/copilot-setup-steps.yml` on the default branch for sessions on Actions. Write this workflow in your repository. | Agents secrets and variables, firewall |
+| [Codex Cloud](https://learn.chatgpt.com/docs/environments/cloud-environments) | None for environment setup. The Codex app reads `.codex/environments/environment.toml` for local worktrees. | Install script, environment variables, HTTP secrets, additional allowed domains |
+| [OpenHands](https://docs.openhands.dev/openhands/usage/customization/repository) | `.openhands/setup.sh` | Secrets |
+| [Amp](https://ampcode.com/docs/orbs/customizing) | `.agents/setup` in the primary repository, plus `.amp/services.yaml` for services | Secrets and environment variables, optional pre-setup script |
+| [Ellipsis](https://www.ellipsis.dev/docs/environments) | `.ellipsis/environments/<name>.yaml` on the default branch | Secrets |
+
+### Claude Code cloud install {#claude-code-cloud-install}
+
+Sync writes `install` to `.claude/hooks/agnostic-ai-cloud-install.sh` and registers a `SessionStart` hook in `.claude/settings.json`. In a cloud session the script runs from the repository root. It records a successful install in the Git directory and retries on the next start or resume if the commands changed or the last run failed. If only the dependencies changed in a running session, rerun the install commands yourself.
+
+With managed ignores enabled, set `gitignore.commit: [claude:environments, claude:hooks]` and commit the generated files. If a hook calls a separate script, commit that script too. Remove any hand-written hook that runs the same install because Claude Code runs matching hooks in parallel.
+
+Claude Code gives command hooks 600 seconds by default. Each start and resume runs the hook, outside the environment cache. Allow network access to the package registries the hook needs. On a self-hosted runner, make sure `flock` or `lockf` is available. Use the cached setup script in the web UI for toolchains and slow installs. See [Claude Code's cloud hook limits](https://code.claude.com/docs/en/cloud-environments#limitations-in-cloud-sessions).
+
+Use `x-claude.install: false` to switch off this hook and keep the shared install for other tools. Local Claude Code worktrees use `setup`.
 
 ## Claude Code worktree setup {#claude-code-worktree-setup}
 

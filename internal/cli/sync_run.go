@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/claude"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/gitquery"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -701,7 +702,21 @@ func writeSyncIgnores(root string, cfg *config.Config, b spec.Bundle, targets, r
 	if changed {
 		w.changed = append(w.changed, worktreeIncludeFile)
 	}
+	if slices.Contains(emitted, "claude") {
+		noteIgnoredClaudeCloudInstall(root, cfg, recorded)
+	}
 	return w, nil
+}
+
+func noteIgnoredClaudeCloudInstall(root string, cfg *config.Config, recorded []string) {
+	script := claude.CloudInstallPath(cfg)
+	if !slices.ContainsFunc(recorded, func(path string) bool { return filepath.Clean(path) == script }) {
+		return
+	}
+	settings := filepath.Join(filepath.Dir(filepath.Dir(script)), "settings.json")
+	if gitquery.Ignored(root, filepath.ToSlash(script)) || gitquery.Ignored(root, filepath.ToSlash(settings)) {
+		adapters.NoteProject("Claude Code cloud install needs its script and hook in Git. Set gitignore.commit: [claude:environments, claude:hooks] and commit the generated files.")
+	}
 }
 
 // planIgnoreFiles is writeSyncIgnores for `sync --plan`: a report of the

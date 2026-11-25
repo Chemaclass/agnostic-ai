@@ -23,7 +23,6 @@ const launchFileVersion = "0.0.1"
 // environmentFieldsWithoutEffect are the environment spec fields Claude
 // Code has no project file for, with the reason each note gives.
 var environmentFieldsWithoutEffect = []struct{ field, reason string }{
-	{"install", "Claude Code has no install step; run it from a SessionStart hook spec"},
 	{"setup-windows", "the Claude Code setup hook runs only setup, through sh"},
 	{"cleanup", "Claude Code runs worktree cleanup from a WorktreeRemove hook spec"},
 	{"terminals", "Claude Code has no terminal list; use dev-commands for preview servers"},

@@ -72,7 +72,7 @@ func importClaudeHooks(root, dstDir string) (int, error) {
 					count += n
 					continue
 				}
-				if h.Command == "" || claudehooks.IsWorktreeSetupCommand(h.Command) || importLocal.dropsHookCommand("claude", event, g.Matcher, adapters.ExecFormCommand(h.Command, h.Args)) {
+				if h.Command == "" || claudehooks.IsGeneratedEnvironmentCommand(event, g.Matcher, h.Command) || importLocal.dropsHookCommand("claude", event, g.Matcher, adapters.ExecFormCommand(h.Command, h.Args)) {
 					continue
 				}
 				groups = addClaudeCommand(groups, h)
