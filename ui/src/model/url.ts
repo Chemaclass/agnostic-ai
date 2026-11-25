@@ -14,6 +14,8 @@ export interface UrlState {
   tab?: string
   /** The section search. */
   q?: string
+  /** The selected place in Conversations; All is the default. */
+  place?: 'local' | 'cloud'
   /** The linked item, field, or finding (see identity.ts). */
   entry?: string
   /** The coding tool chosen in Context size. */
@@ -51,6 +53,7 @@ export function parseUrlState(search: string, defaultSource?: string): UrlState 
   const tab = params.get('tab') ?? ''
   const target = params.get('target') ?? ''
   const file = params.get('file') ?? ''
+  const place = params.get('place')
   return {
     view: isView(view) ? view : defaultView(resolveDataSource({ mock, source }, defaultSource)),
     tab: /^[a-z][a-z0-9-]{0,47}$/.test(tab) ? tab : undefined,
@@ -58,6 +61,7 @@ export function parseUrlState(search: string, defaultSource?: string): UrlState 
     entry: entry && entry.length <= 2048 ? entry : undefined,
     target: /^[a-z][a-z0-9-]{0,47}$/.test(target) ? target : undefined,
     file: file && file.length <= 1024 ? file : undefined,
+    place: place === 'local' || place === 'cloud' ? place : undefined,
     mock,
     source,
   }
@@ -69,6 +73,7 @@ export function serializeUrlState(state: UrlState, defaultSource?: string): stri
   if (state.view !== defaultView(resolveDataSource(state, defaultSource))) params.set('view', state.view)
   if (state.tab) params.set('tab', state.tab)
   if (state.q) params.set('q', state.q)
+  if (state.place) params.set('place', state.place)
   if (state.entry) params.set('entry', state.entry)
   if (state.target) params.set('target', state.target)
   if (state.file) params.set('file', state.file)
@@ -80,7 +85,7 @@ export function serializeUrlState(state: UrlState, defaultSource?: string): stri
 
 /** Applies a patch; the data source carries over, and a new section starts without the old search or link. */
 export function nextState(state: UrlState, patch: Partial<UrlState>): UrlState {
-  const base = patch.view && patch.view !== state.view ? { ...state, tab: undefined, q: undefined, entry: undefined, target: undefined, file: undefined } : state
+  const base = patch.view && patch.view !== state.view ? { ...state, tab: undefined, q: undefined, entry: undefined, target: undefined, file: undefined, place: undefined } : state
   return { ...base, ...patch }
 }
 

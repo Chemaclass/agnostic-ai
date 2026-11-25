@@ -15,6 +15,17 @@ describe('URL state parsing', () => {
     expect(serializeUrlState(parseUrlState('?view=health&mock=1'))).toBe('?view=health&mock=1')
   })
 
+  it('round-trips the conversation place and leaves All or invalid places out', () => {
+    const state = parseUrlState('?place=cloud&q=parser')
+    expect(state.place).toBe('cloud')
+    expect(serializeUrlState(state)).toBe('?q=parser&place=cloud')
+    expect(parseUrlState('?place=local').place).toBe('local')
+    expect(parseUrlState('?place=all').place).toBeUndefined()
+    expect(parseUrlState('?place=remote').place).toBeUndefined()
+    expect(nextState(state, { place: 'local' })).toMatchObject({ q: 'parser', place: 'local' })
+    expect(nextState(state, { view: 'context' }).place).toBeUndefined()
+  })
+
   it('opens Context by default for a static snapshot, from the address or the build', () => {
     expect(parseUrlState('?source=./snapshot').view).toBe('context')
     expect(parseUrlState('?source=javascript%3Aalert(1)').view).toBe('context')

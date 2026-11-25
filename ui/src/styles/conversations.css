@@ -1,5 +1,42 @@
 .conversations-search {
-  gap: 8px 16px;
+  gap: 12px 16px;
+}
+
+.conversations-search .section-search-input {
+  flex-basis: 100%;
+}
+
+.conversations-search input {
+  padding-inline-end: 48px;
+}
+
+.conversations-search input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.conversation-clear {
+  position: absolute;
+  inset-block: 0;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.conversation-clear:hover {
+  color: var(--text);
+}
+
+.conversation-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 20px;
 }
 
 .conversation-tools {
@@ -9,12 +46,6 @@
 .conversation-tools button {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-
-.conversation-tool-count {
-  font-variant-numeric: tabular-nums;
-  font-weight: 500;
 }
 
 /* The same box as a filter button, so the toolbar keeps its height when the tools land. */
@@ -471,6 +502,8 @@
 
   .conversations-more .button,
   .conversation-tools button,
+  .conversation-places button,
+  .conversations-search input,
   .conversations-skeleton-tool,
   .conversation-actions .button,
   .conversation-result .button,

@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, typ
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, needsYouReason, conversationToolLabel, conversationPlaceLabel, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, CONVERSATION_PLACES, conversationSearchStatus, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, needsYouReason, conversationToolLabel, conversationPlaceLabel, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter, type PlaceFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -18,15 +18,6 @@ const SEARCH_NOTE = 'Search covers every conversation, loaded or not.'
 
 // How long typing pauses before the search goes to the server.
 const SEARCH_PAUSE_MS = 300
-
-/** The line under the search box: a search on its way, its matches across every week, or what a tool button kept. */
-function searchStatus(searching: boolean, matches: number | undefined, kept: number, loaded: number, toolChosen: boolean): string {
-  if (searching) return 'Searching…'
-  if (matches !== undefined && toolChosen) return `${kept} of ${plural(matches, 'conversation')} match.`
-  if (matches !== undefined) return `${plural(matches, 'conversation')} ${matches === 1 ? 'matches' : 'match'}.`
-  if (toolChosen) return `${kept} of ${plural(loaded, 'conversation')} match.`
-  return ''
-}
 
 const MOCK_OPEN_MESSAGE = 'Mock data: opening a conversation needs agnostic-ai view running.'
 
@@ -78,10 +69,14 @@ export function ConversationsPage() {
   }
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
+  const keepAvailableTool = (sources: ConversationSource[]) => setTool((current) => current === 'all' || sources.some((source) => source.tool === current && source.found) ? current : 'all')
+  const place = app.state.place ?? 'all'
+  const setPlace = (place: PlaceFilter) => app.navigate({ place: place === 'all' ? undefined : place })
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set(['archived']))
   const query = app.state.q ?? ''
   // The search goes to the server, which searches every conversation, once typing pauses.
   const [searched, setSearched] = useState(query.trim())
+  const [displayedQuery, setDisplayedQuery] = useState('')
   const [searching, setSearching] = useState(false)
   const [opened, setOpened] = useState<ReadonlySet<string>>(() => new Set(openedChats))
   const markOpened = (key: string) => {
@@ -118,6 +113,8 @@ export function ConversationsPage() {
       (loaded) => {
         if (controller.signal.aborted) return
         setSearching(false)
+        setDisplayedQuery(searched)
+        keepAvailableTool(loaded.data.tools)
         for (const conversation of loaded.data.conversations) {
           if (conversation.live) openedChats.delete(rowKey(conversation))
         }
@@ -152,6 +149,7 @@ export function ConversationsPage() {
       (loaded) => {
         if (controller.signal.aborted) return
         olderRequest.current = undefined
+        keepAvailableTool(loaded.data.tools)
         focusEndNote.current = document.activeElement === olderButton.current && loaded.data.next === undefined
         setPages((current) => [...current, loaded.data])
         setOlder({ state: 'idle' })
@@ -212,11 +210,17 @@ export function ConversationsPage() {
   // same elements before and after, so focus and typing carry over.
   const rows = mergePages(pages)
   const now = new Date()
-  // The server already searched; the tool buttons narrow what it sent.
+  // The server searched every week; place and tool narrow the loaded rows.
   const names = new Map(rows.map((row) => [rowKey(row), row.title]))
-  const matching = filterConversations(rows, '', tool)
+  const matching = filterConversations(rows, '', tool, place)
   const groups = groupConversations(matching, now)
   const matches = pages[0]?.matches
+  const filtered = tool !== 'all' || place !== 'all'
+  const queryMatchesPage = query.trim() === displayedQuery
+  const searchFailed = error !== undefined && searched === query.trim()
+  const pendingSearch = !searchFailed && (searching || !queryMatchesPage)
+  const status = searchFailed && !queryMatchesPage ? 'Search could not finish.' : conversationSearchStatus(pendingSearch, matches, matching.length, rows.length, filtered)
+  const emptyMessage = next && (filtered || matches !== 0) ? 'No matches in the loaded weeks. Load the week before to check older conversations.' : 'No conversation matches.'
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
 
@@ -231,13 +235,15 @@ export function ConversationsPage() {
       <Search
         query={query}
         onQuery={setQuery}
-        status={loaded ? searchStatus(searching, matches, matching.length, rows.length, tool !== 'all') : ''}
+        status={loaded ? status : ''}
+        place={place}
+        onPlace={setPlace}
         tools={loaded
-          ? <ToolFilterButtons sources={pages.at(-1)!.tools} rows={rows} tool={tool} onChoose={setTool} />
+          ? <ToolFilterButtons sources={pages.at(-1)!.tools} tool={tool} onChoose={setTool} />
           : <ToolFilterSkeleton />}
       />
       {!loaded && <ListSkeleton />}
-      {loaded && groups.length === 0 && (matches === 0 || rows.length > 0) && <p className="muted empty-matches">No conversation matches.</p>}
+      {loaded && queryMatchesPage && !pendingSearch && groups.length === 0 && <p className="muted empty-matches">{emptyMessage}</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
         return (
@@ -323,27 +329,21 @@ function ListSkeleton() {
   )
 }
 
-// One button per tool whose store was found, after All. Pressing the chosen
-// tool again shows every tool. Each button's title says how many of the
-// tool's chats are loaded, since a week loads at a time.
-function ToolFilterButtons({ sources, rows, tool, onChoose }: { sources: ConversationSource[]; rows: Conversation[]; tool: ToolFilter; onChoose: (tool: ToolFilter) => void }) {
-  const choices = toolChoices(sources, rows)
+function ToolFilterButtons({ sources, tool, onChoose }: { sources: ConversationSource[]; tool: ToolFilter; onChoose: (tool: ToolFilter) => void }) {
+  const choices = toolChoices(sources)
   if (choices.length === 0) return null
   return (
     <div className="segmented conversation-tools" role="group" aria-label="Filter by tool">
-      <button type="button" aria-pressed={tool === 'all'} onClick={() => onChoose('all')}>
-        All <span className="conversation-tool-count">{rows.length}</span>
-      </button>
       {choices.map((choice) => (
         <button key={choice.tool} type="button" data-tool={choice.tool} aria-pressed={tool === choice.tool} title={choice.description} onClick={() => onChoose(toggleTool(tool, choice.tool))}>
-          {choice.label} <span className="conversation-tool-count">{choice.loaded}</span>
+          {choice.label}
         </button>
       ))}
     </div>
   )
 }
 
-function Search({ query, onQuery, status, tools }: { query: string; onQuery: (value: string) => void; status: string; tools: ReactNode }) {
+function Search({ query, onQuery, status, tools, place, onPlace }: { query: string; onQuery: (value: string) => void; status: string; tools: ReactNode; place: PlaceFilter; onPlace: (place: PlaceFilter) => void }) {
   const searchId = useId()
   const input = useRef<HTMLInputElement>(null)
   return (
@@ -351,15 +351,18 @@ function Search({ query, onQuery, status, tools }: { query: string; onQuery: (va
       <label htmlFor={searchId} className="sr-only">Search conversations</label>
       <div className="section-search-input">
         <Icon name="search" />
-        <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Title, folder, branch, or prompt" title={SEARCH_NOTE} aria-describedby={`${searchId}-status ${searchId}-note`} />
-      </div>
-      {tools}
-      {query && (
-        <button type="button" className="button" onClick={() => {
+        <input ref={input} id={searchId} type="search" value={query} onChange={(event) => onQuery(event.target.value)} placeholder="Search every conversation" title={SEARCH_NOTE} aria-describedby={`${searchId}-status ${searchId}-note`} />
+        {query && <button type="button" className="conversation-clear" aria-label="Clear search" title="Clear search" onClick={() => {
           onQuery('')
           input.current?.focus()
-        }}>Clear search</button>
-      )}
+        }}><Icon name="close" /></button>}
+      </div>
+      <div className="conversation-filters">
+        <div className="segmented conversation-places" role="group" aria-label="Filter by place">
+          {CONVERSATION_PLACES.map((choice) => <button key={choice.id} type="button" aria-pressed={place === choice.id} title={choice.title} onClick={() => onPlace(choice.id)}>{choice.label}</button>)}
+        </div>
+        {tools}
+      </div>
       <p id={`${searchId}-status`} className="section-search-status" role="status">{status}</p>
       <p id={`${searchId}-note`} className="sr-only">{SEARCH_NOTE}</p>
     </div>

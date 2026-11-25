@@ -32,7 +32,7 @@ interface Row { tool: string; app: string; title?: string; folder?: string; bran
 // title, folder, branch, prompt, reply, tool or app. The mock does the same to
 // whatever page a test answers with, and counts the matches.
 function asTheServerSearches(json: unknown, params: URLSearchParams): unknown {
-  const view = json as { conversations?: Row[] }
+  const view = json as { conversations?: Row[]; matches?: number }
   const words = (params.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean)
   if (!Array.isArray(view?.conversations) || words.length === 0) return json
   // A typed shell command reads "! command" on the page, so that is what matches.
@@ -41,7 +41,7 @@ function asTheServerSearches(json: unknown, params: URLSearchParams): unknown {
     const text = [shown(c.title), c.folder, c.branch, shown(c.prompt), c.reply, TOOL_LABELS[c.tool], c.app].join('\n').toLowerCase()
     return words.every((word) => text.includes(word))
   })
-  return { ...view, conversations: rows, matches: rows.length }
+  return { ...view, conversations: rows, matches: view.matches ?? rows.length }
 }
 
 async function mockServer(page: Page, reply: Reply = opened, week: Week = () => ({ json: conversations })): Promise<Mocks> {
@@ -92,10 +92,9 @@ test.describe('conversations', () => {
     await expect(conversationsLink).toHaveAttribute('href', '/')
     await expect(nav.getByRole('link', { name: /^Context/ })).toHaveAttribute('href', '?view=context')
 
-    await expect(chips(page)).toHaveText(['All 9', 'Claude Code 5', 'Codex 2', 'Cursor 2'])
-    await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'true')
-    for (const button of await chips(page).all()) if (!(await button.textContent())?.startsWith('All')) await expect(button).toHaveAttribute('aria-pressed', 'false')
-    await expect(chip(page, 'Claude Code')).toHaveAttribute('title', '5 of 37 Claude Code chats loaded.')
+    await expect(chips(page)).toHaveText(['Claude Code', 'Codex', 'Cursor'])
+    for (const button of await chips(page).all()) await expect(button).toHaveAttribute('aria-pressed', 'false')
+    await expect(chip(page, 'Claude Code')).toHaveAttribute('title', 'Show Claude Code conversations.')
 
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 2', 'Working 2', 'Active 2', 'Archived 3'])
     await expect(page.locator('li.conversation')).toHaveCount(9)
@@ -224,8 +223,8 @@ test.describe('conversations', () => {
     await expect(page.locator('li.conversation')).toHaveCount(2)
     await expect(page.locator('li.conversation[data-tool="codex"]')).toHaveCount(2)
     await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 1', 'Archived 1'])
-    await expect(status).toHaveText('2 of 9 conversations match.')
-    await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'false')
+    await expect(status).toHaveText('2 of 9 loaded conversations match.')
+    await expect(chips(page).getByText('All', { exact: true })).toHaveCount(0)
 
     const cursor = chip(page, 'Cursor')
     await cursor.click()
@@ -237,8 +236,8 @@ test.describe('conversations', () => {
     await expect(page.locator('li.conversation')).toHaveCount(9)
     await expect(status).toBeEmpty()
     await codex.click()
-    await chip(page, 'All').click()
-    await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'true')
+    await codex.click()
+    await expect(codex).toHaveAttribute('aria-pressed', 'false')
     await expect(page.locator('li.conversation')).toHaveCount(9)
 
     const claude = chip(page, 'Claude Code')
@@ -280,7 +279,7 @@ test.describe('conversations', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Nightly dependency audit', 'Draft the release notes for v0.92'])
     await claude.click()
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Nightly dependency audit'])
-    await expect(status).toHaveText('1 of 2 conversations match.')
+    await expect(status).toHaveText('1 of 2 loaded conversations matches.')
     await cursor.click()
     await expect(page.locator('li.conversation')).toHaveCount(0)
     await expect(page.getByText('No conversation matches.')).toBeVisible()
@@ -292,7 +291,7 @@ test.describe('conversations', () => {
     missing.conversations = missing.conversations.filter((conversation: { tool: string }) => conversation.tool !== 'cursor')
     await mockServer(page, opened, () => ({ json: missing }))
     await page.goto('/')
-    await expect(chips(page)).toHaveText(['All 7', 'Claude Code 5', 'Codex 2'])
+    await expect(chips(page)).toHaveText(['Claude Code', 'Codex'])
     await expect(page.locator('li.conversation')).toHaveCount(7)
     await expect(page.locator('.section-search-status')).toBeEmpty()
     await expect(page.locator('.page-facts')).toHaveText(/^7 conversations loaded/)
@@ -709,7 +708,7 @@ test.describe('conversations by week', () => {
     await expect(page.getByRole('region', { name: /^Archived/ }).locator('details')).not.toHaveAttribute('open')
     await expect(row(page, 'Speed up the sqlite reader')).toHaveCount(0)
     await expect(page.getByRole('region', { name: /^Needs you/ }).getByRole('heading', { level: 3 })).toHaveText(['Plan the sync --scope user dry run', 'Speed up the sqlite reader, measured'])
-    await expect(chips(page)).toHaveText(['All 11', 'Claude Code 6', 'Codex 3', 'Cursor 2'])
+    await expect(chips(page)).toHaveText(['Claude Code', 'Codex', 'Cursor'])
     await expect(page.locator('.page-facts')).toHaveText(/^11 conversations loaded(?! so far)/)
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
@@ -762,7 +761,7 @@ test.describe('conversations by week', () => {
     await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
     await page.goto('/')
     await chip(page, 'Cursor').click()
-    await expect(page.locator('.section-search-status')).toHaveText('2 of 9 conversations match.')
+    await expect(page.locator('.section-search-status')).toHaveText('2 of 9 loaded conversations match.')
     await scrollToEnd(page)
     expect(mocks.views).toEqual([FIRST_REQUEST])
 
@@ -776,7 +775,7 @@ test.describe('conversations by week', () => {
     await expect(more).toBeDisabled()
     await page.keyboard.press('Enter')
     release()
-    await expect(page.locator('.section-search-status')).toHaveText('2 of 11 conversations match.')
+    await expect(page.locator('.section-search-status')).toHaveText('2 of 11 loaded conversations match.')
     await expect(page.getByText("That's every conversation.")).toBeFocused()
     expect(mocks.views).toEqual([FIRST_REQUEST, OLDER_REQUEST])
   })
@@ -1066,7 +1065,7 @@ test('attention groups keep keyboard disclosure choices when search and filters 
   await expect(archived).not.toHaveAttribute('open')
   await chip(page, 'Codex').click()
   await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 1', 'Archived 1'])
-  await chip(page, 'All').click()
+  await chip(page, 'Codex').click()
   await expect(working).not.toHaveAttribute('open')
   await expect(archived).not.toHaveAttribute('open')
   await archived.locator('summary').click()
@@ -1153,4 +1152,147 @@ test('a long file conflict reason wraps on a phone without hiding its text', asy
   await expect(reason).toBeVisible()
   expect(await reason.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
   expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
+
+test('place filters overlap for shared chats, combine with tools, and persist in URL history', async ({ page }) => {
+  const base = conversations.conversations[0]
+  const chat = (id: string, changes: object) => ({ ...base, id, title: id, state: 'active', live: false, ...changes })
+  const cloudNote = 'Claude Code cloud sessions are not listed: the sign-in expired.'
+  await mockServer(page, opened, () => ({ json: { ...conversations, cloudNote, conversations: [
+    chat('local terminal', { app: 'cli' }),
+    chat('remote cloud', { tool: 'codex', app: 'cloud' }),
+    chat('plain chat', { app: 'chat' }),
+    chat('local cowork', { app: 'cowork' }),
+    chat('shared terminal', { tool: 'codex', app: 'cli', cloud: { id: 'remote', link: 'https://example.com/shared' } }),
+  ] } }))
+  await page.goto('/')
+  const places = page.getByRole('group', { name: 'Filter by place' })
+  const local = places.getByRole('button', { name: 'Local', exact: true })
+  const cloud = places.getByRole('button', { name: 'Cloud', exact: true })
+  await expect(places.getByRole('button')).toHaveText(['All', 'Local', 'Cloud'])
+  await expect(local).toHaveAttribute('title', 'Conversations on this machine')
+  await expect(cloud).toHaveAttribute('title', "Conversations that run in a tool's cloud")
+  await local.click()
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['local terminal', 'local cowork', 'shared terminal'])
+  await cloud.click()
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['remote cloud', 'plain chat', 'shared terminal'])
+  await expect(page).toHaveURL(/place=cloud/)
+  await expect(page.getByText(cloudNote, { exact: true })).toBeVisible()
+  await chip(page, 'Codex').click()
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['remote cloud', 'shared terminal'])
+  await expect(page.locator('.section-search-status')).toHaveText('2 of 5 loaded conversations match.')
+  await chip(page, 'Codex').click()
+  await page.reload()
+  await expect(cloud).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['remote cloud', 'plain chat', 'shared terminal'])
+  await local.click()
+  await page.goBack()
+  await expect(cloud).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['remote cloud', 'plain chat', 'shared terminal'])
+})
+
+test('search has a full row and one clear control, with global totals until place or tool filters narrow loaded weeks', async ({ page }) => {
+  await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
+  const base = conversations.conversations[0]
+  const chat = (id: string, changes: object) => ({ ...base, id, title: id, state: 'active', live: false, ...changes })
+  const first = { ...conversations, matches: 2, next: NEXT, conversations: [chat('parser local', { app: 'cli' })] }
+  const later = { ...conversations, matches: 2, conversations: [chat('parser remote', { tool: 'codex', app: 'cloud' })] }
+  const mocks = await mockServer(page, opened, (before) => ({ json: before ? later : first }))
+  await page.goto('/?q=parser')
+  const search = page.getByRole('searchbox', { name: 'Search conversations' })
+  const toolbar = page.getByRole('search', { name: 'Search conversations' })
+  await expect(search).toHaveAttribute('placeholder', 'Search every conversation')
+  await expect(toolbar.getByRole('button', { name: 'Clear search', exact: true })).toHaveCount(1)
+  expect((await toolbar.getByRole('button', { name: 'Clear search', exact: true }).boundingBox())!.width).toBeGreaterThanOrEqual(44)
+  const inputBox = (await search.boundingBox())!
+  const toolbarBox = (await toolbar.boundingBox())!
+  expect(inputBox.width).toBeCloseTo(toolbarBox.width, 0)
+  const toolsBox = (await chips(page).first().boundingBox())!
+  expect(toolsBox.y).toBeGreaterThanOrEqual(inputBox.y + inputBox.height)
+  await expect(page.locator('.section-search-status')).toHaveText('2 conversations match.')
+  await page.getByRole('group', { name: 'Filter by place' }).getByRole('button', { name: 'Cloud', exact: true }).click()
+  await expect(page.locator('li.conversation')).toHaveCount(0)
+  await expect(page.locator('.section-search-status')).toHaveText('0 of 1 loaded conversation match.')
+  await expect(page.getByText('No matches in the loaded weeks. Load the week before to check older conversations.', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Load the week before' })).toBeVisible()
+  expect(mocks.views).toEqual(['?editor=cursor&q=parser'])
+  await page.getByRole('button', { name: 'Load the week before' }).click()
+  await expect(page.getByRole('heading', { level: 3 })).toHaveText(['parser remote'])
+  await expect(page.locator('.section-search-status')).toHaveText('1 of 2 loaded conversations matches.')
+  await expect(page.getByText("That's every conversation.")).toBeVisible()
+  await page.getByRole('group', { name: 'Filter by place' }).getByRole('button', { name: 'All', exact: true }).click()
+  await expect(page.locator('.section-search-status')).toHaveText('2 conversations match.')
+  await toolbar.getByRole('button', { name: 'Clear search', exact: true }).click()
+  await expect(search).toHaveValue('')
+  await expect(search).toBeFocused()
+  await expect(toolbar.getByRole('button', { name: 'Clear search', exact: true })).toHaveCount(0)
+})
+
+test('a new query and clearing a zero-result search stay pending through debounce and the response', async ({ page }) => {
+  await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
+  let release!: () => void
+  let hold = false
+  const requests: string[] = []
+  await mockServer(page, opened, async (_before, params) => {
+    const query = params.get('q') ?? ''
+    requests.push(query)
+    if (hold) await new Promise<void>((resolve) => { release = resolve })
+    return { json: conversations }
+  })
+  await page.goto('/?q=does-not-exist')
+  const search = page.getByRole('searchbox', { name: 'Search conversations' })
+  const status = page.locator('.section-search-status')
+  await expect(page.getByText('No conversation matches.', { exact: true })).toBeVisible()
+  hold = true
+  await search.fill('sqlite')
+  expect(requests.at(-1)).toBe('does-not-exist')
+  expect(await status.textContent()).toBe('Searching…')
+  await expect(status).toHaveText('Searching…')
+  await expect(page.getByText('No conversation matches.', { exact: true })).toHaveCount(0)
+  await expect.poll(() => requests.at(-1)).toBe('sqlite')
+  await expect(status).toHaveText('Searching…')
+  await expect(page.getByText('No conversation matches.', { exact: true })).toHaveCount(0)
+  hold = false
+  release()
+  await expect(row(page, 'Speed up the sqlite reader')).toBeVisible()
+  await expect(status).toHaveText('1 conversation matches.')
+  await search.fill('does-not-exist')
+  await expect(page.getByText('No conversation matches.', { exact: true })).toBeVisible()
+  hold = true
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click()
+  expect(requests.at(-1)).toBe('does-not-exist')
+  expect(await status.textContent()).toBe('Searching…')
+  await expect(status).toHaveText('Searching…')
+  await expect(page.getByText('No conversation matches.', { exact: true })).toHaveCount(0)
+  await expect.poll(() => requests.at(-1)).toBe('')
+  await expect(status).toHaveText('Searching…')
+  await expect(page.getByText('No conversation matches.', { exact: true })).toHaveCount(0)
+  hold = false
+  release()
+  await expect(page.locator('li.conversation')).toHaveCount(9)
+  await expect(status).toBeEmpty()
+})
+
+test('an authoritative older page clears a selected tool whose source disappears while keeping the place', async ({ page }) => {
+  await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
+  const base = conversations.conversations[0]
+  const current = { ...conversations, next: NEXT, conversations: [{ ...base, id: 'current-local', title: 'current local', state: 'active' }] }
+  const later = {
+    ...conversations,
+    tools: conversations.tools.map((source: { tool: string }) => source.tool === 'codex' ? { ...source, found: false } : source),
+    conversations: [{ ...base, id: 'older-local', title: 'older local', state: 'active' }],
+  }
+  await mockServer(page, opened, (before) => ({ json: before ? later : current }))
+  await page.goto('/?place=local')
+  await expect(row(page, 'current local')).toBeVisible()
+  await chip(page, 'Codex').click()
+  await expect(page.locator('li.conversation')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Load the week before' }).click()
+  await expect(chip(page, 'Codex')).toHaveCount(0)
+  await expect(row(page, 'older local')).toBeVisible()
+  await expect(row(page, 'current local')).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Filter by place' }).getByRole('button', { name: 'Local', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(chip(page, 'Claude Code')).toHaveAttribute('aria-pressed', 'false')
+  await expect(page).toHaveURL(/place=local/)
 })
