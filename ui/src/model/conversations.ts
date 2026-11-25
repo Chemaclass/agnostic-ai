@@ -33,22 +33,40 @@ export function withheldLabel(field: WithheldField): string {
 
 export const WITHHELD_NOTE = 'Hidden: may hold a credential'
 
-/** One button of the tool filter: a tool whose store was found, with its rows loaded so far. */
 interface ToolChoice {
   tool: ConversationTool
   label: string
-  loaded: number
-  /** How many rows are loaded of every conversation it holds, and the server's note. */
   description: string
 }
 
-/** The tool filter's buttons. A tool whose store was not found has nothing to filter, so it is left out. */
-export function toolChoices(sources: ConversationSource[], loaded: Conversation[]): ToolChoice[] {
-  return sources.filter((source) => source.found).map((source) => {
-    const rows = loaded.filter((conversation) => conversation.tool === source.tool).length
-    const description = `${rows} of ${plural(source.count, `${source.label} chat`)} loaded.${source.note ? ` ${source.note}` : ''}`
-    return { tool: source.tool, label: source.label, loaded: rows, description }
-  })
+export function toolChoices(sources: ConversationSource[]): ToolChoice[] {
+  return sources.filter((source) => source.found).map((source) => ({
+    tool: source.tool,
+    label: source.label,
+    description: `Show ${source.label} conversations.${source.note ? ` ${source.note}` : ''}`,
+  }))
+}
+
+export const CONVERSATION_PLACES = [
+  { id: 'all', label: 'All', title: 'Every conversation' },
+  { id: 'local', label: 'Local', title: 'Conversations on this machine' },
+  { id: 'cloud', label: 'Cloud', title: "Conversations that run in a tool's cloud" },
+] as const
+
+export type PlaceFilter = (typeof CONVERSATION_PLACES)[number]['id']
+
+function inPlace(conversation: Conversation, place: PlaceFilter): boolean {
+  const online = conversation.app === 'cloud' || conversation.app === 'chat'
+  if (place === 'local') return !online
+  if (place === 'cloud') return online || conversation.cloud !== undefined
+  return true
+}
+
+export function conversationSearchStatus(searching: boolean, total: number | undefined, kept: number, loaded: number, filtered: boolean): string {
+  if (searching) return 'Searching…'
+  if (filtered) return `${kept} of ${plural(loaded, 'loaded conversation')} ${kept === 1 ? 'matches' : 'match'}.`
+  if (total !== undefined) return `${plural(total, 'conversation')} ${total === 1 ? 'matches' : 'match'}.`
+  return ''
 }
 
 // The server cuts long titles and prompts, so the closing tag may be gone.
@@ -113,13 +131,13 @@ function searchParts(conversation: Conversation): string[] {
   return [chatText(conversation.title).text, conversation.folder ?? '', conversation.branch ?? '', chatText(conversation.prompt ?? '').text, conversation.reply ?? '']
 }
 
-/** Rows from the chosen tool whose title, folder, branch, last prompt, or latest reply, as the row shows them, holds every word of the query, ignoring case: the server's rule, applied here to mock data. */
-export function filterConversations(conversations: Conversation[], query: string, tool: ToolFilter): Conversation[] {
+/** Matches the selected place and tool, and every search word in the displayed title, folder, branch, prompt or reply. */
+export function filterConversations(conversations: Conversation[], query: string, tool: ToolFilter, place: PlaceFilter = 'all'): Conversation[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean)
   return conversations.filter((conversation) => {
     const toolMatches = tool === 'all' || conversation.tool === tool
     const text = searchParts(conversation).join('\n').toLowerCase()
-    return toolMatches && words.every((word) => text.includes(word))
+    return toolMatches && inPlace(conversation, place) && words.every((word) => text.includes(word))
   })
 }
 

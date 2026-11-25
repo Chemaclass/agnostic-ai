@@ -99,7 +99,7 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 
 {% <details summary="Details: order, loading, tabs, requirements"> %}
 - It lists recent Claude Code, Codex and Cursor chats from each tool's own store.
-- Search covers every conversation, loaded or not. The tool filter beside it shows one tool's chats.
+- Search every conversation. Use **All**, **Local** and **Cloud** or a tool chip to narrow the list. A shared local chat appears under both Local and Cloud. With filters on, the match count covers the loaded weeks. You can still load older weeks when none of the loaded chats match.
 - Chats appear under **Needs you**, **Working**, **Active** and **Archived**. Needs you puts permission requests first, then other waits and path conflicts, then unread replies. The summary count covers all weeks and tools. Archived starts collapsed.
 - It loads the past week and every blocked or unread chat of any age. It loads the week before each time you scroll to the end, or with **Load the week before**.
 - A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group.

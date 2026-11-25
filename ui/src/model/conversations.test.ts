@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Conversation, ConversationHelper, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationPlaceLabel, conversationToolLabel, needsYouReason, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
+import { appLabel, CONVERSATION_PLACES, conversationSearchStatus, conversationPlaceLabel, conversationToolLabel, needsYouReason, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
 // Fixed local time for ages in the list.
@@ -295,6 +295,43 @@ describe('Needs you reasons', () => {
   })
 })
 
+describe('conversation places and result scope', () => {
+  const rows = [
+    conversation({ id: 'local', app: 'cli' }),
+    conversation({ id: 'cloud', tool: 'codex', app: 'cloud' }),
+    conversation({ id: 'chat', app: 'chat' }),
+    conversation({ id: 'cowork', app: 'cowork' }),
+    conversation({ id: 'shared', tool: 'codex', app: 'cli', cloud: { id: 'remote', link: 'https://example.com/shared' } }),
+    conversation({ id: 'shared-cowork', app: 'cowork', cloud: { id: 'remote-cowork', link: 'https://example.com/shared' } }),
+  ]
+  const ids = (rows: Conversation[]) => rows.map((row) => row.id)
+
+  it('matches Companion labels, tooltips and overlapping Local and Cloud rules', () => {
+    expect(CONVERSATION_PLACES).toEqual([
+      { id: 'all', label: 'All', title: 'Every conversation' },
+      { id: 'local', label: 'Local', title: 'Conversations on this machine' },
+      { id: 'cloud', label: 'Cloud', title: "Conversations that run in a tool's cloud" },
+    ])
+    expect(ids(filterConversations(rows, '', 'all', 'all'))).toEqual(ids(rows))
+    expect(ids(filterConversations(rows, '', 'all', 'local'))).toEqual(['local', 'cowork', 'shared', 'shared-cowork'])
+    expect(ids(filterConversations(rows, '', 'all', 'cloud'))).toEqual(['cloud', 'chat', 'shared', 'shared-cowork'])
+  })
+
+  it('combines place and the selected tool with every search word', () => {
+    expect(ids(filterConversations(rows, '', 'codex', 'local'))).toEqual(['shared'])
+    expect(ids(filterConversations(rows, '', 'codex', 'cloud'))).toEqual(['cloud', 'shared'])
+    expect(ids(filterConversations(rows.map((row) => ({ ...row, title: row.id })), 'SHARED', 'claude', 'cloud'))).toEqual(['shared-cowork'])
+  })
+
+  it('keeps unfiltered search totals global and calls filtered results loaded matches', () => {
+    expect(conversationSearchStatus(false, 45, 2, 9, false)).toBe('45 conversations match.')
+    expect(conversationSearchStatus(false, 45, 2, 9, true)).toBe('2 of 9 loaded conversations match.')
+    expect(conversationSearchStatus(false, 45, 1, 12, true)).toBe('1 of 12 loaded conversations matches.')
+    expect(conversationSearchStatus(false, undefined, 0, 0, true)).toBe('0 of 0 loaded conversations match.')
+    expect(conversationSearchStatus(true, 45, 0, 0, true)).toBe('Searching…')
+  })
+})
+
 describe('conversation words', () => {
   it('uses Companion product and place labels', () => {
     expect(conversationToolLabel(conversation({ app: 'chat' }))).toBe('Claude')
@@ -356,14 +393,11 @@ describe('conversation words', () => {
     expect([withheldLabel('title'), withheldLabel('opening'), withheldLabel('prompt'), withheldLabel('reply')]).toEqual(['Title', 'Opening', 'Last prompt', 'Latest reply'])
   })
 
-  it('counts each found tool\'s rows across the loaded weeks against everything it holds, and leaves out a tool not found', () => {
+  it('names found tools without per-tool counts and preserves their source notes', () => {
     const source = (over: Partial<ConversationSource>): ConversationSource => ({ tool: 'codex', label: 'Codex', found: true, count: 66, shown: 2, ...over })
-    const firstWeek = { conversations: [conversation({ id: 'a', tool: 'codex' }), conversation({ id: 'b', tool: 'codex' }), conversation({ id: 'c' })] }
-    const weekBefore = { conversations: [conversation({ id: 'b', tool: 'codex' }), conversation({ id: 'd', tool: 'codex' })] }
-    expect(toolChoices([source({})], mergePages([firstWeek]))).toEqual([{ tool: 'codex', label: 'Codex', loaded: 2, description: '2 of 66 Codex chats loaded.' }])
-    expect(toolChoices([source({})], mergePages([firstWeek, weekBefore]))[0].loaded).toBe(3)
-    expect(toolChoices([source({ tool: 'cursor', label: 'Cursor', count: 1, note: 'Read from the state file.' })], mergePages([firstWeek]))[0].description).toBe('0 of 1 Cursor chat loaded. Read from the state file.')
-    expect(toolChoices([source({ found: false, count: 0, note: 'No store' })], mergePages([firstWeek]))).toEqual([])
+    expect(toolChoices([source({})])).toEqual([{ tool: 'codex', label: 'Codex', description: 'Show Codex conversations.' }])
+    expect(toolChoices([source({ tool: 'cursor', label: 'Cursor', note: 'Read from the state file.' })])[0].description).toBe('Show Cursor conversations. Read from the state file.')
+    expect(toolChoices([source({ found: false, count: 0, note: 'No store' })])).toEqual([])
   })
 
   it('says how long ago, then the date', () => {
