@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { Conversation, ConversationHelper, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import fixture from '../fixtures/conversations.mock.json'
-import { appLabel, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
+import { appLabel, conversationPlaceLabel, conversationToolLabel, needsYouReason, conversationsVerdict, helperDetails, helperOpenRequest, helperRows, helperTitle, helperTooltip, HELPERS_SHOWN, filterConversations, groupConversations, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, chatText, toggleTool, toolChoices, withheldLabel } from './conversations'
 import { normalizeConversationsView } from './normalize'
 
-// Local times, so the day groups hold in any time zone the tests run in.
+// Fixed local time for ages in the list.
 const local = (month: number, day: number, hour: number, minute = 0) => new Date(2026, month - 1, day, hour, minute)
 const NOW = local(11, 7, 16, 30)
 
@@ -19,43 +19,68 @@ const conversation = (over: Partial<Conversation>): Conversation => ({
 })
 
 describe('conversation groups', () => {
-  it('groups by local calendar day and keeps the server order within a group', () => {
-    const rows = [
-      conversation({ id: 'late-today', updatedAt: local(11, 7, 16, 10).toISOString() }),
-      conversation({ id: 'midnight', updatedAt: local(11, 7, 0, 0).toISOString() }),
-      conversation({ id: 'before-midnight', updatedAt: local(11, 6, 23, 59).toISOString() }),
-      conversation({ id: 'two-days', updatedAt: local(11, 5, 12).toISOString() }),
-      conversation({ id: 'six-days', updatedAt: local(11, 1, 9).toISOString() }),
-      conversation({ id: 'seven-days', updatedAt: local(10, 31, 23, 59).toISOString() }),
-    ]
-    const groups = groupConversations(rows, NOW)
-    expect(groups.map((group) => [group.label, group.conversations.map((c) => c.id)])).toEqual([
-      ['Today', ['late-today', 'midnight']],
-      ['Yesterday', ['before-midnight']],
-      ['This week', ['two-days', 'six-days']],
-      ['Earlier', ['seven-days']],
+  const groupsOf = (rows: Conversation[]) => groupConversations(rows).map((group) => [group.id, group.label, group.conversations.map((row) => row.id)])
+  const conflict = { id: 'c', worktree: '/repo', path: 'app.ts', requester: { tool: 'codex' as const, id: 'requester' } }
+
+  it('groups all six states by need, in declared order, and leaves empty groups out', () => {
+    const rows = (['dormant', 'active', 'completed', 'working', 'unread', 'blocked'] as const).map((state) => conversation({ id: state, state }))
+    expect(groupsOf(rows)).toEqual([
+      ['needs-you', 'Needs you', ['blocked', 'unread']],
+      ['working', 'Working', ['working']],
+      ['active', 'Active', ['active']],
+      ['archived', 'Archived', ['dormant', 'completed']],
+    ])
+    expect(groupConversations([])).toEqual([])
+  })
+
+  it('keeps missing states visible, live under Active and others under Archived, newest first', () => {
+    expect(groupsOf([
+      conversation({ id: 'older', updatedAt: local(10, 1, 9).toISOString() }),
+      conversation({ id: 'live', live: true, activity: 'working' }),
+      conversation({ id: 'broken', updatedAt: 'not a date' }),
+      conversation({ id: 'future', updatedAt: local(11, 8, 9).toISOString() }),
+    ])).toEqual([
+      ['active', 'Active', ['live']],
+      ['archived', 'Archived', ['future', 'older', 'broken']],
     ])
   })
 
-  it('counts a future time as today and an unreadable one as earlier, and leaves empty groups out', () => {
-    const groups = groupConversations([conversation({ id: 'ahead', updatedAt: local(11, 8, 9).toISOString() }), conversation({ id: 'broken', updatedAt: 'not a date' })], NOW)
-    expect(groups.map((group) => [group.label, group.conversations.map((c) => c.id)])).toEqual([['Today', ['ahead']], ['Earlier', ['broken']]])
-    expect(groupConversations([], NOW)).toEqual([])
+  it('gives file conflicts precedence over every state and ignores resumed Active unread marks', () => {
+    const rows = (['blocked', 'unread', 'working', 'active', 'completed', 'dormant'] as const).map((state) => conversation({ id: state, state, claimConflicts: [conflict] }))
+    rows.push(conversation({ id: 'resumed', state: 'active', unread: true }))
+    expect(groupsOf(rows)).toEqual([
+      ['needs-you', 'Needs you', ['blocked', 'unread', 'working', 'active', 'completed', 'dormant']],
+      ['active', 'Active', ['resumed']],
+    ])
   })
 
-  it('puts every live conversation under Open now first, in server order, and not again under its day', () => {
-    const rows = [
-      conversation({ id: 'live-new', live: true, activity: 'working', updatedAt: local(11, 7, 16, 20).toISOString() }),
-      conversation({ id: 'today', updatedAt: local(11, 7, 16, 0).toISOString() }),
-      conversation({ id: 'live-old', live: true, updatedAt: local(11, 2, 9).toISOString() }),
-      conversation({ id: 'earlier', updatedAt: local(10, 1, 9).toISOString() }),
-    ]
-    expect(groupConversations(rows, NOW).map((group) => [group.label, group.conversations.map((c) => c.id)])).toEqual([
-      ['Open now', ['live-new', 'live-old']],
-      ['Today', ['today']],
-      ['Earlier', ['earlier']],
+  it('sorts roots newest first, ranking Needs you by permission, other waits or conflicts, then unread', () => {
+    const at = (hour: number) => local(11, 7, hour).toISOString()
+    expect(groupsOf([
+      conversation({ id: 'reply', state: 'unread', updatedAt: at(16) }),
+      conversation({ id: 'old-permission', state: 'blocked', waiting: { for: 'permission' }, updatedAt: at(12) }),
+      conversation({ id: 'conflict', state: 'active', claimConflicts: [conflict], updatedAt: at(15) }),
+      conversation({ id: 'question', state: 'blocked', waiting: { for: 'answer' }, updatedAt: at(14) }),
+      conversation({ id: 'new-permission', state: 'blocked', waiting: { for: 'permission' }, updatedAt: at(13) }),
+    ])).toEqual([['needs-you', 'Needs you', ['new-permission', 'old-permission', 'conflict', 'question', 'reply']]])
+  })
+
+  it('ranks each family by its most urgent member without separating children', () => {
+    const [group] = groupConversations([
+      conversation({ id: 'reply', state: 'unread' }),
+      conversation({ id: 'wait', state: 'blocked', updatedAt: local(11, 7, 15).toISOString() }),
+      conversation({ id: 'parent', state: 'unread', updatedAt: local(11, 7, 13).toISOString() }),
+      conversation({ id: 'permission-child', state: 'blocked', waiting: { for: 'permission' }, parent: { tool: 'claude', id: 'parent' } }),
     ])
-    expect(groupConversations([conversation({ id: 'quiet' })], NOW).map((group) => group.label)).toEqual(['Today'])
+    expect(group.conversations.map((row) => row.id)).toEqual(['parent', 'permission-child', 'wait', 'reply'])
+    expect(group.under.get('claude:permission-child')?.id).toBe('parent')
+  })
+
+  it('keeps a waiting child in Needs you when its archived parent loads', () => {
+    const child = conversation({ id: 'child', state: 'blocked', parent: { tool: 'claude', id: 'parent' } })
+    const parent = conversation({ id: 'parent', state: 'completed' })
+    expect(groupsOf([child, parent])).toEqual([['needs-you', 'Needs you', ['child']], ['archived', 'Archived', ['parent']]])
+    expect(groupConversations([child, parent])[0].under.size).toBe(0)
   })
 })
 
@@ -69,7 +94,7 @@ describe('nested rows', () => {
       conversation({ id: 'child', tool: 'codex', updatedAt: at(16, 10), parent: { tool: 'claude', id: 'parent' } }),
       conversation({ id: 'parent', updatedAt: at(15) }),
     ]
-    expect(drawn(rows)).toEqual([['Today', [['other', null], ['parent', null], ['child', 'parent']]]])
+    expect(drawn(rows)).toEqual([['Archived', [['other', null], ['parent', null], ['child', 'parent']]]])
   })
 
   it('draws a child whose parent sits in another group as a normal row in its own group', () => {
@@ -77,7 +102,7 @@ describe('nested rows', () => {
       conversation({ id: 'child', live: true, updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } }),
       conversation({ id: 'parent', updatedAt: at(15) }),
     ]
-    expect(drawn(rows)).toEqual([['Open now', [['child', null]]], ['Today', [['parent', null]]]])
+    expect(drawn(rows)).toEqual([['Active', [['child', null]]], ['Archived', [['parent', null]]]])
   })
 
   it('draws a child as a normal row when its parent is not in the list: hidden, older, of another tool, or not matching the search', () => {
@@ -85,9 +110,9 @@ describe('nested rows', () => {
       conversation({ id: 'child', tool: 'codex', updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } }),
       conversation({ id: 'parent', updatedAt: at(15) }),
     ]
-    expect(drawn([rows[0]])).toEqual([['Today', [['child', null]]]])
-    expect(drawn(filterConversations(rows, '', 'codex'))).toEqual([['Today', [['child', null]]]])
-    expect(drawn([conversation({ id: 'child', parent: { tool: 'codex', id: 'parent' } }), conversation({ id: 'parent', updatedAt: at(15) })])).toEqual([['Today', [['child', null], ['parent', null]]]])
+    expect(drawn([rows[0]])).toEqual([['Archived', [['child', null]]]])
+    expect(drawn(filterConversations(rows, '', 'codex'))).toEqual([['Archived', [['child', null]]]])
+    expect(drawn([conversation({ id: 'child', parent: { tool: 'codex', id: 'parent' } }), conversation({ id: 'parent', updatedAt: at(15) })])).toEqual([['Archived', [['child', null], ['parent', null]]]])
   })
 
   it('draws a chain at one level under the root that is in the group, oldest first', () => {
@@ -96,7 +121,7 @@ describe('nested rows', () => {
       conversation({ id: 'child', updatedAt: at(16, 10), parent: { tool: 'claude', id: 'root' } }),
       conversation({ id: 'root', updatedAt: at(15) }),
     ]
-    expect(drawn(rows)).toEqual([['Today', [['root', null], ['child', 'root'], ['grandchild', 'root']]]])
+    expect(drawn(rows)).toEqual([['Archived', [['root', null], ['child', 'root'], ['grandchild', 'root']]]])
   })
 
   it('draws every row of a loop made by hand as a normal row, and a row naming itself too', () => {
@@ -106,7 +131,7 @@ describe('nested rows', () => {
       conversation({ id: 'c', updatedAt: at(14), parent: { tool: 'claude', id: 'a' } }),
       conversation({ id: 'self', updatedAt: at(13), parent: { tool: 'claude', id: 'self' } }),
     ]
-    expect(drawn(rows)).toEqual([['Today', [['a', null], ['b', null], ['c', null], ['self', null]]]])
+    expect(drawn(rows)).toEqual([['Archived', [['a', null], ['b', null], ['c', null], ['self', null]]]])
   })
 
   it('orders the children by when they started, then by when they were written, then by id, so a new message moves none', () => {
@@ -117,7 +142,7 @@ describe('nested rows', () => {
       conversation({ id: 'a-no-start', updatedAt: at(15, 50), parent: { tool: 'claude', id: 'root' } }),
       conversation({ id: 'root', updatedAt: at(15), startedAt: at(15) }),
     ]
-    expect(drawn(rows)).toEqual([['Today', [['root', null], ['early-start', 'root'], ['a-no-start', 'root'], ['b-no-start', 'root'], ['late-start', 'root']]]])
+    expect(drawn(rows)).toEqual([['Archived', [['root', null], ['early-start', 'root'], ['a-no-start', 'root'], ['b-no-start', 'root'], ['late-start', 'root']]]])
   })
 
   it('draws as many rows as it is given when two rows share a tool and id: the first owns the children', () => {
@@ -134,8 +159,8 @@ describe('nested rows', () => {
   it('moves a child under its parent once the week that holds the parent loads', () => {
     const firstWeek = { conversations: [conversation({ id: 'child', live: true, updatedAt: at(16), parent: { tool: 'claude', id: 'parent' } })] }
     const weekBefore = { conversations: [conversation({ id: 'parent', live: true, updatedAt: local(10, 20, 9).toISOString() })] }
-    expect(drawn(mergePages([firstWeek]))).toEqual([['Open now', [['child', null]]]])
-    expect(drawn(mergePages([firstWeek, weekBefore]))).toEqual([['Open now', [['parent', null], ['child', 'parent']]]])
+    expect(drawn(mergePages([firstWeek]))).toEqual([['Active', [['child', null]]]])
+    expect(drawn(mergePages([firstWeek, weekBefore]))).toEqual([['Active', [['parent', null], ['child', 'parent']]]])
   })
 
   it('leaves the verdict as it was without nesting', () => {
@@ -160,6 +185,8 @@ describe('loaded weeks', () => {
     expect(sameFirstPage(kept, page({ conversations: [conversation({ id: 'a', live: true })] }))).toBe(false)
     expect(sameFirstPage(kept, page({ tools: [{ tool: 'claude', label: 'Claude Code', found: true, count: 2, shown: 1 }] }))).toBe(false)
     expect(sameFirstPage(kept, page({ next: undefined }))).toBe(false)
+    expect(sameFirstPage(kept, page({ needsYou: 2 }))).toBe(false)
+    expect(sameFirstPage(page({ needsYou: 2 }), page({ needsYou: 3 }))).toBe(false)
   })
 
   const ids = (list: Conversation[]) => list.map((c) => `${c.tool}:${c.id}`)
@@ -178,15 +205,14 @@ describe('loaded weeks', () => {
     expect(merged.find((c) => c.tool === 'claude' && c.id === 'a')?.title).toBe('Later copy')
   })
 
-  it('keeps an old open conversation from the first page under Open now, and an unreadable time last', () => {
+  it('keeps an old live conversation from an older server under Active, and an unreadable time last', () => {
     const firstWeek = { conversations: [conversation({ id: 'live-old', live: true, updatedAt: local(9, 1, 9).toISOString() }), conversation({ id: 'today', updatedAt: local(11, 7, 9).toISOString() })] }
     const weekBefore = { conversations: [conversation({ id: 'broken', updatedAt: 'not a date' }), conversation({ id: 'older', updatedAt: local(10, 28, 9).toISOString() })] }
     const merged = mergePages([firstWeek, weekBefore])
     expect(ids(merged)).toEqual(['claude:today', 'claude:older', 'claude:live-old', 'claude:broken'])
     expect(groupConversations(merged, NOW).map((group) => [group.label, ids(group.conversations)])).toEqual([
-      ['Open now', ['claude:live-old']],
-      ['Today', ['claude:today']],
-      ['Earlier', ['claude:older', 'claude:broken']],
+      ['Active', ['claude:live-old']],
+      ['Archived', ['claude:today', 'claude:older', 'claude:broken']],
     ])
   })
 })
@@ -229,7 +255,57 @@ describe('conversation search', () => {
   })
 })
 
+describe('Needs you reasons', () => {
+  const waiting = (over: Partial<Conversation>) => conversation({ state: 'blocked', ...over })
+  const conflict = { id: 'c', worktree: '/repo', path: 'app.ts', requester: { tool: 'codex' as const, id: 'requester' }, holder: { tool: 'claude' as const, id: 'holder' } }
+
+  it('matches permission wording and gives permission precedence over file conflicts', () => {
+    expect(needsYouReason(waiting({ waiting: { for: 'permission' }, claimConflicts: [conflict] }), NOW)).toBe('Needs permission')
+    expect(needsYouReason(waiting({ waiting: { for: 'permission', tool: 'Edit', detail: 'app.ts' } }), NOW)).toBe('Approve edit app.ts')
+    expect(needsYouReason(waiting({ waiting: { for: 'permission', tool: 'Bash' } }), NOW)).toBe('Approve Bash')
+    expect(needsYouReason(waiting({ waiting: { for: 'permission', tool: 'Bash', detail: 'git status' } }), NOW)).toBe('Approve git status')
+    expect(needsYouReason(waiting({ waiting: { for: 'permission', tool: 'mcp__service__read' } }), NOW)).toBe('Needs permission')
+    expect(needsYouReason(waiting({ waiting: { for: 'permission', tool: 'mcp__service__read', detail: 'Service read' } }), NOW)).toBe('Approve Service read')
+  })
+
+  it('names both sides of a conflict, including unknown sessions, missing claims and extra conflicts', () => {
+    const nameOf = (ref: { tool: string; id: string }) => ref.id === 'requester' ? 'The requester' : 'The holder'
+    expect(needsYouReason(conversation({ id: 'holder', state: 'working', claimConflicts: [conflict] }), NOW, nameOf)).toBe('The requester wants app.ts, which this session claims')
+    expect(needsYouReason(conversation({ id: 'requester', tool: 'codex', state: 'unread', claimConflicts: [conflict, conflict] }), NOW, nameOf)).toBe('app.ts is claimed by The holder, and 1 more conflict')
+    expect(needsYouReason(conversation({ id: 'holder', claimConflicts: [conflict] }), NOW)).toBe('Codex session requeste wants app.ts, which this session claims')
+    expect(needsYouReason(conversation({ id: 'requester', tool: 'codex', claimConflicts: [{ ...conflict, holder: undefined, sender: { tool: 'claude', id: 'holder' } }] }), NOW, nameOf)).toBe('The holder no longer holds app.ts')
+    expect(needsYouReason(conversation({ id: 'requester', tool: 'codex', claimConflicts: [{ ...conflict, holder: undefined }] }), NOW)).toBe('No session holds app.ts any more')
+  })
+
+  it('matches replies, questions, silence and unknown waits and leaves resumed unread in Active', () => {
+    expect(needsYouReason(conversation({ state: 'unread' }), NOW)).toBe('New reply')
+    expect(needsYouReason(conversation({ state: 'unread', withheld: ['reply'] }), NOW)).toBe('New reply, hidden because it may hold a password or key')
+    expect(needsYouReason(waiting({ waiting: { for: 'answer' } }), NOW)).toBe('Asks you a question')
+    expect(needsYouReason(waiting({ quietSince: local(11, 7, 16, 23).toISOString() }), NOW)).toBe('No activity for 7m')
+    expect(needsYouReason(waiting({ quietSince: NOW.toISOString() }), NOW)).toBe('No activity')
+    expect(needsYouReason(waiting({ quietSince: 'broken' }), NOW)).toBe('Waiting for you')
+    expect(needsYouReason(conversation({ state: 'active', unread: true }), NOW)).toBeUndefined()
+  })
+
+  it('names only live shells with singular and plural wording', () => {
+    const shell: StuckShell = { pid: 23, procStart: 'a', command: 'sleep 90', since: NOW.toISOString(), processCount: 1 }
+    expect(needsYouReason(waiting({ live: true, waiting: { for: 'shell' }, stuckShells: [shell] }), NOW)).toBe('Waiting on a shell still running')
+    expect(needsYouReason(waiting({ live: true, waiting: { for: 'shell' }, stuckShells: [shell, { ...shell, pid: 24 }] }), NOW)).toBe('Waiting on 2 shells still running')
+    expect(needsYouReason(waiting({ waiting: { for: 'shell' }, stuckShells: [shell] }), NOW)).toBeUndefined()
+  })
+})
+
 describe('conversation words', () => {
+  it('uses Companion product and place labels', () => {
+    expect(conversationToolLabel(conversation({ app: 'chat' }))).toBe('Claude')
+    expect(conversationToolLabel(conversation({ app: 'cowork' }))).toBe('Claude')
+    expect(conversationToolLabel(conversation({ app: 'cli' }))).toBe('Claude Code')
+    expect(conversationToolLabel(conversation({ tool: 'codex', app: 'cloud' }))).toBe('Codex')
+    expect((['cloud', 'chat', 'cowork'] as const).map((app) => conversationPlaceLabel(conversation({ app })))).toEqual(['Cloud', 'Chat', 'Cowork'])
+    expect(conversationPlaceLabel(conversation({ cloud: { id: 'cloud', link: 'https://claude.ai/code/cloud' } }))).toBe('Shared')
+    expect(conversationPlaceLabel(conversation({}))).toBeUndefined()
+  })
+
   it('names every app', () => {
     expect((['cli', 'ide', 'desktop', 'background', 'cloud'] as const).map(appLabel)).toEqual(['Terminal', 'Editor', 'Desktop app', 'Background', 'Cloud'])
     expect(appLabel('watch' as Conversation['app'])).toBe('watch')
@@ -389,6 +465,13 @@ describe('conversations normalization', () => {
 })
 
 describe('conversations verdict', () => {
+  it('uses the server-wide count even when loaded or filtered rows show fewer', () => {
+    const rows = [conversation({ live: true, state: 'blocked', activity: 'waiting' })]
+    expect(conversationsVerdict(rows, NOW, false, 12)).toBe('12 chats need you.')
+    expect(conversationsVerdict([], NOW, true, 1)).toBe('One chat needs you.')
+    expect(conversationsVerdict(rows, NOW, false, 0)).toBe('No chats need you.')
+  })
+
   it('counts the open chats and those that wait for you', () => {
     const open = [conversation({ id: 'a', live: true, activity: 'working' }), conversation({ id: 'b', live: true, activity: 'waiting' }), conversation({ id: 'c', live: true })]
     expect(conversationsVerdict(open, NOW, false)).toBe('3 chats are open now; 1 waits for you.')

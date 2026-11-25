@@ -5,8 +5,7 @@ import { saveScreenshot } from '../helpers'
 const overview = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
 const conversations = JSON.parse(readFileSync(new URL('../../src/fixtures/conversations.mock.json', import.meta.url), 'utf8'))
 
-// The fixture's rows fall on Open now, Today, Yesterday, This week, and
-// Earlier for this time in Berlin.
+// The fixture covers the attention groups at this time in Berlin.
 const NOW = new Date('2026-11-07T15:30:00Z')
 test.use({ timezoneId: 'Europe/Berlin' })
 
@@ -67,16 +66,23 @@ async function mockServer(page: Page, reply: Reply = opened, week: Week = () => 
   return mocks
 }
 
-const row = (page: Page, title: string) => page.locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
+const row = (page: Page, title: string) => page.locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true, includeHidden: true }) })
 const chips = (page: Page) => page.getByRole('group', { name: 'Filter by tool' }).getByRole('button')
 const chip = (page: Page, label: string) => chips(page).filter({ hasText: label })
 
+async function expandArchived(page: Page) {
+  const archived = page.locator('#conversations-archived').locator('..')
+  await expect(archived).toBeVisible()
+  const details = archived.locator('..')
+  if (await details.getAttribute('open') === null) await archived.click()
+}
+
 test.describe('conversations', () => {
-  test('opens at the root address, right after Setup health in the navigation, with open chats above the days', async ({ page }) => {
+  test('opens at the root address, right after Setup health in the navigation, with chats grouped by attention', async ({ page }) => {
     const mocks = await mockServer(page)
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1, name: 'Conversations', exact: true })).toBeVisible()
-    await expect(page.locator('.page-verdict')).toHaveText('3 chats are open now; 1 waits for you.')
+    await expect(page.locator('.page-verdict')).toHaveText('7 chats need you.')
     await expect(page.locator('.page-facts .page-fact')).toHaveText(['9 conversations loaded', 'Pick up where you left off, in the tool where it lives.'])
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
     await expect(nav.getByRole('link').first()).toHaveAccessibleName(/^Setup health/)
@@ -91,20 +97,20 @@ test.describe('conversations', () => {
     for (const button of await chips(page).all()) if (!(await button.textContent())?.startsWith('All')) await expect(button).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'Claude Code')).toHaveAttribute('title', '5 of 37 Claude Code chats loaded.')
 
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 3', 'Today 2', 'Yesterday 2', 'This week 2'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 2', 'Working 2', 'Active 2', 'Archived 3'])
     await expect(page.locator('li.conversation')).toHaveCount(9)
     await expect(page.locator('.section-search-status')).toBeEmpty()
     await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAttribute('title', 'Search covers every conversation, loaded or not.')
     await expect(page.getByRole('searchbox', { name: 'Search conversations' })).toHaveAccessibleDescription('Search covers every conversation, loaded or not.')
     await expect(page.getByText("That's every conversation.")).toBeVisible()
     await expect(page.getByRole('button', { name: 'Load the week before' })).toHaveCount(0)
-    const open = page.getByRole('region', { name: /^Open now/ })
-    await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Add a Conversations page to the local UI', 'Tighten the nav labels on phones', 'Plan the sync --scope user dry run'])
-    await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader', 'Explain the sync --watch debounce'])
+    const workingGroup = page.getByRole('region', { name: /^Working/ })
+    await expect(workingGroup.getByRole('heading', { level: 3 })).toHaveText(['Add a Conversations page to the local UI', 'Tighten the nav labels on phones'])
+    await expect(page.getByRole('region', { name: /^Needs you/ }).getByRole('heading', { level: 3 })).toHaveText(['Plan the sync --scope user dry run', 'Speed up the sqlite reader'])
 
     const working = row(page, 'Add a Conversations page to the local UI')
-    await expect(working.locator('.conversation-meta')).toHaveText('WorkingOpen now: the agent is workingClaude Code, Terminalagnostic-aimotechfr/conversations-tab6 min ago')
-    await expect(working.locator('.conversation-live')).toHaveAttribute('title', 'Open now: the agent is working')
+    await expect(working.locator('.conversation-meta')).toHaveText('Claude Code, Terminalagnostic-aimotechfr/conversations-tab6 min ago')
+    await expect(working.locator('.conversation-live')).toHaveCount(0)
     await expect(working.locator('.conversation-folder')).toHaveAttribute('title', '/Users/you/Products/agnostic-ai')
     await expect(working.locator('.conversation-prompt')).toHaveText('Last prompt: Run the e2e suite again and tell me which tests still fail.')
     // The agent's latest reply sits right under the title, above the meta line.
@@ -119,17 +125,11 @@ test.describe('conversations', () => {
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
     await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toHaveCount(0)
 
-    const waiting = row(page, 'Plan the sync --scope user dry run').locator('.conversation-live')
-    await expect(waiting).toHaveText('Waiting for youOpen now: the agent is waiting for you')
-    await expect(waiting).toHaveClass(/badge-approval/)
-    // The person's own marks show as chips too: a reply not yet read, and a chat they archived.
-    const unread = row(page, 'Speed up the sqlite reader').locator('.conversation-state')
-    await expect(unread).toHaveText('New replySomething was written since you last opened it')
-    await expect(unread).toHaveClass(/badge-approval/)
-    const done = row(page, 'Summarize failing CI jobs').locator('.conversation-state')
-    await expect(done).toHaveText('ArchivedYou archived it; it comes back with a new message or when it starts working')
-    await expect(done).toHaveClass(/badge-neutral/)
-    await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-state')).toHaveCount(0)
+    await expect(row(page, 'Plan the sync --scope user dry run').locator('.conversation-reason')).toHaveText('Asks you a question')
+    await expect(row(page, 'Speed up the sqlite reader').locator('.conversation-reason')).toHaveText('New reply')
+    await expect(row(page, 'Speed up the sqlite reader').locator('.conversation-state')).toHaveCount(0)
+    await expect(row(page, 'Summarize failing CI jobs').locator('.conversation-state')).toHaveCount(0)
+    await expect(row(page, 'Explain the sync --watch debounce').locator('.conversation-state')).toContainText('Unread')
     // An open chat whose tool does not say what it does shows no status chip: the group says it is open.
     const plain = row(page, 'Tighten the nav labels on phones')
     await expect(plain.locator('.conversation-live')).toHaveCount(0)
@@ -143,7 +143,7 @@ test.describe('conversations', () => {
     await expect(desktop.locator('.conversation-withheld')).toHaveText('Title Hidden: may hold a credential')
     await expect(desktop.getByRole('button', { name: /^Copy/ })).toHaveCount(0)
     for (const app of ['Editor', 'Background']) await expect(page.locator(`.conversation-tool[title$=", ${app}"]`).first()).toBeAttached()
-    await expect(page.locator('.conversation-live')).toHaveCount(2)
+    await expect(page.locator('.conversation-live')).toHaveCount(0)
     await expect(row(page, 'Speed up the sqlite reader').getByRole('button', { name: /^Open in/ })).not.toHaveClass(/button-primary/)
 
     await nav.getByRole('link', { name: /^Context/ }).click()
@@ -203,7 +203,8 @@ test.describe('conversations', () => {
     await working.hover()
     await stop.click()
     await dialog.getByRole('button', { name: 'Stop shell', exact: true }).click()
-    const moved = page.getByRole('region', { name: /^Today/ }).locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true }) })
+    await expandArchived(page)
+    const moved = page.getByRole('region', { name: /^Archived/ }).locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true, includeHidden: true }) })
     await expect(moved.getByRole('status')).toHaveText('Stop signal sent. Processes still running (PID 69).')
     await expect(moved.getByText(other.command)).toHaveCount(0)
     await expect(moved.getByText(shell.command)).toHaveCount(0)
@@ -215,13 +216,14 @@ test.describe('conversations', () => {
   test('filters by tool with the source chips and narrows with the search', async ({ page }) => {
     const mocks = await mockServer(page)
     await page.goto('/')
+    await expandArchived(page)
     const status = page.locator('.section-search-status')
     const codex = chip(page, 'Codex')
     await codex.click()
     await expect(codex).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('li.conversation')).toHaveCount(2)
     await expect(page.locator('li.conversation[data-tool="codex"]')).toHaveCount(2)
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Today 1', 'This week 1'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 1', 'Archived 1'])
     await expect(status).toHaveText('2 of 9 conversations match.')
     await expect(chip(page, 'All')).toHaveAttribute('aria-pressed', 'false')
 
@@ -229,7 +231,7 @@ test.describe('conversations', () => {
     await cursor.click()
     await expect(cursor).toHaveAttribute('aria-pressed', 'true')
     await expect(codex).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 1', 'This week 1'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Working 1', 'Archived 1'])
     await cursor.click()
     await expect(cursor).toHaveAttribute('aria-pressed', 'false')
     await expect(page.locator('li.conversation')).toHaveCount(9)
@@ -256,7 +258,7 @@ test.describe('conversations', () => {
     // The search goes to the server, which searches every conversation, not just the loaded weeks.
     expect(mocks.views).toContain('?editor=cursor&q=SQLITE')
     await search.fill('sync --scope user')
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 1'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 1'])
     await search.fill('website')
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Explain the sync --watch debounce'])
     await search.fill('fix/ci-cache')
@@ -305,7 +307,7 @@ test.describe('conversations', () => {
     await expect(child).toHaveClass(/is-nested/)
     await expect(child.locator('.sr-only').first()).toHaveText('Started from Add a Conversations page to the local UI')
     await expect(parent).not.toHaveClass(/is-nested/)
-    // Started from the open parent, but on another day group; and started from a chat not in the list.
+    // A child in another group and a child whose parent is absent stay unindented.
     await expect(row(page, 'Explain the sync --watch debounce')).not.toHaveClass(/is-nested/)
     await expect(row(page, 'Nightly dependency audit')).not.toHaveClass(/is-nested/)
     const indent = async (locator: typeof child) => (await locator.locator('.tool-avatar').boundingBox())!.x
@@ -422,6 +424,7 @@ test.describe('conversations', () => {
       json: { ...conversations, conversations: [{ ...chat, live: false, open: { ...chat.open, command }, cloud, cloudResumeCommand: 'claude --teleport session_nightly_audit' }] },
     }))
     await page.goto('/')
+    await expandArchived(page)
     const shared = row(page, title)
     const copy = shared.getByRole('button', { name: `Copy the command that resumes ${title}` })
     const openCloud = shared.getByRole('button', { name: `Open on claude.ai: ${title}` })
@@ -448,7 +451,7 @@ test.describe('conversations', () => {
     const command = 'claude --teleport session_parser_fix'
     const message = 'Opened on claude.ai.'
     const cloud = {
-      tool: 'claude', app: 'cloud', id: 'cse_parser_fix', title: 'Fix the parser remotely',
+      tool: 'claude', app: 'cloud', state: 'active', id: 'cse_parser_fix', title: 'Fix the parser remotely',
       updatedAt: NOW.toISOString(), open: { kind: 'link', label: 'Open on claude.ai' },
     }
     const mocks = await mockServer(page, () => ({ json: { opened: true, message } }), () => ({
@@ -499,6 +502,7 @@ test.describe('conversations', () => {
     await expect(copy).toHaveCount(0)
     // The button it hid held the focus, so the focus moves to Open.
     await expect(open).toBeFocused()
+    await expandArchived(page)
     await expect(row(page, 'Summarize failing CI jobs').getByRole('button', { name: /^Copy the command that resumes/ })).toHaveCount(1)
 
     // A return to the page redraws the kept list; the chat is still not reported open, so it still offers none.
@@ -700,10 +704,11 @@ test.describe('conversations by week', () => {
     await scrollToEnd(page)
     await expect(page.locator('li.conversation')).toHaveCount(11)
     expect(mocks.views).toEqual([FIRST_REQUEST, OLDER_REQUEST])
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 3', 'Today 2', 'Yesterday 2', 'This week 2', 'Earlier 2'])
-    await expect(page.getByRole('region', { name: /^Earlier/ }).getByRole('heading', { level: 3 })).toHaveText(['Port the docs search to Pagefind', 'Untitled'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 2', 'Working 2', 'Active 2', 'Archived 5'])
+    await expect(page.getByRole('region', { name: /^Archived/ }).locator('h3')).toHaveText(['Nightly dependency audit', 'Summarize failing CI jobs', 'Draft the release notes for v0.92', 'Port the docs search to Pagefind', 'Untitled'])
+    await expect(page.getByRole('region', { name: /^Archived/ }).locator('details')).not.toHaveAttribute('open')
     await expect(row(page, 'Speed up the sqlite reader')).toHaveCount(0)
-    await expect(page.getByRole('region', { name: /^Today/ }).getByRole('heading', { level: 3 })).toHaveText(['Speed up the sqlite reader, measured', 'Explain the sync --watch debounce'])
+    await expect(page.getByRole('region', { name: /^Needs you/ }).getByRole('heading', { level: 3 })).toHaveText(['Plan the sync --scope user dry run', 'Speed up the sqlite reader, measured'])
     await expect(chips(page)).toHaveText(['All 11', 'Claude Code 6', 'Codex 3', 'Cursor 2'])
     await expect(page.locator('.page-facts')).toHaveText(/^11 conversations loaded(?! so far)/)
     await expect(page.getByText("That's every conversation.")).toBeVisible()
@@ -734,7 +739,7 @@ test.describe('conversations by week', () => {
       return { json: before }
     })
     await page.goto('/')
-    const open = page.getByRole('region', { name: /^Open now/ })
+    const open = page.getByRole('region', { name: /^Active/ })
     await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Write the changelog line'])
     await expect(page.locator('li.conversation.is-nested')).toHaveCount(0)
 
@@ -742,7 +747,7 @@ test.describe('conversations by week', () => {
     release()
     await expect(open.getByRole('heading', { level: 3 })).toHaveText(['Ship the parser change', 'Write the changelog line'])
     await expect(row(page, 'Write the changelog line')).toHaveClass(/is-nested/)
-    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Open now 2'])
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Active 2'])
   })
 
   test('loads the week before from the button by keyboard, one request at a time, under a tool filter', async ({ page }) => {
@@ -777,6 +782,7 @@ test.describe('conversations by week', () => {
   })
 
   test('searches every conversation, including weeks not loaded yet', async ({ page }) => {
+    await page.addInitScript(() => { Reflect.deleteProperty(window, 'IntersectionObserver') })
     // The server holds an older week; the first page leaves it out until a search asks.
     const everything = { ...firstWeek, conversations: [...firstWeek.conversations, ...weekBefore.conversations], next: undefined }
     const mocks = await mockServer(page, opened, (_before, params) => ({ json: params.get('q') ? everything : firstWeek }))
@@ -785,6 +791,7 @@ test.describe('conversations by week', () => {
     await expect(row(page, 'Port the docs search to Pagefind')).toHaveCount(0)
 
     await page.getByRole('searchbox', { name: 'Search conversations' }).fill('pagefind')
+    await expandArchived(page)
     await expect(page.getByRole('heading', { level: 3 })).toHaveText(['Port the docs search to Pagefind'])
     await expect(page.locator('.section-search-status')).toHaveText('1 conversation matches.')
     expect(mocks.views).toEqual([FIRST_REQUEST, '?editor=cursor&q=pagefind'])
@@ -970,7 +977,7 @@ test.describe('conversations by week', () => {
     const note = page.getByText(cloudNote, { exact: true })
     await expect(note).toBeVisible()
     await page.getByRole('button', { name: 'Load the week before' }).click()
-    await expect(row(page, 'Port the docs search to Pagefind')).toBeVisible()
+    await expect(row(page, 'Port the docs search to Pagefind')).toBeAttached()
     await expect(note).toBeFocused()
     await expect(note).toHaveCount(1)
     await expect(page.getByText("That's every conversation.")).toHaveCount(0)
@@ -999,7 +1006,7 @@ test.describe('conversations by week', () => {
     await expect(page.getByText(cloudNote, { exact: true })).toHaveCount(0)
 
     await older.click()
-    await expect(row(page, 'Port the docs search to Pagefind')).toBeVisible()
+    await expect(row(page, 'Port the docs search to Pagefind')).toBeAttached()
     await expect(page.getByText(cloudNote, { exact: true })).toBeVisible()
     await expect(page.getByText("That's every conversation.")).toHaveCount(0)
 
@@ -1032,4 +1039,118 @@ test.describe('conversations on a touch screen', () => {
     expect((await live.boundingBox())!.width).toBeGreaterThan(200)
     expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true)
   })
+})
+
+
+test('attention groups keep keyboard disclosure choices when search and filters hide groups', async ({ page }) => {
+  await mockServer(page)
+  await page.goto('/')
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 2', 'Working 2', 'Active 2', 'Archived 3'])
+  const archived = page.getByRole('region', { name: /^Archived/ }).locator('details')
+  const working = page.getByRole('region', { name: /^Working/ }).locator('details')
+  await expect(archived).not.toHaveAttribute('open')
+  await archived.locator('summary').focus()
+  await page.keyboard.press('Enter')
+  await expect(archived).toHaveAttribute('open')
+  await page.keyboard.press('Space')
+  await expect(archived).not.toHaveAttribute('open')
+  await working.locator('summary').focus()
+  await page.keyboard.press('Enter')
+  await expect(working).not.toHaveAttribute('open')
+  const search = page.getByRole('searchbox', { name: 'Search conversations' })
+  await search.fill('sqlite')
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 1'])
+  await expect(page.locator('.page-verdict')).toHaveText('7 chats need you.')
+  await search.clear()
+  await expect(working).not.toHaveAttribute('open')
+  await expect(archived).not.toHaveAttribute('open')
+  await chip(page, 'Codex').click()
+  await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Needs you 1', 'Archived 1'])
+  await chip(page, 'All').click()
+  await expect(working).not.toHaveAttribute('open')
+  await expect(archived).not.toHaveAttribute('open')
+  await archived.locator('summary').click()
+  await search.fill('sqlite')
+  await expect(page.getByRole('region', { name: /^Archived/ })).toHaveCount(0)
+  await search.clear()
+  await expect(archived).toHaveAttribute('open')
+})
+
+test('attention groups show reasons, urgency, place names and independent waiting children', async ({ page }) => {
+  const base = conversations.conversations[0]
+  const chat = (id: string, changes: object) => ({ ...base, id, title: id, live: false, updatedAt: NOW.toISOString(), ...changes })
+  const rows = [
+    chat('archived parent', { state: 'completed' }),
+    chat('waiting child', { state: 'blocked', waiting: { for: 'answer' }, parent: { tool: 'claude', id: 'archived parent' } }),
+    chat('unread chat', { state: 'unread' }),
+    chat('permission chat', { state: 'blocked', waiting: { for: 'permission', tool: 'Bash', detail: 'npm test' }, updatedAt: '2026-11-06T15:30:00Z' }),
+    chat('conflict chat', { state: 'completed', claimConflicts: [{ path: 'app.go', requester: { tool: 'claude', id: 'conflict chat' }, holder: { tool: 'claude', id: 'archived parent' } }] }),
+    chat('Claude chat', { state: 'active', app: 'chat' }),
+    chat('Claude cowork', { state: 'active', app: 'cowork' }),
+    chat('cloud chat', { state: 'active', tool: 'codex', app: 'cloud' }),
+    chat('shared chat', { state: 'active', cloud: { id: 'remote-shared' } }),
+    chat('legacy live', { state: undefined, live: true }),
+    chat('legacy closed', { state: undefined }),
+  ]
+  await mockServer(page, opened, () => ({ json: { ...conversations, conversations: rows } }))
+  await page.goto('/')
+  const needs = page.getByRole('region', { name: /^Needs you/ })
+  await expect(needs.getByRole('heading', { level: 3 })).toHaveText(['permission chat', 'waiting child', 'conflict chat', 'unread chat'])
+  await expect(row(page, 'permission chat').locator('.conversation-reason')).toHaveText('Approve npm test')
+  await expect(row(page, 'conflict chat').locator('.conversation-reason')).toHaveText('app.go is claimed by archived parent')
+  await expect(row(page, 'waiting child')).not.toHaveClass(/is-nested/)
+  await expect(row(page, 'Claude chat').locator('.conversation-tool')).toHaveText('Claude, Chat')
+  await expect(row(page, 'Claude cowork').locator('.conversation-tool')).toHaveText('Claude, Cowork')
+  for (const [title, place] of [['Claude chat', 'Chat'], ['Claude cowork', 'Cowork'], ['cloud chat', 'Cloud'], ['shared chat', 'Shared']]) {
+    await expect(row(page, title).locator('.conversation-place')).toHaveText(place)
+  }
+  await expect(page.getByRole('region', { name: /^Active/ }).getByRole('heading', { level: 3 })).toContainText(['legacy live'])
+  await expect(page.getByRole('region', { name: /^Archived/ }).locator('h3')).toHaveText(['archived parent', 'legacy closed'])
+  await expect(page.locator('.conversation-state')).toHaveCount(0)
+  await expect(page.locator('.conversation-live')).toHaveCount(1)
+  await expect(row(page, 'legacy live').locator('.conversation-live')).toContainText('Working')
+})
+
+test('older server rows retain live activity and quiet-wait badges without repeating explicit states or reasons', async ({ page }) => {
+  const base = conversations.conversations[0]
+  const chat = (id: string, changes: object) => ({ ...base, id, title: id, state: undefined, live: true, ...changes })
+  const rows = [
+    chat('legacy working', { activity: 'working' }),
+    chat('legacy waiting', { activity: 'waiting' }),
+    chat('legacy quiet', { tool: 'codex', activity: 'waiting', quietSince: new Date(NOW.getTime() - 7 * 60_000).toISOString() }),
+    chat('explicit working', { state: 'working', activity: 'working' }),
+    chat('explicit active', { state: 'active', activity: 'waiting' }),
+    chat('legacy conflict', { claimConflicts: [{ path: 'app.go', requester: { tool: 'claude', id: 'legacy conflict' }, holder: { tool: 'claude', id: 'legacy working' } }] }),
+    chat('legacy closed', { live: false, activity: 'working' }),
+  ]
+  await mockServer(page, opened, () => ({ json: { ...conversations, conversations: rows } }))
+  await page.goto('/')
+  const active = page.getByRole('region', { name: /^Active/ })
+  await expect(active.getByRole('heading', { level: 3 })).toHaveText(['legacy working', 'legacy waiting', 'legacy quiet', 'explicit active'])
+  await expect(row(page, 'legacy working').locator('.conversation-live')).toHaveText('WorkingOpen now: the agent is working')
+  await expect(row(page, 'legacy waiting').locator('.conversation-live')).toHaveText('Waiting for youOpen now: the agent is waiting for you')
+  const quiet = row(page, 'legacy quiet').locator('.conversation-live')
+  await expect(quiet).toHaveText('No activity for 7mOpen now: nothing written for 7 minutes, so it may be waiting for you')
+  await expect(quiet).toHaveAttribute('title', 'Open now: nothing written for 7 minutes, so it may be waiting for you')
+  await expect(quiet.locator('.sr-only')).toHaveText('Open now: nothing written for 7 minutes, so it may be waiting for you')
+  for (const title of ['explicit working', 'explicit active', 'legacy conflict', 'legacy closed']) {
+    await expect(row(page, title).locator('.conversation-live')).toHaveCount(0)
+  }
+  await expect(row(page, 'legacy conflict').locator('.conversation-reason')).toHaveText('app.go is claimed by legacy working')
+})
+
+test('a long file conflict reason wraps on a phone without hiding its text', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const path = `/src/${'conflictingfilename'.repeat(12)}.tsx`
+  const chat = {
+    ...conversations.conversations[0], id: 'long-conflict', title: 'Conflicting file', state: 'active',
+    claimConflicts: [{ path, requester: { tool: 'claude', id: 'long-conflict' }, holder: { tool: 'codex', id: 'holder-session' } }],
+  }
+  await mockServer(page, opened, () => ({ json: { ...conversations, conversations: [chat] } }))
+  await page.goto('/')
+  const reason = row(page, 'Conflicting file').locator('.conversation-reason')
+  await expect(reason).toHaveText(`${path} is claimed by Codex session holder-s`)
+  await expect(reason).toBeVisible()
+  expect(await reason.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true)
+  expect(await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth)).toBe(true)
 })

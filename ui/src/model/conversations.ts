@@ -1,7 +1,4 @@
-// The Conversations page: the Open now and day groups, search, the tool
-// filter, and the words each app, activity, source, and withheld field
-// shows as. The server sends the rows newest first; these helpers keep
-// that order.
+// The Conversations page groups and nests rows by what needs attention.
 
 import type { Conversation, ConversationActivity, ConversationApp, ConversationHelper, ConversationOpenReply, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationState, ConversationTool, ConversationsView, StuckShell } from '../contract'
 import { plural } from './format'
@@ -81,7 +78,7 @@ function conversationKey(conversation: Conversation): string {
   return `${conversation.tool}:${conversation.id}`
 }
 
-// A time that does not parse sorts last, as it groups under Earlier.
+// A time that does not parse sorts last.
 function writtenAt(row: Pick<Conversation, 'updatedAt'>): number {
   const time = Date.parse(row.updatedAt)
   return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time
@@ -94,7 +91,7 @@ function newestFirst(a: Pick<Conversation, 'updatedAt'>, b: Pick<Conversation, '
   return first > second ? -1 : 1
 }
 
-/** Every loaded week as one list: one row per tool and id, the later page's copy winning, newest first. groupConversations puts the open ones on top. */
+/** Every loaded week as one list: one row per tool and id, the later page's copy winning, newest first. groupConversations puts the rows needing attention on top. */
 export function mergePages(pages: Pick<ConversationsView, 'conversations'>[]): Conversation[] {
   const rows = new Map<string, Conversation>()
   for (const page of pages) {
@@ -106,7 +103,7 @@ export function mergePages(pages: Pick<ConversationsView, 'conversations'>[]): C
 /** Whether two first pages have the same visible content, ignoring when they were read. */
 export function sameFirstPage(a: ConversationsView, b: ConversationsView): boolean {
   if (a.cloudNote !== b.cloudNote) return false
-  const shown = (view: ConversationsView) => JSON.stringify([view.tools, view.conversations, view.next !== undefined])
+  const shown = (view: ConversationsView) => JSON.stringify([view.tools, view.conversations, view.needsYou, view.next !== undefined])
   return shown(a) === shown(b)
 }
 
@@ -131,65 +128,62 @@ export function toggleTool(current: ToolFilter, tool: ConversationTool): ToolFil
   return current === tool ? 'all' : tool
 }
 
-type GroupId = 'live' | DayGroupId
-type DayGroupId = 'today' | 'yesterday' | 'week' | 'earlier'
+type GroupId = 'needs-you' | 'working' | 'active' | 'archived'
 
 const GROUP_LABELS = {
-  live: 'Open now',
-  today: 'Today',
-  yesterday: 'Yesterday',
-  week: 'This week',
-  earlier: 'Earlier',
+  'needs-you': 'Needs you',
+  working: 'Working',
+  active: 'Active',
+  archived: 'Archived',
 } satisfies Record<GroupId, string>
 
-const GROUP_ORDER: GroupId[] = ['live', 'today', 'yesterday', 'week', 'earlier']
+const GROUP_ORDER: GroupId[] = ['needs-you', 'working', 'active', 'archived']
 
 interface ConversationGroup {
   id: GroupId
   label: string
-  /** In the order the list draws them: each nested row right after the row it sits under. */
   conversations: Conversation[]
-  /** The row each nested row sits under, by tool and id. */
   under: ReadonlyMap<string, Conversation>
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
+const GROUP_OF_STATE = {
+  blocked: 'needs-you',
+  unread: 'needs-you',
+  working: 'working',
+  active: 'active',
+  completed: 'archived',
+  dormant: 'archived',
+} satisfies Record<ConversationState, GroupId>
 
-function localMidnight(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+function groupOf(conversation: Conversation): GroupId {
+  if (conversation.claimConflicts?.length) return 'needs-you'
+  if (conversation.state !== undefined) return GROUP_OF_STATE[conversation.state]
+  return conversation.live ? 'active' : 'archived'
 }
 
-/** Local calendar days between the two dates; rounding absorbs the 23 or 25 hour days of a clock change. */
-function calendarDaysAgo(date: Date, now: Date): number {
-  return Math.round((localMidnight(now).getTime() - localMidnight(date).getTime()) / DAY_MS)
+function urgencyOf(conversation: Conversation): number {
+  if (conversation.state === 'blocked' && conversation.waiting?.for === 'permission') return 0
+  return conversation.state === 'blocked' || conversation.claimConflicts?.length ? 1 : 2
 }
 
-// This week means the five days before yesterday, so a chat from last
-// Saturday still counts on a Monday. A time in the future (another
-// machine's clock) counts as today; one that does not parse, as earlier.
-function dayGroupOf(updatedAt: string, now: Date): DayGroupId {
-  const date = new Date(updatedAt)
-  if (Number.isNaN(date.getTime())) return 'earlier'
-  const days = calendarDaysAgo(date, now)
-  if (days <= 0) return 'today'
-  if (days === 1) return 'yesterday'
-  if (days < 7) return 'week'
-  return 'earlier'
+function mostUrgentFirst(group: Pick<ConversationGroup, 'conversations' | 'under'>): Pick<ConversationGroup, 'conversations' | 'under'> {
+  const families: { conversations: Conversation[]; urgency: number }[] = []
+  for (const conversation of group.conversations) {
+    if (!group.under.has(conversationKey(conversation))) families.push({ conversations: [], urgency: Infinity })
+    const family = families[families.length - 1]
+    family.conversations.push(conversation)
+    family.urgency = Math.min(family.urgency, urgencyOf(conversation))
+  }
+  families.sort((a, b) => a.urgency - b.urgency)
+  return { conversations: families.flatMap((family) => family.conversations), under: group.under }
 }
 
-function groupOf(conversation: Conversation, now: Date): GroupId {
-  if (conversation.live) return 'live'
-  return dayGroupOf(conversation.updatedAt, now)
-}
-
-/** Open now for every live conversation, then Today, Yesterday, This week, and Earlier in local time, from updatedAt; empty groups are left out. */
-export function groupConversations(conversations: Conversation[], now: Date): ConversationGroup[] {
-  const groups = GROUP_ORDER.map((id) => ({
-    id,
-    label: GROUP_LABELS[id],
-    ...nestRows(conversations.filter((conversation) => groupOf(conversation, now) === id)),
-  }))
-  return groups.filter((group) => group.conversations.length > 0)
+export function groupConversations(conversations: Conversation[], _now?: Date): ConversationGroup[] {
+  const ordered = [...conversations].sort(newestFirst)
+  return GROUP_ORDER.map((id) => {
+    const nested = nestRows(ordered.filter((conversation) => groupOf(conversation) === id))
+    return { id, label: GROUP_LABELS[id], ...(id === 'needs-you' ? mostUrgentFirst(nested) : nested) }
+  }).filter((group) => group.conversations.length > 0)
 }
 
 // A walk that meets a loop gives no top, so every row on it stays a normal row.
@@ -287,7 +281,7 @@ const ACTIVITY_BADGES = {
   waiting: { label: 'Waiting for you', tone: 'approval', description: 'Open now: the agent is waiting for you' },
 } satisfies Partial<Record<ConversationActivity, LiveBadge>>
 
-/** The status chip of an open chat: only Working or Waiting, since the Open now group already says it is open. A wait read from silence says how long nothing came instead. */
+/** A live activity chip. A wait read from silence says how long nothing came instead. */
 export function liveBadge(conversation: Conversation, now: Date): LiveBadge | undefined {
   if (conversation.waiting?.for === 'shell') return undefined
   const { activity } = conversation
@@ -367,7 +361,11 @@ export function replyCommand(reply: ConversationOpenReply, route: ConversationRo
 }
 
 /** The page's answer to "Where did you leave off?": the open chats and how many wait, else when the last one ran. */
-export function conversationsVerdict(conversations: Conversation[], now: Date, olderWeeks: boolean): string {
+export function conversationsVerdict(conversations: Conversation[], now: Date, olderWeeks: boolean, needsYou?: number): string {
+  if (needsYou !== undefined) {
+    if (needsYou === 0) return 'No chats need you.'
+    return needsYou === 1 ? 'One chat needs you.' : `${needsYou} chats need you.`
+  }
   const open = conversations.filter((conversation) => conversation.live)
   if (open.length > 0) {
     // A wait read from silence is not said as a certain wait.
@@ -397,6 +395,64 @@ const TOOL_LABELS = {
   cursor: 'Cursor',
   chatgpt: 'ChatGPT',
 } satisfies Record<ConversationTool, string>
+
+export function conversationToolLabel(conversation: Conversation): string {
+  if (conversation.tool === 'claude' && (conversation.app === 'chat' || conversation.app === 'cowork')) return 'Claude'
+  return TOOL_LABELS[conversation.tool]
+}
+
+export function conversationPlaceLabel(conversation: Conversation): string | undefined {
+  if (conversation.cloud) return 'Shared'
+  if (conversation.app === 'cloud' || conversation.app === 'chat' || conversation.app === 'cowork') return APP_LABELS[conversation.app]
+  return undefined
+}
+
+type ConversationRef = Pick<Conversation, 'tool' | 'id'>
+type ConversationName = (ref: ConversationRef) => string | undefined
+
+function claimConflictReason(conversation: Conversation, nameOf: ConversationName = () => undefined): string | undefined {
+  const conflicts = conversation.claimConflicts ?? []
+  if (conflicts.length === 0) return undefined
+  const [first] = conflicts
+  const name = (ref: ConversationRef) => nameOf(ref) || `${TOOL_LABELS[ref.tool]} session ${ref.id.slice(0, 8)}`
+  const self = conversationKey(conversation)
+  let text: string
+  if (`${first.requester.tool}:${first.requester.id}` !== self) text = `${name(first.requester)} wants ${first.path}, which this session claims`
+  else if (first.holder && `${first.holder.tool}:${first.holder.id}` !== self) text = `${first.path} is claimed by ${name(first.holder)}`
+  else if (first.sender) text = `${name(first.sender)} no longer holds ${first.path}`
+  else text = `No session holds ${first.path} any more`
+  return conflicts.length > 1 ? `${text}, and ${plural(conflicts.length - 1, 'more conflict')}` : text
+}
+
+const APPROVAL_VERBS: Readonly<Record<string, string>> = { Edit: 'edit', MultiEdit: 'edit', Write: 'edit', NotebookEdit: 'edit', Read: 'read' }
+
+export function needsYouReason(conversation: Conversation, now: Date, nameOf?: ConversationName): string | undefined {
+  if (groupOf(conversation) !== 'needs-you') return undefined
+  const waiting = conversation.waiting
+  if (conversation.state === 'blocked' && waiting?.for === 'permission') {
+    if (!waiting.tool) return 'Needs permission'
+    if (waiting.tool.startsWith('mcp__')) return waiting.detail ? `Approve ${waiting.detail}` : 'Needs permission'
+    if (!waiting.detail) return `Approve ${waiting.tool}`
+    const verb = APPROVAL_VERBS[waiting.tool]
+    return `${verb ? `Approve ${verb}` : 'Approve'} ${waiting.detail}`
+  }
+  const conflict = claimConflictReason(conversation, nameOf)
+  if (conflict) return conflict
+  if (conversation.state === 'unread') return conversation.withheld?.includes('reply') ? 'New reply, hidden because it may hold a password or key' : 'New reply'
+  if (waiting?.for === 'shell') {
+    const count = conversation.live ? conversation.stuckShells?.length ?? 0 : 0
+    return count > 1 ? `Waiting on ${count} shells still running` : count === 1 ? 'Waiting on a shell still running' : undefined
+  }
+  if (waiting?.for === 'answer') return 'Asks you a question'
+  const since = Date.parse(conversation.quietSince ?? '')
+  if (!Number.isNaN(since)) {
+    const minutes = Math.floor((now.getTime() - since) / 60_000)
+    if (minutes < 1) return 'No activity'
+    const age = minutes < 60 ? `${minutes}m` : minutes < 1440 ? `${Math.floor(minutes / 60)}h` : minutes < 20160 ? `${Math.floor(minutes / 1440)}d` : `${Math.floor(minutes / 10080)}w`
+    return `No activity for ${age}`
+  }
+  return 'Waiting for you'
+}
 
 /** Agent types that say nothing beyond "a subagent", so the details leave them out. */
 const PLAIN_KINDS = new Set(['general-purpose', 'default'])

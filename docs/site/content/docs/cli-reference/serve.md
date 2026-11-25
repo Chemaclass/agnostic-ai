@@ -100,7 +100,7 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 {% <details summary="Details: order, loading, tabs, requirements"> %}
 - It lists recent Claude Code, Codex and Cursor chats from each tool's own store.
 - Search covers every conversation, loaded or not. The tool filter beside it shows one tool's chats.
-- Open chats come first under **Open now**, with **Working** or **Waiting for you** when the tool reports it. A local Codex chat that wrote nothing for 5 minutes shows **No activity for 7m** instead, since Codex does not say when it waits. The rest follow by day, newest last message first.
+- Chats appear under **Needs you**, **Working**, **Active** and **Archived**. Needs you puts permission requests first, then other waits and path conflicts, then unread replies. The summary count covers all weeks and tools. Archived starts collapsed.
 - It loads the past week and every blocked or unread chat of any age. It loads the week before each time you scroll to the end, or with **Load the week before**.
 - A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group.
 - A row's action reopens the chat where it lives: the Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.

@@ -203,7 +203,7 @@ function isActivity(value: unknown): value is NonNullable<Conversation['activity
   return (ACTIVITIES as readonly unknown[]).includes(value)
 }
 
-const TOOLS = ['claude', 'codex', 'cursor'] as const
+const TOOLS = ['claude', 'codex', 'cursor', 'chatgpt'] as const
 
 function isTool(value: unknown): value is ConversationTool {
   return (TOOLS as readonly unknown[]).includes(value)
@@ -243,7 +243,7 @@ function stuckShellsOf(value: unknown): StuckShell[] | undefined {
   return shells.length > 0 ? shells : undefined
 }
 
-// An activity this client does not know is left out, so the row shows Open now.
+// An activity this client does not know is left out.
 function normalizeConversation(raw: unknown): Conversation {
   const c = obj(raw)
   const route = obj(c.open)
@@ -284,6 +284,7 @@ export function normalizeConversationsView(raw: unknown): ConversationsView {
     // A missing or empty next means no older conversation remains.
     ...(typeof v.next === 'string' && v.next !== '' ? { next: v.next } : {}),
     ...(typeof v.matches === 'number' ? { matches: v.matches } : {}),
+    ...(typeof v.needsYou === 'number' && Number.isSafeInteger(v.needsYou) && v.needsYou >= 0 ? { needsYou: v.needsYou } : {}),
     ...(typeof v.cloudNote === 'string' && v.cloudNote !== '' ? { cloudNote: v.cloudNote } : {}),
     tools: arr(v.tools).map(normalizeConversationSource),
     conversations: arr(v.conversations).map(normalizeConversation),

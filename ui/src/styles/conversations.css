@@ -1,7 +1,3 @@
-/* Conversations: the verdict and facts, one toolbar with the search and the
-   tool filter, then open chats first and each day after, as hairline rows
-   with the link that asks the server to reopen the chat where it lives. */
-
 .conversations-search {
   gap: 8px 16px;
 }
@@ -33,6 +29,44 @@
 
 .conversations-skeleton-tool .skeleton-line {
   width: 5em;
+}
+
+.conversation-group-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.conversation-group-heading::-webkit-details-marker {
+  display: none;
+}
+
+.conversation-group-heading::before {
+  content: '';
+  flex: none;
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.conversation-group details[open] > .conversation-group-heading::before {
+  transform: rotate(45deg);
+}
+
+.conversation-group-heading h2 {
+  margin: 0;
+}
+
+.conversation-body .conversation-reason {
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--approval);
 }
 
 .conversation-list {
@@ -380,7 +414,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .conversation-open {
+  .conversation-open,
+  .conversation-group-heading::before {
     transition: none;
   }
 }
@@ -396,6 +431,10 @@
    an open chat's pill spans the row. */
 
 @media (max-width: 760px) {
+  .conversation-group-heading {
+    min-height: 44px;
+  }
+
   .conversation {
     grid-template-columns: 24px minmax(0, 1fr);
     padding-inline: 8px;

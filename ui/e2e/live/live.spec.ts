@@ -1895,31 +1895,61 @@ test('live an archived session that starts working leaves Archived on another se
     for (const id of [resumed, other]) {
       expect((await postConversation(companion, 'mark', { tool: 'claude', id, as: 'completed' })).status).toBe(204)
     }
-    const row = (prompt: string) => page.locator('li.conversation').filter({ has: page.getByRole('heading', { level: 3, name: prompt, exact: true }) })
+    const row = (prompt: string) => page.locator('li.conversation').filter({ has: page.getByRole('heading', { level: 3, name: prompt, exact: true, includeHidden: true }) })
+    const archived = page.getByRole('region', { name: /^Archived/ })
+    const archivedDetails = archived.locator('details')
+    const working = page.getByRole('region', { name: /^Working/ })
+    const active = page.getByRole('region', { name: /^Active/ })
+    const resumedState = async () => {
+      const listed = await (await fetch(`${companion}api/views/conversations`)).json() as { conversations: { id: string; state: string; completedAt?: string }[] }
+      const c = listed.conversations.find((c) => c.id === resumed)
+      return { state: c?.state, completedAt: c?.completedAt }
+    }
 
     await page.goto(dashboard)
-    await expect(page.locator('.conversation-state', { hasText: 'Archived' })).toHaveCount(2)
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Archived 2'])
+    await expect(archived).toBeVisible()
+    await expect(archivedDetails).not.toHaveAttribute('open')
+    await expect(archived.locator('li.conversation')).toHaveCount(2)
+    await expect(row('Fix the parser')).toBeHidden()
+    await expect(row('Review the branch')).toBeHidden()
+    await archivedDetails.locator('summary').click()
+    await expect(archivedDetails).toHaveAttribute('open')
+    await expect(archived.getByRole('heading', { level: 3 })).toHaveCount(2)
+    await expect(row('Fix the parser')).toBeVisible()
+    await expect(row('Review the branch')).toBeVisible()
 
     const session = join(f.claudeDir, 'sessions', `${process.pid}.json`)
     await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'busy' }))
     // An archive made in the second a read began stands for that read, so the next poll clears it.
-    await expect.poll(async () => {
-      const listed = await (await fetch(`${companion}api/views/conversations`)).json() as { conversations: { id: string; state: string; completedAt?: string }[] }
-      const c = listed.conversations.find((c) => c.id === resumed)
-      return { state: c?.state, completedAt: c?.completedAt }
-    }, { timeout: 5_000 }).toEqual({ state: 'working', completedAt: undefined })
+    await expect.poll(resumedState, { timeout: 5_000 }).toEqual({ state: 'working', completedAt: undefined })
 
     await page.reload()
-    await expect(row('Fix the parser').locator('.conversation-live')).toContainText('Working')
-    await expect(row('Fix the parser').locator('.conversation-state')).toHaveCount(0)
-    await expect(row('Review the branch').locator('.conversation-state')).toContainText('Archived')
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Working 1', 'Archived 1'])
+    await expect(working).toBeVisible()
+    await expect(working.locator('details')).toHaveAttribute('open')
+    await expect(working.getByRole('heading', { level: 3 })).toHaveText(['Fix the parser'])
+    await expect(row('Fix the parser')).toBeVisible()
+    await expect(archivedDetails).not.toHaveAttribute('open')
+    await archivedDetails.locator('summary').click()
+    await expect(archivedDetails).toHaveAttribute('open')
+    await expect(archived.getByRole('heading', { level: 3 })).toHaveText(['Review the branch'])
+    await expect(row('Review the branch')).toBeVisible()
 
     await put(session, JSON.stringify({ pid: process.pid, sessionId: resumed, status: 'idle' }))
+    await expect.poll(resumedState, { timeout: 5_000 }).toEqual({ state: 'active', completedAt: undefined })
     await page.reload()
-    await expect(page.locator('.conversation-state', { hasText: 'Archived' })).toHaveCount(1)
-    await expect(row('Fix the parser').locator('.conversation-live')).toHaveCount(0)
-    await expect(row('Fix the parser').locator('.conversation-state')).toHaveCount(0)
-    await expect(row('Review the branch').locator('.conversation-state')).toContainText('Archived')
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Active 1', 'Archived 1'])
+    await expect(working).toHaveCount(0)
+    await expect(active).toBeVisible()
+    await expect(active.locator('details')).toHaveAttribute('open')
+    await expect(active.getByRole('heading', { level: 3 })).toHaveText(['Fix the parser'])
+    await expect(row('Fix the parser')).toBeVisible()
+    await expect(archivedDetails).not.toHaveAttribute('open')
+    await archivedDetails.locator('summary').click()
+    await expect(archivedDetails).toHaveAttribute('open')
+    await expect(archived.getByRole('heading', { level: 3 })).toHaveText(['Review the branch'])
+    await expect(row('Review the branch')).toBeVisible()
   } finally {
     await f.close()
   }
