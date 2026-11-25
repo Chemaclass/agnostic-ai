@@ -82,6 +82,9 @@ const doctorExample = `  # Project and local runtime diagnostic
   # Check only MCP command resolution
   agnostic-ai doctor mcp
 
+  # See what to commit and configure for cloud agents
+  agnostic-ai doctor environment
+
   # Check only installed AI CLIs
   agnostic-ai doctor install`
 
@@ -165,6 +168,7 @@ func newDoctorCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.checkRefs, "check-references", false, "Flag relative Markdown links in emitted skills whose file is missing on disk")
 	registerTargetCompletion(cmd)
 	cmd.AddCommand(newDoctorMCPCmd())
+	cmd.AddCommand(newDoctorEnvironmentCmd())
 	cmd.AddCommand(newDoctorInstallCmd())
 	cmd.AddCommand(newDoctorConfigCmd())
 	cmd.AddCommand(newDoctorRTKCmd())

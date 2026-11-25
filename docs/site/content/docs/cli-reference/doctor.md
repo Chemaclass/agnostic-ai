@@ -151,7 +151,19 @@ To re-enable skills, run `doctor --fix` in a terminal. It asks once per state, a
 | `doctor config` | Validate `agnostic-ai.yaml` with the checks every command runs when it loads the project. |
 | `doctor install` | Which AI CLIs are on PATH. |
 | `doctor mcp` | Find each MCP server's command and list its unset `${NAME}` references. Fails when the config does not load. |
+| `doctor environment` | List the repo setup files and UI settings for enabled cloud agents. |
 | `doctor rtk --command '<command>'` | Preview an RTK rewrite and compare declared Claude Code approval rules. Add `--json` for JSON. |
+
+### Cloud environment checklist {#doctor-environment}
+
+```bash
+agnostic-ai doctor environment
+agnostic-ai doctor environment -t codex --json
+```
+
+The command reads the project and reports each enabled cloud tool's repository setup files and whether Git tracks or ignores them. It prints the install commands you can paste into Claude Code's setup script or Codex Cloud's install script. It reads the commands as written in the spec and leaves the repository and tool settings alone. When an output is redirected for inspection, the report also shows the path the cloud tool reads.
+
+Use `-t, --target` to filter to a configured target. Use `--json` for the same checklist as structured output. See [cloud environment setup](@/docs/spec-format/environments.md#cloud-sessions) and [project readiness](@/docs/cli-reference/project.md#project-readiness).
 
 ### RTK approval diagnostics
 
