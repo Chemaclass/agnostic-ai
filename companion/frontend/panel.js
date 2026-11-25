@@ -1254,7 +1254,7 @@ async function showLateOpenNotice() {
   const shown = reply && lateOpenNoticeOf(reply, lastDismissedLate)
   if (!shown || !lateNoticeReplaces(state.openFailure) || thisOpen !== latestOpen || opensOnTheirWay > 0) return
   showOpenFailure(shown, shown.about ?? NOTICES.notOpened)
-  if (shown.about?.tone === 'info' && !listShown) await peekOpenNotice()
+  if (shown.about === NOTICES.subagent && !listShown) await peekOpenNotice()
 }
 
 /** The last dismissed late notice may still come back on a read already on its way. */
@@ -1262,9 +1262,8 @@ let lastDismissedLate
 
 // The panel never activates its app, so while it shows it keeps the keys
 // even after the terminal comes to the front. It hides first, and comes
-// back with a hint or the reason it did not open. An open the
-// companion gave up waiting for (`pending`) may still happen, so it is
-// no failure and the panel stays hidden.
+// back with directions to a subagent or the reason it did not open.
+// A guessed tab's notice waits for the next opening of the list.
 let latestOpen = 0
 /** Opens sent and not yet answered: the companion drops an older late notice as each one arrives. */
 let opensOnTheirWay = 0
@@ -1292,14 +1291,11 @@ async function openRow(conversation) {
   if (pending) showLateOpenNotice()
   // An open made meanwhile, such as one waiting on a macOS prompt, has its own answer.
   if (thisOpen !== latestOpen) return
-  // The note shows at once, in the panel shown beside the circle without taking the keys from the terminal.
-  // Where the panel cannot show, it waits there for its next showing, unless a failure replaces it.
   if (note) showOpenFailure(note, note.about)
-  if (note && !failure) {
-    await peekOpenNotice()
+  if (!failure) {
+    if (note?.about === NOTICES.subagent) await peekOpenNotice()
     return
   }
-  if (!failure) return
   showOpenFailure(failure, NOTICES.notOpened)
   state.returning = true
   await showPanel().catch((error) => {
