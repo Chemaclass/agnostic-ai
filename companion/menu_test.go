@@ -60,16 +60,16 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items) != 13 {
-		t.Fatalf("menu.json has %d items; want 13", len(items))
+	if len(items.Items) != 13 {
+		t.Fatalf("menu.json has %d items; want 13", len(items.Items))
 	}
 	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends"} {
-		if i := slices.IndexFunc(items, func(item menuItem) bool { return item.ID == id }); i < 0 || !items[i].Page {
+		if i := slices.IndexFunc(items.Items, func(item menuItem) bool { return item.ID == id }); i < 0 || !items.Items[i].Page {
 			t.Errorf("%q is missing or not a page item, which the right-click menu skips", id)
 		}
 	}
 	actions := shellWith(t, &fakeShortcuts{}).menuActions()
-	for _, item := range items {
+	for _, item := range items.Items {
 		if item.Page {
 			continue
 		}
@@ -85,7 +85,7 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 func TestBubbleMenu_RefusesAnItemWithNoHandler(t *testing.T) {
 	s := shellWith(t, &fakeShortcuts{})
 
-	err := s.fillBubbleMenu(application.NewMenu(), []menuItem{{ID: "dance", Label: "Dance", Kind: "action"}})
+	err := s.fillBubbleMenu(application.NewMenu(), menuDefinition{Sections: []menuSection{{ID: "app", Label: "App"}}, Items: []menuItem{{ID: "dance", Section: "app", Label: "Dance", Kind: "action"}}})
 
 	if err == nil || !strings.Contains(err.Error(), `"dance"`) {
 		t.Errorf("err = %v; want one naming the item", err)
@@ -95,7 +95,7 @@ func TestBubbleMenu_RefusesAnItemWithNoHandler(t *testing.T) {
 func TestBubbleMenu_RefusesAnUnknownKind(t *testing.T) {
 	s := shellWith(t, &fakeShortcuts{})
 
-	err := s.fillBubbleMenu(application.NewMenu(), []menuItem{{ID: "quit", Label: "Quit", Kind: "slider"}})
+	err := s.fillBubbleMenu(application.NewMenu(), menuDefinition{Sections: []menuSection{{ID: "app", Label: "App"}}, Items: []menuItem{{ID: "quit", Section: "app", Label: "Quit", Kind: "slider"}}})
 
 	if err == nil || !strings.Contains(err.Error(), `"slider"`) {
 		t.Errorf("err = %v; want one naming the kind", err)
@@ -109,13 +109,14 @@ func TestBubbleMenu_RefusesAListWithoutAnItemItShows(t *testing.T) {
 		t.Fatal(err)
 	}
 	var withoutHide []menuItem
-	for _, item := range items {
+	for _, item := range items.Items {
 		if item.ID != "hide" {
 			withoutHide = append(withoutHide, item)
 		}
 	}
 
-	err = s.fillBubbleMenu(application.NewMenu(), withoutHide)
+	items.Items = withoutHide
+	err = s.fillBubbleMenu(application.NewMenu(), items)
 
 	if err == nil || !strings.Contains(err.Error(), `"hide"`) {
 		t.Errorf("err = %v; want one naming the missing item", err)
@@ -139,14 +140,42 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 			got = append(got, item.Label())
 		}
 	}
-	want := []string{settingsHeader, "[x] Animate companion", "[x] Dim when idle", "[x] Small companion", "[x] Start at login",
+	want := []string{"Appearance", "[x] Animate companion", "[x] Dim when idle", "[x] Small companion", "Shortcuts",
 		shortcutLabel("Open from anywhere", "Ctrl+Alt+Space", runtime.GOOS == "darwin"),
-		shortcutLabel("Send copied text", "Ctrl+Alt+V", runtime.GOOS == "darwin"), "---", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
+		shortcutLabel("Send copied text", "Ctrl+Alt+V", runtime.GOOS == "darwin"), "App", "[x] Start at login", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
 	}
 	if !s.native["quit"].Enabled() {
 		t.Error("Quit cannot be chosen")
+	}
+}
+
+func TestBubbleMenu_UsesDeclaredSectionOrderAndSkipsPageOnlySections(t *testing.T) {
+	s := shellWith(t, &fakeShortcuts{})
+	definition, err := readMenu(embedded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	slices.Reverse(definition.Sections)
+	menu := application.NewMenu()
+	if err := s.fillBubbleMenu(menu, definition); err != nil {
+		t.Fatal(err)
+	}
+	var headings []string
+	for i := 0; menu.ItemAt(i) != nil; i++ {
+		item := menu.ItemAt(i)
+		if !item.Enabled() {
+			headings = append(headings, item.Label())
+		}
+	}
+	if want := []string{"App", "Shortcuts", "Appearance"}; !slices.Equal(headings, want) {
+		t.Errorf("headings = %q; want %q", headings, want)
+	}
+	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends"} {
+		if s.native[id] != nil {
+			t.Errorf("native menu contains page-only %q", id)
+		}
 	}
 }
 
@@ -387,7 +416,7 @@ func TestMenuList_QuitSaysTheShortcutStops(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, item := range items {
+	for _, item := range items.Items {
 		if item.ID == "quit" && !strings.Contains(item.Hint, "shortcut stops working") {
 			t.Errorf("the Quit hint %q does not say the shortcut stops working", item.Hint)
 		}

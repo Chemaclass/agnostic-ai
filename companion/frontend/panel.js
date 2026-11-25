@@ -2244,6 +2244,9 @@ const isMac = System.IsMac()
 const settings = {
   /** menu.json, read on the first open. */
   items: undefined,
+  metadata: undefined,
+  sections: new Map(),
+  updates: undefined,
   /** Each row's control by its id in menu.json. */
   controls: new Map(),
   /** Each row's placed element by its id, to hide a row whose value could not be read. */
@@ -2325,8 +2328,18 @@ const MENU_ACTIONS = {
 }
 
 /** Builds the rows once, in menu.json order; drawSettings fills in their values. */
-function buildMenu(rows) {
-  for (const row of rows) {
+function buildMenu(metadata) {
+  for (const section of metadata.sections) {
+    const group = element('div', 'menu-section')
+    const heading = element('h2', 'menu-heading', section.label)
+    heading.id = `menu-section-${section.id}`
+    group.setAttribute('role', 'group')
+    group.setAttribute('aria-labelledby', heading.id)
+    group.append(heading)
+    settings.sections.set(section.id, group)
+    menu.insertBefore(group, menuProblem)
+  }
+  for (const row of metadata.items) {
     const act = MENU_ACTIONS[row.id]
     if (!act) throw new Error(`the menu item ${row.id} has no action here`)
     let control
@@ -2378,19 +2391,41 @@ function buildMenu(rows) {
     control.addEventListener('click', act)
     settings.controls.set(row.id, control)
     settings.rows.set(row.id, placed)
-    // The problem line sits between the settings and the actions.
-    if (row.kind === 'action') menu.append(placed)
-    else menu.insertBefore(placed, menuProblem)
-    // The approvals status line sits under the approvals rows.
-    if (row.id === 'approvalsCompanion') menu.insertBefore(approvalsRows.box, menuProblem)
+    const section = settings.sections.get(row.section)
+    if (row.id === 'update' || row.id === 'checkForUpdates') {
+      if (!settings.updates) {
+        const box = element('div', 'menu-updates')
+        const toggle = element('button', 'menu-item menu-updates-toggle', metadata.updatesLabel)
+        toggle.type = 'button'
+        toggle.setAttribute('aria-expanded', 'false')
+        const body = element('div', 'menu-updates-body')
+        body.id = 'menu-updates-body'
+        body.hidden = true
+        toggle.setAttribute('aria-controls', body.id)
+        toggle.append(icon('chevron', '0 0 8 8'))
+        toggle.addEventListener('click', () => {
+          body.hidden = !body.hidden
+          toggle.setAttribute('aria-expanded', String(!body.hidden))
+        })
+        box.append(toggle, body)
+        section.append(menuProblem, box)
+        settings.updates = { box, toggle, body }
+      }
+      settings.updates.body.append(placed)
+    } else {
+      section.append(placed)
+    }
+    if (row.id === 'approvalsCompanion') section.append(approvalsRows.box)
   }
 }
 
 function drawSettings() {
-  for (const row of menuRowsOf(settings.items, settings, isMac)) {
+  const rows = menuRowsOf(settings.items, settings, isMac)
+  const visible = new Set(rows.filter((row) => !row.unavailable).map((row) => row.id))
+  for (const [id, placed] of settings.rows) placed.hidden = !visible.has(id)
+  for (const row of rows) {
     const control = settings.controls.get(row.id)
     if (!control) continue
-    settings.rows.get(row.id).hidden = Boolean(row.unavailable)
     if (row.unavailable) continue
     if (row.kind === 'action') control.textContent = row.label
     control.disabled = Boolean(row.disabled)
@@ -2419,6 +2454,10 @@ function drawSettings() {
       control.replaceChildren(...keycapsOf(row.value, isMac).map((keycap) => element('kbd', '', keycap)))
     }
   }
+  for (const [id, section] of settings.sections) {
+    section.hidden = !rows.some((row) => row.section === id && !row.unavailable)
+  }
+  if (settings.updates) settings.updates.box.hidden = !rows.some((row) => row.id === 'update')
   const preferences = settings.preferences
   const problems = settings.refusal !== undefined ? [settings.refusal] : [preferences.shortcutProblem, preferences.sendShortcutProblem, preferences.startAtLoginProblem].filter(Boolean)
   menuProblem.hidden = problems.length === 0
@@ -2448,10 +2487,11 @@ function closeMenu() {
 async function openMenu(focus) {
   try {
     const showRead = updates.since()
-    const [items, preferences, appearance, update, mailbox] = await Promise.all([settings.items ?? readMenu(), readPreferences(), readAppearance(), readUpdate(), readMailboxSettings().catch(unreadSetting), approvalsRows.read()])
+    const [items, preferences, appearance, update, mailbox] = await Promise.all([settings.metadata ?? readMenu(), readPreferences(), readAppearance(), readUpdate(), readMailboxSettings().catch(unreadSetting), approvalsRows.read()])
     if (!settings.items) {
-      settings.items = items
-      buildMenu(menuRowsOf(items, { preferences, appearance, mailbox, update, approvals: settings.approvals }, isMac))
+      settings.metadata = items
+      settings.items = items.items
+      buildMenu(items)
     }
     settings.preferences = preferences
     settings.appearance = appearance

@@ -32,12 +32,12 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('switch', { name: 'Animate companion' }),
     menu.getByRole('switch', { name: 'Dim when idle' }),
     menu.getByRole('switch', { name: 'Small companion' }),
-    menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('radio', { name: 'Ask me', exact: true }),
     menu.getByRole('switch', { name: 'Answer permission requests from the companion' }),
     menu.getByRole('switch', { name: 'Ask me before an agent sends a message' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
     menu.getByRole('button', { name: 'Send copied text' }),
+    menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
     menu.getByRole('button', { name: 'Quit Agnostic AI companion' }),
   ]
@@ -271,13 +271,20 @@ test('the faded circle stays at 25% with Dim when idle on', async ({ page }) => 
 
 const settingsMenu = (page: Page) => page.getByRole('region', { name: 'Settings', exact: true })
 
+async function openUpdates(page: Page) {
+  const toggle = settingsMenu(page).getByRole('button', { name: 'Updates', exact: true })
+  if (await toggle.getAttribute('aria-expanded') === 'false') await toggle.click()
+}
+
 test('the menu shows the shared list, in its order, with the values in effect', async ({ page }) => {
-  const items: { id: string; label: string }[] = await (await page.request.get('/menu.json')).json()
+  const metadata: { sections: { id: string; label: string }[]; items: { id: string; label: string }[] } = await (await page.request.get('/menu.json')).json()
+  const { items, sections } = metadata
   await openPanel(page)
   await openSettings(page)
 
   // This fixture cannot update itself, so it has no update entry and no switch for it.
-  const labels = await settingsMenu(page).locator('.menu-label, .menu-item').allTextContents()
+  const labels = await settingsMenu(page).locator('.menu-label:visible, .menu-item:visible').allTextContents()
+  await expect(settingsMenu(page).getByRole('heading')).toHaveText(sections.map((section) => section.label))
   expect(labels).toEqual(items.filter((item) => item.id !== 'update' && item.id !== 'checkForUpdates').map((item) => item.label))
   await expect(settingsMenu(page).getByRole('switch', { name: 'Animate companion' })).toHaveAttribute('aria-checked', 'true')
   await expect(settingsMenu(page).getByRole('switch', { name: 'Dim when idle' })).toHaveAttribute('aria-checked', 'false')
@@ -453,7 +460,8 @@ test('a known update shows a badge, asks in the panel, then shows the first step
   await button.click()
   const menu = page.getByRole('region', { name: 'Settings', exact: true })
   const entry = menu.getByRole('button', { name: 'Update to v0.97.0', exact: true })
-  await expect(menu.locator('.menu-item')).toHaveText(['Update to v0.97.0', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
+  await expect(menu.locator('.menu-item:visible')).toHaveText(['Updates', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
+  await openUpdates(page)
   await entry.click()
 
   await expect(menu).toBeHidden()
@@ -476,6 +484,7 @@ test('Later and Escape close the update question without updating', async ({ pag
   const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0 and restart?' })
   for (const close of [() => question.getByRole('button', { name: 'Later' }).click(), () => page.keyboard.press('Escape')]) {
     await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+    await openUpdates(page)
     await page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
     await expect(question).toBeVisible()
     await close()
@@ -518,7 +527,8 @@ test('a companion that cannot update itself shows no update entry and no badge',
   await openPanel(page)
   await expect(page.locator('#menu-button')).not.toHaveAttribute('data-update')
   await openSettings(page)
-  await expect(page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: /update/i })).toHaveCount(0)
+  await expect(settingsMenu(page).getByRole('button', { name: /update/i })).toHaveCount(0)
+  await expect(settingsMenu(page).getByRole('switch', { name: 'Check for updates automatically' })).toHaveCount(0)
 })
 
 test('a terminal install that cannot update itself copies the command instead', async ({ page, context }) => {
@@ -529,6 +539,7 @@ test('a terminal install that cannot update itself copies the command instead', 
   const starts = sent(page, '/api/update/start')
 
   await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await openUpdates(page)
   await page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
   const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
   await expect(question).toContainText('agnostic-ai upgrade')
@@ -559,6 +570,7 @@ test('Check for updates automatically is on by default and turns off', async ({ 
   await page.goto('/panel.html')
   const saves = sent(page, '/api/preferences/check-for-updates')
   await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await openUpdates(page)
   const automatic = settingsMenu(page).getByRole('switch', { name: 'Check for updates automatically' })
   await expect(automatic).toHaveAttribute('aria-checked', 'true')
 
@@ -568,6 +580,68 @@ test('Check for updates automatically is on by default and turns off', async ({ 
   expect(saves).toEqual(['/api/preferences/check-for-updates'])
   await expect(settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true })).toBeEnabled()
 })
+
+test('Updates opens with the keyboard and both controls stay reachable when automatic checks are off', async ({ page, context }) => {
+  await page.request.post('/dev/fixture', { data: { name: 'update-older-cli' } })
+  await page.goto('/panel.html')
+  await openSettings(page)
+  const menu = settingsMenu(page)
+  const toggle = menu.getByRole('button', { name: 'Updates', exact: true })
+  const manual = menu.getByRole('button', { name: 'Check for updates', exact: true })
+  const automatic = menu.getByRole('switch', { name: 'Check for updates automatically' })
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(manual).toBeHidden()
+  await expect(automatic).toBeHidden()
+  await toggle.focus()
+  await page.keyboard.press('Enter')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true')
+  await page.keyboard.press('Tab')
+  await expect(manual).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(automatic).toBeFocused()
+  await page.keyboard.press('Space')
+  await expect(automatic).toHaveAttribute('aria-checked', 'false')
+
+  const other = await context.newPage()
+  await other.goto('/panel.html')
+  await openSettings(other)
+  await openUpdates(other)
+  const otherAutomatic = settingsMenu(other).getByRole('switch', { name: 'Check for updates automatically' })
+  await expect(otherAutomatic).toHaveAttribute('aria-checked', 'false')
+  await otherAutomatic.click()
+  await expect(automatic).toHaveAttribute('aria-checked', 'true')
+  await otherAutomatic.click()
+  await expect(automatic).toHaveAttribute('aria-checked', 'false')
+
+  const checks = sent(page, '/api/update')
+  await manual.click()
+  await expect.poll(() => checks).toEqual(['/api/update'])
+  await expect(menu).toBeHidden()
+  await openSettings(page)
+  await toggle.focus()
+  await page.keyboard.press('Space')
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+  await expect(manual).toBeHidden()
+  await page.keyboard.press('Tab')
+  await expect(menu.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })).toBeFocused()
+})
+
+for (const [state, label, disabled] of [
+  ['checking', 'Checking for updates…', true],
+  ['updating', 'Updating to v0.97.0…', true],
+  ['failed', 'Update to v0.97.0', false],
+] as const) {
+  test(`Updates keeps the ${state} action and automatic switch together`, async ({ page }) => {
+    await page.route('**/api/update', (route) => route.fulfill({ json: { state, version: '0.97.0', current: '0.96.0' } }))
+    await openPanel(page)
+    await page.locator('#menu-button').click()
+    await openUpdates(page)
+    const manual = settingsMenu(page).getByRole('button', { name: label, exact: true })
+    await expect(manual).toBeVisible()
+    await expect(manual).toBeEnabled({ enabled: !disabled })
+    await expect(settingsMenu(page).getByRole('switch', { name: 'Check for updates automatically' })).toBeEnabled()
+  })
+}
 
 test('an older separate command line tool shows both versions and its upgrade command', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
@@ -590,6 +664,7 @@ test('where the companion cannot update itself, the question and a failure open 
   const opened = sent(page, '/api/update/release-page')
 
   await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await openUpdates(page)
   await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
   const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
   await question.getByRole('button', { name: 'Release page' }).click()
@@ -609,6 +684,7 @@ test('a disk image update question offers no release page', async ({ page }) => 
   await page.goto('/panel.html')
 
   await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await openUpdates(page)
   await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
 
   await expect(page.getByRole('alertdialog').getByRole('button', { name: 'Release page' })).toBeHidden()
@@ -690,7 +766,7 @@ test('the mode radios take one Tab stop, the arrows move between them, and Cance
   await openSettings(page)
   const menu = settingsMenu(page)
   const ask = menu.getByRole('radio', { name: 'Ask me', exact: true })
-  await menu.getByRole('switch', { name: 'Start at login' }).focus()
+  await menu.getByRole('switch', { name: 'Small companion' }).focus()
   await page.keyboard.press('Tab')
   await expect(ask).toBeFocused()
   await page.keyboard.press('ArrowDown')

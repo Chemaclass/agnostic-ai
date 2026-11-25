@@ -1393,8 +1393,47 @@ body {
 }
 
 .menu[hidden],
-.menu-row[hidden] {
+.menu-row[hidden],
+.menu-section[hidden],
+.menu-updates[hidden],
+.menu-updates-body[hidden] {
   display: none;
+}
+
+.menu-section + .menu-section {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--hairline);
+}
+
+.menu-heading {
+  margin: 4px 8px 2px;
+  color: var(--paper-dim);
+  font-size: 11.5px;
+  font-weight: 620;
+  line-height: 1.4;
+}
+
+.menu-item.menu-updates-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.menu-updates-toggle svg {
+  width: 8px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+}
+
+.menu-updates-toggle[aria-expanded='true'] svg {
+  transform: rotate(90deg);
+}
+
+.menu-updates-body {
+  padding-left: 8px;
 }
 
 @keyframes menu-in {

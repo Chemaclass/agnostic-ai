@@ -1,15 +1,24 @@
-[
-  { "id": "animate", "label": "Animate companion", "kind": "switch" },
-  { "id": "dimWhenIdle", "label": "Dim when idle", "kind": "switch" },
-  { "id": "smallCompanion", "label": "Small companion", "kind": "switch" },
-  { "id": "startAtLogin", "label": "Start at login", "kind": "switch" },
-  { "id": "approvalsMode", "label": "When a tool asks permission", "kind": "choice", "page": true, "choices": [{ "value": "ask", "label": "Ask me" }, { "value": "review", "label": "Let the tool's reviewer decide" }, { "value": "yolo", "label": "Approve routine calls for me" }] },
-  { "id": "approvalsCompanion", "label": "Answer permission requests from the companion", "kind": "switch", "page": true, "hint": "Approve or deny requests on the chat row. You can still answer in the terminal." },
-  { "id": "approveAgentSends", "label": "Ask me before an agent sends a message", "kind": "switch", "page": true, "hint": "Holds each message an agent sends until you approve it in the thread." },
-  { "id": "shortcut", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
-  { "id": "sendShortcut", "label": "Send copied text", "kind": "shortcut", "hint": "Change the shortcut that opens the list to send what you copied" },
-  { "id": "checkForUpdates", "label": "Check for updates automatically", "kind": "switch", "hint": "Checks once a day while the companion runs. Check for updates works either way." },
-  { "id": "update", "label": "Check for updates", "kind": "action", "hint": "Looks for a newer release. When one is known, updates the app and its command line tool, then restarts it." },
-  { "id": "hide", "label": "Hide Agnostic AI companion", "kind": "action", "hint": "Takes the circle and the list off the screen. The shortcut brings them back. The circle comes back faded on its own when something new waits." },
-  { "id": "quit", "label": "Quit Agnostic AI companion", "kind": "action", "hint": "Asks first, then ends the program. The shortcut stops working until you start it again with agnostic-ai companion." }
-]
+{
+  "sections": [
+    { "id": "appearance", "label": "Appearance" },
+    { "id": "permissions", "label": "Permissions" },
+    { "id": "shortcuts", "label": "Shortcuts" },
+    { "id": "app", "label": "App" }
+  ],
+  "updatesLabel": "Updates",
+  "items": [
+    { "id": "animate", "section": "appearance", "label": "Animate companion", "kind": "switch" },
+    { "id": "dimWhenIdle", "section": "appearance", "label": "Dim when idle", "kind": "switch" },
+    { "id": "smallCompanion", "section": "appearance", "label": "Small companion", "kind": "switch" },
+    { "id": "approvalsMode", "section": "permissions", "label": "When a tool asks permission", "kind": "choice", "page": true, "choices": [{"value": "ask", "label": "Ask me"}, {"value": "review", "label": "Let the tool's reviewer decide"}, {"value": "yolo", "label": "Approve routine calls for me"}] },
+    { "id": "approvalsCompanion", "section": "permissions", "label": "Answer permission requests from the companion", "kind": "switch", "page": true, "hint": "Approve or deny requests on the chat row. You can still answer in the terminal." },
+    { "id": "approveAgentSends", "section": "permissions", "label": "Ask me before an agent sends a message", "kind": "switch", "page": true, "hint": "Holds each message an agent sends until you approve it in the thread." },
+    { "id": "shortcut", "section": "shortcuts", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
+    { "id": "sendShortcut", "section": "shortcuts", "label": "Send copied text", "kind": "shortcut", "hint": "Change the shortcut that opens the list to send what you copied" },
+    { "id": "startAtLogin", "section": "app", "label": "Start at login", "kind": "switch" },
+    { "id": "update", "section": "app", "label": "Check for updates", "kind": "action", "hint": "Looks for a newer release. When one is known, updates the app and its command line tool, then restarts it." },
+    { "id": "checkForUpdates", "section": "app", "label": "Check for updates automatically", "kind": "switch", "hint": "Checks once a day while the companion runs. Check for updates works either way." },
+    { "id": "hide", "section": "app", "label": "Hide Agnostic AI companion", "kind": "action", "hint": "Takes the circle and the list off the screen. The shortcut brings them back. The circle comes back faded on its own when something new waits." },
+    { "id": "quit", "section": "app", "label": "Quit Agnostic AI companion", "kind": "action", "hint": "Asks first, then ends the program. The shortcut stops working until you start it again with agnostic-ai companion." }
+  ]
+}

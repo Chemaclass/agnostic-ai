@@ -51,7 +51,7 @@ To use the command in a terminal, right-click the circle and choose **Install co
 {% </details> %}
 
 {% <details summary="Update the disk-image app"> %}
-The bundled CLI checks for a release on start and every 24 hours. A good answer is reused for 24 hours, even across restarts; a failed check runs again at the next start. Offline, the app keeps the last verified offer. When a newer stable release has a disk image for this Mac, both menus show **Update to vX.Y.Z** and the ⋯ button shows a dot. **Check for updates** checks now and reports release or checksum errors. **Check for updates automatically**, in either menu, turns the automatic checks off.
+The bundled CLI checks for a release on start and every 24 hours. A good answer is reused for 24 hours, even across restarts; a failed check runs again at the next start. Offline, the app keeps the last verified offer. Open **App → Updates** in either menu. **Check for updates** checks now and reports release or checksum errors. It works with **Check for updates automatically** turned off. When a newer stable release has a disk image for this Mac, **Updates** offers **Update to vX.Y.Z** and the ⋯ button shows a dot.
 
 Choose **Update to vX.Y.Z**, then **Update and restart**. The app and its bundled CLI update together, and the list shows download, verification and restart progress. The download gets the CLI installer's checksum and provenance checks. It works without `gh`: the new app must match the installed app's project certificate before it runs or replaces it. After a certificate change, install the next disk image by hand once. An app still on the disk image, or in a read-only folder, must move to Applications before it can update.
 
@@ -189,19 +189,19 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 
 ## The circle and its menus {#menus}
 
-Right-click the circle, or open the list's ⋯ menu. A settings change in one shows in the other. Both menus also hold the update entry. The disk-image app adds **Install command line tool** under it in the circle's right-click menu.
+Right-click the circle, or open the list's ⋯ menu. The menus group settings under **Appearance**, **Permissions**, **Shortcuts** and **App**. **Permissions** appears in the list's menu. A change to a shared setting shows in both menus. The disk-image app also offers **Install command line tool** under **App** in the circle's menu.
 
 | Menu item | What it does |
 |-----------|--------------|
 | **Animate companion** | Movement on or off. Off, the circle shows a still ring. |
 | **Dim when idle** | Fades the circle while nothing needs you. |
 | **Small companion** | A 40px circle instead of 60px. |
-| **Start at login** | Starts it when you log in. |
 | **When a tool asks permission** and **Answer permission requests from the companion** | [Approvals settings](@/docs/approvals.md#change-it-from-the-companion). List menu only. |
 | **Ask me before an agent sends a message** | Holds each mailbox message an agent sends until you approve it. On by default. List menu only. See [Approve agent messages](@/docs/mailbox.md#approve-agent-messages). |
 | **Open from anywhere** | Shows and changes the shortcut that opens the list. |
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
-| **Check for updates** | Checks for a newer release now. Reads **Update to vX.Y.Z** when one is known; choosing it asks, then updates and restarts. See [Install and start](#install) for the disk-image app and [Upgrade the companion](#upgrade-the-companion) for a terminal install. |
+| **Start at login** | Starts it when you log in. |
+| **Updates** | Check for a release now, install an available release, or change automatic checks. For install and update details, see [Upgrade the companion](#upgrade-the-companion). |
 | **Hide Agnostic AI companion** | Takes the circle and the list off the screen. It keeps running. |
 | **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
 

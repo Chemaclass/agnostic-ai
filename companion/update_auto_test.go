@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"testing"
+	"time"
 )
 
 const checkForUpdatesLabel = "Check for updates automatically"
@@ -58,6 +59,54 @@ func TestCheckForUpdates_TurnedOffSavesAndStopsOnlyTheAutomaticCheck(t *testing.
 	s.appCommands.busy.Unlock()
 	if raw, _ := os.ReadFile(calls); len(raw) == 0 {
 		t.Error("a manual check did not ask the command")
+	}
+}
+
+func TestCheckForUpdates_NativeSwitchRefreshesBothMenus(t *testing.T) {
+	s, _, menu := updateShell(t, "", nil)
+	var told []preferences
+	s.tellPreferences = func(p preferences) { told = append(told, p) }
+	checked := make(chan struct{})
+	s.appCommands.latest = func(context.Context, bool) (release, error) {
+		close(checked)
+		return release{}, nil
+	}
+	item := menu.FindByLabel("Updates").GetSubmenu().FindByLabel(checkForUpdatesLabel)
+	s.menuActions()[checkForUpdatesID](false)
+	if item.Checked() || len(told) != 1 || told[0].CheckForUpdates {
+		t.Errorf("native checked = %v, pages told %+v; want both off", item.Checked(), told)
+	}
+	if action := menu.FindByLabel("Updates").GetSubmenu().FindByLabel("Check for updates"); action == nil || !action.Enabled() {
+		t.Error("manual check is unavailable with automatic checks off")
+	}
+	s.menuActions()[checkForUpdatesID](true)
+	select {
+	case <-checked:
+	case <-time.After(time.Second):
+		t.Fatal("automatic check did not start")
+	}
+	s.appCommands.busy.Lock()
+	defer s.appCommands.busy.Unlock()
+	if !item.Checked() || len(told) != 2 || !told[1].CheckForUpdates {
+		t.Errorf("native checked = %v, pages told %+v; want both on", item.Checked(), told)
+	}
+}
+
+func TestCheckForUpdates_NativeUpdateStillAsksForConfirmationWhileAutomaticChecksAreOff(t *testing.T) {
+	s, _, menu := updateShell(t, "0.97.0", nil)
+	s.appCommands.checkUpdates(t.Context())
+	if err := s.changeCheckForUpdates(false); err != nil {
+		t.Fatal(err)
+	}
+	asked := false
+	s.appCommands.ask = func() { asked = true }
+	s.menuActions()[updateID](false)
+	if !asked {
+		t.Error("native update did not ask for confirmation")
+	}
+	item := menu.FindByLabel("Updates").GetSubmenu().FindByLabel("Update to v0.97.0")
+	if item == nil || !item.Enabled() {
+		t.Error("known release is unavailable with automatic checks off")
 	}
 }
 
