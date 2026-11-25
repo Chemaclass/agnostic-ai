@@ -95,8 +95,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   to run in a terminal. A Claude Code, Codex or `cursor-agent` chat still
   running in a terminal never offers it, because that command would start a
   second copy.
-- Hover a row for its buttons. **Mark complete** archives a chat, and **hide**
-  takes one that is already archived out of the list. A working chat has no
+- Hover a row to reach **Mark complete**. It archives an eligible chat and leaves it searchable. A working chat has no
   mark complete button, since the work would bring it back at once. The tick turns green for a
   moment when you mark a chat complete. **Mark all complete** beside Active
   archives every active chat at once, with no tick. A chat that got a reply
@@ -124,7 +123,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   its terminal. The next thing written in the chat puts it back.
   Right-clicking alone does not open the chat or mark it as read.
 - The same menu offers **Mark complete** on an unmarked chat in Active or
-  Needs you, and **Hide from agnostic-ai** on an archived chat. A chat that
+  Needs you, and **Hide from agnostic-ai** on any archived chat, including one you could delete. A chat that
   waits only on a forgotten shell stays in Needs you until the shell stops.
   Once marked, it offers **Undo complete**. The
   [usual rules for Archived](../docs/site/content/docs/cli-reference/conversations-api.md#get-apiviewsconversations) still apply.

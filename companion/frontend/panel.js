@@ -167,7 +167,6 @@ const ICONS = {
   complete: 'M3 8.5l3 3 7-7.5',
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
   agents: 'M8 2.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4M4 13v-1a4 4 0 0 1 8 0v1M3 4a1.5 1.5 0 1 0 0 3M13 4a1.5 1.5 0 1 1 0 3M1 12v-1a3 3 0 0 1 2-2.8M15 12v-1a3 3 0 0 0-2-2.8',
-  hide: 'M2 2l12 12M6.5 4.2A6.3 6.3 0 0 1 8 4c3.5 0 5.5 4 5.5 4a9 9 0 0 1-1.6 2.1M9.9 11.6A5.6 5.6 0 0 1 8 12c-3.5 0-5.5-4-5.5-4a9 9 0 0 1 2-2.5',
   key: 'M2.5 10.8a2.7 2.7 0 1 0 5.4 0a2.7 2.7 0 1 0-5.4 0M7.2 8.8L13 3M11 5l1.6 1.6M9.6 6.4l1.2 1.2',
   lock: 'M4.6 7h6.8a1.6 1.6 0 0 1 1.6 1.6v3.8a1.6 1.6 0 0 1-1.6 1.6H4.6A1.6 1.6 0 0 1 3 12.4V8.6A1.6 1.6 0 0 1 4.6 7zM5.5 7V5a2.5 2.5 0 0 1 5 0v2',
   terminal: 'M3.6 2.5h8.8a1.6 1.6 0 0 1 1.6 1.6v7.8a1.6 1.6 0 0 1-1.6 1.6H3.6A1.6 1.6 0 0 1 2 11.9V4.1a1.6 1.6 0 0 1 1.6-1.6zM5 6l2.2 2L5 10M8.8 10.5h2.4',
@@ -381,11 +380,7 @@ function rowOf(conversation, order, folderNames, under) {
   if (approved) text.append(approved)
 
   const actions = element('div', 'actions')
-  // Opening an archived chat, a new message in it, or its tool starting work brings it back.
-  const action = rowActionOf(conversation)
-  if (action === 'hide') {
-    actions.append(actionButton('hide', 'Hide from agnostic-ai, until something new is written or it starts working', () => markRow(conversation, 'hidden')))
-  } else if (action === 'archive') {
+  if (rowActionOf(conversation) === 'archive') {
     actions.append(actionButton('complete', 'Mark complete, until something new is written or it starts working', (button) => completeRow(conversation, row, button)))
   }
   const page = cloudPageOf(conversation)
