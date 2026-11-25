@@ -697,6 +697,7 @@ body {
 }
 
 .row {
+  --row-action-background: var(--row-lit);
   position: relative;
   display: grid;
   grid-template-columns: 56px 1fr;
@@ -707,9 +708,13 @@ body {
   transition: background 120ms ease;
 }
 
-.row.is-active,
-.row:hover {
+.row.is-active {
   background: rgba(242, 237, 229, 0.07);
+}
+
+.row:hover:not(.is-active) {
+  --row-action-background: color-mix(in srgb, var(--paper) 3%, var(--ink));
+  background: rgba(242, 237, 229, 0.03);
 }
 
 .row:focus {
@@ -1134,7 +1139,7 @@ body {
   position: absolute;
   inset: 1px 0;
   z-index: -1;
-  background: linear-gradient(to right, transparent, var(--row-lit) 16px);
+  background: linear-gradient(to right, transparent, var(--row-action-background) 16px);
 }
 
 .row:hover .actions,
@@ -1303,10 +1308,9 @@ body {
 
 .dashboard {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 0 9px;
+  display: grid;
+  place-items: center;
+  width: 32px;
   height: 36px;
   border-radius: 10px;
   background: rgba(242, 237, 229, 0.04);
@@ -1323,11 +1327,6 @@ body {
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-
-/* With the approvals chip beside it, the dashboard button keeps its icon and gives the search the room. */
-.head:has(.approvals-chip:not([hidden])) .dashboard-label {
-  display: none;
 }
 
 .dashboard:hover {

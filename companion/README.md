@@ -68,6 +68,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - **Click** the circle to open or close the list. So does the shortcut,
   **Ctrl+Alt+Space** (⌃⌥Space on a Mac) until you change it.
 - **Type** to search every conversation, of any age.
+  The dashboard icon beside search opens the web interface.
 - **All, Local, Cloud** at the foot narrows the list to the chats on this
   machine or to the ones that run in a tool's cloud. It remembers your choice.
   The number on the circle always counts both.

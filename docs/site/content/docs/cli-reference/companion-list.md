@@ -13,7 +13,7 @@ Select a conversation in the [companion](@/docs/cli-reference/companion.md) to o
 
 ## The list {#the-list}
 
-Click the companion circle, or press its shortcut, to open the list. Type to search.
+Click the companion circle, or press its shortcut, to open the list. Type to search. The dashboard icon beside search opens the web interface.
 
 | Group | What it holds |
 |-------|---------------|

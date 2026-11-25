@@ -73,6 +73,9 @@ test('Tab from search focuses a conversation and Enter opens it after a refresh'
   await expect(target).toBeFocused()
   await next.hover()
   await expect(target).toHaveAttribute('aria-selected', 'true')
+  await expect(selected(page)).toHaveCount(1)
+  await expect(target).toHaveCSS('background-color', 'rgba(242, 237, 229, 0.07)')
+  await expect(next).toHaveCSS('background-color', 'rgba(242, 237, 229, 0.03)')
 
   expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
   await expect(row(page, 'Answer the review comments')).toBeVisible()
@@ -82,6 +85,29 @@ test('Tab from search focuses a conversation and Enter opens it after a refresh'
   await page.keyboard.press('Enter')
   expect((await opened).postDataJSON()).toEqual({ tool: 'claude', id: 'waits-1', title: 'Approve the database migration' })
   await expect(page.getByLabel('New name')).toHaveCount(0)
+})
+
+test('the dashboard keeps its icon and leaves room for search with or without the approvals chip', async ({ page }) => {
+  const dashboard = page.getByRole('button', { name: 'Open the dashboard' })
+  const search = page.getByLabel('Search every conversation')
+
+  for (const [fixture, searchWidth] of [['mixed', 280], ['auto-approvals', 110]] as const) {
+    await openPanel(page, fixture)
+    if (fixture === 'auto-approvals') {
+      await expect(page.locator('#approvals-bar')).toBeVisible()
+    } else {
+      await expect(page.locator('#approvals-bar')).toBeHidden()
+    }
+
+    await expect(dashboard).toHaveCSS('width', '32px')
+    await expect(dashboard.locator('svg')).toBeVisible()
+    await expect.poll(async () => (await search.boundingBox())?.width ?? 0).toBeGreaterThan(searchWidth)
+    const openedDashboard = page.waitForRequest((request) => request.url().endsWith('/api/dashboard'))
+    await dashboard.press('Enter')
+    await openedDashboard
+    await expect.poll(() => calledPaths(page)).toContain('/api/panel/hide')
+    expect(await calledPaths(page)).not.toContain('/api/open')
+  }
 })
 
 test('forward Tab reaches header and group controls after the initial jump to a row', async ({ page }) => {
