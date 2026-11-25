@@ -117,7 +117,11 @@ func kitSinkBundle() spec.Bundle {
 		{Kind: spec.KindReview, Name: "be", Path: "reviews/backend/be.md", Scope: "backend", Body: "review backend guidance"},
 		{
 			Kind: spec.KindEnvironment, Name: "default", Path: "environments/default.yaml",
-			Meta: map[string]any{"name": "default", "install": "go mod download"},
+			Meta: map[string]any{
+				"name": "default", "install": "go mod download",
+				"variables":       []any{map[string]any{"name": "PACKAGE_TOKEN", "secret": true}},
+				"allowed-domains": []any{"registry.example.com"},
+			},
 		},
 		{Kind: spec.KindIgnore, Name: "secrets", Path: "ignore/secrets.md", Body: "*.env\nsecrets/"},
 		{

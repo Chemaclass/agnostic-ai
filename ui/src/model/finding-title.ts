@@ -65,6 +65,7 @@ const TITLES: Record<string, string> = {
   LINT063: 'A merged rules file is replaced by another tool\'s instructions file, so it is ignored.',
   LINT064: 'A project file turns on automatic approvals, which only the home config may do.',
   LINT065: 'A Copilot environment spec has an invalid setup option.',
+  LINT066: 'A cloud environment requirement has an invalid entry or carries a value.',
   'lint-incomplete': 'The check stopped before it finished, so some findings may be missing.',
   'nested-claude-copy': 'Claude Code loads this text twice, from this file and from a rule.',
   'merged-claude-hooks': 'Claude Code runs these hook commands twice.',

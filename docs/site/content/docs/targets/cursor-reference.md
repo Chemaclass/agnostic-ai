@@ -62,9 +62,10 @@ Sync removes older flattened `.mdc`, agent-as-command, and `skill-<name>.mdc` fi
 
 ### Environment
 
-`.cursor/environment.json` ([background-agent](https://docs.cursor.com/background-agent) setup).
+`.cursor/environment.json` for [Cloud Agent setup](https://cursor.com/docs/cloud-agent/setup).
 
-- Spec keys pass through as written, except fields that select a tool or directory and `cleanup`, which gets a no-effect note. Specs merge by top-level key.
+- Native keys pass through as written, and specs merge by top-level key. See the [environment fields](@/docs/spec-format/environments.md#cloud-requirements) for portable setup.
+- `allowed-domains` supplies `egressAllowlist` unless a native allowlist is present. `doctor environment` lists the variable and secret names to enter in the UI.
 - `setup` and `setup-windows` go to `.cursor/worktrees.json` as `setup-worktree` (every OS) and `setup-worktree-windows` (Windows only) ([worktrees](https://cursor.com/docs/configuration/worktrees)).
 - A script path, which Cursor resolves from `.cursor/`, or a unix-only `setup-worktree-unix`, goes under `x-cursor:` with its native key, such as `setup-worktree-unix: setup.sh`.
 

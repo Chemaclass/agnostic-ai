@@ -146,17 +146,24 @@ func TestImportFromCursor_SkipsSyncedEnvironmentJSONAndExistingSpec(t *testing.T
 // A key the environment spec reads for itself would not reach
 // environment.json again, so sync would drop it: the file stays whole.
 func TestImportFromCursor_LeavesEnvironmentJSONWithAReservedKey(t *testing.T) {
-	dir := t.TempDir()
-	original := `{"install": "npm ci", "name": "web"}`
-	writeFile(t, filepath.Join(dir, ".cursor", "environment.json"), original)
-	if err := importFromCursor(dir, rootSources()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, "environments", "cursor.yaml")); !os.IsNotExist(err) {
-		t.Errorf("a file with a reserved key was imported: %v", err)
-	}
-	if got := readFile(t, filepath.Join(dir, ".cursor", "environment.json")); got != original {
-		t.Errorf("environment.json changed:\n%s", got)
+	for name, original := range map[string]string{
+		"name":            `{"install": "npm ci", "name": "web"}`,
+		"variables":       `{"install": "npm ci", "variables": [{"name": "API_TOKEN"}]}`,
+		"allowed-domains": `{"install": "npm ci", "allowed-domains": ["registry.example.com"]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeFile(t, filepath.Join(dir, ".cursor", "environment.json"), original)
+			if err := importFromCursor(dir, rootSources()); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := os.Stat(filepath.Join(dir, "environments", "cursor.yaml")); !os.IsNotExist(err) {
+				t.Errorf("a file with a reserved key was imported: %v", err)
+			}
+			if got := readFile(t, filepath.Join(dir, ".cursor", "environment.json")); got != original {
+				t.Errorf("environment.json changed:\n%s", got)
+			}
+		})
 	}
 }
 

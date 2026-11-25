@@ -1,0 +1,5 @@
+{
+  "egressAllowlist": [
+    "registry.example.com"
+  ]
+}

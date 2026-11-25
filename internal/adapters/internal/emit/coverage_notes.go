@@ -219,6 +219,9 @@ func NoteSkillFieldNoOp(target, field string, count int, reason string, shared b
 }
 
 func noteFieldNoOp(target string, kind spec.Kind, field string, count int, reason string, shared bool) {
+	if kind == spec.KindEnvironment && (field == spec.EnvironmentVariablesField || field == spec.EnvironmentAllowedDomainsField) {
+		return
+	}
 	if count <= 0 || notesSkipped.Load() {
 		return
 	}

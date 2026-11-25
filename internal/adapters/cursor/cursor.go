@@ -126,10 +126,11 @@ var caps = emit.Capabilities{
 // environRoutingKeys are the agnostic-ai spec fields stripped after
 // emit.ResolveMeta before the remaining keys pass through to
 // `.cursor/environment.json`. ResolveMeta already removes the target
-// allow/deny keys and the x-<target> namespace; these three are the spec
-// identity/scoping fields it leaves in place that Cursor has no use for.
+// allow/deny keys and the x-<target> namespace. The remaining reserved
+// keys describe the spec or are translated separately.
 var environRoutingKeys = map[string]struct{}{
 	"name": {}, "scope": {}, "description": {},
+	spec.EnvironmentVariablesField: {}, spec.EnvironmentAllowedDomainsField: {},
 }
 
 // Adapter emits Cursor configs.
@@ -449,9 +450,8 @@ func reviewChainRunes(written map[string]int, scope string) int {
 
 // emitEnvironment writes Cursor's background-agent bootstrap config to
 // `.cursor/environment.json`. The spec body is the environment.json content:
-// every key except the agnostic-ai routing fields passes through verbatim,
-// so the author controls Cursor's schema (install, terminals, ...) while
-// agnostic-ai single-sources it. Multiple environment specs merge by
+// native keys pass through and allowed-domains supplies egressAllowlist
+// when no native allowlist is present. Multiple environment specs merge by
 // top-level key, last spec winning. The path is overridable via
 // `outputs.cursor.environment-file`.
 func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRun bool) error {
@@ -463,17 +463,30 @@ func emitEnvironment(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryR
 	emit.NoteFieldNoOp(target, spec.KindEnvironment, "cleanup", emit.EnvironmentsWithField(target, b.Environments, "cleanup"),
 		"Cursor has no worktree cleanup step")
 	merged := map[string]any{}
+	var domains any
+	var domainSource *spec.Entry
 	for _, e := range b.Environments {
 		// Resolve the x-<target> namespace first so a cursor-specific
 		// override wins and other targets' blocks are dropped, exactly like
 		// every other adapter. Then strip the spec identity fields Cursor
 		// has no schema for.
-		for k, v := range emit.ResolveMeta(e.Meta, target) {
+		meta := emit.ResolveMeta(e.Meta, target)
+		if value, ok := meta[spec.EnvironmentAllowedDomainsField]; ok {
+			domains, domainSource = value, &e
+		}
+		for k, v := range meta {
 			if _, skip := environRoutingKeys[k]; skip || isWorktreeSetupField(k) || k == "dev-commands" || k == "cleanup" {
 				continue
 			}
 			merged[k] = v
 		}
+	}
+	if _, native := merged["egressAllowlist"]; !native && domainSource != nil {
+		requirements, issues := spec.ReadEnvironmentRequirements(map[string]any{spec.EnvironmentAllowedDomainsField: domains})
+		if len(issues) > 0 {
+			return fmt.Errorf("%s: %s", domainSource.Path, strings.Join(issues, ", "))
+		}
+		merged["egressAllowlist"] = requirements.AllowedDomains
 	}
 	if len(merged) == 0 {
 		return nil

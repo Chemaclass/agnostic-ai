@@ -45,6 +45,8 @@ terminals:
 - `setup`: the commands a tool runs in a new worktree (one command or a list). `setup-windows` replaces it on Windows.
 - `cleanup`: the commands a tool runs when it removes the worktree.
 - `install` and `terminals`: a sandbox's install step and its long-running processes.
+- `variables`: variable and secret names for the cloud setup checklist. Each item has a unique `name`, an optional `description`, and an optional `secret: true`.
+- `allowed-domains`: domains a cloud environment needs to reach. Use a hostname such as `logs.example.com` or a wildcard such as `*.example.com`.
 - `dev-commands`: dev servers a tool can start and preview. Each entry needs a unique `name` and a `command` (a string or a list of words). `cwd` (relative to the project root), `port`, `auto-port`, `env`, `url`, and `icon` (the Codex button icon, `run` by default) are optional. An entry with a `url` and no `command` tells Claude Code to open a server you already run instead of starting one; Codex has no such action, so sync skips the entry there with a note.
 
 <details>
@@ -56,13 +58,31 @@ terminals:
 
 </details>
 
+## Cloud requirements {#cloud-requirements}
+
+Record which settings a teammate needs to enter before they start a cloud agent.
+
+```yaml
+variables:
+  - name: LOGS_API_TOKEN
+    description: Read-only token for the log search API
+    secret: true
+  - name: APP_ENV
+allowed-domains:
+  - logs.example.com
+```
+
+Run `agnostic-ai doctor environment` for each tool's setup steps. Enter variable values in the tool's UI. Names start with a letter or underscore and use letters, digits, and underscores. Keep names unique within a list. [LINT066](@/docs/cli-reference/lint-codes.md) reports malformed requirements by field and position.
+
+Cursor receives `allowed-domains` as `egressAllowlist` unless the spec already sets the native key. Variable names stay in the checklist. In Cursor, a wildcard rule also reaches the parent domain. See [Cursor Cloud Agent release notes](https://cursor.com/docs/release-notes/cloud-agents).
+
 ## Support by target
 
 Fields a tool does not use get a no-effect note. Other tools report the spec as unsupported. Each tool's page has the key mapping.
 
 | Target | Uses | Writes |
 |---|---|---|
-| [Cursor](@/docs/targets/cursor.md) | `setup`, `setup-windows`; every other key except `name`, `scope`, `description`, the target fields, `dev-commands`, and `cleanup` | `.cursor/worktrees.json`, `.cursor/environment.json` |
+| [Cursor](@/docs/targets/cursor.md) | `setup`, `setup-windows`, `allowed-domains` (as `egressAllowlist`), and native Cursor keys | `.cursor/worktrees.json`, `.cursor/environment.json` |
 | [Codex](@/docs/targets/codex.md) | `setup`, `setup-windows`, `cleanup`, `dev-commands` (as scripts and action buttons) | `.codex/environments/environment.toml` |
 | [Claude Code](@/docs/targets/claude.md) | `setup` ([worktree setup](#claude-code-worktree-setup)), `install` ([cloud sessions](#cloud-sessions)), `dev-commands` (a relative `cwd` reads from the project root) | `.claude/hooks/agnostic-ai-worktree-setup.sh`, `.claude/hooks/agnostic-ai-cloud-install.sh`, `.claude/settings.json`, `.claude/launch.json` |
 | [GitHub Copilot](@/docs/targets/copilot.md) | `install` with [`x-copilot.setup-steps`](@/docs/targets/copilot-reference.md#cloud-setup-steps) | `.github/workflows/copilot-setup-steps.yml` |

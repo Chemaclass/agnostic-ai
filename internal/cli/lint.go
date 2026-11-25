@@ -352,6 +352,7 @@ func collectLintFindings(targets []string, support kindSupport, b spec.Bundle) [
 	findings = append(findings, lintMCPLiterals(b.MCPs)...)
 	findings = append(findings, lintAgentFileCredentials(b, targets)...)
 	findings = append(findings, lintMCPCredentials(withoutEntries(b.MCPs, agentFileMCPs(b, targets)))...)
+	findings = append(findings, lintEnvironmentRequirements(b.Environments)...)
 	findings = append(findings, lintDevCommands(b.Environments, targets)...)
 	findings = append(findings, lintCopilotSetupSteps(targets, b)...)
 	findings = append(findings, lintSkillScopeKey(b.Skills)...)

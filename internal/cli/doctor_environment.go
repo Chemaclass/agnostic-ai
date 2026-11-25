@@ -85,10 +85,12 @@ type cloudEnvironmentFile struct {
 }
 
 type cloudEnvironmentTarget struct {
-	Target  string                 `json:"target"`
-	Files   []cloudEnvironmentFile `json:"repo_files"`
-	Commit  []string               `json:"gitignore_commit,omitempty"`
-	Install string                 `json:"install,omitempty"`
+	Target    string                 `json:"target"`
+	Files     []cloudEnvironmentFile `json:"repo_files"`
+	Commit    []string               `json:"gitignore_commit,omitempty"`
+	Install   string                 `json:"install,omitempty"`
+	Variables []cloudVariableSetting `json:"variables,omitempty"`
+	Domains   []cloudDomainSetting   `json:"allowed_domains,omitempty"`
 	cloudEnvironmentGuide
 }
 
@@ -148,9 +150,18 @@ func describeCloudEnvironments(cfg *config.Config, bundle spec.Bundle, targets [
 		if guide.InstallLocation != "" {
 			entry.Install = cloudEnvironmentInstall(bundle.Environments, target)
 		}
+		var invalid bool
+		entry.Variables, entry.Domains, invalid = cloudEnvironmentRequirements(bundle.Environments, target)
+		if invalid {
+			entry.Notes = append(slices.Clone(entry.Notes), "Some environment requirements are invalid. Run agnostic-ai lint for the fields to fix.")
+		}
 		files, err := cloudEnvironmentFiles(sess, cfg, bundle, target)
 		if err != nil {
-			return report, err
+			if !invalid {
+				return report, err
+			}
+			files = []cloudEnvironmentFile{}
+			entry.Notes = append(entry.Notes, "Fix the environment requirements to preview the repository setup files.")
 		}
 		entry.Files = files
 		for _, file := range files {
@@ -317,6 +328,18 @@ func printCloudEnvironments(cmd *cobra.Command, report cloudEnvironmentReport) {
 			cmd.Printf("  Paste into %s\n", target.InstallLocation)
 			for _, line := range strings.Split(target.Install, "\n") {
 				cmd.Printf("    %s\n", line)
+			}
+		}
+		if len(target.Variables) != 0 {
+			cmd.Println("  Variables and secrets")
+			for _, variable := range target.Variables {
+				cmd.Printf("    %s (%s)\n", variable.Name, variable.Location)
+			}
+		}
+		if len(target.Domains) != 0 {
+			cmd.Println("  Allowed domains")
+			for _, domain := range target.Domains {
+				cmd.Printf("    %s (%s)\n", domain.Domain, domain.Location)
 			}
 		}
 		for _, note := range target.Notes {
