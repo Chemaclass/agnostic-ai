@@ -2,6 +2,7 @@ import { expect, test, type Page, type Request } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 
 const fixture = JSON.parse(readFileSync(new URL('../../src/fixtures/overview.mock.json', import.meta.url), 'utf8'))
+const companionMenu = JSON.parse(readFileSync(new URL('../../../companion/frontend/menu.json', import.meta.url), 'utf8'))
 const KEY = 'k'.repeat(64)
 
 interface Doc {
@@ -10,7 +11,7 @@ interface Doc {
   approvals: { mode: string; modeFile: string; companion: boolean; overrides: { tools: number; projects: number; alwaysAsk: number }; shadowed: string[]; tools: { tool: string; mode: string; effective: string; from: string; yolo: string; review: string; reason?: string }[] }
   mailbox: { approveAgentSends: boolean }
   sync: { needed: boolean; reasons: string[] }
-  companionApp: { file: string; animate: boolean; dimWhenIdle: boolean; smallCompanion: boolean; checkForUpdates: boolean; running: boolean; live?: { shortcut: string; sendShortcut: string; startAtLogin: boolean } }
+  companionApp: { file: string; animate: boolean; dimWhenIdle: boolean; smallCompanion: boolean; checkForUpdates: boolean; running: boolean; problem?: string; live?: { shortcut: string; sendShortcut: string; startAtLogin: boolean } }
   canLoosen: boolean
 }
 
@@ -169,18 +170,19 @@ test.describe('user settings', () => {
   test('a locked tab turns on Small companion and shows the shortcuts only while the companion runs', async ({ page }) => {
     const state = await serve(page)
     await page.goto(tab)
-    await expect(page.getByText('The shortcuts and start at login show here while the companion runs.')).toBeVisible()
+    await expect(page.getByText('Global bindings and Start at login show while the companion runs. Change them in its menu.')).toBeVisible()
     const small = page.getByRole('switch', { name: 'Small companion' })
     await small.click()
     await expect(small).toHaveAttribute('aria-checked', 'true')
     expect(state.writes.at(-1)).toEqual({ body: { key: 'companion.smallCompanion', value: true, expected: false }, key: undefined })
-    await expect(page.getByRole('switch', { name: 'Check for updates' })).toBeDisabled()
+    await expect(page.getByRole('switch', { name: /Check for updates/ })).toHaveCount(0)
+    await expect(page.locator('[data-companion-item="checkForUpdates"] dd')).toHaveText('On')
 
     state.doc.companionApp.running = true
     state.doc.companionApp.live = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
     state.version += 1
     await expect(page.getByText('Ctrl+Alt+Space')).toBeVisible({ timeout: 4_000 })
-    await expect(page.getByText('The shortcuts and start at login show here while the companion runs.')).toBeHidden()
+    await expect(page.getByText('Global bindings and Start at login show while the companion runs. Change them in its menu.')).toHaveCount(1)
   })
 
   test('a project view points to the user-level view', async ({ page }) => {
@@ -189,4 +191,119 @@ test.describe('user settings', () => {
     await page.goto(tab)
     await expect(page.getByText('User settings are in the user-level view.')).toBeVisible()
   })
+})
+
+
+test('companion sections and setting labels follow the shared native menu', async ({ page }) => {
+  const state = await serve(page)
+  state.doc.companionApp.running = true
+  state.doc.companionApp.live = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
+  await page.goto(tab)
+  const sections = page.locator('[data-companion-section]')
+  await expect(sections.locator('h3')).toHaveText(companionMenu.sections.map((section: { label: string }) => section.label))
+  const supported = new Set(['animate', 'dimWhenIdle', 'smallCompanion', 'approvalsMode', 'approvalsCompanion', 'approveAgentSends', 'shortcut', 'sendShortcut', 'keyboardShortcuts', 'startAtLogin', 'checkForUpdates'])
+  for (const section of companionMenu.sections) {
+    const region = page.getByRole('region', { name: section.label, exact: true })
+    const items = companionMenu.items.filter((item: { id: string; section: string }) => item.section === section.id && supported.has(item.id))
+    await expect(region.locator('[data-companion-item]')).toHaveCount(items.length)
+    expect(await region.locator('[data-companion-item]').evaluateAll((items) => items.map((item) => item.getAttribute('data-companion-item')))).toEqual(items.map((item: { id: string }) => item.id))
+    for (const item of items) {
+      const row = region.locator(`[data-companion-item="${item.id}"]`)
+      await expect(row).toContainText(item.label)
+      if (item.kind === 'switch' && !['startAtLogin', 'checkForUpdates'].includes(item.id)) await expect(row.getByRole('switch', { name: item.label, exact: true })).toBeAttached()
+    }
+  }
+  await expect(page.getByRole('region', { name: 'Permissions', exact: true }).getByRole('table', { name: 'Approvals per tool' })).toBeVisible()
+  const choices = companionMenu.items.find((item: { id: string }) => item.id === 'approvalsMode').choices
+  await expect(page.locator('.user-settings-choice-label')).toHaveText(choices.map((choice: { label: string }) => choice.label))
+  await expect(page.locator('[data-companion-item="shortcut"] dd')).toHaveText('Ctrl+Alt+Space')
+  await expect(page.locator('[data-companion-item="sendShortcut"] dd')).toHaveText('Ctrl+Alt+V')
+  await expect(page.locator('[data-companion-item="startAtLogin"] dd')).toHaveText('On')
+})
+
+for (const [platform, paste] of [['MacIntel', '⌘⇧V'], ['Linux x86_64', 'CtrlShiftV']]) {
+  test(`companion shortcut help shares every fixed description on ${platform}`, async ({ page }) => {
+    await page.addInitScript((platform) => Object.defineProperty(navigator, 'platform', { get: () => platform }), platform)
+    await serve(page)
+    await page.goto(tab)
+    const help = page.locator('[data-companion-item="keyboardShortcuts"]')
+    await help.locator('summary').focus()
+    await page.keyboard.press('Enter')
+    await expect(help).toHaveAttribute('open')
+    await expect(help.locator('dd')).toHaveText(companionMenu.shortcutHelp.map((row: { description: string }) => row.description))
+    for (const row of companionMenu.shortcutHelp) await expect(help.locator('dt').filter({ hasText: row.label })).toContainText(row.id === 'paste' ? paste : row.keys.join(''))
+    await page.keyboard.press('Space')
+    await expect(help).not.toHaveAttribute('open')
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  })
+}
+
+test('saved automatic checks stay read-only when stopped and stale live bindings stay hidden', async ({ page }) => {
+  const state = await serve(page)
+  state.doc.companionApp.checkForUpdates = false
+  state.doc.companionApp.live = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true }
+  await page.goto(tab + '#unlock=abc123')
+  const automatic = page.locator('[data-companion-item="checkForUpdates"]')
+  await expect(automatic.locator('dd')).toHaveText('Off')
+  await expect(automatic.getByRole('switch')).toHaveCount(0)
+  await expect(page.locator('[data-companion-item="shortcut"], [data-companion-item="sendShortcut"], [data-companion-item="startAtLogin"]')).toHaveCount(0)
+  await expect(page.locator('[data-companion-item="keyboardShortcuts"]')).toBeVisible()
+  state.doc.companionApp.running = true
+  state.version += 1
+  await expect(page.locator('[data-companion-item="shortcut"] dd')).toHaveText('Ctrl+Alt+Space', { timeout: 4_000 })
+  state.doc.companionApp.live.shortcut = 'Cmd+Shift+K'
+  state.doc.companionApp.live.sendShortcut = 'Ctrl+Shift+B'
+  state.doc.companionApp.checkForUpdates = true
+  state.version += 1
+  await expect(page.locator('[data-companion-item="shortcut"] dd')).toHaveText('Cmd+Shift+K', { timeout: 4_000 })
+  await expect(page.locator('[data-companion-item="sendShortcut"] dd')).toHaveText('Ctrl+Shift+B')
+  await expect(automatic.locator('dd')).toHaveText('On')
+  state.doc.companionApp.running = false
+  state.version += 1
+  await expect(page.locator('[data-companion-item="startAtLogin"]')).toHaveCount(0, { timeout: 4_000 })
+  await expect(automatic.locator('dd')).toHaveText('On')
+  expect(state.writes).toEqual([])
+})
+
+test('appearance and mailbox writes keep their existing keys and expected values', async ({ page }) => {
+  const state = await serve(page)
+  await page.goto(tab + '#unlock=abc123')
+  const appearance = page.getByRole('region', { name: 'Appearance', exact: true })
+  await appearance.getByRole('switch', { name: 'Animate companion', exact: true }).click()
+  await expect(appearance.getByRole('switch', { name: 'Animate companion', exact: true })).not.toBeChecked()
+  await appearance.getByRole('switch', { name: 'Dim when idle', exact: true }).click()
+  await expect(appearance.getByRole('switch', { name: 'Dim when idle', exact: true })).toBeChecked()
+  const permissions = page.getByRole('region', { name: 'Permissions', exact: true })
+  await permissions.getByRole('switch', { name: 'Ask me before an agent sends a message', exact: true }).click()
+  await expect(permissions.getByRole('switch', { name: 'Ask me before an agent sends a message', exact: true })).not.toBeChecked()
+  expect(state.writes.map((write) => write.body)).toEqual([
+    { key: 'companion.animate', value: false, expected: true },
+    { key: 'companion.dimWhenIdle', value: true, expected: false },
+    { key: 'mailbox.approveAgentSends', value: false, expected: true },
+  ])
+})
+
+
+test('an unreadable companion preference stays unavailable until polling reads the saved value', async ({ page }) => {
+  const state = await serve(page)
+  state.doc.companionApp.checkForUpdates = true
+  state.doc.companionApp.problem = 'companion.json cannot be read'
+  await page.goto(tab)
+  const appearance = page.getByRole('region', { name: 'Appearance', exact: true })
+  const automatic = page.getByRole('region', { name: 'App', exact: true }).locator('[data-companion-item="checkForUpdates"]')
+  const label = companionMenu.items.find((item: { id: string }) => item.id === 'checkForUpdates').label
+  await expect(automatic.locator('dt')).toHaveText(label)
+  await expect(automatic.locator('dd')).toHaveText('Unavailable')
+  await expect(automatic.getByRole('switch')).toHaveCount(0)
+  await expect(appearance.getByText('The companion settings do not load: companion.json cannot be read', { exact: true })).toBeVisible()
+  await expect(appearance.getByRole('switch', { name: 'Animate companion', exact: true })).toBeDisabled()
+  delete state.doc.companionApp.problem
+  state.doc.companionApp.checkForUpdates = false
+  state.version += 1
+  await expect(automatic.locator('dd')).toHaveText('Off', { timeout: 4_000 })
+  await expect(automatic.locator('dt')).toHaveText(label)
+  await expect(automatic.getByRole('switch')).toHaveCount(0)
+  await expect(appearance.getByText(/The companion settings do not load:/)).toHaveCount(0)
+  await expect(appearance.getByRole('switch', { name: 'Animate companion', exact: true })).toBeEnabled()
+  expect(state.writes).toEqual([])
 })

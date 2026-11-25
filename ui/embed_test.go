@@ -27,7 +27,7 @@ func TestBundleMatchesSources(t *testing.T) {
 	if manifest.Version != 1 || len(manifest.Inputs) == 0 || len(manifest.Files) == 0 {
 		t.Fatal("invalid bundled UI manifest")
 	}
-	inputs := []string{"index.html", "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts"}
+	inputs := []string{"index.html", "package.json", "package-lock.json", "tsconfig.json", "vite.config.ts", "../companion/frontend/menu.json"}
 	for _, directory := range []string{"src", "scripts"} {
 		err := filepath.WalkDir(directory, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {

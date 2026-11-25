@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import menu from '../../../companion/frontend/menu.json'
 import type { SettingsView } from '../contract'
-import { approvalsStatus, canChange, companionApprovalsNeedSetup, loosens, modeConfirm, syncConfirm, syncFailure, syncResult } from './user-settings'
+import { approvalsStatus, canChange, COMPANION_SECTIONS, COMPANION_SWITCHES, companionMenuItem, companionShortcutHelp, companionApprovalsNeedSetup, loosens, modeConfirm, syncConfirm, syncFailure, syncResult } from './user-settings'
 
 const doc = (patch: Partial<SettingsView['approvals']> = {}, rest: Partial<SettingsView> = {}): SettingsView => ({
   schemaVersion: 'settings/v1',
@@ -77,5 +78,21 @@ describe('user settings', () => {
     expect(syncConfirm({ id: 'x', files: [], commands: [], notes: [] }).go).toBeUndefined()
     expect(syncResult({ written: ['a', 'b'], notes: ['Trust it.'], settings: doc() })).toBe('Applied: 2 files written. Trust it.')
     expect(syncFailure('conflict.', 'agnostic-ai sync --scope user')).toBe('conflict. Run agnostic-ai sync --scope user in a terminal.')
+  })
+})
+
+
+describe('shared companion menu', () => {
+  it('takes section order and setting labels from the native menu', () => {
+    expect(COMPANION_SECTIONS).toEqual(menu.sections)
+    expect(COMPANION_SWITCHES).toEqual(menu.items.filter((item) => item.section === 'appearance').map((item) => ({ key: item.id, label: item.label })))
+    for (const item of menu.items) expect(companionMenuItem(item.id)).toEqual(item)
+  })
+
+  it('uses every fixed help row and expands the platform paste chord', () => {
+    for (const isMac of [true, false]) {
+      const expected = menu.shortcutHelp.map((row) => ({ ...row, keys: row.id === 'paste' ? (isMac ? ['⌘', '⇧', 'V'] : ['Ctrl', 'Shift', 'V']) : row.keys }))
+      expect(companionShortcutHelp(isMac)).toEqual(expected)
+    }
   })
 })

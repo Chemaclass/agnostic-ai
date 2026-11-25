@@ -1,3 +1,4 @@
+import menu from '../../../companion/frontend/menu.json'
 import type { ApprovalsMode, CompanionSwitch, SettingKey, SettingsSyncPlan, SettingsSyncReply, SettingsView } from '../contract'
 
 export interface ModeChoice {
@@ -7,11 +8,28 @@ export interface ModeChoice {
   hint: string
 }
 
-export const MODE_CHOICES: ModeChoice[] = [
-  { value: 'ask', label: 'Ask me', hint: 'Every permission prompt reaches you.' },
-  { value: 'review', label: "Let the tool's reviewer decide", hint: "The tool's own reviewer answers routine prompts." },
-  { value: 'yolo', label: 'Approve routine calls for me', hint: 'agnostic-ai approves routine calls. Risky ones still ask.' },
-]
+export const COMPANION_SECTIONS = menu.sections
+
+export function companionMenuItem(id: string) {
+  const item = menu.items.find((item) => item.id === id)
+  if (!item) throw new Error(`The companion menu has no item ${id}`)
+  return item
+}
+
+export function companionShortcutHelp(isMac: boolean) {
+  return menu.shortcutHelp.map((row) => ({ ...row, keys: row.id === 'paste' ? (isMac ? ['⌘', '⇧', 'V'] : ['Ctrl', 'Shift', 'V']) : row.keys }))
+}
+
+function modeChoice(choice: { value: string; label: string }): ModeChoice {
+  switch (choice.value) {
+    case 'ask': return { ...choice, value: 'ask', hint: 'Every permission prompt reaches you.' }
+    case 'review': return { ...choice, value: 'review', hint: "The tool's own reviewer answers routine prompts." }
+    case 'yolo': return { ...choice, value: 'yolo', hint: 'agnostic-ai approves routine calls. Risky ones still ask.' }
+    default: throw new Error(`The companion menu has an unknown approvals mode ${choice.value}`)
+  }
+}
+
+export const MODE_CHOICES: ModeChoice[] = (companionMenuItem('approvalsMode').choices ?? []).map(modeChoice)
 
 /** The line a locked control shows. */
 export const LOCKED_HINT = 'To change this here, run agnostic-ai view --scope user again, or use the companion.'
@@ -37,16 +55,14 @@ export function modeConfirm(mode: string): { title: string; body: string; go: st
   return undefined
 }
 
-/** The companion app switches, in the order its menu shows them. */
-export const COMPANION_SWITCHES: { key: CompanionSwitch; label: string }[] = [
-  { key: 'animate', label: 'Animate' },
-  { key: 'dimWhenIdle', label: 'Dim when idle' },
-  { key: 'smallCompanion', label: 'Small companion' },
-  { key: 'checkForUpdates', label: 'Check for updates' },
-]
+type AppearanceSwitch = Exclude<CompanionSwitch, 'checkForUpdates'>
 
-export const COMPANION_APPROVALS_LABEL = 'Answer permission requests from the companion'
-export const COMPANION_APPROVALS_HINT = 'Approve or deny requests on the chat row. You can still answer in the terminal.'
+const appearanceSwitch = (id: string): id is AppearanceSwitch => id === 'animate' || id === 'dimWhenIdle' || id === 'smallCompanion'
+
+export const COMPANION_SWITCHES = menu.items.flatMap(({ id, label }) => appearanceSwitch(id) ? [{ key: id, label }] : [])
+
+export const COMPANION_APPROVALS_LABEL = companionMenuItem('approvalsCompanion').label
+export const COMPANION_APPROVALS_HINT = companionMenuItem('approvalsCompanion').hint ?? ''
 export const APPROVALS_SETUP_HINT = 'Setup changes your tools’ settings files, so you can review the changes first.'
 
 export function companionApprovalsNeedSetup(doc: SettingsView): boolean {

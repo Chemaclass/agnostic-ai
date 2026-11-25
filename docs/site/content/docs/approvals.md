@@ -47,9 +47,12 @@ Open the companion list's ⋯ menu and choose a mode under **When a tool asks pe
 
 ### Change it from the web page {#change-it-from-the-web-page}
 
-Run `agnostic-ai view --scope user` and open **Settings**, then **Approvals and companion**. It shows the same modes, switches, status lines and **Finish setup…** as the companion menu, plus each tool's mode and the mailbox switch. A tab reads the settings every 2 seconds while it is visible, so a change made in the companion shows there too.
+Run `agnostic-ai view --scope user` and open **Settings**, then **Approvals and companion**. Its sections follow the companion menu. An open tab reads the settings every 2 seconds while it is visible.
 
-Its **Companion** group holds the companion's Animate, Dim when idle, Small companion and Check for updates switches. A running companion applies a change within 5 seconds. Turning off Check for updates needs an unlocked tab. While the companion runs, the group also shows both shortcuts and Start at login, read only; change those from the companion's menu. A shortcut another program writes into `companion.json` is put back.
+- **Appearance** lets you change Animate companion, Dim when idle and Small companion. A running companion applies a change within 5 seconds.
+- **Permissions** holds your approval mode, setup status, Approvals per tool and Ask me before an agent sends a message.
+- **Shortcuts** lists the panel keys and shows the current Open from anywhere and Send copied text bindings while the companion runs.
+- **App** shows your saved automatic update preference and whether Start at login is on. Change the global shortcuts, Start at login and update checks from the companion's menu. The Start at login value is available while the companion runs. A shortcut another program writes into `companion.json` is put back.
 
 To loosen approvals in your browser, open the companion's **Dashboard** or run `agnostic-ai view --scope user`. Both open an unlocked tab through a file only your account can read. `view` reuses the running server, including the companion's, and opens a new tab.
 
