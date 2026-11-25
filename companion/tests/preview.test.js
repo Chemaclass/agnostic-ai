@@ -349,7 +349,7 @@ test('the menu list is served with the pages', async (t) => {
   const metadata = await menu.json()
   assert.deepEqual(metadata.sections.map((section) => section.label), ['Appearance', 'Permissions', 'Shortcuts', 'App'])
   assert.equal(metadata.updatesLabel, 'Updates')
-  assert.deepEqual(metadata.items.map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'approvalsMode', 'approvalsCompanion', 'approveAgentSends', 'shortcut', 'sendShortcut', 'startAtLogin', 'update', 'checkForUpdates', 'hide', 'quit'])
+  assert.deepEqual(metadata.items.map((item) => item.id), ['animate', 'dimWhenIdle', 'smallCompanion', 'approvalsMode', 'approvalsCompanion', 'approveAgentSends', 'shortcut', 'sendShortcut', 'keyboardShortcuts', 'startAtLogin', 'update', 'checkForUpdates', 'hide', 'quit'])
 })
 
 test('the list menu turns animation, dimming and the small circle on and off and answers the appearance', async (t) => {

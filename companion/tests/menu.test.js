@@ -15,13 +15,13 @@ test('the shared menu groups controls in section order and names one Updates ent
   assert.deepEqual(sections.map((section) => items.filter((item) => item.section === section.id).map((item) => item.id)), [
     ['animate', 'dimWhenIdle', 'smallCompanion'],
     ['approvalsMode', 'approvalsCompanion', 'approveAgentSends'],
-    ['shortcut', 'sendShortcut'],
+    ['shortcut', 'sendShortcut', 'keyboardShortcuts'],
     ['startAtLogin', 'update', 'checkForUpdates', 'hide', 'quit'],
   ])
-  assert.deepEqual(items.filter((item) => item.page).map((item) => item.section), ['permissions', 'permissions', 'permissions'])
+  assert.deepEqual(items.filter((item) => item.page).map((item) => item.section), ['permissions', 'permissions', 'permissions', 'shortcuts'])
 })
 
-test('without an update entry, the menu shows the eleven items in the list order, with the values in effect', () => {
+test('without an update entry, the menu shows the twelve items in the list order, with the values in effect', () => {
   const rows = menuRowsOf(items, { preferences, appearance, mailbox, approvals, update: { state: 'unavailable' } })
   assert.deepEqual(
     rows.map(({ id, kind, value }) => [id, kind, value]),
@@ -34,6 +34,7 @@ test('without an update entry, the menu shows the eleven items in the list order
       ['approveAgentSends', 'switch', true],
       ['shortcut', 'shortcut', 'Ctrl+Alt+Space'],
       ['sendShortcut', 'shortcut', 'Ctrl+Alt+V'],
+      ['keyboardShortcuts', 'action', undefined],
       ['startAtLogin', 'switch', true],
       ['hide', 'action', undefined],
       ['quit', 'action', undefined],

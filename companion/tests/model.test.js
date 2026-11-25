@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helperTreeOf, helpersToggleOf, subtreeToggleOf, isDrag, lateNoticeReplaces, keyOf, keycapsOf, lateOpenNoticeOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startedFromOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
+import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago, afterPage, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedLabelOf, approvedToggleOf, chipTextOf, circleLabelOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, freedOf, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helperTreeOf, helpersToggleOf, subtreeToggleOf, isDrag, lateNoticeReplaces, keyOf, keycapsOf, lateOpenNoticeOf, nameOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, rowMenuOf, refusedShortcutOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startsRename, startsShortcutHelp, shortcutHelpRowsOf, startedFromOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, viewIn, waitingOf, workingHelpersOf } from '../frontend/model.js'
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
@@ -1555,4 +1555,25 @@ test('the list offers a rename on every chat the server can rename, and on no ot
     assert.equal(renames({ tool, app }), false, `${tool} ${app}`)
     assert.equal(rowMenuOf({ tool, app, state: 'active', open: {} }).includes('rename'), false, `${tool} ${app} menu`)
   }
+})
+
+
+test('question mark opens shortcut help only from the normal focused list', () => {
+  const context = { listFocused: true, search: '' }
+  assert.equal(startsShortcutHelp({ key: '?', shiftKey: true }, context), true)
+  for (const press of [{ key: '/' }, { key: '?', ctrlKey: true }, { key: '?', metaKey: true }, { key: '?', altKey: true }, { key: '?', repeat: true }, { key: '?', isComposing: true }, { key: '?', keyCode: 229 }]) {
+    assert.equal(startsShortcutHelp(press, context), false)
+  }
+  for (const excluded of [{ editable: true }, { listFocused: false }, { search: 'query' }, { blocked: true }]) {
+    assert.equal(startsShortcutHelp({ key: '?' }, { ...context, ...excluded }), false)
+  }
+})
+
+test('the shared panel shortcuts keep their contexts and use the platform paste chord', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const { shortcutHelp } = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
+  assert.deepEqual(shortcutHelp.map((row) => row.id), ['tab', 'arrows', 'enter', 'rename', 'escape', 'paste', 'help'])
+  assert.ok(shortcutHelp.every((row) => row.label && row.description && row.keys.length))
+  assert.deepEqual(shortcutHelpRowsOf(shortcutHelp, true).find((row) => row.id === 'paste').keys, ['⌘', '⇧', 'V'])
+  assert.deepEqual(shortcutHelpRowsOf(shortcutHelp, false).find((row) => row.id === 'paste').keys, ['Ctrl', 'Shift', 'V'])
 })

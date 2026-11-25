@@ -179,6 +179,18 @@
         <button class="confirm-delete" id="quit-go" type="button">Quit</button>
       </div>
     </section>
+    <dialog class="notice confirm shortcuts-sheet" id="shortcut-help" aria-labelledby="shortcut-help-title" hidden>
+      <h2 class="confirm-title" id="shortcut-help-title">Keyboard shortcuts</h2>
+      <div class="shortcuts-content" role="region" aria-label="Keyboard shortcut list" tabindex="0">
+        <h3 class="menu-heading">From anywhere</h3>
+        <dl class="shortcuts-list" id="shortcut-help-global"></dl>
+        <h3 class="menu-heading">In this panel</h3>
+        <dl class="shortcuts-list" id="shortcut-help-panel"></dl>
+      </div>
+      <div class="notice-actions confirm-actions">
+        <button class="confirm-cancel" id="shortcut-help-close" type="button">Close</button>
+      </div>
+    </dialog>
     <div class="list" id="list" role="listbox" aria-label="Conversations" tabindex="-1"><p class="loading-conversations" role="status">Loading conversations…</p></div>
     <footer class="foot">
       <div class="places" id="places" role="group" aria-label="Where the conversations run"></div>
@@ -196,7 +208,7 @@
     <div class="menu row-menu" id="row-menu" role="menu" aria-label="Conversation" hidden>
       <div role="group">
         <button class="menu-item" id="mark-read" type="button" role="menuitem" title="Takes this chat out of Needs you without opening it, until something new is written.">Mark as read</button>
-        <button class="menu-item" id="rename" type="button" role="menuitem" title="Changes this chat’s name in the list.">Rename…</button>
+        <button class="menu-item" id="rename" type="button" role="menuitem" aria-label="Rename…" title="Changes this chat’s name in the list.">Rename…<kbd class="rename-key" aria-hidden="true">F2</kbd></button>
         <button class="menu-item" id="complete" type="button" role="menuitem" title="Moves this chat to Archived until it has new activity.">Mark complete</button>
         <button class="menu-item" id="reopen" type="button" role="menuitem" title="Clears the completion mark you set for this chat.">Undo complete</button>
         <button class="menu-item" id="hide" type="button" role="menuitem" title="Hides this chat from the list and search until it has new activity.">Hide from agnostic-ai</button>

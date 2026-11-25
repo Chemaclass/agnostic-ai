@@ -2458,3 +2458,80 @@ button:focus-visible {
 .held-more {
   color: var(--paper-dim);
 }
+
+
+.shortcuts-sheet {
+  position: fixed;
+  inset: 16px;
+  width: auto;
+  max-width: 400px;
+  height: calc(100% - 32px);
+  max-height: 720px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  margin: auto;
+  border: 0;
+  padding: 12px;
+  gap: 12px;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong), 0 12px 28px rgba(0, 0, 0, 0.5);
+}
+
+.shortcuts-sheet::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.shortcuts-sheet h2 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.shortcuts-content {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.shortcuts-content:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+
+.shortcuts-content .menu-heading {
+  margin: 0 0 6px;
+}
+
+.shortcuts-list {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.shortcuts-list > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+}
+
+.shortcuts-list dt {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shortcuts-list dd {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--paper-dim);
+  font-size: 11.5px;
+}
+
+.shortcut-help-keys {
+  display: flex;
+  gap: 3px;
+}
+
+.rename-key {
+  float: right;
+}
