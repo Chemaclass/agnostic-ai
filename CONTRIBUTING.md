@@ -52,6 +52,8 @@ Choose local checks and remote CI from [checks by change type](docs/internal/con
 
 ## Questions and reports
 
-Open an [issue](https://github.com/Chemaclass/agnostic-ai/issues) for a bug or feature; a short description is enough. Ask questions in [Discussions](https://github.com/Chemaclass/agnostic-ai/discussions). Report security problems through a [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new).
+Open an [issue](https://github.com/Chemaclass/agnostic-ai/issues) for a bug or feature; capture the idea or problem in a short description before planning the solution. Keep the current scope and acceptance criteria in the issue body. Maintainers choose one feature label by the user outcome from the [feature map](.github/issue-features.json), alongside existing type, priority, status and source labels. See the [triage guide](docs/internal/issue-triage.md) for boundaries and the read-only verifier. Add implementation or verification links when available, including the result before closing completed work.
+
+Ask questions in [Discussions](https://github.com/Chemaclass/agnostic-ai/discussions). Report security problems through a [private advisory](https://github.com/Chemaclass/agnostic-ai/security/advisories/new).
 
 [Contributor documentation](docs/internal/README.md) · [Code of Conduct](CODE_OF_CONDUCT.md) · [MIT license](LICENSE)

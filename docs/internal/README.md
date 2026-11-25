@@ -7,6 +7,7 @@
 | Find the relevant package and understand the data flow | [Architecture](architecture.md) |
 | Read or extend the Authority view, its API, and the feed | [Authority view](authority-view.md) |
 | Choose checks and prepare a change | [Development workflow](contributing.md) |
+| Capture an idea, classify an issue, or verify a backfill | [Issue triage](issue-triage.md) |
 | Support another coding tool | [Adding an adapter](adding-adapters.md) |
 | Build an adapter outside this repository | [Plugin protocol](plugin-protocol.md) |
 | Add a starter template for a language or framework | [Contributing a preset](contributing-presets.md) |

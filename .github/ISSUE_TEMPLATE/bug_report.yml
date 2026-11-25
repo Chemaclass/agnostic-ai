@@ -3,6 +3,10 @@ description: Tell us what went wrong. A short description is enough.
 title: "bug: "
 labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with a short idea or problem. The issue body is the source of truth; update it as the plan changes. Maintainers choose one feature label by the outcome, alongside type and source labels. See the [triage guide](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/issue-triage.md).
   - type: textarea
     id: summary
     attributes:
@@ -22,5 +26,12 @@ body:
     attributes:
       label: Additional details (optional)
       description: Version, operating system, logs, config snippets, or screenshots. Leave this blank if you don't have them handy.
+    validations:
+      required: false
+  - type: textarea
+    id: verification
+    attributes:
+      label: Implementation or verification links (optional)
+      description: Link a pull request, test run, screenshot, or other evidence if it already exists. Add the result before closing a completed issue.
     validations:
       required: false
