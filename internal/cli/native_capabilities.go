@@ -291,7 +291,7 @@ var targetsSupportingKind = kindSupport{
 	spec.KindCommand:     setOf("codebuddy", "grok", "qwen", "pi", "claude", "codex", "gemini", "opencode", "cursor", "trae", "junie", "kiro", "kilo", "qoder", "augment", "factory"),
 	spec.KindSettings:    setOf("codebuddy", "kimi", "grok", "qwen", "pi", "vibe", "claude", "codex", "gemini", "copilot", "opencode", "junie", "qoder", "kilo", "windsurf", "augment", "factory", "amp", "cursor", "kiro", "ellipsis"),
 	spec.KindReview:      setOf("cursor", "codex", "ellipsis"),
-	spec.KindEnvironment: setOf("cursor", "openhands", "amp", "claude", "codex", "ellipsis"),
+	spec.KindEnvironment: setOf("cursor", "openhands", "amp", "claude", "codex", "ellipsis", "copilot"),
 	spec.KindIgnore:      setOf("qwen", "cursor", "gemini", "aider", "windsurf", "kiro", "trae", "junie", "crush", "kilo", "augment"),
 }
 

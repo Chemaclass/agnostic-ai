@@ -57,11 +57,14 @@ For existing files, check [what `import copilot` reads](@/docs/targets/copilot-r
 .mcp.json                                                  # only with outputs.copilot.root-mcp-file; mcpServers key
 .github/hooks/agnostic-ai.json                              # when hook entries exist
 .github/hooks/scripts/agnostic-ai-portable-hook.sh          # when a portable before-tool hook exists
+.github/workflows/copilot-setup-steps.yml                   # when an environment opts into Copilot Actions setup
 .github/copilot/settings.json                              # when a Settings model or a disabled MCP server exists
 .vscode/settings.json                                      # chat.useAgentsMdFile: false, when another target writes AGENTS.md
 ```
 
 For field mappings, output overrides, and import coverage, see the [GitHub Copilot native reference](@/docs/targets/copilot-reference.md).
+
+Copilot reads the setup workflow only for sessions on GitHub Actions. [Generate and commit setup steps](@/docs/targets/copilot-reference.md#cloud-setup-steps) on the default branch.
 
 ## Verify
 

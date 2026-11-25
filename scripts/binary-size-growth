@@ -2,9 +2,5 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# #3938: the Apply confirm reads the native hook and MCP records sync
-# writes (env masking, quoting, url redaction), and approvals, targets and
-# builtins edits of the home config share one lock and one snapshot read.
-# The preview also reads Grok and TOML hooks, keeps Vibe MCP aliases,
-# and masks credentials in command arguments. No new dependency.
-36864
+# Copilot setup workflow generation, option validation, and its web lint title.
+28672

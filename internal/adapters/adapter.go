@@ -122,6 +122,9 @@ func EmitWithProvenance(sess *Session, a Adapter, b spec.Bundle, cfg *config.Con
 		sess.SetCodexSkillsDir(codexSkills)
 		sess.SetSkillsDirWriters(SkillDirectoryWriters(cfg))
 	}
+	if a.Name() == "copilot" {
+		b.Environments = copilot.SharedSetupStepsSources(b.Environments)
+	}
 	own, err := targetSkills(b.For(a.Name()), cfg, a.Name())
 	if err != nil {
 		return err

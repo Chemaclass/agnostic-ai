@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/chemaclass/agnostic-ai/internal/adapters/header"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/preview"
 )
@@ -25,6 +26,11 @@ import (
 // content; unchanged files are skipped and not rewritten.
 func (s *Session) WriteFile(path, content string, dryRun bool) error {
 	return s.writeFileWithMode(path, normalizeTrailingNewline(content), filePerm, false, dryRun)
+}
+
+// WriteGeneratedFile refuses to replace different bytes without proof of ownership.
+func (s *Session) WriteGeneratedFile(path, content string, dryRun bool) error {
+	return s.writeFile(path, normalizeTrailingNewline(content), filePerm, false, dryRun, true)
 }
 
 // WriteExecutableFile writes a generated script with executable permissions.
@@ -193,6 +199,10 @@ func writeFileAt(path, content string, mode os.FileMode, enforceMode bool) error
 }
 
 func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enforceMode, dryRun bool) error {
+	return s.writeFile(path, content, mode, enforceMode, dryRun, false)
+}
+
+func (s *Session) writeFile(path, content string, mode os.FileMode, enforceMode, dryRun, generatedOnly bool) error {
 	if s.skipUnmanaged(path) {
 		return nil
 	}
@@ -209,7 +219,7 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	detailing := s.detailing
 	transacting := s.transacting
 	if capturing {
-		file := CapturedFile{Path: path, Content: content}
+		file := CapturedFile{Path: path, Content: content, GeneratedOnly: generatedOnly}
 		if enforceMode {
 			file.Mode = mode
 		}
@@ -235,6 +245,12 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 	if err := s.resolvePriorOutput(path); err != nil {
 		return err
 	}
+	cur := &onDisk{path: path}
+	if generatedOnly {
+		if err := s.refuseHandWrittenFile(cur, content); err != nil {
+			return err
+		}
+	}
 	if sum, keep := s.keepsEdit(path, content); keep {
 		s.mu.Lock()
 		if _, watched := s.planned[path]; watched {
@@ -248,7 +264,11 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		fmt.Printf("--- %s ---\n%s\n", path, preview.Display(path, content).Text)
 		return nil
 	}
-	cur := &onDisk{path: path}
+	if generatedOnly && !detailing {
+		if existing, err := cur.bytes(); err == nil && string(existing) == content {
+			return nil
+		}
+	}
 	if err := s.checkProjectPath(path, "write", false); err != nil {
 		// Matching bytes need no write, so a linked spec folder that
 		// already holds the scaffold still syncs.
@@ -395,6 +415,37 @@ func (s *Session) writeFileWithMode(path, content string, mode os.FileMode, enfo
 		s.mu.Unlock()
 	}
 	return nil
+}
+
+func (s *Session) refuseHandWrittenFile(cur *onDisk, content string) error {
+	if err := s.checkProjectPath(cur.path, "write", false); err != nil {
+		return err
+	}
+	info, err := cur.lstat()
+	if IsAbsent(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect %s: %w", cur.path, err)
+	}
+	if !info.Mode().IsRegular() {
+		return fmt.Errorf("refusing to write %s: expected a regular file", cur.path)
+	}
+	existing, err := cur.bytes()
+	if err != nil {
+		return fmt.Errorf("read %s: %w", cur.path, err)
+	}
+	if string(existing) == content || header.Leads(cur.path, string(existing)) {
+		return nil
+	}
+	s.mu.Lock()
+	backupSum := s.priorChecksum(cur.path, s.backupSums)
+	keepSum := s.priorChecksum(cur.path, s.keepSums)
+	s.mu.Unlock()
+	if MatchesSum(existing, backupSum) || MatchesSum(existing, keepSum) {
+		return nil
+	}
+	return fmt.Errorf("refusing to overwrite hand-written file %s; keep it with sync.unmanaged or move it before syncing", cur.path)
 }
 
 // writeBackup keeps content at path with perm, the source file's mode.

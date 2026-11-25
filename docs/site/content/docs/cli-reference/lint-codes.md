@@ -76,6 +76,7 @@ Run `agnostic-ai explain LINT011` for one code, or [lint](@/docs/cli-reference/c
 | LINT062 | Warning. `outputs.<target>.rules-file` is set on a target that writes no merged rules file, so sync ignores it and the target writes as if it were unset. See [which targets write one](@/docs/configuration-reference.md#entry-point-files). Remove the key. |
 | LINT063 | Warning. `outputs.<target>.rules-file` names a file that sync also writes as another enabled target's instructions file. Sync writes that file after the merged one, so the key has no effect. Nothing is lost: the target still reads the file, and the other target's version carries every rule. When rules would be lost, `sync` stops with [AAI-102](@/docs/errors.md#aai-102-targets-emit-to-the-same-output-path) instead. Remove the key, or point it at another path. |
 | LINT064 | Error, also from `validate`. A project's `agnostic-ai.yaml` or `agnostic-ai.local.yaml` sets an `approvals` key other than `mode: ask`. A cloned repository, a pull request, or the agent itself can write those files, so [approvals](@/docs/global-configuration-reference.md#global-approvals) that loosen are read only from the home config, and the key is ignored. Move it to `$AGNOSTIC_AI_HOME/agnostic-ai.yaml`. A project file may keep `approvals.mode: ask` to turn approvals off for the repository. |
+| LINT065 | Error. A Copilot environment spec sets an invalid `x-copilot.setup-steps` value or job option. Use the [supported setup options](@/docs/targets/copilot-reference.md#cloud-setup-steps). |
 
 ## Context budgets
 

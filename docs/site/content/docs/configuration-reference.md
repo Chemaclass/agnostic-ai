@@ -69,6 +69,8 @@ Special keys:
 | `outputs.trae.rules-mode: entry-point` | Says Trae's **Include AGENTS.md in the context** switch is on, so Trae loads each always-on rule from `AGENTS.md` once ([Trae](@/docs/targets/trae.md#loading-and-limits)). |
 | `nested-glob-rules`, `exec-policies-from-permissions` (Codex) | Change how rules and permissions are written ([Codex config keys](@/docs/targets/codex-reference.md#config-keys)). |
 
+`outputs.copilot.setup-file` overrides where sync writes an opted-in [Copilot setup workflow](@/docs/targets/copilot-reference.md#cloud-setup-steps) for inspection. Copilot reads the workflow from `.github/workflows/copilot-setup-steps.yml` on the default branch.
+
 ## `models`
 
 Name each model role (a tier) once, then use the name in specs instead of a vendor's model id.

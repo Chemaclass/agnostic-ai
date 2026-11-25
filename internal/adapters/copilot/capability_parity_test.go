@@ -32,6 +32,7 @@ func TestEmit_CapabilityMatrixCoversEveryDeclaredKind(t *testing.T) {
 		{spec.KindMCP, []string{".vscode/mcp.json"}},
 		{spec.KindHook, []string{".github/hooks/agnostic-ai.json"}},
 		{spec.KindSettings, []string{".github/copilot/settings.json"}},
+		{spec.KindEnvironment, []string{NativeSetupStepsPath}},
 	}
 	for _, k := range caps.Supports {
 		found := false

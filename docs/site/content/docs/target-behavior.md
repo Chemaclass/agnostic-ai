@@ -105,6 +105,8 @@ The [tool support table](@/docs/targets/_index.md#capability-matrix) lists gener
 
 See each [spec reference](@/docs/spec-format/_index.md). [`on-unsupported`](@/docs/configuration-reference.md#on-unsupported) sets what sync does with an unsupported kind.
 
+For dependencies and services in remote sessions, see [environment files and UI settings by tool](@/docs/spec-format/environments.md).
+
 ### Shared skills and agent discovery
 
 - Many targets share `.agents/skills/`; sync writes identical folders once.
