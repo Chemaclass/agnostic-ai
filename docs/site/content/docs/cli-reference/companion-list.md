@@ -53,7 +53,7 @@ If a chat does not open, the reason stays above the list until dismissed or anot
 - On Linux an ended terminal chat resumes in a new `x-terminal-emulator` window. It runs in your shell, so its startup files set `PATH`. Without that command, or with no display, the list offers **Copy resume command**. A chat that last ran in WezTerm, kitty or Konsole resumes in a new tab there instead.
 - On Linux, WezTerm, kitty, Konsole and tmux inside them select the tab. The window can stay behind. For GNOME Terminal, Ptyxis, Alacritty, foot, xterm, Tilix and Xfce Terminal, the notice names the terminal and device.
 - When only the app can come forward, the list stays open and says where the chat runs.
-- Codex can find a tab after a delayed first prompt. After the earlier chat ends, a lone live chat and terminal in the project can give a **Possible Codex tab**. Check it before pasting.
+- Codex can find a tab after a delayed first prompt. After the earlier chat ends, the companion can switch to a possible tab if it finds one live Codex chat and one terminal in the project. The list stays closed after the switch. Reopen it to see the **Possible Codex tab** notice. Check the terminal tab before pasting.
 - `claude --bg` runs in Claude's own background service, not in a terminal app.
 - The tab is found by its short id, such as `e3469759`, or its exact full name. A tab attached with the start of an id or part of a name is not recognized, since it may be another session.
 - With no such tab, a new tab runs `claude attach <id>` in the session's folder, in the app it last ran in when it remembers one.

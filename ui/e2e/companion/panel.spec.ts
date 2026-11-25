@@ -594,18 +594,51 @@ test('a failed open keeps its reason on screen, with no copy button when the ser
   expect(opens).toEqual([])
 })
 
-test('a guessed Codex tab leaves a neutral notice without taking the terminal keys', async ({ page }) => {
-  const message = 'Switched to the Ghostty tab with the only Codex session that may show this thread.'
-  await page.route('**/api/open', (route) => route.fulfill({ json: { opened: true, guessed: true, message } }))
-  await openPanel(page)
-  const peeked = page.waitForRequest((request) => request.url().endsWith('/api/panel/peek'))
-  await clickRow(row(page, 'Draft the release notes'))
-  await peeked
+type PanelCalls = Window & { panelCalls: string[] }
 
-  await expectInfoNotice(page, 'Possible Codex tab')
-  await expect(noticeCard(page)).toContainText(message)
-  expect(await calledPaths(page)).not.toContain('/api/panel/show')
-})
+for (const timing of ['immediate', 'late']) {
+  test(`a guessed Codex tab leaves the list closed until reopened (${timing})`, async ({ page }) => {
+    const title = 'Migrate the billing tables'
+    const message = 'Switched to the Ghostty tab with the only Codex session that may show this thread.'
+    let settled = false
+    await page.addInitScript(() => {
+      const calls: string[] = []
+      const panel = window as unknown as PanelCalls
+      panel.panelCalls = calls
+      const fetchFirst = window.fetch
+      window.fetch = (input, init) => {
+        const path = String(input)
+        if (path.startsWith('/api/panel/')) calls.push(path)
+        return fetchFirst(input, init)
+      }
+    })
+    await page.route('**/api/open', (route) => timing === 'late'
+      ? route.fulfill({ status: 202, json: { pending: true, message: 'Still opening.' } })
+      : route.fulfill({ json: { opened: true, guessed: true, message } }))
+    await page.route('**/api/open/late', (route) => settled
+      ? route.fulfill({ json: { id: 1, title, guessed: true, message } })
+      : route.fulfill({ status: 204 }))
+    const initialRead = page.waitForResponse((response) => response.url().endsWith('/api/open/late'))
+    await openPanel(page, 'needs-reasons')
+    await initialRead
+
+    const lateRead = timing === 'late' ? page.waitForResponse((response) => response.url().endsWith('/api/open/late')) : undefined
+    await clickRow(row(page, title))
+    if (lateRead) {
+      await lateRead
+      settled = true
+      expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+    }
+
+    // The preview keeps the hidden window's document available. Wait for the notice before checking its calls.
+    await expect(noticeCard(page)).toContainText(message)
+    expect(await page.evaluate(() => (window as unknown as PanelCalls).panelCalls)).toEqual(['/api/panel/hide'])
+
+    await showAgain(page)
+    await expectInfoNotice(page, 'Possible Codex tab')
+    await expect(noticeCard(page)).toContainText(message)
+  })
+}
 
 test('an open the server is slow to answer hides the list and shows no failure', async ({ page }) => {
   await openPanel(page, 'slow-open')
