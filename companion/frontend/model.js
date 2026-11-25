@@ -203,6 +203,14 @@ export function togglesPick(press, isMac) {
   return command && press.shiftKey === true && !press.altKey && press.code === 'KeyV' && !press.repeat
 }
 
+export function startsShortcutHelp(event, { listFocused = false, editable = false, blocked = false, search = '' } = {}) {
+  return event.key === '?' && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && !confirmsCandidate(event) && listFocused && !editable && !blocked && search === ''
+}
+
+export function shortcutHelpRowsOf(rows, isMac) {
+  return rows.map((row) => ({ ...row, keys: row.id === 'paste' ? keycapsOf(isMac ? 'Cmd+Shift+V' : 'Ctrl+Shift+V', isMac) : row.keys }))
+}
+
 /** F2 on the selected row starts a rename, as in a file manager. */
 export function startsRename(event) {
   return event.key === 'F2' && !event.repeat && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
@@ -1725,7 +1733,7 @@ export function menuRowsOf(items, { preferences, appearance, mailbox, approvals,
       if (!item.choices?.some((choice) => choice.value === values[item.id])) return { ...item, unavailable: true }
       return { ...item, value: values[item.id] }
     }
-    if (item.page && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
+    if (item.page && item.kind === 'switch' && typeof values[item.id] !== 'boolean') return { ...item, unavailable: true }
     if (item.kind === 'switch') {
       if (typeof values[item.id] !== 'boolean') throw new Error(`no value for ${item.id}`)
       value = values[item.id]

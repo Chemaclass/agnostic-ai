@@ -23,14 +23,17 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 | Archived | Closed chats, and chats you archived in their app. |
 
 {% <details summary="Details: keys"> %}
+Open **Keyboard shortcuts** from ⋯.
+
 | Key | What it does |
 |-----|--------------|
-| ⌃⌥V on a Mac (Ctrl+Alt+V elsewhere) | Open the send picker from any app. You can change it. |
-| Cmd+Shift+V | Open the send picker in the open list, keeping your search. |
-| Tab after opening the list or using search | Focus the selected chat or the first chat in the list. |
-| Arrow keys, Enter | Pick a chat, then open it or send to it. In the right-click menu, move between its items. |
-| Escape | Cancel the picker or rename first. In the list, clear the search before closing the panel. |
-| F2 | Rename the selected row. |
+| Ctrl+Alt+V by default | Open the picker from any app. |
+| Cmd+Shift+V (Ctrl+Shift+V elsewhere) | Open the picker, keeping search. |
+| Tab | After opening or searching, focus a chat. |
+| Arrows, Enter | Move through chats or menu items. Enter opens or sends. |
+| Escape | Cancel, clear search, or close the list. |
+| F2 | Rename the selected chat. |
+| ? | Show shortcuts with a chat focused and no search. |
 {% </details> %}
 
 ## Open a chat {#open-a-chat}

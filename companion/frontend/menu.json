@@ -6,6 +6,15 @@
     { "id": "app", "label": "App" }
   ],
   "updatesLabel": "Updates",
+  "shortcutHelp": [
+    { "id": "tab", "keys": ["Tab"], "label": "Move between controls", "description": "From search, jump to the selected chat, then continue through its controls. Shift+Tab moves back." },
+    { "id": "arrows", "keys": ["↑", "↓"], "label": "Select a chat", "description": "In search or the conversation list, move to the previous or next chat." },
+    { "id": "enter", "keys": ["Enter"], "label": "Open the selected chat", "description": "In search or on a chat row, open that chat. In the paste picker, send the copied text to it." },
+    { "id": "rename", "keys": ["F2"], "label": "Rename a chat", "description": "On a selected chat that supports rename, edit its name." },
+    { "id": "escape", "keys": ["Esc"], "label": "Close or go back", "description": "Close the current sheet, question or menu first. Otherwise leave the paste picker, clear search, then hide the panel." },
+    { "id": "paste", "keys": ["paste"], "label": "Send copied text", "description": "While the panel is open, enter or leave the chat picker for copied text." },
+    { "id": "help", "keys": ["?"], "label": "Show keyboard shortcuts", "description": "With the normal conversation list focused and search empty, open this sheet." }
+  ],
   "items": [
     { "id": "animate", "section": "appearance", "label": "Animate companion", "kind": "switch" },
     { "id": "dimWhenIdle", "section": "appearance", "label": "Dim when idle", "kind": "switch" },
@@ -15,6 +24,7 @@
     { "id": "approveAgentSends", "section": "permissions", "label": "Ask me before an agent sends a message", "kind": "switch", "page": true, "hint": "Holds each message an agent sends until you approve it in the thread." },
     { "id": "shortcut", "section": "shortcuts", "label": "Open from anywhere", "kind": "shortcut", "hint": "Change the shortcut" },
     { "id": "sendShortcut", "section": "shortcuts", "label": "Send copied text", "kind": "shortcut", "hint": "Change the shortcut that opens the list to send what you copied" },
+    { "id": "keyboardShortcuts", "section": "shortcuts", "label": "Keyboard shortcuts", "kind": "action", "page": true },
     { "id": "startAtLogin", "section": "app", "label": "Start at login", "kind": "switch" },
     { "id": "update", "section": "app", "label": "Check for updates", "kind": "action", "hint": "Looks for a newer release. When one is known, updates the app and its command line tool, then restarts it." },
     { "id": "checkForUpdates", "section": "app", "label": "Check for updates automatically", "kind": "switch", "hint": "Checks once a day while the companion runs. Check for updates works either way." },

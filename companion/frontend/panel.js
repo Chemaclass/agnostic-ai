@@ -2,7 +2,7 @@ import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenNotice, dismissLateOpenNotice, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, startsShortcutHelp, shortcutHelpRowsOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
@@ -1868,7 +1868,7 @@ function holdTab(dialog) {
   dialog.addEventListener('keydown', (event) => {
     if (event.key !== 'Tab') return
     event.preventDefault()
-    const controls = [...dialog.querySelectorAll(':is(button, select):not(:disabled, [hidden])')]
+    const controls = [...dialog.querySelectorAll(':is(button, select, [tabindex="0"]):not(:disabled, [hidden])')]
     const at = controls.indexOf(document.activeElement)
     const next = event.shiftKey ? (at <= 0 ? controls.length - 1 : at - 1) : (at + 1) % controls.length
     controls[next]?.focus()
@@ -2315,6 +2315,7 @@ const MENU_ACTIONS = {
   checkForUpdates: () => change('preferences', () => saveCheckForUpdates(flip('checkForUpdates'))),
   shortcut: () => record('shortcut'),
   sendShortcut: () => record('sendShortcut'),
+  keyboardShortcuts: (event) => openShortcutHelp(event.currentTarget).catch(sayFailure),
   update: () => {
     closeMenu()
     if (settings.update.state === 'available' || settings.update.state === 'failed') openUpdateConfirm()
@@ -2509,6 +2510,76 @@ async function openMenu(focus) {
   if (focus) settings.controls.get(focus)?.focus()
 }
 
+const shortcutHelp = document.getElementById('shortcut-help')
+const shortcutHelpClose = document.getElementById('shortcut-help-close')
+let shortcutHelpOpener
+let shortcutHelpRequest = 0
+let preferencesVersion = 0
+
+function helpRows(target, rows) {
+  target.replaceChildren(...rows.map((row) => {
+    const item = element('div', '')
+    const keys = element('span', 'shortcut-help-keys')
+    keys.append(...row.keys.map((key) => element('kbd', '', key)))
+    const label = element('dt', '', row.label)
+    label.append(keys)
+    item.append(label, element('dd', '', row.description))
+    return item
+  }))
+}
+
+function drawShortcutHelp() {
+  if (!settings.metadata || !settings.preferences) return
+  const globals = ['shortcut', 'sendShortcut'].map((id) => ({
+    label: settings.metadata.items.find((item) => item.id === id).label,
+    description: id === 'shortcut' ? 'Open the companion conversation list from another app.' : 'Open the conversation picker to send copied text from another app.',
+    keys: keycapsOf(settings.preferences[id], isMac),
+  }))
+  helpRows(document.getElementById('shortcut-help-global'), globals)
+  helpRows(document.getElementById('shortcut-help-panel'), shortcutHelpRowsOf(settings.metadata.shortcutHelp, isMac))
+}
+
+async function openShortcutHelp(opener = document.activeElement) {
+  const row = opener.closest('.row[data-key]')
+  const request = ++shortcutHelpRequest
+  const readVersion = preferencesVersion
+  shortcutHelpOpener = { node: opener, key: row?.dataset.key }
+  shortcutHelp.hidden = false
+  shortcutHelp.showModal()
+  shortcutHelpClose.focus()
+  try {
+    const [metadata, preferences] = await Promise.all([settings.metadata ?? readMenu(), readPreferences()])
+    if (request !== shortcutHelpRequest) return
+    settings.metadata = metadata
+    if (readVersion === preferencesVersion) settings.preferences = preferences
+    drawShortcutHelp()
+  } catch (error) {
+    if (request !== shortcutHelpRequest) return
+    closeShortcutHelp()
+    throw error
+  }
+}
+
+function closeShortcutHelp(restore = true) {
+  shortcutHelpRequest += 1
+  const opener = shortcutHelpOpener
+  shortcutHelpOpener = undefined
+  shortcutHelp.close()
+  shortcutHelp.hidden = true
+  if (!restore || !opener) return
+  const row = opener.key && list.querySelector(`.row[data-key="${CSS.escape(opener.key)}"]`)
+  const target = opener.node.isConnected ? opener.node : row ?? queryInput
+  target.focus({ preventScroll: true })
+  target.scrollIntoView({ block: 'nearest' })
+}
+
+shortcutHelpClose.addEventListener('click', () => closeShortcutHelp())
+shortcutHelp.addEventListener('cancel', (event) => {
+  event.preventDefault()
+  closeShortcutHelp()
+})
+holdTab(shortcutHelp)
+
 // Update: the question before it restarts, and each step after.
 
 const updateConfirm = document.getElementById('update-confirm')
@@ -2613,12 +2684,15 @@ const updates = updateFeed(showUpdate)
 
 /** A change made in the right-click menu shows in an open menu at once. */
 function heard(key, value) {
+  if (key === 'preferences') preferencesVersion += 1
   settings[key] = value
   if (!menu.hidden) drawSettings()
+  if (key === 'preferences' && shortcutHelp.open) drawShortcutHelp()
 }
 
 menuButton.addEventListener('click', () => (menu.hidden ? openMenu() : closeMenu()))
 document.addEventListener('mousedown', (event) => {
+  if (shortcutHelp.open) return
   if (!rowMenu.hidden && !rowMenu.contains(event.target)) closeRowMenu()
   if (menu.hidden || menu.contains(event.target) || menuButton.contains(event.target)) return
   closeMenu()
@@ -2646,6 +2720,13 @@ dashboardButton.addEventListener('click', async () => {
 })
 
 document.addEventListener('keydown', (event) => {
+  if (shortcutHelp.open) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      if (!confirmsCandidate(event)) closeShortcutHelp()
+    }
+    return
+  }
   if (event.key === 'Escape') {
     event.preventDefault()
     const closes = {
@@ -2669,6 +2750,16 @@ document.addEventListener('keydown', (event) => {
       panel: () => hidePanel().catch(sayFailure),
     }
     closes[escapeTarget({ quitConfirmOpen: !quitConfirm.hidden, updateConfirmOpen: !updateConfirm.hidden, deleteConfirmOpen: !deleteConfirm.hidden, stopShellOpen: !stopShellDialog.hidden, stopSessionOpen: !stopSessionConfirm.hidden, rowMenuOpen: !rowMenu.hidden, renaming: state.renaming !== undefined, settingsOpen: !menu.hidden, picking: state.pick !== undefined, mailboxOpen: mailbox.open, searching: queryInput.value !== '' })]()
+    return
+  }
+  if (startsShortcutHelp(event, {
+    listFocused: event.target === list || event.target.matches('.row'),
+    editable: event.target.isContentEditable || Boolean(event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"]')),
+    blocked: !menu.hidden || !rowMenu.hidden || !deleteConfirm.hidden || !stopShellDialog.hidden || !stopSessionConfirm.hidden || !quitConfirm.hidden || !updateConfirm.hidden || Boolean(state.renaming) || state.pick !== undefined || mailbox.open || settings.recording !== undefined,
+    search: queryInput.value,
+  })) {
+    event.preventDefault()
+    openShortcutHelp().catch(sayFailure)
     return
   }
   if (event.target.closest('.mailbox-card') || event.target.closest('.mailbox-threads')) return
@@ -2756,6 +2847,7 @@ function opened(data) {
     card.classList.add('is-opening')
   }
   toast.hidden = true
+  closeShortcutHelp(false)
   closeMenu()
   closeRowMenu()
   deleteConfirm.hidden = true

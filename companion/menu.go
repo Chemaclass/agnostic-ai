@@ -34,7 +34,7 @@ type menuItem struct {
 	// Kind is switch, shortcut or action.
 	Kind string `json:"kind"`
 	Hint string `json:"hint,omitempty"`
-	// Page items show in the list's menu only: the server holds their value.
+	// Page items show only in the list's menu.
 	Page bool `json:"page,omitempty"`
 }
 

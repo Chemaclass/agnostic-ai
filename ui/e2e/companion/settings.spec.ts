@@ -37,6 +37,7 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('switch', { name: 'Ask me before an agent sends a message' }),
     menu.getByRole('button', { name: 'Open from anywhere' }),
     menu.getByRole('button', { name: 'Send copied text' }),
+    menu.getByRole('button', { name: 'Keyboard shortcuts', exact: true }),
     menu.getByRole('switch', { name: 'Start at login' }),
     menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
     menu.getByRole('button', { name: 'Quit Agnostic AI companion' }),
@@ -460,7 +461,7 @@ test('a known update shows a badge, asks in the panel, then shows the first step
   await button.click()
   const menu = page.getByRole('region', { name: 'Settings', exact: true })
   const entry = menu.getByRole('button', { name: 'Update to v0.97.0', exact: true })
-  await expect(menu.locator('.menu-item:visible')).toHaveText(['Updates', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
+  await expect(menu.locator('.menu-item:visible')).toHaveText(['Keyboard shortcuts', 'Updates', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
   await openUpdates(page)
   await entry.click()
 

@@ -80,6 +80,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - A chat started with `agnostic-ai conversations start` sits indented under
   the chat it came from while both are in the same group. A child that waits
   for you stays under Needs you, even when its parent is active or archived.
+- Open **Keyboard shortcuts** from the list’s ⋯ menu to see global and list keys.
+  With a chat focused and an empty search, press **?** to open the same sheet.
 - **↑ ↓** move through the list and **Enter** opens the chat. So does a click
   anywhere on the row but its name. **Tab** focuses a chat after opening the list or using search.
   **F2** renames the selected chat.

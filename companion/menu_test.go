@@ -60,10 +60,10 @@ func TestMenuList_EveryItemHasAHandlerAndAKnownKind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(items.Items) != 13 {
-		t.Fatalf("menu.json has %d items; want 13", len(items.Items))
+	if len(items.Items) != 14 {
+		t.Fatalf("menu.json has %d items; want 14", len(items.Items))
 	}
-	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends"} {
+	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends", "keyboardShortcuts"} {
 		if i := slices.IndexFunc(items.Items, func(item menuItem) bool { return item.ID == id }); i < 0 || !items.Items[i].Page {
 			t.Errorf("%q is missing or not a page item, which the right-click menu skips", id)
 		}
@@ -172,7 +172,7 @@ func TestBubbleMenu_UsesDeclaredSectionOrderAndSkipsPageOnlySections(t *testing.
 	if want := []string{"App", "Shortcuts", "Appearance"}; !slices.Equal(headings, want) {
 		t.Errorf("headings = %q; want %q", headings, want)
 	}
-	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends"} {
+	for _, id := range []string{"approvalsMode", "approvalsCompanion", "approveAgentSends", "keyboardShortcuts"} {
 		if s.native[id] != nil {
 			t.Errorf("native menu contains page-only %q", id)
 		}
