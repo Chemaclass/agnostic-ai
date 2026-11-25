@@ -76,6 +76,8 @@ Fields a tool does not use get a no-effect note. Other tools report the spec as 
 
 A cloud session starts from a clone. Commit the generated files it needs. If sync manages your `.gitignore`, use [`gitignore.commit`](@/docs/sync-settings.md#gitignore) for the environment and hook outputs you want to commit.
 
+Run [`agnostic-ai doctor environment`](@/docs/cli-reference/doctor.md#doctor-environment) to see which setup files Git can send to your enabled cloud tools and which settings you need to enter in their UIs.
+
 | Tool | Reads from the repository | Set in the tool's UI |
 |---|---|---|
 | [Claude Code](https://code.claude.com/docs/en/cloud-environments) | `.claude/settings.json` and the install script it calls. Anthropic-hosted sessions read the hook for one repository outside a project's cloud threads. | Cached setup script, environment variables, network secrets, allowed domains |
