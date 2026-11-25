@@ -16,12 +16,21 @@ import (
 // --custom-contextmenu.
 const bubbleMenuName = "bubble"
 
-const settingsHeader = "Settings"
-
-// menuItem is one entry of frontend/menu.json, the list both menus show.
-type menuItem struct {
+type menuSection struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
+}
+
+type menuDefinition struct {
+	Sections     []menuSection `json:"sections"`
+	UpdatesLabel string        `json:"updatesLabel"`
+	Items        []menuItem    `json:"items"`
+}
+
+type menuItem struct {
+	ID      string `json:"id"`
+	Section string `json:"section"`
+	Label   string `json:"label"`
 	// Kind is switch, shortcut or action.
 	Kind string `json:"kind"`
 	Hint string `json:"hint,omitempty"`
@@ -30,14 +39,14 @@ type menuItem struct {
 }
 
 // readMenu reads the shared menu list from the companion's pages.
-func readMenu(files fs.FS) ([]menuItem, error) {
+func readMenu(files fs.FS) (menuDefinition, error) {
 	data, err := fs.ReadFile(files, "frontend/menu.json")
 	if err != nil {
-		return nil, fmt.Errorf("read the menu list: %w", err)
+		return menuDefinition{}, fmt.Errorf("read the menu list: %w", err)
 	}
-	var items []menuItem
+	var items menuDefinition
 	if err := json.Unmarshal(data, &items); err != nil {
-		return nil, fmt.Errorf("read the menu list: %w", err)
+		return menuDefinition{}, fmt.Errorf("read the menu list: %w", err)
 	}
 	return items, nil
 }
@@ -91,12 +100,11 @@ func (s *shell) askQuit() {
 	s.comeBackOpenedOn(eventQuitAsked)
 }
 
-// addSettingsHeader adds a native section heading where the system has
-// one (macOS 14 and later), and a disabled item elsewhere.
-func addSettingsHeader(menu *application.Menu) {
-	menu.AddSectionHeader(settingsHeader)
-	if menu.FindByLabel(settingsHeader) == nil {
-		menu.Add(settingsHeader).SetEnabled(false)
+// macOS before 14 and other systems need a disabled item for the heading.
+func addMenuSectionHeader(menu *application.Menu, label string) {
+	menu.AddSectionHeader(label)
+	if menu.FindByLabel(label) == nil {
+		menu.Add(label).SetEnabled(false)
 	}
 }
 
@@ -111,52 +119,57 @@ func (s *shell) bubbleMenu() error {
 // shownIDs are the items refreshNative keeps current; the list must hold each.
 var shownIDs = []string{"animate", "dimWhenIdle", "smallCompanion", "startAtLogin", "shortcut", "sendShortcut", "hide"}
 
-// fillBubbleMenu adds the shared list to the circle's menu, with a
-// separator before the actions, and shows the values in effect. The update
-// entry and the app's own command stay above the separator.
-func (s *shell) fillBubbleMenu(menu *application.Menu, items []menuItem) error {
+func (s *shell) fillBubbleMenu(menu *application.Menu, definition menuDefinition) error {
 	actions := s.menuActions()
 	native := map[string]*application.MenuItem{}
 	labels := map[string]string{}
 	s.appCommands = s.ownAppCommands()
-	addSettingsHeader(menu)
-	afterAction := false
-	for i, item := range items {
-		if item.Page {
-			continue
-		}
-		act := actions[item.ID]
-		if act == nil {
-			return fmt.Errorf("the menu item %q has no handler", item.ID)
-		}
-		if (item.ID == updateID || item.ID == checkForUpdatesID) && s.appCommands == nil {
-			continue
-		}
-		endsMenu := item.Kind == "action" && item.ID != updateID
-		if endsMenu && i > 0 && !afterAction {
-			menu.AddSeparator()
-		}
-		afterAction = endsMenu
-		var added *application.MenuItem
-		switch item.Kind {
-		case "switch":
-			added = menu.AddCheckbox(item.Label, false)
-		case "shortcut", "action":
-			added = menu.Add(item.Label)
-		default:
-			return fmt.Errorf("the menu item %q has the unknown kind %q", item.ID, item.Kind)
-		}
-		if item.Hint != "" {
-			added.SetTooltip(item.Hint)
-		}
-		// Wails flips a checkbox before the click; every change refreshes
-		// the menu after, so a refused one shows the old value again.
-		added.OnClick(func(clicked *application.Context) { act(clicked.IsChecked()) })
-		native[item.ID] = added
-		labels[item.ID] = item.Label
-		if item.ID == updateID && s.appCommands.app != "" {
-			controls := s.appCommands
-			menu.Add("Install command line tool").OnClick(func(*application.Context) { go controls.installCommand() })
+	for _, section := range definition.Sections {
+		var updates *application.Menu
+		started := false
+		for _, item := range definition.Items {
+			if item.Page || item.Section != section.ID {
+				continue
+			}
+			act := actions[item.ID]
+			if act == nil {
+				return fmt.Errorf("the menu item %q has no handler", item.ID)
+			}
+			isUpdate := item.ID == updateID || item.ID == checkForUpdatesID
+			if isUpdate && s.appCommands == nil {
+				continue
+			}
+			if !started {
+				addMenuSectionHeader(menu, section.Label)
+				started = true
+			}
+			target := menu
+			if isUpdate {
+				if updates == nil {
+					updates = menu.AddSubmenu(definition.UpdatesLabel)
+				}
+				target = updates
+			}
+			var added *application.MenuItem
+			switch item.Kind {
+			case "switch":
+				added = target.AddCheckbox(item.Label, false)
+			case "shortcut", "action":
+				added = target.Add(item.Label)
+			default:
+				return fmt.Errorf("the menu item %q has the unknown kind %q", item.ID, item.Kind)
+			}
+			if item.Hint != "" {
+				added.SetTooltip(item.Hint)
+			}
+			// Wails flips the checkbox first; refresh restores a refused change.
+			added.OnClick(func(clicked *application.Context) { act(clicked.IsChecked()) })
+			native[item.ID] = added
+			labels[item.ID] = item.Label
+			if item.ID == updateID && s.appCommands.app != "" {
+				controls := s.appCommands
+				menu.Add("Install command line tool").OnClick(func(*application.Context) { go controls.installCommand() })
+			}
 		}
 	}
 	for _, id := range shownIDs {

@@ -3,11 +3,23 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { approvalsConfirmOf, approvalsStatusOf, companionApprovalsNeedSetup, escapeTarget, hideLabelOf, menuRowsOf, syncConfirmOf, syncFailureOf, syncResultOf, updateBadgeOf, updateFeed, updateConfirmOf, updateLabelOf, updateMessageOf } from '../frontend/model.js'
 
-const items = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
+const { sections, updatesLabel, items } = JSON.parse(await readFile(new URL('../frontend/menu.json', import.meta.url), 'utf8'))
 const preferences = { shortcut: 'Ctrl+Alt+Space', sendShortcut: 'Ctrl+Alt+V', startAtLogin: true, checkForUpdates: true }
 const appearance = { animate: false, dimWhenIdle: true, smallCompanion: false, presence: 'shown' }
 const mailbox = { approveAgentSends: true }
 const approvals = { approvals: { mode: 'ask', companion: false, overrides: { tools: 0, projects: 0, alwaysAsk: 0 }, shadowed: [], tools: [] }, sync: { needed: false, reasons: [] } }
+
+test('the shared menu groups controls in section order and names one Updates entry', () => {
+  assert.deepEqual(sections.map((section) => section.label), ['Appearance', 'Permissions', 'Shortcuts', 'App'])
+  assert.equal(updatesLabel, 'Updates')
+  assert.deepEqual(sections.map((section) => items.filter((item) => item.section === section.id).map((item) => item.id)), [
+    ['animate', 'dimWhenIdle', 'smallCompanion'],
+    ['approvalsMode', 'approvalsCompanion', 'approveAgentSends'],
+    ['shortcut', 'sendShortcut'],
+    ['startAtLogin', 'update', 'checkForUpdates', 'hide', 'quit'],
+  ])
+  assert.deepEqual(items.filter((item) => item.page).map((item) => item.section), ['permissions', 'permissions', 'permissions'])
+})
 
 test('without an update entry, the menu shows the eleven items in the list order, with the values in effect', () => {
   const rows = menuRowsOf(items, { preferences, appearance, mailbox, approvals, update: { state: 'unavailable' } })
@@ -17,12 +29,12 @@ test('without an update entry, the menu shows the eleven items in the list order
       ['animate', 'switch', false],
       ['dimWhenIdle', 'switch', true],
       ['smallCompanion', 'switch', false],
-      ['startAtLogin', 'switch', true],
       ['approvalsMode', 'choice', 'ask'],
       ['approvalsCompanion', 'switch', false],
       ['approveAgentSends', 'switch', true],
       ['shortcut', 'shortcut', 'Ctrl+Alt+Space'],
       ['sendShortcut', 'shortcut', 'Ctrl+Alt+V'],
+      ['startAtLogin', 'switch', true],
       ['hide', 'action', undefined],
       ['quit', 'action', undefined],
     ],
@@ -35,7 +47,7 @@ test('without an update entry, the menu shows the eleven items in the list order
 
 test('the update entry sits above Hide and Quit and follows the state', () => {
   const ids = (update) => menuRowsOf(items, { preferences, appearance, update }).map((row) => row.id)
-  assert.deepEqual(ids({ state: 'idle' }).slice(-4), ['checkForUpdates', 'update', 'hide', 'quit'])
+  assert.deepEqual(ids({ state: 'idle' }).slice(-4), ['update', 'checkForUpdates', 'hide', 'quit'])
   assert.ok(!ids(undefined).includes('update'))
   assert.ok(!ids(undefined).includes('checkForUpdates'))
   const automatic = (checkForUpdates) => menuRowsOf(items, { preferences: { ...preferences, checkForUpdates }, appearance, update: { state: 'idle' } }).find((item) => item.id === 'checkForUpdates')

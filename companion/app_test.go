@@ -103,9 +103,19 @@ func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 		t.Fatalf("app controls = %+v; want bundled command %s", s.appCommands, command)
 	}
 	got := strings.Join(menuLabels(menu)[7:], "|")
-	want := "Check for updates automatically|Check for updates|Install command line tool|---|Hide Agnostic AI companion|Quit Agnostic AI companion"
+	want := "App|Start at login|Updates|Install command line tool|Hide Agnostic AI companion|Quit Agnostic AI companion"
 	if got != want {
 		t.Errorf("menu ends with %q; want %q", got, want)
+	}
+	updates := menu.FindByLabel("Updates")
+	if updates == nil || !updates.IsSubmenu() {
+		t.Fatalf("menu = %q; want Updates submenu", menuLabels(menu))
+	}
+	if got, want := menuLabels(updates.GetSubmenu()), []string{"Check for updates", checkForUpdatesLabel}; !slices.Equal(got, want) {
+		t.Errorf("update controls = %q; want %q", got, want)
+	}
+	if updates.GetSubmenu().FindByLabel("Install command line tool") != nil {
+		t.Error("install command belongs in App, outside Updates")
 	}
 	for _, label := range []string{"Install command line tool", "Check for updates"} {
 		if item := menu.FindByLabel(label); item == nil || !item.Enabled() {
@@ -155,7 +165,7 @@ func TestAppMenu_TerminalInstallChecksForUpdatesWithoutTheInstallItem(t *testing
 
 func TestAppMenu_NoCommandMeansNoUpdateEntry(t *testing.T) {
 	s, _, _, menu := menuShell(t)
-	if s.appCommands != nil || menu.FindByLabel("Check for updates") != nil {
+	if s.appCommands != nil || menu.FindByLabel("Check for updates") != nil || menu.FindByLabel(checkForUpdatesLabel) != nil || menu.FindByLabel("Updates") != nil {
 		t.Fatalf("a companion without any agnostic-ai command offers updates")
 	}
 	if got := s.updateStatus(); got.State != updateUnavailable {

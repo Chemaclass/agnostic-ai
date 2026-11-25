@@ -50,7 +50,7 @@ with `make companion-run`.
 
 ## Upgrade
 
-The companion checks for a newer release on start and every 24 hours without opening a window. An automatic check can keep the last verified offer offline. **Check for updates** checks now and reports a failure, including an unreadable release checksum list. The update entry in both menus reads **Update to vX.Y.Z** when an update is known. Choose it, then **Update and restart** in the list. See the [update guide](https://agnostic-ai.org/docs/cli-reference/companion/#upgrade-the-companion) for the terminal install and copy fallback.
+The companion checks for a newer release on start and every 24 hours without opening a window. An automatic check can keep the last verified offer offline. In either menu, open **App → Updates** to check now or change **Check for updates automatically**. You can check manually with automatic checks off. When an update is known, choose **Update to vX.Y.Z** under **Updates**, then **Update and restart** in the list. See the [update guide](https://agnostic-ai.org/docs/cli-reference/companion/#upgrade-the-companion) for the terminal install and copy fallback.
 
 Disk image updates check the new app's signer before running it. The updater keeps the earlier app until the new one stays open for a few seconds. If macOS refuses to open the replacement, or it quits or never appears, the updater tries to put back and open the earlier app. If it cannot restore the app, it logs where the earlier bundle is saved. A terminal update on macOS also puts back and opens the earlier app when the new one does not start. The list shows the failure and log path after restart when it can recover the outcome.
 
@@ -218,9 +218,10 @@ The companion is in one of three states. None is saved: a restart starts shown.
 
 ## Settings
 
-Both menus hold the same settings, in the same order: the ⋯ button at the
-foot of the list, and a right-click on the circle (Ctrl+click on a Mac). A
-change made in one shows in the other.
+Use the list's ⋯ button or right-click the circle (Ctrl+click on a Mac).
+Both menus group their settings under **Appearance**, **Permissions**,
+**Shortcuts** and **App**. Permission controls are in the list's menu. A
+change to a shared setting shows in both menus.
 
 - **Animate companion** turns movement on and off: the turning arc, the
   gyroscope in the list, the badge's pop and the list's opening. When it is

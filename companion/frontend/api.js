@@ -235,7 +235,7 @@ export const startUpdate = (version) => post('/api/update/start?' + new URLSearc
 export const openReleasePage = () => post('/api/update/release-page')
 /** Opens a docs page, `/docs/...#section`, in the default browser. */
 export const openDocs = (path) => post('/api/docs', { path })
-/** The items both settings menus show, in order: [{id, label, kind, hint?}]. */
+/** The shared settings menu, including section order, labels and controls. */
 export const readMenu = () => call('/menu.json')
 
 /** Opens the full web interface in the browser. */

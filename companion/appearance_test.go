@@ -172,15 +172,15 @@ func TestGetAppearance_AnswersTheSavedValues(t *testing.T) {
 	}
 }
 
-func TestSettingsHeader_LeadsTheMenuAndCannotBeClicked(t *testing.T) {
+func TestSectionHeader_LeadsTheMenuAndCannotBeClicked(t *testing.T) {
 	menu := application.NewMenu()
 
-	addSettingsHeader(menu)
+	addMenuSectionHeader(menu, "Appearance")
 	menu.AddCheckbox("Animate companion", true)
 
 	first := menu.ItemAt(0)
-	if first == nil || first.Label() != settingsHeader || first.Enabled() {
-		t.Fatalf("first item = %+v; want a disabled %q", first, settingsHeader)
+	if first == nil || first.Label() != "Appearance" || first.Enabled() {
+		t.Fatalf("first item = %+v; want a disabled %q", first, "Appearance")
 	}
 	if second := menu.ItemAt(1); second == nil || second.Label() != "Animate companion" {
 		t.Errorf("the header was added twice or the checkbox moved: second item = %+v", second)
