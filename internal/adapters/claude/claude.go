@@ -171,7 +171,12 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 	if err != nil {
 		return err
 	}
-	if err := writeSettings(sess, append(GuardCursorCopies(cfg, hooks), setupHooks...), b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
+	cloudHooks, err := emitCloudInstall(sess, b.Environments, cfg, dryRun)
+	if err != nil {
+		return err
+	}
+	hooksForSettings := append(GuardCursorCopies(cfg, hooks), setupHooks...)
+	if err := writeSettings(sess, append(hooksForSettings, cloudHooks...), b.Settings, b.MCPs, dir, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := emitLaunch(sess, b.Environments, dir, dryRun); err != nil {

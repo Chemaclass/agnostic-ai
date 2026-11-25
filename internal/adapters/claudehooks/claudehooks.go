@@ -131,8 +131,25 @@ func (o *Order) UnmarshalJSON(data []byte) error {
 // both from the environment spec.
 const WorktreeSetupScript = "agnostic-ai-worktree-setup.sh"
 
-// IsWorktreeSetupCommand reports whether a hook command runs the
-// generated worktree setup script, in slash or Windows path form.
+const (
+	CloudInstallScript  = "agnostic-ai-cloud-install.sh"
+	CloudInstallMatcher = "startup|resume"
+	cloudInstallSuffix  = `; [ ! -f "$f" ] || sh "$f"`
+)
+
+func CloudInstallCommand(quotedPath string) string {
+	return "f=" + quotedPath + cloudInstallSuffix
+}
+
 func IsWorktreeSetupCommand(command string) bool {
 	return strings.Contains(strings.ReplaceAll(command, `\`, "/"), "/"+WorktreeSetupScript)
+}
+
+func IsGeneratedEnvironmentCommand(event, matcher, command string) bool {
+	if IsWorktreeSetupCommand(command) {
+		return true
+	}
+	path := strings.ReplaceAll(command, `\`, "/")
+	return event == "SessionStart" && matcher == CloudInstallMatcher &&
+		strings.HasPrefix(path, "f=") && strings.HasSuffix(path, "/"+CloudInstallScript+"'"+cloudInstallSuffix)
 }

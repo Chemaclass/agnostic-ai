@@ -31,10 +31,6 @@ const agnosticScriptsDir = ".agnostic-ai/scripts"
 func captureHookScripts(root, tool string) error {
 	srcDir := filepath.Join(root, "."+tool, "hooks")
 	dstDir := filepath.Join(root, agnosticScriptsDir, tool)
-	return copyHookScriptsTree(srcDir, dstDir)
-}
-
-func copyHookScriptsTree(srcDir, dstDir string) error {
 	entries, err := os.ReadDir(srcDir)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -43,7 +39,7 @@ func copyHookScriptsTree(srcDir, dstDir string) error {
 		return fmt.Errorf("read %s: %w", srcDir, err)
 	}
 	for _, e := range entries {
-		if e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == claudehooks.WorktreeSetupScript || importLocal.leavesHookScript(e.Name()) {
+		if e.IsDir() || strings.HasPrefix(e.Name(), ".") || e.Name() == claudehooks.WorktreeSetupScript || tool == "claude" && e.Name() == claudehooks.CloudInstallScript || importLocal.leavesHookScript(e.Name()) {
 			continue
 		}
 		src := filepath.Join(srcDir, e.Name())

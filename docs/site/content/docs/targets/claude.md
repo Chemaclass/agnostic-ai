@@ -50,8 +50,11 @@ Write shared instructions in `.agnostic-ai/AGNOSTIC_AI.md`; sync writes `CLAUDE.
 | Hooks and settings | `.claude/settings.json`, when configured |
 | MCP servers | `.mcp.json`, when configured |
 | Local preview commands | `.claude/launch.json`, when configured |
+| Cloud dependency install | `.claude/hooks/agnostic-ai-cloud-install.sh` and a hook in `.claude/settings.json` |
 
 An empty kind writes no files. Overrides and field mappings are in the [native reference](@/docs/targets/claude-reference.md).
+
+For cloud sessions, see [what to commit and when Claude runs install](@/docs/spec-format/environments.md#claude-code-cloud-install).
 
 ## Verify
 

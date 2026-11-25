@@ -119,7 +119,7 @@ func kitSinkBundle() spec.Bundle {
 		},
 		{
 			Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
-			Meta: map[string]any{"dev-commands": []any{
+			Meta: map[string]any{"install": "npm ci", "dev-commands": []any{
 				map[string]any{"name": "web", "command": "npm run dev", "port": 3000},
 			}},
 		},

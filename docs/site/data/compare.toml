@@ -38,7 +38,7 @@
 
   [[targets.kinds]]
     id = "environment"
-    paths = [".claude/launch.json"]
+    paths = [".claude/hooks/agnostic-ai-cloud-install.sh", ".claude/launch.json", ".claude/settings.json"]
 
   [[targets.kinds]]
     id = "ignore"
