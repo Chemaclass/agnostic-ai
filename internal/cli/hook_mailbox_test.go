@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -289,6 +290,7 @@ func TestHookMailbox_AFailedOrShortWriteLeavesTheMessageWaiting(t *testing.T) {
 func TestHookMailbox_TouchesOnlyTheMailboxFolderAndStartsNoProcess(t *testing.T) {
 	home, s := hookMailboxHome(t)
 	sendHookMessage(t, s, hookCodex, hookClaude)
+	writeFile(t, filepath.Join(home, "outside-mailbox.txt"), "keep this file")
 	t.Setenv("PATH", "")
 	before := treeSnapshot(t, home, s.Dir)
 	if got := runHookMailbox(t, "claude", hookPayload(hookClaude.ID, "UserPromptSubmit", "")); got == "" {
@@ -313,7 +315,19 @@ func treeSnapshot(t *testing.T, root, skip string) string {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(&b, "%s %s %d %d\n", path, info.Mode(), info.Size(), info.ModTime().UnixNano())
+		if info.IsDir() {
+			fmt.Fprintf(&b, "%s %s\n", path, info.Mode())
+			return nil
+		}
+		fmt.Fprintf(&b, "%s %s %d %d", path, info.Mode(), info.Size(), info.ModTime().UnixNano())
+		if info.Mode().IsRegular() {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(&b, " %x", sha256.Sum256(data))
+		}
+		b.WriteByte('\n')
 		return nil
 	})
 	if err != nil {

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -684,6 +685,12 @@ func unreadableHeld(unreadable map[int]error, running func(pid int) bool) error 
 func (s *Scanner) claudeLiveEntries() (entries []claudeLive, unreadable map[int]error, err error) {
 	dir := filepath.Join(s.Stores.ClaudeDir, "sessions")
 	files, err := os.ReadDir(dir)
+	// Windows can report no entries for a path that holds a regular file.
+	if runtime.GOOS == "windows" && len(files) == 0 && (err == nil || errors.Is(err, fs.ErrNotExist)) {
+		if info, statErr := os.Stat(dir); statErr == nil && !info.IsDir() {
+			err = errors.New("expected a directory")
+		}
+	}
 	if err != nil {
 		return nil, nil, fmt.Errorf("%s: %w", dir, err)
 	}
