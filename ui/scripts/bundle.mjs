@@ -55,7 +55,7 @@ try {
   }
   await writeFile(join(output, 'third-party-notices.txt'), notices.join('\n\n'))
   const inputs = [
-    ...['index.html', 'package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts'].map((file) => join(root, file)),
+    ...['index.html', 'package.json', 'package-lock.json', 'tsconfig.json', 'vite.config.ts', '../companion/frontend/menu.json'].map((file) => join(root, file)),
     ...await files(join(root, 'src')),
     ...await files(join(root, 'scripts')),
   ].sort()

@@ -841,9 +841,14 @@
 
 .user-settings-live {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 4px 16px;
+  gap: 8px;
   margin: 0;
+}
+
+.user-settings-live > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px 16px;
 }
 
 .user-settings-live dd {
@@ -900,4 +905,40 @@
   .user-settings-choice {
     min-height: 44px;
   }
+}
+
+
+.user-settings-section {
+  display: grid;
+  gap: 12px;
+}
+
+.user-settings-shortcuts > summary {
+  min-height: 44px;
+  align-content: center;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.user-settings-shortcut-help {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.user-settings-shortcut-help dt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.user-settings-shortcut-help dt > span {
+  display: flex;
+  gap: 4px;
+}
+
+.user-settings-shortcut-help dd {
+  margin: 4px 0 0;
+  color: var(--text-muted);
 }

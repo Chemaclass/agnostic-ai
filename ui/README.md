@@ -245,6 +245,8 @@ Markdown and YAML items open in the editor selected in Settings: Cursor (default
 
 The **Approvals and companion** tab (`src/components/UserSettings.tsx`, `src/settings-api.ts`) reads `GET /api/views/settings` every 2 seconds while visible, with its `ETag`, and saves through `POST /api/settings`. On load, `main.tsx` trades a `#unlock=<code>` in the address for the session key, drops the code from the address, and keeps the key in `sessionStorage` for that tab. Without the key the server answers `canLoosen: false`, and the tab locks the looser choices. A project view shows only a pointer to the user-level view.
 
+Appearance, Permissions, Shortcuts and App use the order and labels in [`companion/frontend/menu.json`](../companion/frontend/menu.json). The page uses its panel shortcut list and shows the live global bindings and Start at login when the companion runs. The saved **Check for updates automatically** value is read-only. Change it under **App → Updates** in the companion.
+
 Items carry lint and doctor findings for their files. Editor links use the server's `openPath` and line when available. **Copy path** accompanies each link because the browser cannot confirm that the editor opened. Mock and static data show paths without editor links. The overview also reports whether generated files match sync output.
 
 ## Contract
