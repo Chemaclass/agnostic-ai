@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters"
+	"github.com/chemaclass/agnostic-ai/internal/adapters/copilot"
 	"github.com/chemaclass/agnostic-ai/internal/atomicfile"
 	"github.com/chemaclass/agnostic-ai/internal/config"
 	"github.com/chemaclass/agnostic-ai/internal/spec"
@@ -366,6 +367,15 @@ func syncManagedBlock(root string, cfg *config.Config, renders *targetRenders, t
 	committed, err := committedOutputs(cfg, b, blockTargets)
 	if err != nil {
 		return nil, fmt.Errorf("gitignore.commit: %w", err)
+	}
+	if slices.Contains(blockTargets, "copilot") {
+		if committed == nil {
+			committed = map[string]struct{}{}
+		}
+		committed[normalizeGitignorePath(copilot.NativeSetupStepsPath)] = struct{}{}
+		if path := copilot.SetupStepsPath(cfg); !filepath.IsAbs(path) {
+			committed[normalizeGitignorePath(path)] = struct{}{}
+		}
 	}
 	entries := append(withBackups(recorded, committed), gitignoreHintsForTargets(cfg, blockTargets)...)
 	scopes := specScopes(b, blockTargets)

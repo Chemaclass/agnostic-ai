@@ -136,6 +136,22 @@ For a hook with one plain shell command, Copilot uses the same `command` in both
 **Copilot reads Claude settings too.** Copilot CLI reads `companyAnnouncements`, `disableAllHooks`, `enabledPlugins`, `extraKnownMarketplaces`, and `hooks` from `.claude/settings.json` and `.claude/settings.local.json` ([CLI config reference](https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference)). agnostic-ai writes `hooks`, and `enabledPlugins` via `outputs.claude.settings.enabledPlugins`, so that key also sets the Copilot CLI plugin policy for the repository. Set it on purpose, or drop `claude` if the two tools need different plugins. GitHub documents only the `.github/copilot/settings.json` keys as read by Copilot in the cloud, so for plugins both should load, use `x-copilot.enabledPlugins` (see [Settings](#settings)).
 
 
+### Cloud setup steps {#cloud-setup-steps}
+
+Set `x-copilot.setup-steps: true` on an environment spec to turn `install` into the [Copilot setup workflow](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/customize-cloud-agent/customize-the-agent-environment). For example:
+
+```yaml
+install: npm ci
+x-copilot:
+  setup-steps:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+```
+
+Sync uses the last `install` and the last `x-copilot.setup-steps` from shared environment specs. Personal files under `.agnostic-ai/local/` do not contribute to the committed workflow. It writes one `copilot-setup-steps` job with a pinned checkout, then any extra `steps` you set, then `install`. The default job uses `ubuntu-latest` and `permissions: { contents: read }`. The map accepts `runs-on`, `permissions`, `services`, `snapshot`, `timeout-minutes` from 1 to 59, `steps`, and a `checkout` override with the full 40-character commit hash of `actions/checkout`. If you set `permissions`, include `contents: read` so checkout can read private repositories.
+
+Commit `.github/workflows/copilot-setup-steps.yml` on the default branch. Sync leaves this path out of its managed ignore block. Copilot runs these steps in sessions on Actions. You can also run the workflow manually from the Actions tab. Sync and `doctor --fix` keep an existing hand-written workflow and report a conflict if its contents differ. `import copilot` leaves the workflow in place.
+
 ## Config keys
 
 | Key | Default | Notes |
@@ -149,6 +165,7 @@ For a hook with one plain shell command, Copilot uses the same `command` in both
 | `outputs.copilot.chatmodes-dir` | empty, opt-in | writes one Custom Chat Mode per agent |
 | `outputs.copilot.rules-file` | unset | writes all always-on rules into that one file and skips the instructions that point to source specs |
 | `outputs.copilot.hooks-file` | `.github/hooks/agnostic-ai.json` | |
+| `outputs.copilot.setup-file` | `.github/workflows/copilot-setup-steps.yml` | Writes the workflow elsewhere for inspection. Copilot reads only the default path. |
 
 ## Import
 

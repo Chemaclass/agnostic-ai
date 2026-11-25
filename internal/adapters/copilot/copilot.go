@@ -172,7 +172,7 @@ const (
 
 var caps = emit.Capabilities{
 	Target:   target,
-	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindSettings},
+	Supports: []spec.Kind{spec.KindAgent, spec.KindSkill, spec.KindRule, spec.KindMCP, spec.KindHook, spec.KindSettings, spec.KindEnvironment},
 	// effort: agent.go notes the unmapped field and native alternatives.
 	AgentFields:    []string{"effort"},
 	SettingsFields: []string{"effort"},
@@ -222,6 +222,9 @@ func (Adapter) Emit(sess *emit.Session, b spec.Bundle, cfg *config.Config, dryRu
 		coverage.SkillFields.Markdown = sharedSkillMarkdown
 	}
 	if err := emit.ReportUnsupported(coverage, b, cfg.OnUnsupported); err != nil {
+		return err
+	}
+	if err := emitSetupSteps(sess, b.Environments, cfg, dryRun); err != nil {
 		return err
 	}
 	if err := emitInstructionFiles(sess, b, cfg, dryRun); err != nil {

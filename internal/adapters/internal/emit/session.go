@@ -26,6 +26,8 @@ type CapturedFile struct {
 	Mode    os.FileMode `json:"-"`
 	Path    string
 	Content string
+	// GeneratedOnly asks repair to use the same ownership guard as sync.
+	GeneratedOnly bool `json:"-"`
 	// Merged, Keys, and Released carry a merged JSON write's claims, as
 	// WrittenFile does, so `doctor --fix` can record what it writes.
 	Merged   bool

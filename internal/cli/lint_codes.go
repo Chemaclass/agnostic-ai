@@ -59,6 +59,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "`outputs.<target>.rules-file` names a file that sync also writes as another enabled target's instructions file. Sync writes that file after the merged one, so the merged file never survives. The target still reads the file, and the other target's version carries every rule the merged file would hold, so nothing is lost.",
 		Fix:      "Remove the key, or point it at another path.",
 	},
+	"LINT065": {
+		Severity: lintError,
+		Title:    "Invalid Copilot setup steps",
+		Cause:    "An environment spec sets x-copilot.setup-steps to a value or job option the Copilot setup workflow cannot use.",
+		Fix:      "Set x-copilot.setup-steps to true or to a map of supported job options. Use an integer from 1 to 59 for timeout-minutes and a full actions/checkout commit hash for checkout.",
+	},
 	"LINT064": {
 		Severity: lintError,
 		Title:    "Project file loosens approvals",

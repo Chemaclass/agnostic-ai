@@ -90,6 +90,10 @@ func TestEmit_ProvenanceHeaderOnEveryEmittedFile(t *testing.T) {
 // `preToolUse` event paired with the same matcher (#629).
 func kitSinkBundle() spec.Bundle {
 	entries := []spec.Entry{
+		{
+			Kind: spec.KindEnvironment, Name: "dev", Path: "environments/dev.yaml",
+			Meta: map[string]any{"install": "npm ci", "x-copilot": map[string]any{"setup-steps": true}},
+		},
 		{Kind: spec.KindRule, Name: "r1", Path: "rules/r1.md", Body: "rule 1 body", Meta: map[string]any{"globs": "**/*.go"}},
 		{Kind: spec.KindRule, Name: "r2", Path: "rules/r2.md", Body: "rule 2 body", Meta: map[string]any{"globs": "**/*.ts"}},
 		{Kind: spec.KindRule, Name: "r3", Path: "rules/r3.md", Body: "rule 3 body", Meta: map[string]any{"globs": "**/*.py"}},

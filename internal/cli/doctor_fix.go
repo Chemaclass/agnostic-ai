@@ -55,7 +55,11 @@ func fixDrift(reports []driftReport, backup bool) (int, error) {
 			if f.Merged {
 				writer = merged
 			}
-			if err := writer.WriteFile(f.Path, f.Content, false); err != nil {
+			write := writer.WriteFile
+			if f.GeneratedOnly {
+				write = writer.WriteGeneratedFile
+			}
+			if err := write(f.Path, f.Content, false); err != nil {
 				return written, err
 			}
 			if slices.Contains(sess.BackupBlockedEdits(), f.Path) {

@@ -98,6 +98,9 @@ var probeCompanions = map[string][]spec.Entry{
 			"name": "probe", "claude_code": map[string]any{"model": "claude-opus-5-5"},
 		}},
 	}}},
+	"copilot.setup-file": {{Kind: spec.KindEnvironment, Name: "setup", Path: "environments/copilot.yaml", Meta: map[string]any{
+		"x-copilot": map[string]any{"setup-steps": true},
+	}}},
 	"ellipsis.environment-file": {{Kind: spec.KindSettings, Name: "environment", Path: "settings/ellipsis.yaml", Meta: map[string]any{
 		"x-ellipsis": map[string]any{"environment": map[string]any{
 			"name": "probe", "repository": map[string]any{"name": "probe-repo"},

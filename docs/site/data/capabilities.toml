@@ -106,7 +106,10 @@ id = "copilot"
 name = "GitHub Copilot"
 short_name = "Copilot"
 href = "@/docs/targets/copilot.md"
-statuses = ["native", "native", "native", "native", "native", "mapped", "native", "no", "no", "no"]
+opt_in_href = "@/docs/targets/copilot-reference.md"
+opt_in_anchor = "cloud-setup-steps"
+opt_in = { environment = "x-copilot.setup-steps" }
+statuses = ["native", "native", "native", "native", "native", "mapped", "native", "no", "opt-in", "no"]
 
 [[targets]]
 id = "aider"
