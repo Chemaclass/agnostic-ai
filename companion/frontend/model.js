@@ -58,6 +58,10 @@ const GROUP_OF_STATE = {
   dormant: 'archived',
 }
 
+function groupOf(conversation) {
+  return needsPersonOf(conversation) ? 'needs-you' : GROUP_OF_STATE[conversation.state]
+}
+
 const TOOL_LABELS = {
   claude: 'Claude Code',
   codex: 'Codex',
@@ -285,7 +289,7 @@ export function unsentNoticeOf(message) {
  */
 export function grouped(conversations) {
   return GROUPS.map((group) => {
-    const rows = conversations.filter((conversation) => (needsPersonOf(conversation) ? 'needs-you' : GROUP_OF_STATE[conversation.state]) === group.id)
+    const rows = conversations.filter((conversation) => groupOf(conversation) === group.id)
     const drawn = nested(rows)
     return { ...group, ...(group.id === 'needs-you' ? mostUrgentFirst(drawn) : drawn) }
   }).filter((group) => group.rows.length > 0)
@@ -670,16 +674,16 @@ export function unreadLabelOf(rows) {
 /** What a resumed chat's marker says: it is open again, with a reply from before the person has not read. */
 export const RESUMED_UNREAD = 'Resumed with a reply from before that you have not read'
 
-/** An archived row offers Hide. Other rows can be marked complete when they have no completion mark and are not working. */
+/** Mark complete is the hover shortcut for an eligible nonarchived row. */
 export function rowActionOf(conversation) {
-  if (GROUP_OF_STATE[conversation.state] === 'archived') return 'hide'
-  if (conversation.state === 'working' || conversation.completedAt) return undefined
+  const group = groupOf(conversation)
+  if ((group !== 'needs-you' && group !== 'active') || conversation.state === 'working' || conversation.completedAt) return undefined
   return 'archive'
 }
 
 /**
  * What the row menu offers: Mark as read clears a wait or a reply without opening the chat.
- * Mark complete and Hide match the row's own button. Only a chat under Archived that no process holds can be deleted.
+ * Hide stays in the archived row's ordinary menu. Only a chat under Archived that no process holds can be deleted.
  */
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read'] : []
@@ -693,8 +697,9 @@ export function rowMenuOf(conversation) {
   const action = rowActionOf(conversation)
   if (action === 'archive') offered.push('complete')
   if (conversation.completedAt) offered.push('reopen')
-  if (action === 'hide') offered.push('hide')
-  if (GROUP_OF_STATE[conversation.state] === 'archived' && !conversation.live) offered.push('delete')
+  const group = groupOf(conversation)
+  if (group === 'archived') offered.push('hide')
+  if (group === 'archived' && !conversation.live) offered.push('delete')
   if (conversation.cloud) offered.push('web')
   if (stuckShellsOf(conversation).length > 0) offered.push('stop-shell')
   if (stuckShellsOf(conversation).some((shell) => shell.keptUntil)) offered.push('ask-shell-again')

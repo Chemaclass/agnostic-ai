@@ -468,10 +468,12 @@ test('marking one chat complete shows a green tick, then archives it', async ({ 
   await completeButton(target).click()
 
   await expect(target.locator('.action.is-done')).toBeVisible()
-  // Archived starts folded; unfolded, the chat is in it with the button archived chats have.
+  // Archived starts folded; its rows keep lifecycle actions in the menu.
   await expect(target).toBeHidden()
   await groupTitle(page, 'Archived').click()
-  await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toBeAttached()
+  await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toHaveCount(0)
+  await target.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Hide from agnostic-ai', exact: true })).toBeVisible()
 })
 
 test('the row menu marks a chat complete with a tick and can return it to Active', async ({ page }) => {
@@ -2866,7 +2868,9 @@ test('archiving, renaming or hiding a parent never changes its child', async ({ 
 
   await groupTitle(page, 'Archived').click()
   await parent.hover()
-  await parent.getByRole('button', { name: /^Hide from agnostic-ai,/ }).click()
+  await parent.focus()
+  await page.keyboard.press('Shift+F10')
+  await page.getByRole('menuitem', { name: 'Hide from agnostic-ai', exact: true }).click()
   await expect(parent).toHaveCount(0)
   await expect(row(page, 'Write the docs index')).toBeVisible()
   await expect(row(page, 'Write the docs index')).not.toHaveClass(/is-nested/)
@@ -4063,4 +4067,114 @@ test('a click on the circle opens the list on the first waiting row, past a sear
   expect((await page.request.post('/api/panel/hide')).ok()).toBe(true)
   expect((await page.request.post('/api/panel/toggle', { data: { jump: true } })).ok()).toBe(true)
   await expect(selected(page)).toContainText('Preview the reports page')
+})
+
+test('archived rows keep Hide in their ordinary menu and Delete in its danger group without lifecycle hover buttons', async ({ page }) => {
+  await openArchived(page)
+  for (const title of ['Tidy the old branches', 'Sketch the pricing page', 'Bump the Go version', 'Rename the config keys']) {
+    const target = row(page, title)
+    await target.hover()
+    await expect(target.getByRole('button', { name: /^Hide from agnostic-ai,/ })).toHaveCount(0)
+    await expect(completeButton(target)).toHaveCount(0)
+    await target.click({ button: 'right' })
+    const hide = page.getByRole('menuitem', { name: 'Hide from agnostic-ai', exact: true })
+    await expect(hide).toBeVisible()
+    await expect(hide).not.toHaveClass(/is-danger/)
+    await expect(deleteItem(page)).toBeVisible()
+    await expect(deleteItem(page)).toHaveClass(/is-danger/)
+    expect(await deleteItem(page).evaluate((item) => item.parentElement?.contains(document.getElementById('hide')))).toBe(false)
+    await page.keyboard.press('Escape')
+  }
+})
+
+test('an archived valuable transcript can be hidden after deletion is refused without sending a delete', async ({ page }) => {
+  await openArchived(page)
+  const deletes = deletesSent(page)
+  const marks = markBodies(page)
+  const target = row(page, 'Bump the Go version')
+  const view = await (await page.request.get('/api/inbox')).json()
+  const refused = view.view.conversations.find((chat: { id: string }) => chat.id === 'done-3').deleteUnsupported
+  await target.click({ button: 'right' })
+  await deleteItem(page).click()
+  await expect(page.getByRole('region', { name: 'Why it cannot be deleted' })).toContainText(refused)
+  await expect(deleteDialog(page)).toBeHidden()
+  expect(deletes).toEqual([])
+  await target.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Hide from agnostic-ai', exact: true }).click()
+  await expect(target).toHaveCount(0)
+  expect(marks).toEqual([{ tool: 'codex', id: 'done-3', as: 'hidden' }])
+  expect(deletes).toEqual([])
+  await page.getByLabel('Search every conversation').fill('Bump the Go version')
+  await expect(page.getByRole('option')).toHaveCount(0)
+})
+
+test('folded Active keeps its bulk completion scoped to the loaded place filter', async ({ page }) => {
+  await openPanel(page)
+  const marks = markBodies(page)
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
+  const active = groupTitle(page, 'Active')
+  await expect(active.locator('.count')).toHaveText('2')
+  await active.click()
+  await expect(active).toHaveAttribute('aria-expanded', 'false')
+  const all = active.locator('..').getByRole('button', { name: 'Mark all complete', exact: true })
+  await expect(all).toBeVisible()
+  await all.click()
+  await expect(groupTitle(page, 'Active')).toHaveCount(0)
+  expect(marks).toEqual([
+    { tool: 'cursor', id: 'active-1', as: 'completed' },
+    { tool: 'claude', id: 'active-2', as: 'completed' },
+  ])
+  await page.getByRole('button', { name: 'All', exact: true }).click()
+  await expect(groupTitle(page, 'Active').locator('.count')).toHaveText('1')
+})
+
+test('a dormant conflict stays in Needs you after Mark complete and offers Hide and Delete only after resolution', async ({ page }) => {
+  let conflicted = true
+  await page.route('**/api/inbox*', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    const target = body.view.conversations.find((chat: { id: string }) => chat.id === 'old-2')
+    if (target && conflicted) target.claimConflicts = [{ path: 'app.go', requester: { tool: 'claude', id: 'old-2' }, holder: { tool: 'codex', id: 'other' } }]
+    await route.fulfill({ json: body })
+  })
+  await openPanel(page, 'archived')
+  const target = row(page, 'Sketch the pricing page')
+  await expect(target).toHaveClass(/needs-you/)
+  await target.hover()
+  await expect(completeButton(target)).toBeVisible()
+  await target.click({ button: 'right' })
+  for (const name of ['Hide from agnostic-ai', 'Delete permanently…', 'Mark as read']) await expect(page.getByRole('menuitem', { name, exact: true })).toBeHidden()
+  const marks = markBodies(page)
+  await page.getByRole('menuitem', { name: 'Mark complete', exact: true }).click()
+  await expect.poll(() => marks).toEqual([{ tool: 'claude', id: 'old-2', as: 'completed' }])
+  await expect(target.locator('.action.is-done')).toHaveCount(0)
+  await expect(target).toHaveClass(/needs-you/)
+  conflicted = false
+  await page.request.post('/dev/arrive')
+  await expect(page.locator('.row.needs-you').filter({ hasText: 'Sketch the pricing page' })).toHaveCount(0)
+  await groupTitle(page, 'Archived').click()
+  await target.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Hide from agnostic-ai', exact: true })).toBeVisible()
+  await expect(deleteItem(page)).toBeVisible()
+})
+
+test('a new file conflict closes an open delete confirmation without deleting', async ({ page }) => {
+  let conflicted = false
+  await page.route('**/api/inbox*', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    const target = body.view.conversations.find((chat: { id: string }) => chat.id === 'done-2')
+    if (target && conflicted) target.claimConflicts = [{ path: 'app.go', requester: { tool: 'claude', id: 'done-2' }, holder: { tool: 'codex', id: 'other' } }]
+    await route.fulfill({ json: body })
+  })
+  await openArchived(page)
+  const deletes = deletesSent(page)
+  await row(page, 'Tidy the old branches').click({ button: 'right' })
+  await deleteItem(page).click()
+  await expect(deleteDialog(page)).toBeVisible()
+  conflicted = true
+  await page.request.post('/dev/arrive')
+  await expect(row(page, 'Tidy the old branches')).toHaveClass(/needs-you/)
+  await expect(deleteDialog(page)).toBeHidden()
+  expect(deletes).toEqual([])
 })

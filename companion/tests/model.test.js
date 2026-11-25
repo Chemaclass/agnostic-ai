@@ -192,7 +192,7 @@ test('offers Delete only on a chat under Archived that no process holds', () => 
 test('an archived chat has no read state: no Mark as read, and Delete without reading it first', () => {
   assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
   assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete', 'web'])
-  assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), 'hide')
+  assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), undefined)
   assert.equal(unreadMarkOf(row('a', 'dormant', { unread: true })), false)
   assert.equal(unreadMarkOf(row('a', 'active', { unread: true })), true)
 })
@@ -331,10 +331,10 @@ test('a row with no title shows a neutral label', () => {
   assert.equal(titleOf(row('a', 'active', { title: '' })), 'Untitled conversation')
 })
 
-test('offers archive on a chat that is not archived, hide on one that is, and nothing on a working one', () => {
+test('offers Mark complete as the only lifecycle hover shortcut on eligible nonarchived rows', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'active', 'working', 'completed', 'dormant'].map((state) => rowActionOf(row('a', state))),
-    ['archive', 'archive', 'archive', undefined, 'hide', 'hide'],
+    ['archive', 'archive', 'archive', undefined, undefined, undefined],
   )
 })
 
@@ -1576,4 +1576,39 @@ test('the shared panel shortcuts keep their contexts and use the platform paste 
   assert.ok(shortcutHelp.every((row) => row.label && row.description && row.keys.length))
   assert.deepEqual(shortcutHelpRowsOf(shortcutHelp, true).find((row) => row.id === 'paste').keys, ['⌘', '⇧', 'V'])
   assert.deepEqual(shortcutHelpRowsOf(shortcutHelp, false).find((row) => row.id === 'paste').keys, ['Ctrl', 'Shift', 'V'])
+})
+
+
+test('archived chats keep Hide in the ordinary menu without a duplicate hover shortcut', () => {
+  for (const state of ['completed', 'dormant']) {
+    for (const deleteUnsupported of [undefined, 'The tool cannot delete this chat here.']) {
+      const archived = row('kept-transcript', state, { deleteUnsupported })
+      assert.equal(rowActionOf(archived), undefined)
+      assert.ok(rowMenuOf(archived).includes('hide'))
+      assert.ok(rowMenuOf(archived).includes('delete'))
+      assert.equal(rowActionOf({ ...archived, live: true }), undefined)
+      assert.ok(rowMenuOf({ ...archived, live: true }).includes('hide'))
+      assert.ok(!rowMenuOf({ ...archived, live: true }).includes('delete'))
+    }
+  }
+})
+
+test('lifecycle controls follow the displayed conflict group and recover when it is resolved', () => {
+  const conflict = { path: 'app.go', requester: { tool: 'claude', id: 'archived' }, holder: { tool: 'codex', id: 'other' } }
+  const dormant = row('archived', 'dormant', { claimConflicts: [conflict] })
+  assert.equal(grouped([dormant])[0].id, 'needs-you')
+  assert.equal(rowActionOf(dormant), 'archive')
+  assert.ok(rowMenuOf(dormant).includes('complete'))
+  for (const item of ['read', 'hide', 'delete']) assert.ok(!rowMenuOf(dormant).includes(item))
+  const marked = { ...dormant, completedAt: '2026-11-09T13:00:00Z' }
+  assert.equal(rowActionOf(marked), undefined)
+  assert.ok(rowMenuOf(marked).includes('reopen'))
+  assert.ok(!rowMenuOf(marked).includes('hide'))
+  assert.ok(!rowMenuOf(marked).includes('delete'))
+  assert.equal(rowActionOf({ ...dormant, state: 'working' }), undefined)
+  const resolved = { ...dormant, claimConflicts: [] }
+  assert.equal(grouped([resolved])[0].id, 'archived')
+  assert.equal(rowActionOf(resolved), undefined)
+  assert.ok(rowMenuOf(resolved).includes('hide'))
+  assert.ok(rowMenuOf(resolved).includes('delete'))
 })
