@@ -1,23 +1,15 @@
-// Conversations: recent chats from Claude Code, Codex and Cursor, the open
-// ones first, then by day. The server sends one week per page; the next
-// loads when the list nears its end or from the button below it. The
-// tool buttons beside the search filter by tool.
-// Each row asks the server to reopen the chat where it lives; the page
-// only posts which one and shows the reply. A static snapshot has no
-// server to read the chats, so it only says what it needs.
-
 import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
+import { appLabel, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, needsYouReason, conversationToolLabel, conversationPlaceLabel, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel, Notice } from './Banner'
 import { useEditorChoice } from './EditorLink'
-import { Badge, CopyButton, Icon, RowActions, ToolAvatar, toolName } from './ui'
+import { Badge, CopyButton, Icon, RowActions, ToolAvatar } from './ui'
 
 const TITLE = 'Conversations'
 const NEEDS_SERVER = CONVERSATIONS_NEED_SERVER
@@ -86,6 +78,7 @@ export function ConversationsPage() {
   }
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(() => new Set(['archived']))
   const query = app.state.q ?? ''
   // The search goes to the server, which searches every conversation, once typing pauses.
   const [searched, setSearched] = useState(query.trim())
@@ -220,6 +213,7 @@ export function ConversationsPage() {
   const rows = mergePages(pages)
   const now = new Date()
   // The server already searched; the tool buttons narrow what it sent.
+  const names = new Map(rows.map((row) => [rowKey(row), row.title]))
   const matching = filterConversations(rows, '', tool)
   const groups = groupConversations(matching, now)
   const matches = pages[0]?.matches
@@ -228,7 +222,7 @@ export function ConversationsPage() {
 
   return (
     <>
-      <PageHeader title={TITLE} verdict={loaded ? conversationsVerdict(rows, now, next !== undefined) : <span aria-hidden="true">{skeletonBar('conversations-skeleton-verdict')}</span>}>
+      <PageHeader title={TITLE} verdict={loaded ? conversationsVerdict(rows, now, next !== undefined, pages[0]?.needsYou) : <span aria-hidden="true">{skeletonBar('conversations-skeleton-verdict')}</span>}>
         {loaded
           ? <p className="page-facts"><span className="page-fact">{plural(rows.length, 'conversation')} loaded{next ? ' so far' : ''}</span><span className="page-fact">{INTRO}</span></p>
           : <p className="page-facts" aria-hidden="true">{skeletonBar('conversations-skeleton-facts')}</p>}
@@ -248,12 +242,23 @@ export function ConversationsPage() {
         const headingId = `conversations-${group.id}`
         return (
           <section className="block conversation-group" aria-labelledby={headingId} key={group.id}>
-            <h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2>
-            <ul className="conversation-list">
+            <details open={!collapsed.has(group.id)} onToggle={(event) => {
+              const closed = !event.currentTarget.open
+              setCollapsed((current) => {
+                if (current.has(group.id) === closed) return current
+                const next = new Set(current)
+                if (closed) next.add(group.id)
+                else next.delete(group.id)
+                return next
+              })
+            }}>
+              <summary className="conversation-group-heading"><h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2></summary>
+              <ul className="conversation-list">
               {group.conversations.map((conversation) => (
-                <ConversationRow key={rowKey(conversation)} conversation={conversation} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
+                <ConversationRow key={rowKey(conversation)} conversation={conversation} reason={needsYouReason(conversation, now, (ref) => names.get(rowKey(ref)))} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
               ))}
-            </ul>
+              </ul>
+            </details>
           </section>
         )
       })}
@@ -376,14 +381,14 @@ function openStatus(outcome: ConversationOpenOutcome, route: ConversationRoute, 
   return { tone: reply.opened ? 'opened' : 'not-opened', message: reply.message, command: replyCommand(reply, route), subject }
 }
 
-const rowKey = (conversation: Conversation) => `${conversation.tool}:${conversation.id}`
+const rowKey = (conversation: Pick<Conversation, 'tool' | 'id'>) => `${conversation.tool}:${conversation.id}`
 
 interface ShellFeedback {
   message: string
   failed: boolean
 }
 
-function ConversationRow({ conversation, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback }: { conversation: Conversation; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void }) {
+function ConversationRow({ conversation, reason, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback }: { conversation: Conversation; reason?: string; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
   const [shellSelection, setShellSelection] = useState<StuckShell>()
@@ -423,22 +428,24 @@ function ConversationRow({ conversation, under, now, editor, canOpen, opened, on
 
   const statusTone = shellFeedback ? (shellFeedback.failed ? 'failed' : 'opened') : status?.tone
 
-  // Open now rows always show the ink pill; the others turn their link into it on hover and focus.
+  const place = conversationPlaceLabel(conversation)
+  const toolLabel = conversationToolLabel(conversation)
   return (
     <li className={`conversation row-hover${conversation.live ? ' is-live' : ''}${under ? ' is-nested' : ''}`} data-tool={conversation.tool}>
       <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
       <div className="conversation-body">
         <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
+        {reason && <p className="conversation-reason">{reason}</p>}
         {under && <p className="sr-only">Started from {chatText(under.title || 'Untitled').text}</p>}
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
         {withheld.includes('reply')
           ? <Withheld label={withheldLabel('reply')} />
           : conversation.reply && <p className="conversation-reply" title={conversation.reply}><span className="sr-only">Latest reply: </span>{conversation.reply}</p>}
         <p className="conversation-meta">
-          {conversation.live && <LiveBadge conversation={conversation} now={now} />}
+          {conversation.live && !conversation.state && !reason && <LiveBadge conversation={conversation} now={now} />}
           <StateBadge conversation={conversation} />
-          <span className="conversation-tool" title={`${toolName(conversation.tool)}, ${appLabel(conversation.app)}`}>{toolName(conversation.tool)}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
-          {conversation.cloud && <span className="conversation-shared" title="Also open on claude.ai">Shared<span className="sr-only">: also open on claude.ai</span></span>}
+          <span className="conversation-tool" title={`${toolLabel}, ${appLabel(conversation.app)}`}>{toolLabel}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
+          {place && <span className="conversation-place">{place}</span>}
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
           {conversation.branch && <span className="conversation-branch">{conversation.branch}</span>}
           <time dateTime={conversation.updatedAt} title={formatTime(conversation.updatedAt)}>{relativeTime(conversation.updatedAt, now)}</time>
@@ -611,6 +618,7 @@ function LiveBadge({ conversation, now }: { conversation: Conversation; now: Dat
 }
 
 function StateBadge({ conversation }: { conversation: Conversation }) {
+  if (!conversation.unread || (conversation.state !== 'active' && (conversation.state || !conversation.live))) return null
   const badge = stateBadge(conversation.state, conversation.unread)
   if (!badge) return null
   return (
