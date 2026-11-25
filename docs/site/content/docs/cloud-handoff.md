@@ -9,7 +9,7 @@ group = "Workflows"
 
 # Cloud handoffs
 
-Use the built-in `cloud-handoff` skill to continue a task in the cloud while your computer is off. The cloud session starts from a fresh clone, so the agent first pushes the work and records the goal. Use a [handoff](@/docs/handoff.md) to pass a task to another tool on this machine. Start a [side conversation](@/docs/side-conversation.md) to run another task in parallel here.
+Use the built-in `cloud-handoff` skill to continue a task in the cloud while your computer is off. The agent pushes the work and records the goal before it launches the session. Use a [handoff](@/docs/handoff.md) to pass a task to another tool on this machine. Start a [side conversation](@/docs/side-conversation.md) to run another task in parallel here.
 
 ## Enable the skill
 
@@ -41,7 +41,9 @@ It never runs on its own. Without the phrase, the session stays local.
 - Never the default branch. On the default branch or a detached HEAD, it creates a new branch and names it.
 - No force-push. A failing commit hook or push stops the handoff with its message.
 
-The cloud session starts from the pushed branch. A Claude Code session puts its own work on a new `claude/...` branch, so your branch stays yours; a Codex task returns a diff.
+The cloud session starts from the pushed branch. A Claude Code session puts its own work on a new `claude/...` branch. A Codex task returns a diff.
+
+For Claude Code, the agent starts the launch in a temporary clone of the pushed branch, with one commit, one branch and no tags. It checks that the clone is clean and matches the commit it pushed. This keeps other branches, older local commits and uncommitted files out of the upload when Claude Code uses a [local repository bundle](https://code.claude.com/docs/en/claude-code-on-the-web#send-local-repositories-without-github). If the clone or either check fails, the handoff stops.
 
 ## What each tool needs
 
@@ -51,7 +53,7 @@ The cloud session starts from the pushed branch. A Claude Code session puts its 
 | Codex | `codex cloud exec --env "<id>" --branch "<branch>" -` | A ChatGPT sign-in (`codex login`) and a cloud environment id |
 | Other tools | none | The agent says so and offers a local [handoff](@/docs/handoff.md) note |
 
-- `claude --cloud` only starts from a terminal. The agent runs it inside `script`, reads the link, then stops the local process; the cloud session keeps running. On Windows, where `script` is missing, the agent gives you the command to run yourself.
+- `claude --cloud` only starts from a terminal. The agent runs it inside `script`, reads the link and stops the local process. The cloud session keeps running. On Windows, where `script` is missing, the agent gives you the command to run from the verified temporary clone.
 - Codex needs an environment id; the agent asks for it once per session and does not store it. Create or find one at [chatgpt.com/codex/settings/environments](https://chatgpt.com/codex/settings/environments), or browse them with `codex cloud` in a terminal. The `codex cloud` command is marked experimental.
 
 ## Where the session shows up

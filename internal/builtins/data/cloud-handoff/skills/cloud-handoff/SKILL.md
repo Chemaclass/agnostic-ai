@@ -5,7 +5,7 @@ description: Push the current task to a branch and continue it in a cloud sessio
 
 # cloud-handoff
 
-Send the current task to a cloud session that goes on without this computer. The cloud session starts from a fresh clone: it sees no uncommitted work and no chat history. So push the work first, then write down the goal, then launch.
+Send the current task to a cloud session that goes on without this computer. Push the work first, then write down the goal, then launch. Claude Code can upload local files and history when the GitHub App is missing, so launch it only from the clean snapshot below.
 
 ## When
 
@@ -17,7 +17,7 @@ Send the current task to a cloud session that goes on without this computer. The
 Check each of these before you change anything. If one fails, stop and say which one and what the user can do.
 
 1. `git rev-parse --is-inside-work-tree` prints `true`. Otherwise there is nothing to push.
-2. `git remote get-url origin` prints a URL. Without a remote the cloud cannot clone the work.
+2. `git remote get-url origin >/dev/null` succeeds. Without a remote the cloud cannot clone the work. Keep the URL out of the output.
 3. `command -v` finds the launch command of the row you will use in the Launch table below.
 4. The row's other needs are met: a terminal wrapper for the cloud launch, or an environment id.
 5. The push and the launch need network access. In a sandbox without it, ask the user to allow it, or give them the lines to run, and stop.
@@ -27,7 +27,8 @@ Check each of these before you change anything. If one fails, stop and say which
 1. Never push to the default branch (the one `git symbolic-ref --short refs/remotes/origin/HEAD` names, else `main` or `master`). On the default branch or a detached HEAD, create a new branch first, such as `cloud/<short-task-slug>`, and name it in your reply.
 2. Show `git status --short`. Stage only the files of this task, by path. Never stage a `.env` file, a key or certificate file, or anything else that looks like a secret; leave it out and say so.
 3. Commit with a short message that names the task. If the commit fails, for example a hook or signing fails, stop and show its output. Do not skip the hook. Do not change Git settings, such as signing, to get the commit through.
-4. `git push -u origin <branch>`. If it fails, stop and show the error. Never force-push.
+4. Immediately before the push, record the branch from `git symbolic-ref --quiet --short HEAD` and its exact commit from `git rev-parse "<recorded-branch>"`. Use `git push -u origin <branch>` with that recorded branch. If it fails, stop and show the error. Never force-push.
+5. After the push succeeds, keep those recorded values. Set and export `CLOUD_BRANCH` and `CLOUD_COMMIT` to them in the launch shell. Do not replace them with a later local HEAD. Include the commit in the prompt's Branch section.
 
 ## Write the prompt
 
@@ -75,9 +76,50 @@ Use the row for the tool this session runs in. Use another row only when the use
 
 ### Claude Code
 
+Prepare a disposable snapshot before invoking Claude Code. A missing GitHub App can make the CLI upload local files and branch history. Never launch from the current checkout, even when its ordinary status looks clean. The shallow remote clone excludes other local branches, earlier commits and uncommitted files. `--no-local` also makes depth apply to relative paths and file remotes.
+
+Run the prompt lines, this preparation and the terminal wrapper in one shell command, using the recorded branch and commit whose push succeeded. Any failure stops the launch. Refuse a URL with embedded credentials before cloning: Git would otherwise expose them in process arguments and save them in the clone's configuration. Do not print remote URLs or credentials, copy credential files, or change authentication settings. The clone uses the user's existing Git authentication.
+
+```bash
+[ -n "${CLOUD_BRANCH:-}" ] && [ -n "${CLOUD_COMMIT:-}" ] || exit 1
+CLOUD_SOURCE=$(git rev-parse --show-toplevel) || exit 1
+CLOUD_ORIGIN=$(git remote get-url origin) || exit 1
+cloud_url_credentials=no
+case "$CLOUD_ORIGIN" in
+  *://*)
+    cloud_scheme=${CLOUD_ORIGIN%%://*}
+    case "$cloud_scheme" in
+      ""|[!A-Za-z]*|*[!A-Za-z0-9+.-]*) ;;
+      *)
+        case "$CLOUD_ORIGIN" in *\?*|*\#*) cloud_url_credentials=yes ;; esac
+        cloud_authority=${CLOUD_ORIGIN#*://}
+        cloud_authority=${cloud_authority%%/*}
+        case "$cloud_authority" in
+          *@*)
+            cloud_userinfo=${cloud_authority%@*}
+            case "$CLOUD_ORIGIN" in
+              [sS][sS][hH]://*|git+ssh://*|ssh+git://*)
+                case "$cloud_userinfo" in *:*) cloud_url_credentials=yes ;; esac ;;
+              *) cloud_url_credentials=yes ;;
+            esac ;;
+        esac ;;
+    esac ;;
+esac
+[ "$cloud_url_credentials" = no ] || { echo 'Origin URL can carry credentials. Use a credential helper or an SSH remote, then ask again.' >&2; exit 1; }
+CLOUD_SCRATCH=$(mktemp -d) || exit 1
+git rev-parse --local-env-vars >"$CLOUD_SCRATCH/git-env" || exit 1
+while IFS= read -r cloud_git_name; do unset "$cloud_git_name"; done <"$CLOUD_SCRATCH/git-env"
+cd "$CLOUD_SOURCE" || exit 1
+git clone --quiet --no-local --depth 1 --single-branch --no-tags --no-recurse-submodules --branch "$CLOUD_BRANCH" -- "$CLOUD_ORIGIN" "$CLOUD_SCRATCH/repo" >/dev/null 2>&1 || { echo 'Could not prepare the pushed snapshot.' >&2; exit 1; }
+cd "$CLOUD_SCRATCH/repo" || exit 1
+[ "$(git symbolic-ref --quiet --short HEAD)" = "$CLOUD_BRANCH" ] && [ "$(git rev-parse HEAD)" = "$CLOUD_COMMIT" ] || { echo 'The snapshot does not match the pushed branch and commit.' >&2; exit 1; }
+cloud_status=$(git status --porcelain=v1 --untracked-files=all --ignored) || exit 1
+[ -z "$cloud_status" ] || { echo 'The snapshot has local files or changes.' >&2; exit 1; }
+```
+
 `claude --cloud` refuses to run without a terminal (`Error: --cloud requires an interactive terminal.`), and a shell tool has none. Give it one with `script`, write its output to a file, wait for the `View: ` line, then kill it: after printing that line it keeps running. Feed it from `sleep`, so its input stays open and sends nothing; `</dev/null` would send it an end of input at once.
 
-On macOS, after the prompt lines above:
+On macOS, after the prompt and snapshot preparation above:
 
 ```bash
 log=$(mktemp)
@@ -94,7 +136,11 @@ On Linux, start it with `sleep 150 | script -q -c 'claude --cloud "$CLOUD_PROMPT
 
 On success the output holds three lines: `Created cloud session: <title>`, `View: https://claude.ai/code/session_<id>?...`, and `Resume with: claude --teleport session_<id>`. The output may also hold terminal escape codes; read past them.
 
-Without `script`, such as on Windows, do not launch. Show the user the prompt and the line `claude --cloud "<prompt>"` to run in their own terminal from this checkout, and stop.
+Once the wrapper has stopped, remove only the exact temporary snapshot directory recorded in `CLOUD_SCRATCH`, including its `git-env` file. First print its resolved absolute path and confirm it is the directory this preparation created. A failed preparation may also leave that directory behind. Never remove the original checkout.
+
+Without `script`, such as on Windows, do not launch. Show the user the prompt and the recorded branch and commit. Before any clone, have them inspect the origin URL without displaying it. Refuse HTTP(S) userinfo, any URI username with a password, and URLs with a query or fragment. Apply URL checks only to origins with a URI scheme followed by `://`; literal local filenames may contain `?` or `#`. Ordinary username-only SSH URLs and `git@host:path` remotes are allowed. On refusal, stop and ask them to use a credential helper or an SSH remote.
+
+After that check, have them create a fresh temporary folder and clone origin there with `git clone --no-local --depth 1 --single-branch --no-tags --no-recurse-submodules --branch "<recorded-branch>" "<origin>" "<fresh-folder>/repo"`, using their existing Git authentication. Clear repository-scoped variables named by `git rev-parse --local-env-vars` before cloning. From the new clone, require `git symbolic-ref --quiet --short HEAD` and `git rev-parse HEAD` to match the recorded values, and `git status --porcelain=v1 --untracked-files=all --ignored` to succeed with no output. Any error, mismatch or local file stops the launch. Only then may they run `claude --cloud "<prompt>"` in their own terminal. Never run that line from the original checkout. Remove only their recorded temporary snapshot folder once the local launch process has stopped.
 
 ### Codex
 

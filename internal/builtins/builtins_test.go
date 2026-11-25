@@ -737,9 +737,24 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 		t.Fatalf("prompt block has no quoted PROMPT heredoc:\n%s", blocks[0])
 	}
 	setPrompt := blocks[0][:start+len("<<'PROMPT'\n")] + prompt + blocks[0][end:]
+	prepare := ""
+	for _, block := range blocks {
+		if strings.Contains(block, "CLOUD_SCRATCH=$(mktemp -d)") {
+			prepare = block
+		}
+	}
+	if prepare == "" {
+		t.Fatal("skill has no disposable snapshot preparation")
+	}
 	const macLaunch = "sleep 150 | script -q /dev/null claude --cloud \"$CLOUD_PROMPT\" >\"$log\" 2>&1 &"
-	if !strings.Contains(blocks[1], macLaunch) {
-		t.Fatalf("launch block lacks %q:\n%s", macLaunch, blocks[1])
+	macBlock := ""
+	for _, block := range blocks {
+		if strings.Contains(block, macLaunch) {
+			macBlock = block
+		}
+	}
+	if macBlock == "" {
+		t.Fatalf("launch block lacks %q", macLaunch)
 	}
 	_, linuxTail, found := strings.Cut(string(body), "On Linux, start it with `")
 	linuxLaunch, _, closed := strings.Cut(linuxTail, "`")
@@ -747,22 +762,107 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 		t.Fatal("skill has no Linux launch line")
 	}
 	forms := map[string]string{
-		"macos": blocks[1],
-		"linux": strings.Replace(blocks[1], macLaunch, linuxLaunch, 1),
+		"macos": macBlock,
+		"linux": strings.Replace(macBlock, macLaunch, linuxLaunch, 1),
 	}
 
 	stubs := t.TempDir()
 	got := filepath.Join(stubs, "prompt.txt")
+	ranClaude := filepath.Join(stubs, "claude-ran")
+	ranClone := filepath.Join(stubs, "clone-ran")
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
 	writeStub := func(name, script string) {
 		t.Helper()
 		if err := os.WriteFile(filepath.Join(stubs, name), []byte(script), 0o755); err != nil {
 			t.Fatal(err)
 		}
 	}
-	writeStub("claude", "#!/bin/sh\n[ \"$1\" = --cloud ] || exit 9\nprintf '%s' \"$2\" >\"$PROMPT_OUT\"\necho 'View: https://claude.ai/code/session_test'\nexec sleep 30\n")
+	writeStub("claude", `#!/bin/sh
+: >"$CLAUDE_RAN"
+fail() { echo "Error: $1"; exit 9; }
+[ "$1" = --cloud ] || fail arguments
+[ "$(pwd -P)" != "$SOURCE_CHECKOUT" ] || fail source-checkout
+[ "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT" ] || fail commit
+[ "$(git symbolic-ref --short HEAD)" = "$CLOUD_BRANCH" ] || fail branch
+[ "$(git rev-list --all --count)" = 1 ] || fail history
+[ -z "$(git status --porcelain=v1 --untracked-files=all --ignored)" ] || fail dirty
+[ ! -e untracked.txt ] && [ ! -e ignored.env ] || fail contamination
+[ "$(cat task.txt)" = pushed ] || fail changed-file
+if git cat-file -e "$PRIVATE_COMMIT^{commit}" 2>/dev/null; then fail private-history; fi
+if git cat-file -e "$BASE_COMMIT^{commit}" 2>/dev/null; then fail parent-history; fi
+printf '%s' "$2" >"$PROMPT_OUT"
+echo 'View: https://claude.ai/code/session_test'
+exec sleep 30
+`)
 	scratch := t.TempDir()
-	writeStub("mktemp", "#!/bin/sh\nexec /usr/bin/mktemp "+scratch+"/tmp.XXXXXX\n")
+	writeStub("mktemp", `#!/bin/sh
+exec /usr/bin/mktemp "$@" "$CLOUD_TEST_TMP/tmp.XXXXXX"
+`)
 	writeStub("script", "#!/bin/sh\n[ \"$1\" = -q ] || exit 9\nif [ \"$2\" = -c ]; then exec sh -c \"$3\"; fi\nshift 2\nexec \"$@\"\n")
+	writeStub("git", `#!/bin/sh
+if [ "$1" = clone ]; then
+  : >"$CLONE_RAN"
+  [ "${BLOCK_CLONE:-0}" = 0 ] || exit 9
+fi
+exec "$REAL_GIT" "$@"
+`)
+
+	fixture := t.TempDir()
+	origin, source := filepath.Join(fixture, "origin.git"), filepath.Join(fixture, "source")
+	git := func(dir string, args ...string) string {
+		t.Helper()
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "GIT_CONFIG_COUNT=0", "GIT_AUTHOR_NAME=Test", "GIT_AUTHOR_EMAIL=test@example.com", "GIT_COMMITTER_NAME=Test", "GIT_COMMITTER_EMAIL=test@example.com")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return strings.TrimSpace(string(out))
+	}
+	git(fixture, "init", "--bare", origin)
+	git(fixture, "init", "-b", "cloud/x", source)
+	writeSource := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(source, name), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeSource("task.txt", "base")
+	writeSource(".gitignore", "ignored.env\n")
+	git(source, "add", "task.txt", ".gitignore")
+	git(source, "-c", "commit.gpgsign=false", "commit", "-m", "base")
+	base := git(source, "rev-parse", "HEAD")
+	writeSource("task.txt", "pushed")
+	git(source, "add", "task.txt")
+	git(source, "-c", "commit.gpgsign=false", "commit", "-m", "pushed")
+	pushed := git(source, "rev-parse", "HEAD")
+	git(source, "remote", "add", "origin", "../origin.git")
+	git(source, "push", "origin", "cloud/x")
+	git(fixture, "clone", "--bare", origin, filepath.Join(fixture, "literal?name#repo.git"))
+	git(source, "switch", "-c", "private")
+	writeSource("private.txt", "local-only")
+	git(source, "add", "private.txt")
+	git(source, "-c", "commit.gpgsign=false", "commit", "-m", "private")
+	private := git(source, "rev-parse", "HEAD")
+	git(source, "switch", "cloud/x")
+	writeSource("task.txt", "uncommitted")
+	writeSource("untracked.txt", "local-only")
+	writeSource("ignored.env", "synthetic-local-only")
+	physicalSource, err := filepath.EvalSymlinks(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	environment := func(commit string) []string {
+		return append(os.Environ(), "PATH="+stubs+":/usr/bin:/bin", "PROMPT_OUT="+got, "CLAUDE_RAN="+ranClaude,
+			"REAL_GIT="+realGit, "CLONE_RAN="+ranClone,
+			"CLOUD_TEST_TMP="+scratch, "CLOUD_BRANCH=cloud/x", "CLOUD_COMMIT="+commit,
+			"EXPECTED_COMMIT="+pushed, "PRIVATE_COMMIT="+private, "BASE_COMMIT="+base,
+			"SOURCE_CHECKOUT="+physicalSource, "GIT_DIR="+filepath.Join(source, ".git"), "GIT_WORK_TREE="+source)
+	}
 
 	run := 0
 	for _, shell := range []string{"/bin/bash", "/bin/sh", "zsh"} {
@@ -771,6 +871,11 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 			continue
 		}
 		for _, form := range []string{"macos", "linux"} {
+			remote := "../literal?name#repo.git"
+			if form == "linux" {
+				remote = "file://" + origin
+			}
+			git(source, "remote", "set-url", "origin", remote)
 			run++
 			// A sleep length unique to this run lets the test find its own
 			// leftover input process, even beside a parallel run.
@@ -778,8 +883,9 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 			launch := strings.ReplaceAll(forms[form], "sleep 150", input)
 			t.Run(filepath.Base(shell)+"/"+form, func(t *testing.T) {
 				_ = os.Remove(got)
-				cmd := exec.Command(path, "-c", setPrompt+launch)
-				cmd.Env = append(os.Environ(), "PATH="+stubs+":/usr/bin:/bin", "PROMPT_OUT="+got)
+				cmd := exec.Command(path, "-c", setPrompt+prepare+launch)
+				cmd.Dir = source
+				cmd.Env = environment(pushed)
 				var buf bytes.Buffer
 				cmd.Stdout, cmd.Stderr = &buf, &buf
 				// A process left behind by the snippet holds its output open.
@@ -802,6 +908,60 @@ func TestCloudHandoff_LaunchSnippetKeepsThePromptIntact(t *testing.T) {
 				}
 				if string(sent) != prompt {
 					t.Errorf("prompt arrived as\n%q\nwant\n%q", sent, prompt)
+				}
+			})
+			t.Run(filepath.Base(shell)+"/"+form+"/mismatched-commit", func(t *testing.T) {
+				_ = os.Remove(ranClaude)
+				cmd := exec.Command(path, "-c", setPrompt+prepare+launch)
+				cmd.Dir = source
+				cmd.Env = environment(base)
+				cmd.WaitDelay = 5 * time.Second
+				out, err := cmd.CombinedOutput()
+				if err == nil || !strings.Contains(string(out), "does not match the pushed branch and commit") {
+					t.Errorf("mismatched snapshot = %v, %s", err, out)
+				}
+				if _, err := os.Stat(ranClaude); !os.IsNotExist(err) {
+					t.Errorf("Claude ran for a mismatched commit: %v", err)
+				}
+			})
+		}
+		for _, tc := range []struct {
+			name, remote string
+			credentials  bool
+		}{
+			{"https-token", "https://synthetic-private-token@example.invalid/repo.git", true},
+			{"https-password", "https://git:synthetic-private-token@example.invalid/repo.git", true},
+			{"ssh-password", "ssh://git:synthetic-private-token@example.invalid/repo.git", true},
+			{"https-query", "https://example.invalid/repo.git?token=synthetic-private-token", true},
+			{"https-fragment", "https://example.invalid/repo.git#synthetic-private-token", true},
+			{"ssh-user", "ssh://git@example.invalid/repo.git", false},
+			{"ssh-scp", "git@example.invalid:repo.git", false},
+		} {
+			t.Run(filepath.Base(shell)+"/origin/"+tc.name, func(t *testing.T) {
+				git(source, "remote", "set-url", "origin", tc.remote)
+				_ = os.Remove(ranClone)
+				_ = os.Remove(ranClaude)
+				cmd := exec.Command(path, "-c", setPrompt+prepare+macBlock)
+				cmd.Dir = source
+				cmd.Env = append(environment(pushed), "BLOCK_CLONE=1")
+				cmd.WaitDelay = 5 * time.Second
+				out, err := cmd.CombinedOutput()
+				if err == nil {
+					t.Error("the guarded origin unexpectedly launched")
+				}
+				if strings.Contains(string(out), "synthetic-private-token") || strings.Contains(string(out), tc.remote) {
+					t.Error("the origin appeared in the output")
+				}
+				_, cloneErr := os.Stat(ranClone)
+				if tc.credentials {
+					if !os.IsNotExist(cloneErr) || !strings.Contains(string(out), "credential helper or an SSH remote") {
+						t.Errorf("credential-bearing origin reached clone or lacked setup guidance: %v, %s", cloneErr, out)
+					}
+				} else if cloneErr != nil {
+					t.Errorf("an ordinary SSH origin was refused before clone: %v, %s", cloneErr, out)
+				}
+				if _, err := os.Stat(ranClaude); !os.IsNotExist(err) {
+					t.Errorf("Claude ran for a refused clone: %v", err)
 				}
 			})
 		}
