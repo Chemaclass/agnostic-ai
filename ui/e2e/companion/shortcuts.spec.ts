@@ -74,6 +74,16 @@ test('question mark in empty search or editable fields stays text', async ({ pag
 })
 
 test('question mark does not open while search contains text or another menu is open', async ({ page }) => {
+  let releaseMenu!: () => void
+  let menuRequested!: () => void
+  const pendingMenu = new Promise<void>((resolve) => { releaseMenu = resolve })
+  const requestedMenu = new Promise<void>((resolve) => { menuRequested = resolve })
+  await page.route('**/menu.json', async (route) => {
+    const response = await route.fetch()
+    menuRequested()
+    await pendingMenu
+    await route.fulfill({ response })
+  })
   await openPanel(page)
   const query = page.getByRole('textbox', { name: 'Search every conversation' })
   await query.fill('migration')
@@ -84,14 +94,24 @@ test('question mark does not open while search contains text or another menu is 
   await query.fill('')
   await expect(firstRow(page)).toBeVisible()
   await page.locator('#menu-button').click()
+  await requestedMenu
+  const settingsMenu = page.getByRole('region', { name: 'Settings', exact: true })
+  await expect(settingsMenu).toBeHidden()
+  releaseMenu()
+  await expect(settingsMenu).toBeVisible()
   await firstRow(page).focus()
   await page.keyboard.press('?')
   await expect(sheet(page)).toBeHidden()
+  await expect(settingsMenu).toBeVisible()
   await page.keyboard.press('Escape')
+  await expect(settingsMenu).toBeHidden()
   await firstRow(page).click({ button: 'right' })
+  const rowMenu = page.getByRole('menu', { name: 'Conversation', exact: true })
+  await expect(rowMenu).toBeVisible()
   await firstRow(page).focus()
   await page.keyboard.press('?')
   await expect(sheet(page)).toBeHidden()
+  await expect(rowMenu).toBeVisible()
 })
 
 test('modifiers, repeat and input method candidates do not open the sheet', async ({ page }) => {
