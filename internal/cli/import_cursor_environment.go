@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/chemaclass/agnostic-ai/internal/config"
+	"github.com/chemaclass/agnostic-ai/internal/spec"
 )
 
 // cursorEnvironmentFile is where Cursor Cloud reads its environment
@@ -30,6 +31,7 @@ var cursorEnvironmentReservedKeys = []string{
 	"name", "scope", "description", "setup", "setup-windows", "cleanup", "dev-commands",
 	"setup-worktree", "setup-worktree-unix", "setup-worktree-windows",
 	"target", "targets", "target-exclude", "targets-exclude",
+	spec.EnvironmentVariablesField, spec.EnvironmentAllowedDomainsField,
 }
 
 // importCursorEnvironment reads a hand-written .cursor/environment.json
@@ -76,6 +78,10 @@ func importCursorEnvironment(root string, src config.Sources) (int, error) {
 			filepath.ToSlash(cursorEnvironmentFile), filepath.ToSlash(src.Environments)+"/"+cursorEnvironmentSpecName+".yaml")
 		return 0, nil
 	}
+	dropGeneratedCursorAllowlist(root, doc)
+	if len(doc.Content) == 0 {
+		return 0, nil
+	}
 	name := yaml.Node{Kind: yaml.ScalarNode, Value: cursorEnvironmentSpecName}
 	head := []*yaml.Node{{Kind: yaml.ScalarNode, Value: "name"}, &name}
 	if scopeImportedEnvironment(root, "cursor") {
@@ -93,4 +99,29 @@ func importCursorEnvironment(root string, src config.Sources) (int, error) {
 		return 0, fmt.Errorf("write %s: %w", out, err)
 	}
 	return 1, nil
+}
+
+func dropGeneratedCursorAllowlist(root string, doc *yaml.Node) {
+	for i := 0; i < len(doc.Content); i += 2 {
+		if doc.Content[i].Value != "egressAllowlist" {
+			continue
+		}
+		var native []string
+		if err := doc.Content[i+1].Decode(&native); err != nil {
+			return
+		}
+		_, bundle, err := loadProject(root)
+		if err != nil {
+			return
+		}
+		meta := resolvedCloudRequirementMeta(bundle.Environments, "cursor")
+		if _, explicit := meta["egressAllowlist"]; explicit {
+			return
+		}
+		requirements, _ := spec.ReadEnvironmentRequirements(meta)
+		if requirements.AllowedDomains != nil && slices.Equal(native, requirements.AllowedDomains) {
+			doc.Content = slices.Delete(doc.Content, i, i+2)
+		}
+		return
+	}
 }

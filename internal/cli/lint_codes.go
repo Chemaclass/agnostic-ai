@@ -71,6 +71,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "`agnostic-ai.yaml` or `agnostic-ai.local.yaml` in a project sets an `approvals` key other than `mode: ask`. A cloned repository, a pull request, or the agent itself can write those files, so `review`, `yolo`, `tools`, `projects` and `always-ask` are read only from the home config. Approvals ignore the key.",
 		Fix:      "Move the setting to `$AGNOSTIC_AI_HOME/agnostic-ai.yaml` or its `local/` file. A project file may keep `approvals.mode: ask` to turn approvals off for the repository.",
 	},
+	"LINT066": {
+		Severity: lintError,
+		Title:    "Invalid cloud environment requirements",
+		Cause:    "An environment spec lists a value, repeats a variable name, or gives `variables` or `allowed-domains` an invalid form.",
+		Fix:      "List variables as unique name mappings with optional description and secret fields. List domain names without URLs. Enter variable values in the cloud tool UI.",
+	},
 	"LINT062": {
 		Severity: lintWarn,
 		Title:    "rules-file on a target that writes none",

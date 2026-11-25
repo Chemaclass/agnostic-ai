@@ -1,3 +1,6 @@
 {
+  "egressAllowlist": [
+    "registry.example.com"
+  ],
   "install": "go mod download"
 }

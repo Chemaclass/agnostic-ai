@@ -1,0 +1,7 @@
+name: cursor
+targets: [cursor]
+variables:
+  - name: PACKAGE_TOKEN
+    secret: true
+allowed-domains:
+  - registry.example.com
