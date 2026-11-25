@@ -110,7 +110,7 @@ func TestOpen_ClaudeSessionLivenessFromItsSessionsFolder(t *testing.T) {
 				}
 			},
 		},
-		"the sessions folder cannot be listed": {
+		"the sessions path is a file": {
 			sessions: func(stores Stores) { write(t, filepath.Join(stores.ClaudeDir, "sessions"), "not a folder") },
 		},
 		"no sessions folder and a good process read": {resumes: true},

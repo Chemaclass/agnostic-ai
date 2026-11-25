@@ -215,10 +215,12 @@ func TestApprovals_CompanionLinesAreNotApprovedForYou(t *testing.T) {
 }
 
 func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
+	const hookPID = 777
 	home := t.TempDir()
 	now := time.Now()
 	reader := newApprovalsReader()
 	reader.source = func() (string, error) { return home, nil }
+	reader.alive = func(pid int) bool { return pid == hookPID }
 	reader.afterFunc = func(time.Duration, func()) {}
 	reader.rows = func(context.Context) (conversations.View, string) {
 		row := conversations.Conversation{Tool: conversations.ToolClaude, ID: "s", Live: true}
@@ -229,7 +231,7 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 	dir := approvals.PendingDir(home)
 	id, _ := approvals.NewPendingID()
 	digest := approvals.PendingDigest("claude", "s", "Bash", []byte(`{"command":"touch a.txt"}`))
-	if err := approvals.WritePending(dir, approvals.Pending{ID: id, Tool: "claude", Session: "s", Call: "Bash", Digest: digest, Created: now, Expires: now.Add(time.Minute), PID: os.Getpid()}); err != nil {
+	if err := approvals.WritePending(dir, approvals.Pending{ID: id, Tool: "claude", Session: "s", Call: "Bash", Digest: digest, Created: now, Expires: now.Add(time.Minute), PID: hookPID}); err != nil {
 		t.Fatal(err)
 	}
 	orphanID, _ := approvals.NewPendingID()
@@ -237,7 +239,7 @@ func TestApprovalsHandler_DecideWritesOnlyAMatchingDecision(t *testing.T) {
 		t.Fatal(err)
 	}
 	expiredID, _ := approvals.NewPendingID()
-	if err := approvals.WritePending(dir, approvals.Pending{ID: expiredID, Digest: digest, Created: now.Add(-time.Hour), Expires: now.Add(-time.Minute), PID: os.Getpid()}); err != nil {
+	if err := approvals.WritePending(dir, approvals.Pending{ID: expiredID, Digest: digest, Created: now.Add(-time.Hour), Expires: now.Add(-time.Minute), PID: hookPID}); err != nil {
 		t.Fatal(err)
 	}
 	body := func(id, digest, decision string) string {

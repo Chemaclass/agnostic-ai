@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -141,10 +142,13 @@ func TestSettingsSync_InstallsTheHookOnACleanHome(t *testing.T) {
 		t.Errorf("%s has no approvals hook:\n%s", settings, got)
 	}
 	reply := decodeSyncReply[settingsSyncReply](t, rec.Body.Bytes())
-	for _, tool := range reply.Settings.Approvals.Tools {
-		if tool.Tool == "claude" && tool.Effective != config.ApprovalsYolo {
-			t.Errorf("claude after the sync = %+v", tool)
-		}
+	claude := toolStatus(t, approvalsStatusOutput{Tools: reply.Settings.Approvals.Tools}, "claude")
+	wantEffective, wantReason := config.ApprovalsYolo, ""
+	if runtime.GOOS == "windows" {
+		wantEffective, wantReason = config.ApprovalsAsk, approvals.WindowsReason
+	}
+	if claude.Mode != config.ApprovalsYolo || claude.Effective != wantEffective || claude.Reason != wantReason {
+		t.Errorf("claude after the sync = %+v; want yolo with effective %s and reason %q", claude, wantEffective, wantReason)
 	}
 	if reply.Settings.Sync.Needed {
 		t.Errorf("sync still needed: %v", reply.Settings.Sync.Reasons)

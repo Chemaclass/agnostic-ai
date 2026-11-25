@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -174,11 +175,16 @@ func TestSettings_YoloOnACleanHomeAddsTheBuiltinAndAsksForASync(t *testing.T) {
 	if len(reply.Changed) != 1 || reply.Changed[0] != "local/agnostic-ai.yaml" {
 		t.Errorf("changed = %v", reply.Changed)
 	}
-	if reply.Settings.Approvals.Mode != config.ApprovalsYolo || !reply.Settings.Sync.Needed || !reply.Settings.CanLoosen {
+	if reply.Settings.Approvals.Mode != config.ApprovalsYolo || !reply.Settings.CanLoosen {
 		t.Errorf("document = %s", rec.Body)
 	}
-	if !strings.Contains(strings.Join(reply.Settings.Sync.Reasons, "\n"), "claude: the hook is not installed") {
-		t.Errorf("reasons = %v", reply.Settings.Sync.Reasons)
+	claude := toolStatus(t, approvalsStatusOutput{Tools: reply.Settings.Approvals.Tools}, "claude")
+	if runtime.GOOS == "windows" {
+		if claude.Effective != config.ApprovalsAsk || claude.Reason != approvals.WindowsReason || reply.Settings.Sync.Needed || len(reply.Settings.Sync.Reasons) != 0 {
+			t.Errorf("Windows document = %s", rec.Body)
+		}
+	} else if !reply.Settings.Sync.Needed || !strings.Contains(strings.Join(reply.Settings.Sync.Reasons, "\n"), "claude: the hook is not installed") {
+		t.Errorf("sync = %+v", reply.Settings.Sync)
 	}
 	status := approvalsStatusJSON(t)
 	for _, tool := range status.Tools {
