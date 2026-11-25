@@ -3,6 +3,10 @@ description: Tell us what you want to do or what gets in your way.
 title: "feat: "
 labels: ["enhancement"]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Start with a short idea or problem. The issue body is the source of truth; update it as the plan changes. Maintainers choose one feature label by the outcome, alongside type and source labels. See the [triage guide](https://github.com/Chemaclass/agnostic-ai/blob/main/docs/internal/issue-triage.md).
   - type: textarea
     id: problem
     attributes:
@@ -22,5 +26,12 @@ body:
     attributes:
       label: Additional context (optional)
       description: Examples, links, or screenshots that help explain your request.
+    validations:
+      required: false
+  - type: textarea
+    id: verification
+    attributes:
+      label: Implementation or verification links (optional)
+      description: Link a pull request, test run, screenshot, or other evidence if it already exists. Add the result before closing a completed issue.
     validations:
       required: false

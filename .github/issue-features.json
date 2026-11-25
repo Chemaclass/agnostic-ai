@@ -1,0 +1,415 @@
+{
+  "groups": [
+    {
+      "id": "cli",
+      "features": [
+        {
+          "label": "cli:sync",
+          "scope": "Apply and repair generated outputs.",
+          "paths": [
+            "internal/cli/sync.go",
+            "internal/cli/sync*.go"
+          ]
+        },
+        {
+          "label": "cli:import",
+          "scope": "Convert native configuration to portable specs.",
+          "paths": [
+            "internal/cli/import.go",
+            "internal/cli/import*.go"
+          ]
+        },
+        {
+          "label": "cli:init",
+          "scope": "Start a project.",
+          "paths": [
+            "internal/cli/init.go",
+            "internal/cli/init_interactive.go"
+          ]
+        },
+        {
+          "label": "cli:checks",
+          "scope": "Diagnose invalid setup or drift.",
+          "paths": [
+            "internal/cli/lint.go",
+            "internal/cli/doctor.go"
+          ]
+        },
+        {
+          "label": "cli:inspect",
+          "scope": "Explain or compare valid setup.",
+          "paths": [
+            "internal/cli/explain.go",
+            "internal/cli/list.go",
+            "internal/overview/"
+          ]
+        },
+        {
+          "label": "cli:conventions",
+          "scope": "Shared CLI help, flags, scopes and output.",
+          "paths": [
+            "internal/cli/root.go",
+            "internal/cli/scope*.go",
+            "internal/term/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "specs",
+      "features": [
+        {
+          "label": "specs:instructions",
+          "scope": "Portable instructions, rules, agents and skills.",
+          "paths": [
+            "internal/spec/",
+            "internal/config/"
+          ]
+        },
+        {
+          "label": "specs:hooks",
+          "scope": "Portable hook definitions and events.",
+          "paths": [
+            "internal/spec/portable_hooks.go",
+            "internal/spec/hook_assets.go"
+          ]
+        },
+        {
+          "label": "specs:mcp",
+          "scope": "Portable MCP server definitions and references.",
+          "paths": [
+            "internal/spec/mcp_filename.go",
+            "internal/mcpprobe/"
+          ]
+        },
+        {
+          "label": "specs:permissions",
+          "scope": "Portable allow, ask and deny rules.",
+          "paths": [
+            "internal/spec/permission*.go",
+            "internal/authority/"
+          ]
+        },
+        {
+          "label": "specs:settings",
+          "scope": "Portable model, effort, retention and voice settings.",
+          "paths": [
+            "internal/spec/voice.go",
+            "internal/spec/session_retention.go",
+            "internal/config/"
+          ]
+        },
+        {
+          "label": "specs:memory",
+          "scope": "Shared project and personal memory.",
+          "paths": [
+            "internal/cli/memory.go",
+            "internal/cli/memory*.go"
+          ]
+        },
+        {
+          "label": "specs:packs",
+          "scope": "Install and share reusable specs.",
+          "paths": [
+            "internal/cli/packs.go",
+            "docs/internal/pack-authors.md"
+          ]
+        },
+        {
+          "label": "specs:config",
+          "scope": "Project envelope, inheritance and version requirements.",
+          "paths": [
+            "internal/config/",
+            "internal/spec/load.go",
+            "internal/spec/layer*.go"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "targets",
+      "features": [
+        {
+          "label": "targets:adapters",
+          "scope": "Write, read or document an existing tool's native mapping.",
+          "paths": [
+            "internal/adapters/",
+            "internal/cli/import*.go"
+          ]
+        },
+        {
+          "label": "targets:new",
+          "scope": "Add support for a new target.",
+          "paths": [
+            "internal/adapters/",
+            "docs/internal/adding-adapters.md"
+          ]
+        },
+        {
+          "label": "targets:audit",
+          "scope": "Detect and triage vendor changes.",
+          "paths": [
+            "scripts/target-audit/",
+            "scripts/docfetch.sh",
+            "scripts/vendor-watch.sh"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "runtime",
+      "features": [
+        {
+          "label": "runtime:run-hooks",
+          "scope": "Execute hooks during a tool session.",
+          "paths": [
+            "internal/hookrun/",
+            "internal/cli/hook_run.go"
+          ]
+        },
+        {
+          "label": "runtime:approvals",
+          "scope": "Decide and deliver permission policy.",
+          "paths": [
+            "internal/approvals/",
+            "internal/cli/hook_approve*.go",
+            "internal/cli/serve_approvals.go"
+          ]
+        },
+        {
+          "label": "runtime:protect-secrets",
+          "scope": "Keep credentials out of display, storage and export.",
+          "paths": [
+            "internal/spec/protect.go",
+            "internal/cli/credential*.go",
+            "internal/conversations/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sessions",
+      "features": [
+        {
+          "label": "sessions:catalog",
+          "scope": "Find existing chats and determine their identity or state.",
+          "paths": [
+            "internal/conversations/scan.go",
+            "internal/conversations/claude.go",
+            "internal/conversations/codex.go"
+          ]
+        },
+        {
+          "label": "sessions:organize",
+          "scope": "Search, filter, rename and archive chats.",
+          "paths": [
+            "internal/conversations/marks.go",
+            "internal/cli/serve_conversations*.go",
+            "ui/src/model/conversations.ts"
+          ]
+        },
+        {
+          "label": "sessions:open-session",
+          "scope": "Start, resume, switch or copy a command that opens a chat.",
+          "paths": [
+            "internal/conversations/open.go",
+            "internal/conversations/start*.go"
+          ]
+        },
+        {
+          "label": "sessions:send-input",
+          "scope": "Put text into a chat.",
+          "paths": [
+            "internal/conversations/send.go",
+            "companion/frontend/panel.js"
+          ]
+        },
+        {
+          "label": "sessions:handoff",
+          "scope": "Carry work between chats through notes, branches or the cloud.",
+          "paths": [
+            "internal/cli/handoff.go",
+            "internal/conversations/start*.go"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "companion",
+      "features": [
+        {
+          "label": "companion:attention",
+          "scope": "Notice and act on waiting work.",
+          "paths": [
+            "companion/frontend/panel.js",
+            "companion/frontend/bubble.js",
+            "companion/frontend/model.js"
+          ]
+        },
+        {
+          "label": "companion:window-controls",
+          "scope": "Show, hide, position and configure the floating app.",
+          "paths": [
+            "companion/main.go",
+            "companion/appearance.go",
+            "companion/preferences.go"
+          ]
+        },
+        {
+          "label": "companion:install",
+          "scope": "Install, update and remove the Companion.",
+          "paths": [
+            "internal/cli/companion*.go",
+            "companion/app.go"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mailbox",
+      "features": [
+        {
+          "label": "mailbox:messages",
+          "scope": "Deliver messages and manage threads.",
+          "paths": [
+            "internal/mailbox/",
+            "internal/cli/hook_mailbox.go"
+          ]
+        },
+        {
+          "label": "mailbox:handoffs",
+          "scope": "Transfer responsibility and claim files.",
+          "paths": [
+            "internal/mailbox/handoff.go",
+            "internal/mailbox/claims.go"
+          ]
+        },
+        {
+          "label": "mailbox:reviews",
+          "scope": "Request and measure reviews.",
+          "paths": [
+            "internal/mailbox/",
+            "docs/internal/experiments/cross-model-review.md"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "web-ui",
+      "features": [
+        {
+          "label": "web-ui:edit-setup",
+          "scope": "Edit or preview setup through the web interface.",
+          "paths": [
+            "ui/src/components/",
+            "internal/cli/serve_edit*.go",
+            "internal/preview/"
+          ]
+        },
+        {
+          "label": "web-ui:review-setup",
+          "scope": "Navigate and render read-only setup reports.",
+          "paths": [
+            "ui/src/components/",
+            "ui/src/model/",
+            "internal/overview/"
+          ]
+        },
+        {
+          "label": "web-ui:access",
+          "scope": "Enforce who may read or act through the web interface.",
+          "paths": [
+            "internal/cli/serve.go",
+            "internal/cli/serve_edit_guard*.go"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "editors",
+      "features": [
+        {
+          "label": "editors:vscode",
+          "scope": "Integrate with Visual Studio Code.",
+          "paths": [
+            "editors/vscode/"
+          ]
+        },
+        {
+          "label": "editors:jetbrains",
+          "scope": "Integrate with JetBrains editors.",
+          "paths": [
+            "editors/jetbrains/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "docs",
+      "features": [
+        {
+          "label": "docs:site",
+          "scope": "Read and navigate the documentation site.",
+          "paths": [
+            "docs/site/"
+          ]
+        },
+        {
+          "label": "docs:playground",
+          "scope": "Try the tool in a browser.",
+          "paths": [
+            "docs/playground/",
+            "cmd/agnostic-ai-wasm/"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delivery",
+      "features": [
+        {
+          "label": "delivery:release",
+          "scope": "Publish release artifacts.",
+          "paths": [
+            "scripts/release-assets.py",
+            ".github/workflows/release.yml"
+          ]
+        },
+        {
+          "label": "delivery:install",
+          "scope": "Install or upgrade the CLI.",
+          "paths": [
+            "scripts/install.sh",
+            "internal/cli/upgrade*.go"
+          ]
+        },
+        {
+          "label": "delivery:ci",
+          "scope": "Maintain contributor checks.",
+          "paths": [
+            ".github/workflows/ci.yml",
+            "Makefile",
+            "scripts/test-go.sh"
+          ]
+        },
+        {
+          "label": "delivery:code-health",
+          "scope": "Improve shared code without one feature owner.",
+          "paths": [
+            "internal/",
+            "cmd/"
+          ]
+        },
+        {
+          "label": "delivery:issue-planning",
+          "scope": "Describe and organize the backlog.",
+          "paths": [
+            ".github/ISSUE_TEMPLATE/",
+            ".github/issue-features.json",
+            "docs/internal/issue-triage.md"
+          ]
+        }
+      ]
+    }
+  ]
+}
