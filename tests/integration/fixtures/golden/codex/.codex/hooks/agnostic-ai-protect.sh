@@ -16,8 +16,27 @@ case $0 in
 */*) hooks_dir=${0%/*} ;;
 *) hooks_dir=. ;;
 esac
-AGNOSTIC_AI_ROOT=$(cd -- "$hooks_dir/../.." && pwd -P) || fail "the project root is not readable"
-AGNOSTIC_AI_LOGICAL_ROOT=$(cd -- "$hooks_dir/../.." && pwd -L) || fail "the project root is not readable"
+hooks_dir=$(cd -- "$hooks_dir" && pwd -L) || fail "the hooks folder is not readable"
+case $hooks_dir in
+*'/.codex/hooks')
+  root=${hooks_dir%'/.codex/hooks'}
+  [ -n "$root" ] || root=/
+  ;;
+*)
+  root=$hooks_dir
+  while [ ! -f "$root/agnostic-ai.yaml" ] && [ ! -f "$root/agnostic.config.yaml" ]; do
+    if [ "$root" = / ]; then
+      root=$(cd -- "$hooks_dir" && git rev-parse --show-toplevel 2>/dev/null) || root=
+      break
+    fi
+    root=${root%/*}
+    [ -n "$root" ] || root=/
+  done
+  ;;
+esac
+[ -n "$root" ] || fail "no agnostic-ai.yaml or Git worktree was found above the hook, so the project root is unknown"
+AGNOSTIC_AI_ROOT=$(cd -- "$root" && pwd -P) || fail "the project root is not readable"
+AGNOSTIC_AI_LOGICAL_ROOT=$(cd -- "$root" && pwd -L) || fail "the project root is not readable"
 AGNOSTIC_AI_CWD=$(pwd -P) || fail "the working directory is not readable"
 AGNOSTIC_AI_LOGICAL_CWD=$(pwd -L) || fail "the working directory is not readable"
 export AGNOSTIC_AI_ROOT AGNOSTIC_AI_LOGICAL_ROOT AGNOSTIC_AI_CWD AGNOSTIC_AI_LOGICAL_CWD

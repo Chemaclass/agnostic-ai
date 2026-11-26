@@ -105,7 +105,7 @@ func emitProtectScript(sess *emit.Session, groups []spec.ProtectGroup, dryRun bo
 // Exit 1 and a timeout only warn, so every failure exits 2. An ask
 // decision blocks too and tells the agent to ask the user, as on Codex.
 func renderProtectScript(groups []spec.ProtectGroup) string {
-	return protecthook.Render(protecthook.Reader{Edits: "Gemini CLI write_file and replace edits", Tool: "Gemini CLI", Awk: toolInputReaderAwk}, groups)
+	return protecthook.Render(protecthook.Reader{Edits: "Gemini CLI write_file and replace edits", Tool: "Gemini CLI", Dir: emit.HookScriptsDir(target), Awk: toolInputReaderAwk}, groups)
 }
 
 // toolInputReaderAwk scans the payload as JSON tokens and keeps the

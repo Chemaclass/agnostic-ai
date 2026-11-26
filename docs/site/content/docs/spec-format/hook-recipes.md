@@ -393,6 +393,15 @@ It misses pushes from script files and aliases. For stronger limits, use [`permi
 - Existing `.claude/hooks/`, `.codex/hooks/`, and `.gemini/hooks/` paths keep working.
 - Script sharing does not translate event names or reply formats, so pick ones every tool supports.
 
+{% <details summary="Details: why sync copies scripts instead of running them in place"> %}
+- A file at `.agnostic-ai/scripts/<target>/<name>` replaces the shared script for one tool. The copy is how one command runs a different file per tool.
+- Built-in hook scripts live in a read-only cache outside the project. The copy gives them a project path and makes them executable.
+- `sync --scope user` has no project folder to point at, so user commands name absolute paths to copies in each tool's user folder.
+- Some tools keep hooks self-contained in their own folder: Goose resolves plugin paths from the plugin folder, and Crush and Kiro commands name `./.crush/hooks/` and `.kiro/scripts/`.
+- A copy is a synced file like any other: `sync --check` reports drift, a failed sync rolls it back, and `sync.unmanaged` keeps a hand-edited copy for one tool.
+- Each copy can sit at a different depth, for example `.claude/hooks/` and `.github/hooks/scripts/`. A script that finds the project root should run `git rev-parse --show-toplevel` or look for `agnostic-ai.yaml`, not count `..` steps from its own path.
+{% </details> %}
+
 {% <details summary="Details: user-level sync and Copilot user hooks"> %}
 - `sync --scope user` copies scripts from the user source root's `scripts/` directory into the selected tools' user hook directories. Its commands use absolute paths to those copies.
 - [Copilot user hooks](@/docs/targets/copilot-reference.md#hooks) use the same command fields and event casing as project hooks. An imported one records its source file in `x-copilot.user-hook-file`.

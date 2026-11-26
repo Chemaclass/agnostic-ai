@@ -31,7 +31,11 @@ type Reader struct {
 	Edits string
 	// Tool names the tool that lets an edit through when its hook fails.
 	Tool string
-	Awk  string
+	// Dir is the project-relative folder sync writes the script to, as
+	// in ".codex/hooks". The script takes the folder that holds it as
+	// the project root.
+	Dir string
+	Awk string
 }
 
 // Render writes the hook for groups. It needs only sh and awk: a
@@ -66,11 +70,18 @@ func Render(r Reader, groups []spec.ProtectGroup) string {
 	out.WriteString("# Needs only a POSIX shell and awk. Exit 2 blocks the edit; stderr says why.\n")
 	fmt.Fprintf(&out, "# %s lets an edit through when a hook fails, so every failure exits 2.\n", r.Tool)
 	out.WriteString(preamble)
+	out.WriteString(strings.ReplaceAll(rootLookup, "@DIR@", shellQuote("/"+strings.Trim(r.Dir, "/"))))
 	out.WriteString("awk '")
 	out.WriteString(strings.ReplaceAll(program, "'", `'\''`))
 	out.WriteString("' 1>&2\n")
 	out.WriteString(status)
 	return out.String()
+}
+
+// shellQuote quotes s for sh, which also keeps it literal in a case
+// pattern and in a ${var%pattern} suffix.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 func awkString(s string) string {
@@ -88,12 +99,42 @@ fail() {
   exit 2
 }
 command -v awk >/dev/null 2>&1 || fail "awk is not on PATH"
-case $0 in
+`
+
+// rootLookup finds the project root the protected paths are relative
+// to without assuming how deep the script sits, since each tool keeps
+// its hooks at its own depth. While the script sits in Reader.Dir,
+// where sync writes it, the root is the folder that holds that path.
+// A copy elsewhere walks up to the nearest agnostic-ai.yaml or
+// agnostic.config.yaml, which sync reads from the root, and then takes
+// the Git worktree root; Git comes last because a project can sit below
+// it. When none applies the edit is blocked: a wrong root would match
+// no path and let every edit through.
+const rootLookup = `case $0 in
 */*) hooks_dir=${0%/*} ;;
 *) hooks_dir=. ;;
 esac
-AGNOSTIC_AI_ROOT=$(cd -- "$hooks_dir/../.." && pwd -P) || fail "the project root is not readable"
-AGNOSTIC_AI_LOGICAL_ROOT=$(cd -- "$hooks_dir/../.." && pwd -L) || fail "the project root is not readable"
+hooks_dir=$(cd -- "$hooks_dir" && pwd -L) || fail "the hooks folder is not readable"
+case $hooks_dir in
+*@DIR@)
+  root=${hooks_dir%@DIR@}
+  [ -n "$root" ] || root=/
+  ;;
+*)
+  root=$hooks_dir
+  while [ ! -f "$root/agnostic-ai.yaml" ] && [ ! -f "$root/agnostic.config.yaml" ]; do
+    if [ "$root" = / ]; then
+      root=$(cd -- "$hooks_dir" && git rev-parse --show-toplevel 2>/dev/null) || root=
+      break
+    fi
+    root=${root%/*}
+    [ -n "$root" ] || root=/
+  done
+  ;;
+esac
+[ -n "$root" ] || fail "no agnostic-ai.yaml or Git worktree was found above the hook, so the project root is unknown"
+AGNOSTIC_AI_ROOT=$(cd -- "$root" && pwd -P) || fail "the project root is not readable"
+AGNOSTIC_AI_LOGICAL_ROOT=$(cd -- "$root" && pwd -L) || fail "the project root is not readable"
 AGNOSTIC_AI_CWD=$(pwd -P) || fail "the working directory is not readable"
 AGNOSTIC_AI_LOGICAL_CWD=$(pwd -L) || fail "the working directory is not readable"
 export AGNOSTIC_AI_ROOT AGNOSTIC_AI_LOGICAL_ROOT AGNOSTIC_AI_CWD AGNOSTIC_AI_LOGICAL_CWD

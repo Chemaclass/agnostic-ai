@@ -2,6 +2,7 @@ package codex
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/emit"
 	"github.com/chemaclass/agnostic-ai/internal/adapters/internal/protecthook"
@@ -16,27 +17,42 @@ func (Adapter) ProtectedPaths() (enforcement, reason string) { return "hook", ""
 // every apply_patch call. Codex reports edits as apply_patch whichever
 // alias the matcher names, and runs hooks from the session cwd
 // (learn.chatgpt.com/docs/hooks), so both commands find the script from
-// the Git root and fall back to the cwd outside a repository. Windows
-// runs it through the sh on PATH, such as Git for Windows provides.
+// the Git root, plus the project's path below it, and fall back to the
+// cwd outside a repository. Windows runs it through the sh on PATH, such
+// as Git for Windows provides.
 func protectHook() spec.Entry {
-	script := `"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/` + emit.HookScriptsDir(target) + "/" + protecthook.ScriptName + `"`
+	script := protectScriptCommand(emit.ProjectHookPrefix())
 	return spec.Entry{
 		Kind: spec.KindHook,
 		Name: "agnostic-ai-protect",
 		Path: "settings (protected)",
 		Meta: map[string]any{
-			"event":          "PreToolUse",
-			"matcher":        "apply_patch",
-			"command":        script,
-			"commandWindows": "sh -c 'exec sh " + script + "'",
+			"event":   "PreToolUse",
+			"matcher": "apply_patch",
+			"command": script,
+			// PowerShell keeps a single-quoted string literal and reads ''
+			// as one quote.
+			"commandWindows": "sh -c 'exec sh " + strings.ReplaceAll(script, "'", "''") + "'",
 		},
 	}
 }
 
+// protectScriptCommand is the quoted script path below the Git root;
+// prefix is the project's escaped path below that root, or "".
+func protectScriptCommand(prefix string) string {
+	path := emit.HookScriptsDir(target) + "/" + protecthook.ScriptName
+	if prefix != "" {
+		path = prefix + "/" + path
+	}
+	return `"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/` + path + `"`
+}
+
 // IsProtectHookCommand reports whether command runs the generated
 // protect script, which import skips: its source is the settings spec.
+// The form without a project prefix is what versions before the prefix
+// wrote for a project below its Git root.
 func IsProtectHookCommand(command string) bool {
-	return command == protectHook().Meta["command"]
+	return command == protectHook().Meta["command"] || command == protectScriptCommand("")
 }
 
 func emitProtectScript(sess *emit.Session, groups []spec.ProtectGroup, dryRun bool) error {
@@ -54,7 +70,7 @@ func emitProtectScript(sess *emit.Session, groups []spec.ProtectGroup, dryRun bo
 // but does not support it yet, so ask also blocks and tells the agent to
 // ask the user.
 func renderProtectScript(groups []spec.ProtectGroup) string {
-	return protecthook.Render(protecthook.Reader{Edits: "Codex apply_patch edits", Tool: "Codex", Awk: patchReaderAwk}, groups)
+	return protecthook.Render(protecthook.Reader{Edits: "Codex apply_patch edits", Tool: "Codex", Dir: emit.HookScriptsDir(target), Awk: patchReaderAwk}, groups)
 }
 
 // patchReaderAwk finds the paths in an apply_patch body. A patch line

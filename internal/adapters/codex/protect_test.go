@@ -2,8 +2,10 @@ package codex
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -216,6 +218,7 @@ func TestProtectHook_BlocksAnAbsolutePathThroughASymlinkedCwd(t *testing.T) {
 }
 
 func TestProtectHook_CommandFindsTheScriptFromTheProjectRoot(t *testing.T) {
+	testutil.TempCwd(t)
 	meta := protectHook().Meta
 	if command := meta["command"].(string); !strings.HasPrefix(command, `"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.codex/hooks/`) {
 		t.Errorf("command = %s", command)
@@ -223,6 +226,46 @@ func TestProtectHook_CommandFindsTheScriptFromTheProjectRoot(t *testing.T) {
 	windows := meta["commandWindows"].(string)
 	if !strings.HasPrefix(windows, "sh -c ") || !strings.Contains(windows, "git rev-parse --show-toplevel") || !strings.Contains(windows, "/.codex/hooks/"+protecthook.ScriptName) {
 		t.Errorf("commandWindows = %s, want sh finding the script from the Git root", windows)
+	}
+}
+
+// A project below its Git root keeps its tool folders there, so the
+// command adds the project's path to the Git root, and the hook it runs
+// from a subdirectory still blocks the edit.
+func TestProtectHook_CommandFindsTheScriptBelowTheGitRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("runs the command with sh")
+	}
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not on PATH")
+	}
+	top := t.TempDir()
+	if out, err := exec.Command("git", "-C", top, "init", "-q").CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v\n%s", err, out)
+	}
+	root := filepath.Join(top, "apps", "web app")
+	if err := os.MkdirAll(filepath.Join(root, "src"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	testutil.Chdir(t, root)
+	if err := New().Emit(emit.NewSession(), spec.NewBundle(protectSettings(map[string]any{"paths": []any{"composer.lock"}})), &config.Config{}, false); err != nil {
+		t.Fatalf("emit: %v", err)
+	}
+	command := protectHook().Meta["command"].(string)
+	if !strings.Contains(command, "/apps/web app/.codex/hooks/"+protecthook.ScriptName) {
+		t.Fatalf("command = %s, want the project's path below the Git root", command)
+	}
+	if !IsProtectHookCommand(command) || !IsProtectHookCommand(protectScriptCommand("")) {
+		t.Errorf("IsProtectHookCommand misses the current or the earlier command")
+	}
+	payload := `{"cwd":"` + root + `/src","tool_name":"apply_patch","tool_input":{"command":"*** Begin Patch\n*** Update File: ../composer.lock\n*** End Patch"}}`
+	cmd := exec.Command("sh", "-c", command)
+	cmd.Dir = filepath.Join(root, "src")
+	cmd.Stdin = strings.NewReader(payload)
+	out, err := cmd.CombinedOutput()
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.ExitCode() != 2 || !strings.Contains(string(out), "composer.lock is protected") {
+		t.Fatalf("err = %v, output = %q; want composer.lock blocked", err, out)
 	}
 }
 
