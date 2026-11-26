@@ -195,6 +195,24 @@ agnostic-ai hook memory --target codex
 - It finds the project as the `shared-memory` skill does.
 {% </details> %}
 
+## hook autosync
+
+Sync the project from a `session-start` hook, keeping files edited since the last sync. The [`autosync` built-in](@/docs/autosync.md) sets this up for every tool with a session-start event.
+
+```bash
+agnostic-ai project -- hook autosync --target codex
+```
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Tool that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
+
+{% <details summary="Details: output, exit code and project lookup"> %}
+- It runs `sync --keep-edits --quiet` in the nearest folder with a project config, never the user specs folder. With no project, it does nothing.
+- It always exits 0. Stdout stays empty. Stderr names each kept file, or holds a short note when the sync fails. While another sync holds the project lock, it prints nothing.
+- In a Claude Code cloud session, it first waits up to 90 seconds for the [cloud install hook](@/docs/spec-format/environments.md#claude-code-cloud-install).
+{% </details> %}
+
 ## hook mailbox
 
 Print the mailbox messages waiting for a session, for a prompt or session-start hook to add to the model's context. The [`mailbox` built-in](@/docs/mailbox.md#deliver-with-the-next-prompt) sets this up for Claude Code and Codex.
@@ -287,8 +305,9 @@ agnostic-ai install-hook            # writes .git/hooks/pre-commit (local)
 agnostic-ai install-hook --shared   # writes .githooks/ and sets core.hooksPath
 agnostic-ai install-hook --scope user   # checks user specs before committing
 
-agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout and post-merge
-agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .githooks/
+agnostic-ai install-hook --post-checkout            # writes .git/hooks/post-checkout, post-merge and post-rewrite
+agnostic-ai install-hook --post-checkout --shared   # writes the three hooks in .githooks/
+agnostic-ai install-hook --post-checkout --force    # writes them even when a hook manager is in use
 ```
 
 {% <details summary="Details: existing hooks and each option"> %}
@@ -297,7 +316,8 @@ agnostic-ai install-hook --post-checkout --shared   # writes both hooks in .gith
 - `--shared` writes `.githooks/<hook>` at the root of the main working tree, even from a linked worktree. It stops if `core.hooksPath` already points elsewhere.
 - `--scope user` is for the user specs folder, which must be the root of its own git repository. The hook runs `lint --scope user --strict`, `validate --scope user`, and `sync --scope user --check` (skipped in a linked worktree). With an `agnostic-ai` on `PATH` from before `--scope`, the hook passes `--global` instead.
 - `--scope user` is not allowed with `--shared` or `--post-checkout`. It stops when `core.hooksPath` points elsewhere or the hook already runs the project `sync --check`.
-- `--post-checkout` installs `post-checkout` and `post-merge`. They run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single file) or a merge, pull included. See [regenerate on checkout](@/docs/git-hooks.md#regenerate-on-checkout).
+- `--post-checkout` installs `post-checkout`, `post-merge` and `post-rewrite`. They run `agnostic-ai project` from the worktree root after a branch or worktree checkout (not a single file), a merge (pull included) or a rebase (not an amend). See [regenerate on checkout](@/docs/git-hooks.md#regenerate-on-checkout).
+- With `lefthook.yml`, `.husky/` or `.pre-commit-config.yaml` at the worktree root, it writes no hook and prints the lines to add to that tool's config, since the tool replaces or skips hooks in `.git/hooks`. `--force` writes the plain hooks anyway. See [hook managers](@/docs/git-hooks.md#hook-managers).
 {% </details> %}
 
 ## completion

@@ -184,6 +184,7 @@ builtins: [handoff]
 |---|---|---|
 | `handoff` | A skill to leave and resume a task | [Session handoffs](@/docs/handoff.md) |
 | `handoff-hook` | Automatic Git snapshots and startup notices | [Automatic snapshots](@/docs/handoff.md#add-automatic-git-snapshots) |
+| `autosync` | Session-start hooks that sync the project, keeping hand edits. Project config only: `sync --scope user` skips it | [Sync on session start](@/docs/autosync.md) |
 | `memory` | Shared project and personal memory | [Shared memory](@/docs/memory.md) |
 | `mailbox` | Claude Code and Codex hooks that deliver mailbox messages with the next prompt, and a skill that lets agents send and answer them | [Session mailbox](@/docs/mailbox.md#deliver-with-the-next-prompt) |
 | `rtk` | A Claude Code hook that shortens command output | [RTK setup](@/docs/rtk-and-caveman.md#turn-them-on) |

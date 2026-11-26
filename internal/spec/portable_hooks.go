@@ -162,6 +162,18 @@ func PortableHookTargets() []string {
 	return slices.Sorted(maps.Keys(portableHookTargets))
 }
 
+// PortableEventTargets lists, sorted, the targets with a native event
+// for the portable event on, such as session-start.
+func PortableEventTargets(on string) []string {
+	var out []string
+	for _, target := range PortableHookTargets() {
+		if _, ok := portableHookTargets[target].events[on]; ok {
+			out = append(out, target)
+		}
+	}
+	return out
+}
+
 // TranslatesPortableHooks reports whether target reads `on:` and `match:`.
 func TranslatesPortableHooks(target string) bool {
 	_, ok := portableHookTargets[target]

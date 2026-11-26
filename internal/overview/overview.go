@@ -530,6 +530,7 @@ func instructionItems(docs []Document) []SectionItem {
 // builtinDescriptions says what each built-in feature does.
 var builtinDescriptions = map[string]string{
 	"approvals":         "Answers routine permission prompts by the approvals setting in the home config.",
+	"autosync":          "Regenerates the tool files when a session starts, so a clone, pull or new worktree is current.",
 	"memory":            "Shared memory every coding tool reads and saves facts to.",
 	"handoff":           "Saves a task so the next session, in this or another tool, can resume it.",
 	"handoff-hook":      "Offers a saved handoff when a session starts.",
@@ -550,6 +551,14 @@ var builtinAbouts = map[string]BuiltinAbout{
 			"Only the home config turns it on: sync --scope user writes the hook to ~/.claude/settings.json and ~/.codex/hooks.json. A project sync skips it.",
 			"Deleting, publishing, network, secrets and edits outside the project always ask. agnostic-ai approvals ask stops it on the next request.",
 			"Every decision goes to a log under $AGNOSTIC_AI_HOME/local/approvals/.",
+		},
+	},
+	"autosync": {
+		Summary: "Adds a session-start hook to every tool with one that runs sync, keeping files you edited by hand.",
+		Points: []string{
+			"A fresh clone, branch switch, pull, rebase or new worktree starts with current tool files, even when they are ignored by Git.",
+			"It never fails the session: it does nothing outside a project or without the binary, stays quiet when another sync is running, and names only the files it kept.",
+			"Project config only: sync --scope user skips it. Pair it with install-hook --post-checkout to sync after Git commands too.",
 		},
 	},
 	"memory": {
@@ -643,6 +652,7 @@ func builtinAbout(name string) *BuiltinAbout {
 // written in the builtins list.
 var builtinLabels = map[string]string{
 	"approvals":         "Approvals",
+	"autosync":          "Sync on session start",
 	"memory":            "Shared memory",
 	"handoff":           "Handoff",
 	"handoff-hook":      "Handoff on start",
@@ -679,6 +689,10 @@ func builtinItems(in Inputs) []SectionItem {
 	for _, name := range names {
 		if name == config.ApprovalsBuiltin && !in.UserLevel && !slices.Contains(enabled, name) {
 			// A project cannot turn it on: only sync --scope user writes its hooks.
+			continue
+		}
+		if name == config.AutosyncBuiltin && in.UserLevel && !slices.Contains(enabled, name) {
+			// The home config cannot turn it on: sync --scope user skips it.
 			continue
 		}
 		description := builtinDescriptions[name]

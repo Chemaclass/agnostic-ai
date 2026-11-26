@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "export AGNOSTIC_AI_TARGET=codex; sh -c 'd=$(pwd); until [ -x \"$d/node_modules/.bin/agnostic-ai\" ] || [ -f \"$d/agnostic-ai.yaml\" ] || [ -f \"$d/agnostic.config.yaml\" ] || [ \"$d\" = \"$(dirname \"$d\")\" ]; do d=$(dirname \"$d\"); done; bin=\"$d/node_modules/.bin/agnostic-ai\"; [ -x \"$bin\" ] || bin=agnostic-ai; command -v \"$bin\" >/dev/null || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 \"$bin\" project --help >/dev/null 2>&1 || exit 0; \"$bin\" project -- hook autosync --target codex >/dev/null; exit 0'",
+            "timeout": 120,
+            "commandWindows": "$d = (Get-Location).Path; $bin = 'agnostic-ai'; while ($d) { $local = Join-Path $d 'node_modules/.bin/agnostic-ai.cmd'; if (Test-Path -LiteralPath $local) { $bin = $local; break }; if ((Test-Path -LiteralPath (Join-Path $d 'agnostic-ai.yaml')) -or (Test-Path -LiteralPath (Join-Path $d 'agnostic.config.yaml'))) { break }; $parent = Split-Path -Parent $d; if ($parent -eq $d) { break }; $d = $parent }; if ($bin -eq 'agnostic-ai' -and !(Get-Command agnostic-ai -ErrorAction SilentlyContinue)) { exit 0 }; $env:AGNOSTIC_AI_NO_UPDATE_CHECK = '1'; & $bin project --help *> $null; if ($LASTEXITCODE -ne 0) { exit 0 }; & $bin project -- hook autosync --target codex > $null; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
