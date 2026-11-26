@@ -148,6 +148,22 @@ func TestCollectCloneSetup_ProjectChecksSkipLocalHooks(t *testing.T) {
 	}
 }
 
+func TestCollectCloneSetup_AutosyncBuiltinCountsAsFreshness(t *testing.T) {
+	for _, local := range []bool{true, false} {
+		dir, cfg, generated := cloneSetupRepo(t)
+		cfg.Builtins = []string{"handoff", config.AutosyncBuiltin}
+
+		r := collectCloneSetup(dir, cfg, spec.Bundle{}, generated, local)
+
+		if r.Stale || r.Freshness != "builtin autosync" {
+			t.Errorf("local=%v: stale=%v freshness=%q, want autosync to count", local, r.Stale, r.Freshness)
+		}
+		if len(r.Cloud) != 2 {
+			t.Errorf("local=%v: autosync does not reach cloud clones, so the cloud gaps stay: %+v", local, r.Cloud)
+		}
+	}
+}
+
 func TestCollectCloneSetup_OutsideGitReportsNothing(t *testing.T) {
 	isolateGit(t)
 	dir := t.TempDir()

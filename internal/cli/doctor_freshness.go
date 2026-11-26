@@ -86,7 +86,12 @@ func collectCloneSetup(root string, cfg *config.Config, bundle spec.Bundle, gene
 	if r.Ignored == 0 {
 		return r
 	}
-	if local {
+	switch {
+	case cfg != nil && slices.Contains(cfg.Builtins, config.AutosyncBuiltin):
+		// The autosync built-in is project config, so it counts even when
+		// --checks project skips this checkout's Git hooks.
+		r.Freshness = "builtin " + config.AutosyncBuiltin
+	case local:
 		r.Freshness = freshnessMechanism(root, bundle)
 		r.Stale = r.Freshness == ""
 	}
