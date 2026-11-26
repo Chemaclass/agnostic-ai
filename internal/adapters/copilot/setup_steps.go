@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"maps"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -16,7 +17,27 @@ import (
 
 const NativeSetupStepsPath = ".github/workflows/copilot-setup-steps.yml"
 const setupStepsKey = "setup-steps"
-const checkoutCommit = "3d3c42e5aac5ba805825da76410c181273ba90b1" // actions/checkout v7.0.1
+const checkoutCommit = "3d3c42e5aac5ba805825da76410c181273ba90b1"
+
+// checkoutVersion is the release tag of checkoutCommit, written as the
+// trailing comment that Renovate, Dependabot and pin policies read.
+const checkoutVersion = "v7"
+
+// versionComment splits `<ref> # <version>`, the form a quoted spec value
+// uses to keep the comment that YAML would otherwise drop.
+var versionComment = regexp.MustCompile(`^(\S+)\s+#\s*(\S.*)$`)
+
+// splitVersionComment returns the ref and its version comment, if any.
+func splitVersionComment(value string) (string, string, bool) {
+	if !strings.Contains(value, "#") {
+		return value, "", true
+	}
+	m := versionComment.FindStringSubmatch(strings.TrimSpace(value))
+	if m == nil {
+		return value, "", false
+	}
+	return m[1], strings.TrimSpace(m[2]), true
+}
 
 func SetupStepsPath(cfg *config.Config) string {
 	return emit.OutputSetupFile(cfg, target, NativeSetupStepsPath)
@@ -82,15 +103,22 @@ func SetupStepsIssues(e spec.Entry) []string {
 				problem = "must be a list of workflow steps"
 			}
 			for _, step := range steps {
-				if _, ok := step.(map[string]any); !ok {
+				fields, ok := step.(map[string]any)
+				if !ok {
 					problem = "must contain only workflow step mappings"
+					break
+				}
+				uses, _ := fields["uses"].(string)
+				if _, _, ok := splitVersionComment(uses); !ok {
+					problem = "uses must be an action reference, optionally followed by ` # <version>`"
 					break
 				}
 			}
 		case "checkout":
-			ref, _ := v.(string)
-			if _, err := hex.DecodeString(ref); len(ref) != 40 || err != nil {
-				problem = "must be the full 40-character actions/checkout commit hash"
+			text, _ := v.(string)
+			ref, _, ok := splitVersionComment(text)
+			if _, err := hex.DecodeString(ref); !ok || len(ref) != 40 || err != nil {
+				problem = "must be the full 40-character actions/checkout commit hash, optionally followed by ` # <version>`"
 			}
 		default:
 			problem = "is not a supported Copilot setup job option"
@@ -202,7 +230,7 @@ func emitSetupSteps(sess *emit.Session, envs []spec.Entry, cfg *config.Config, d
 		return nil
 	}
 	path := SetupStepsPath(cfg)
-	raw, err := yaml.Marshal(setupWorkflow(install, options))
+	raw, err := renderSetupWorkflow(setupWorkflow(install, options))
 	if err != nil {
 		return fmt.Errorf("render %s: %w", path, err)
 	}
@@ -220,7 +248,7 @@ func setupWorkflow(install string, options map[string]any) setupStepsWorkflow {
 		"permissions": map[string]string{"contents": "read"},
 		"runs-on":     "ubuntu-latest",
 	}
-	ref := checkoutCommit
+	ref := checkoutCommit + " # " + checkoutVersion
 	var extraSteps []any
 	for key, v := range options {
 		switch key {
@@ -243,4 +271,52 @@ func setupWorkflow(install string, options map[string]any) setupStepsWorkflow {
 		On:   map[string]any{"workflow_dispatch": map[string]any{}},
 		Jobs: map[string]map[string]any{"copilot-setup-steps": job},
 	}
+}
+
+// renderSetupWorkflow marshals the workflow and turns each step's
+// `uses: <ref> # <version>` value into the ref with a line comment.
+func renderSetupWorkflow(workflow setupStepsWorkflow) ([]byte, error) {
+	var doc yaml.Node
+	if err := doc.Encode(workflow); err != nil {
+		return nil, err
+	}
+	for _, job := range mappingValues(mappingValue(&doc, "jobs")) {
+		steps := mappingValue(job, "steps")
+		if steps == nil || steps.Kind != yaml.SequenceNode {
+			continue
+		}
+		for _, step := range steps.Content {
+			uses := mappingValue(step, "uses")
+			if uses == nil || uses.Kind != yaml.ScalarNode {
+				continue
+			}
+			if ref, version, ok := splitVersionComment(uses.Value); ok && version != "" {
+				uses.Value, uses.LineComment, uses.Style = ref, "# "+version, 0
+			}
+		}
+	}
+	return yaml.Marshal(&doc)
+}
+
+func mappingValue(n *yaml.Node, key string) *yaml.Node {
+	if n == nil || n.Kind != yaml.MappingNode {
+		return nil
+	}
+	for i := 0; i+1 < len(n.Content); i += 2 {
+		if n.Content[i].Value == key {
+			return n.Content[i+1]
+		}
+	}
+	return nil
+}
+
+func mappingValues(n *yaml.Node) []*yaml.Node {
+	if n == nil || n.Kind != yaml.MappingNode {
+		return nil
+	}
+	var values []*yaml.Node
+	for i := 1; i < len(n.Content); i += 2 {
+		values = append(values, n.Content[i])
+	}
+	return values
 }

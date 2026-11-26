@@ -150,6 +150,21 @@ x-copilot:
 
 Sync uses the last `install` and the last `x-copilot.setup-steps` from shared environment specs. Personal files under `.agnostic-ai/local/` do not contribute to the committed workflow. It writes one `copilot-setup-steps` job with a pinned checkout, then any extra `steps` you set, then `install`. The default job uses `ubuntu-latest` and `permissions: { contents: read }`. The map accepts `runs-on`, `permissions`, `services`, `snapshot`, `timeout-minutes` from 1 to 59, `steps`, and a `checkout` override with the full 40-character commit hash of `actions/checkout`. If you set `permissions`, include `contents: read` so checkout can read private repositories.
 
+Sync writes each pinned action as `uses: <action>@<sha> # <version>`, the form that Renovate, Dependabot and pin policies read. The default checkout gets its release tag, such as `# v7`. YAML drops a bare `# v7` from your spec, so quote the value to keep the version on a step's `uses` or on `checkout`:
+
+```yaml
+install: go mod download
+x-copilot:
+  setup-steps:
+    checkout: "3d3c42e5aac5ba805825da76410c181273ba90b1 # v7"
+    steps:
+      - uses: "actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7"
+        with:
+          go-version-file: go.mod
+```
+
+Sync writes that step as `- uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7`. A value without a comment is written as it is.
+
 Commit `.github/workflows/copilot-setup-steps.yml` on the default branch. Sync leaves this path out of its managed ignore block. Copilot runs these steps in sessions on Actions. You can also run the workflow manually from the Actions tab. Sync and `doctor --fix` keep an existing hand-written workflow and report a conflict if its contents differ. `import copilot` leaves the workflow in place.
 
 ## Config keys
