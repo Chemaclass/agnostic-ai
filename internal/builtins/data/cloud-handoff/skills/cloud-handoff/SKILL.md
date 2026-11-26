@@ -155,7 +155,7 @@ It prints one line on success: the task URL, `https://chatgpt.com/codex/tasks/<t
 
 Find the environment id before the launch:
 
-1. Run `git config --get agnostic-ai.codex-cloud-env`. If it prints an id, use it, and name it in your reply, such as "Using the saved Codex environment <id>."
+1. Run `git config --get agnostic-ai.codex-cloud-env`. It also reads the global and system Git config. If it prints a value, check it against `^[A-Za-z0-9_-]+$` before any use, such as with `printf '%s\n' "$id" | grep -Eqx '[A-Za-z0-9_-]+'`. If it does not match, say the saved Codex environment id is invalid, show how to clear it (below), and stop. Do not put it in a command. If it matches, use it, and name it in your reply, such as "Using the saved Codex environment <id>."
 2. If it prints nothing and the user has not given an id in this session, ask the user for it and stop. Tell them they can find or create it at chatgpt.com/codex/settings/environments, or browse it with `codex cloud` in their own terminal.
 
 After a launch with an id the user gave succeeds, offer to remember it for this checkout with `git config --local agnostic-ai.codex-cloud-env "<id>"`. Run that only after the user agrees. The id is not a secret; it stays in the checkout's local Git config and never reaches a commit.
