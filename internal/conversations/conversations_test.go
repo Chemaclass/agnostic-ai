@@ -508,6 +508,19 @@ type fakeLauncher struct {
 	// tmuxClient is the pid of the tmux client that ShowTmuxPane finds.
 	tmuxClient int
 	tmuxErr    error
+	// tabs are what ReadTabNames lists, by app; readErr fails it.
+	tabs    map[string][]TerminalTab
+	readErr error
+	// onRead runs while ReadTabNames reads.
+	onRead func()
+}
+
+func (f *fakeLauncher) ReadTabNames(_ context.Context, app string) ([]TerminalTab, error) {
+	f.calls = append(f.calls, "read "+app)
+	if f.onRead != nil {
+		f.onRead()
+	}
+	return f.tabs[app], f.readErr
 }
 
 func (f *fakeLauncher) ShowTmuxPane(_ context.Context, server int, tty string) (int, error) {

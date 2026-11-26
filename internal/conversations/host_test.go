@@ -1098,6 +1098,11 @@ func TestOsascriptArgs_KeepEveryValueOutOfTheScript(t *testing.T) {
 
 func TestTabApps_HaveEveryScript(t *testing.T) {
 	for app := range tabApps {
+		_, read := tabNameReads[app]
+		_, noRead := noTabNameRead[app]
+		if read == noRead {
+			t.Errorf("%s: a tab name read %v, an explicit no read %v; want exactly one", app, read, noRead)
+		}
 		if _, ok := commandTabs[app]; ok {
 			continue
 		}

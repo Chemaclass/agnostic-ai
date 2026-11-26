@@ -57,6 +57,10 @@ func (windowsLauncher) TitleTab(context.Context, string, string, string) (bool, 
 	return false, errNotHere
 }
 
+func (windowsLauncher) ReadTabNames(context.Context, string) ([]TerminalTab, error) {
+	return nil, errNotHere
+}
+
 func (windowsLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
 	return false, errNotHere
 }

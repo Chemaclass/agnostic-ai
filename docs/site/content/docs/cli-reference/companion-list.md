@@ -119,6 +119,8 @@ Give a chat your own name. The web interface shows the same name.
 
 The chat's own tool takes the name first. Only then is it saved, so every `serve` on the machine shows it and finds it in a search. If the tool refuses, the field stays open with the reason, such as "Codex is not installed". Claude app chats, Cowork tasks and Codex cloud threads cannot be renamed yet.
 
+Renaming a running chat's Ghostty tab renames the chat too. See [Tab renames](@/docs/cli-reference/companion-tab-rename.md).
+
 {% <details summary="Details: how each tool is renamed, where the name lives, errors"> %}
 | Chat | How it is renamed |
 |------|-------------------|

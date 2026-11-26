@@ -107,6 +107,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal, Ghostty, WezTerm, kitty or Konsole tab takes the name too, in place of
   the title the tool sets. In iTerm the name goes on the chat's pane.
+  Renaming a running chat's single-pane Ghostty tab on macOS renames the
+  chat too, on the next refresh or the one after.
 - Right-click a chat and choose **Copy session ID** to copy its exact ID.
   A cloud chat gives you its cloud ID. Use the tool that owns the chat to
   decide how to open it. Copying keeps the chat state and marks.
