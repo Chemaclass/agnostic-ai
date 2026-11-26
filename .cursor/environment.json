@@ -1,0 +1,3 @@
+{
+  "install": "export PATH=\"$(go env GOPATH)/bin:$PATH\"\ngo mod download\nmake tools\nmake hooks\nmake build\n.agnostic-ai/scripts/sync-generated.sh\n"
+}

@@ -4,7 +4,8 @@
 # This repo dogfoods the tool: source specs live under .agnostic-ai/
 # and `agnostic-ai sync` regenerates the per-CLI configs in the working tree.
 #
-# Generated outputs (CLAUDE.md, AGENTS.md, .cursor/, etc.) stay in .gitignore.
+# Generated outputs (CLAUDE.md, AGENTS.md, .cursor/, etc.) stay in .gitignore,
+# except the cloud setup files cloud agents read from a clone (see .gitignore).
 
 version: 1
 requires: ">=0.99.0"
