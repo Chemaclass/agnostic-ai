@@ -597,6 +597,9 @@ func outputsInSourceTree(cfg *config.Config) error {
 	paths := cfg.ConfiguredOutputPaths()
 	for _, key := range slices.Sorted(maps.Keys(paths)) {
 		path := paths[key]
+		if readSetting(key) {
+			continue
+		}
 		if inSource(filepath.FromSlash(path)) {
 			lines = append(lines, fmt.Sprintf("  %s: %s", key, path))
 		}
@@ -607,6 +610,12 @@ func outputsInSourceTree(cfg *config.Config) error {
 	return errs.Coded(errs.CodeOutputCollision,
 		"output collision: an output path points into %s or a spec folder, where sync would overwrite your source files\n%s\n"+
 			"point it outside the source folders", config.SourceBaseDir+"/", strings.Join(lines, "\n"))
+}
+
+// readSetting reports whether an outputs.<target>.<key> names a file
+// sync reads and never writes, which belongs beside the specs.
+func readSetting(key string) bool {
+	return strings.HasSuffix(key, ".exec-policies-file")
 }
 
 // directorySetting reports whether an outputs.<target>.<key> names a
