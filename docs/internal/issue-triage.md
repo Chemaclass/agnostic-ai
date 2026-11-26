@@ -31,7 +31,9 @@ scripts/verify-issue-features.sh --repo Chemaclass/agnostic-ai \
 
 The report lists missing feature definitions, unexpected names in the approved group namespaces, issues with no allowed feature, issues with several, and unknown feature names. It counts every allowed label, including empty ones, and reports any label covering more than 25% of selected issues. Concentration and empty labels call for a scope review; they do not invalidate an otherwise complete window. A zero-issue selection fails instead of claiming coverage.
 
-Only exact names in the map count. Definitions outside the approved group namespaces are left alone. The report checks label names, not colors or descriptions. An exit code of 1 means the definitions or classifications need work; invalid input exits 2 or reports a JSON parsing error.
+Two more review notes help the migration. `definitions.descriptionDrift` lists each feature label whose GitHub description differs from the map scope, with both texts. It is skipped for a label given by name only. `legacyArea` lists selected issues that have a feature label and still carry an `area:` label, so that label can go. Neither note changes `valid` or the exit code.
+
+Only exact names in the map count. Definitions outside the approved group namespaces are left alone. Label colors are not checked. An exit code of 1 means the definitions or classifications need work; invalid input exits 2 or reports a JSON parsing error.
 
 For saved exports or a manually selected set, supply both JSON arrays. This requires `jq` and makes no GitHub calls:
 

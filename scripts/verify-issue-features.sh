@@ -15,7 +15,8 @@ Usage: scripts/verify-issue-features.sh [options]
 
 Read-only verification of label definitions and one feature per selected issue.
 Prints a JSON report. Exit 1 means mismatched definitions, invalid classification
-or an empty selection. Empty labels and concentration above 25% are review notes.
+or an empty selection. Empty labels, concentration above 25%, description drift
+and leftover area: labels are review notes.
 
   --repo OWNER/REPO             Default: the checkout's GitHub repository
   --created-from UTC_TIMESTAMP  Include issues created at or after this time
@@ -97,12 +98,15 @@ jq -n --slurpfile map "$feature_map" --slurpfile labels "$labels_file" --slurpfi
     if (.label | startswith($group + ":")) and (.scope | type == "string" and length > 0) and
        (.paths | type == "array" and length > 0 and all(.[]; type == "string" and length > 0))
     then .label else error("invalid feature definition") end] as $allowed |
+  [$map.groups[].features[] | {key: .label, value: .scope}] | from_entries as $scopes |
   if ($groups | unique | length) != ($groups | length) or ($allowed | unique | length) != ($allowed | length)
   then error("duplicate feature or group") else . end |
   if ($labels | length) != 1 or ($labels[0] | type) != "array" or ($issues | length) != 1 or ($issues[0] | type) != "array"
   then error("label and issue inputs must each contain one JSON array") else . end |
   def feature_namespace: . as $label | any($groups[]; . as $group | $label | startswith($group + ":"));
   ($labels[0] | names) as $defined |
+  [$labels[0][] | objects | select(has("description")) | select($scopes[.name] != null and .description != $scopes[.name]) |
+    {label: .name, map: $scopes[.name], github: .description}] as $drift |
   [$issues[0][] | select(is_pr | not) |
     if ($start != "" or $end != "") and (created | timestamp | not)
     then error("issue #\(.number) needs a canonical UTC creation time for date selection") else . end |
@@ -111,7 +115,8 @@ jq -n --slurpfile map "$feature_map" --slurpfile labels "$labels_file" --slurpfi
     (.labels | names) as $names |
     {number, title, url: (.html_url // .url),
      features: [$names[] | select(. as $name | $allowed | index($name))] | unique,
-     unknown: [$names[] | select(feature_namespace) | select(. as $name | $allowed | index($name) | not)] | unique}
+     unknown: [$names[] | select(feature_namespace) | select(. as $name | $allowed | index($name) | not)] | unique,
+     areas: [$names[] | select(startswith("area:"))] | unique}
   ] as $selected |
   [$allowed[] | . as $label |
     ([$selected[] | select(.features | index($label))] | length) as $count |
@@ -119,10 +124,12 @@ jq -n --slurpfile map "$feature_map" --slurpfile labels "$labels_file" --slurpfi
   {groups: ($groups | length), features: ($allowed | length),
    interval: {from: $start, before: $end},
    selectedIssues: ($selected | length), excludedPullRequests: ([$issues[0][] | select(is_pr)] | length),
-   definitions: {missing: ($allowed - $defined), unexpected: ([$defined[] | select(feature_namespace)] - $allowed)},
-   unmapped: [$selected[] | select(.features | length == 0) | del(.unknown)],
-   multiple: [$selected[] | select(.features | length > 1) | del(.unknown)],
-   unknownFeatures: [$selected[] | select(.unknown | length > 0)],
+   definitions: {missing: ($allowed - $defined), unexpected: ([$defined[] | select(feature_namespace)] - $allowed),
+     descriptionDrift: $drift},
+   unmapped: [$selected[] | select(.features | length == 0) | del(.unknown, .areas)],
+   multiple: [$selected[] | select(.features | length > 1) | del(.unknown, .areas)],
+   unknownFeatures: [$selected[] | select(.unknown | length > 0) | del(.areas)],
+   legacyArea: [$selected[] | select((.features | length) > 0 and (.areas | length) > 0) | {number, title, url, features, areas}],
    counts: $counts,
    emptyLabels: [$counts[] | select(.issues == 0) | .label],
    concentration: [$counts[] | select(.share > 0.25)]} |
