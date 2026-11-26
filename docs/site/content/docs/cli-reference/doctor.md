@@ -163,6 +163,25 @@ agnostic-ai doctor environment -t codex --json
 
 The command reads the project and reports each enabled cloud tool's repository setup files and whether Git tracks or ignores them. It prints the install commands you can paste into Claude Code's setup script or Codex Cloud's install script. It reads the commands as written in the spec and leaves the repository and tool settings alone. When an output is redirected for inspection, the report also shows the path the cloud tool reads.
 
+If Git ignores a setup file, the report says how to commit it. With managed ignores, it names the [`gitignore.commit`](@/docs/sync-settings.md#commit-cloud) entries, or `cloud` when several apply. With `gitignore.enabled: false`, it reads `git check-ignore -v` and prints each line to replace, delete or add in your ignore files:
+
+```text
+Ignore file changes
+  Sync does not manage your ignore files. Make these edits, then commit the files above. Line numbers refer to the file as it is now.
+  .gitignore line 2: replace
+    /.claude/
+  with
+    /.claude/*
+    !/.claude/hooks/
+    /.claude/hooks/*
+    !/.claude/hooks/agnostic-ai-cloud-install.sh
+    !/.claude/settings.json
+  .gitignore after line 3 (**/setup.sh): add
+    !/.openhands/setup.sh
+```
+
+Git cannot re-include a file inside an ignored folder, so a line that ignores the folder becomes `/dir/*`, and `!` lines re-include each folder and file below it. A line that ignores the folder by a wider pattern stays, followed by `!/dir/` and the same lines. A rule in `.git/info/exclude` or a global excludes file gets its exceptions at the end of the root `.gitignore`. `--json` lists the edits under `gitignore_edits`.
+
 If an environment spec declares [variable names and allowed domains](@/docs/spec-format/environments.md#cloud-requirements), the checklist names the settings for each tool. Enter the values in the tool's UI.
 
 Use `-t, --target` to filter to a configured target. Use `--json` for the same checklist as structured output. See [cloud environment setup](@/docs/spec-format/environments.md#cloud-sessions) and [project readiness](@/docs/cli-reference/project.md#project-readiness).

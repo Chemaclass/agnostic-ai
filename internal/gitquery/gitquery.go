@@ -338,6 +338,62 @@ func ignoredByFresh(patterns []byte, paths []string) (map[string]IgnoreMatch, er
 	return matched, nil
 }
 
+// IgnoreRule is the last ignore line that matches a path in a work
+// tree: the file it sits in, as Git names it (relative to the root for
+// files inside the repository), its 1-based line, and its pattern. A
+// pattern starting with `!` re-includes the path.
+type IgnoreRule struct {
+	Source  string
+	Line    int
+	Pattern string
+}
+
+// Excludes reports whether the rule ignores its path.
+func (r IgnoreRule) Excludes() bool {
+	return r.Pattern != "" && !strings.HasPrefix(r.Pattern, "!")
+}
+
+// IgnoreRules returns, for each of paths that some ignore line in the
+// work tree at root matches, the last such line, as
+// `git check-ignore -v` reports it. Paths no line matches are absent. A
+// path inside an ignored folder reports the line that ignores the folder.
+func IgnoreRules(root string, paths []string) (map[string]IgnoreRule, error) {
+	rules := map[string]IgnoreRule{}
+	if len(paths) == 0 {
+		return rules, nil
+	}
+	var stdin bytes.Buffer
+	for _, p := range paths {
+		stdin.WriteString(p)
+		stdin.WriteByte(0)
+	}
+	cmd := isolateGitCommand(exec.Command("git", "-C", absKey(root), "check-ignore", "--no-index", "-v", "-n", "-z", "--stdin"))
+	cmd.Stdin = &stdin
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		var exit *exec.ExitError
+		if !errors.As(err, &exit) || exit.ExitCode() != 1 {
+			return nil, fmt.Errorf("git check-ignore: %w (%s)", err, bytes.TrimSpace(stderr.Bytes()))
+		}
+	}
+	// -n prints every path, with empty source, line and pattern when no
+	// line matches it.
+	fields := strings.Split(stdout.String(), "\x00")
+	for i := 0; i+3 < len(fields); i += 4 {
+		if fields[i+2] == "" {
+			continue
+		}
+		line, err := strconv.Atoi(fields[i+1])
+		if err != nil {
+			return nil, fmt.Errorf("parse git check-ignore line %q: %w", fields[i+1], err)
+		}
+		rules[fields[i+3]] = IgnoreRule{Source: filepath.ToSlash(fields[i]), Line: line, Pattern: fields[i+2]}
+	}
+	return rules, nil
+}
+
 // ExcludesFile returns the core.excludesFile the global or else the
 // system Git config names, or "" when neither does.
 func ExcludesFile() string {
