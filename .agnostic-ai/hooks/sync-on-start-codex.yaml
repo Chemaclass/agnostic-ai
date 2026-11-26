@@ -1,0 +1,9 @@
+name: sync-on-start-codex
+description: Regenerate tool files from .agnostic-ai/ when a Codex session starts.
+# Only Codex translates the project root in commandWindows, so its Windows
+# command lives here instead of in sync-on-start.yaml.
+target: codex
+on: session-start
+command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'
+timeout: 60
+commandWindows: 'sh "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'

@@ -1,7 +1,8 @@
 name: sync-on-start
 description: Regenerate tool files from .agnostic-ai/ when a session starts.
-targets: [claude, codex, gemini]
+# Every target with a session-start event except Codex, which has its own
+# spec for the Windows command (sync-on-start-codex.yaml).
+targets: [claude, gemini, qwen, codebuddy, factory, qoder, openhands, goose, augment, cursor, copilot]
 on: session-start
 command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'
 timeout: 60
-commandWindows: 'sh "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'

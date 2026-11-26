@@ -8,7 +8,9 @@
 # --skip-while-rebasing exits at once during a rebase, so the post-checkout
 # hook leaves the sync to post-rewrite, which sees the final tree.
 
-root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 0
+# Tools copy this script to different depths (.claude/hooks/,
+# .github/hooks/scripts/, ...), so ask Git for the root.
+root=$(CDPATH='' cd -- "$(dirname -- "$0")" && git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
 [ -f agnostic-ai.yaml ] || exit 0
 

@@ -11,7 +11,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR/.claude/hooks/sync-generated.sh\"",
+            "command": "[ \"$AGNOSTIC_AI_TARGET\" = cursor ] && exit 0; \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync-generated.sh\"",
             "timeout": 60
           }
         ]
