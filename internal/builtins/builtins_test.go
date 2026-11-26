@@ -581,6 +581,15 @@ func TestMaterialize_LoadsCloudHandoffAsOneSkill(t *testing.T) {
 		"Cloud sessions need a claude.ai sign-in", "Not signed in.",
 		"no cloud environments are available for this workspace", "not found; run `codex cloud`",
 		"chatgpt.com/codex/settings/environments",
+		// saved Codex environment id
+		"git config --get agnostic-ai.codex-cloud-env", "name it in your reply, such as \"Using the saved Codex environment",
+		"git config --local agnostic-ai.codex-cloud-env \"<id>\"", "Run that only after the user agrees",
+		"the saved id is stale", "git config --local --unset agnostic-ai.codex-cloud-env", "Ask the user for a new id and stop",
+		// GitHub Copilot
+		"| GitHub Copilot | `gh agent-task create -F - --base \"$CLOUD_BRANCH\"`",
+		"printf '%s\\n' \"$CLOUD_PROMPT\" | gh agent-task create -F - --base \"$CLOUD_BRANCH\"",
+		"marked preview", "gh auth login", "Copilot coding agent", "gh agent-task list", "gh agent-task view",
+		"when the user names Copilot", "pull request against the pushed branch", "Show gh's output",
 		// after
 		"Sent to the cloud: ", "claude --teleport", "codex cloud apply", "within about a minute",
 		// refusals and fallback

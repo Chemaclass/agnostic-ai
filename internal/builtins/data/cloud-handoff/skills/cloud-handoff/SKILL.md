@@ -19,7 +19,7 @@ Check each of these before you change anything. If one fails, stop and say which
 1. `git rev-parse --is-inside-work-tree` prints `true`. Otherwise there is nothing to push.
 2. `git remote get-url origin >/dev/null` succeeds. Without a remote the cloud cannot clone the work. Keep the URL out of the output.
 3. `command -v` finds the launch command of the row you will use in the Launch table below.
-4. The row's other needs are met: a terminal wrapper for the cloud launch, or an environment id.
+4. The row's other needs are met: a terminal wrapper for the Claude Code launch, a Codex environment id (saved in `agnostic-ai.codex-cloud-env` or given by the user in this session, as the Codex section says), or a `gh` sign-in for GitHub Copilot (`gh auth status >/dev/null 2>&1` succeeds).
 5. The push and the launch need network access. In a sandbox without it, ask the user to allow it, or give them the lines to run, and stop.
 
 ## Branch, commit, push
@@ -66,12 +66,13 @@ export CLOUD_PROMPT
 
 ## Launch
 
-Use the row for the tool this session runs in. Use another row only when the user names that tool.
+Use the row for the tool this session runs in. Use another row only when the user names that tool. Use the GitHub Copilot row when this session runs in Copilot, such as VS Code or Copilot CLI, or when the user names Copilot. Copilot's cloud agent is where such a task goes; never launch another task from inside a cloud session.
 
 | Tool | Launch | Needs |
 |---|---|---|
 | Claude Code | `claude --cloud "$CLOUD_PROMPT"`, wrapped in a terminal as shown below | A claude.ai sign-in, and `script` on macOS or Linux. `--environment <id>` only for a self-hosted environment. |
-| Codex | `codex cloud exec --env "<id>" --branch "<branch>" -`, with the prompt on standard input as shown below | An environment id. The subcommand is marked experimental. |
+| Codex | `codex cloud exec --env "<id>" --branch "<branch>" -`, with the prompt on standard input as shown below | An environment id, saved for this checkout or given by the user. The subcommand is marked experimental. |
+| GitHub Copilot | `gh agent-task create -F - --base "$CLOUD_BRANCH"`, with the prompt on standard input as shown below | `gh` 2.80 or newer, signed in (`gh auth login`), and Copilot coding agent enabled for the repository. The subcommand is marked preview. |
 | Any other tool | none | Falls back to a local handoff note. |
 
 ### Claude Code
@@ -152,20 +153,38 @@ printf '%s\n' "$CLOUD_PROMPT" | codex cloud exec --env "<id>" --branch "<branch>
 
 It prints one line on success: the task URL, `https://chatgpt.com/codex/tasks/<task_id>`.
 
-The environment id is not stored anywhere this skill can read. If the user has not given one in this session, ask the user for it and stop. Tell them they can find or create it at chatgpt.com/codex/settings/environments, or browse it with `codex cloud` in their own terminal.
+Find the environment id before the launch:
+
+1. Run `git config --get agnostic-ai.codex-cloud-env`. If it prints an id, use it, and name it in your reply, such as "Using the saved Codex environment <id>."
+2. If it prints nothing and the user has not given an id in this session, ask the user for it and stop. Tell them they can find or create it at chatgpt.com/codex/settings/environments, or browse it with `codex cloud` in their own terminal.
+
+After a launch with an id the user gave succeeds, offer to remember it for this checkout with `git config --local agnostic-ai.codex-cloud-env "<id>"`. Run that only after the user agrees. The id is not a secret; it stays in the checkout's local Git config and never reaches a commit.
+
+### GitHub Copilot
+
+The command reads the task from standard input when the file is `-`, aims the pull request at the base branch, and needs no terminal. It is marked preview. `gh` picks the repository from this checkout's remotes. With more than one remote, run `gh repo set-default --view` first, and stop if it does not name the repository that origin points to. Do not add `-R` on your own. After the prompt lines above:
+
+```bash
+printf '%s\n' "$CLOUD_PROMPT" | gh agent-task create -F - --base "$CLOUD_BRANCH"
+```
+
+What it prints on success was not verified. Show gh's output. Take the task or pull request URL from it if it holds one. If it holds none, tell the user to find the task with `gh agent-task list`.
 
 ## After
 
 - Start your last reply with one line that holds the session URL or id from the output, such as "Sent to the cloud: <url>". The user finds the cloud session from this line.
-- Say that the cloud session starts from the pushed branch. A Claude Code session puts its work on a new branch of its own, so the user's branch stays theirs; a Codex task returns its work as a diff to apply.
-- Name the command that brings the work back: `claude --teleport session_<id>`, or `codex cloud diff <url>` then `codex cloud apply <url>`.
-- Say the session shows under Cloud in the companion within about a minute, when the companion lists cloud sessions.
+- Say that the cloud session starts from the pushed branch. A Claude Code session puts its work on a new branch of its own, so the user's branch stays theirs; a Codex task returns its work as a diff to apply; a Copilot task returns its work as a pull request against the pushed branch.
+- Name the command that brings the work back: `claude --teleport session_<id>`, or `codex cloud diff <url>` then `codex cloud apply <url>`. For Copilot, `gh agent-task list` finds the task and `gh agent-task view <session-id or pull-request-url>` follows it; the work arrives by reviewing and merging that pull request.
+- For Claude Code and Codex, say the session shows under Cloud in the companion within about a minute, when the companion lists cloud sessions. A Copilot task shows as a pull request and in `gh agent-task list`.
 
 ## When it refuses
 
 - Show the tool's message. Do not work around it: no other launch method, no retry with other flags.
 - `Cloud sessions need a claude.ai sign-in.` or `Not signed in.`: the user signs in (`claude auth login` or `codex login`) and asks again.
 - `no cloud environments are available for this workspace`: the user has no Codex environment yet; point to chatgpt.com/codex/settings/environments.
-- ``environment '<id>' not found; run `codex cloud` to list available environments``: the id is wrong; ask the user for it and stop.
+- ``environment '<id>' not found; run `codex cloud` to list available environments``: the id is wrong. If it came from `agnostic-ai.codex-cloud-env`, say the saved id is stale and show how to clear it: `git config --local --unset agnostic-ai.codex-cloud-env` (`--global` in place of `--local` if it was saved there). Do not clear it yourself. Ask the user for a new id and stop.
+- `gh` says it is not signed in, or asks for `gh auth login`: the user runs `gh auth login` and asks again.
+- `gh` says Copilot coding agent is not enabled or not available for this repository or account: show the message. The user, or an administrator of the repository or organization, enables it in GitHub; there is no other way from here.
+- `gh` does not know the `agent-task` command: the installed `gh` is older than 2.80; the user updates it and asks again.
 - A line starting `Branch <name> is not on GitHub`: the session started from older work. Say so; the push did not reach the remote the cloud reads.
 - No row for this tool: say there is no cloud launch for it. Offer a local handoff note through the `handoff` skill if it is installed.
