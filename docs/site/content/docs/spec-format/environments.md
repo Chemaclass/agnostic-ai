@@ -94,6 +94,8 @@ Fields a tool does not use get a no-effect note. Other tools report the spec as 
 
 ## Cloud sessions {#cloud-sessions}
 
+[Test a cloud setup from a fresh clone](@/docs/cloud-consumer.md) with a small Python project before assigning it to Claude Code or Codex.
+
 A cloud session starts from a clone. Commit the generated files it needs. If sync manages your `.gitignore`, set [`gitignore.commit: [cloud]`](@/docs/sync-settings.md#commit-cloud) to keep the instructions and setup files every configured cloud agent reads in Git. If you write `.gitignore` yourself, `doctor environment` prints the lines to change.
 
 Run [`agnostic-ai doctor environment`](@/docs/cli-reference/doctor.md#doctor-environment) to see which setup files Git can send to your enabled cloud tools and which settings you need to enter in their UIs.

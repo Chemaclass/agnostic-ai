@@ -1,0 +1,19 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR\"/'.claude/hooks/agnostic-ai-cloud-install.sh'; [ ! -f \"$f\" ] || sh \"$f\"",
+            "shell": "bash"
+          }
+        ]
+      }
+    ]
+  },
+  "env": {
+    "AGNOSTIC_AI_TARGET": "claude"
+  }
+}
