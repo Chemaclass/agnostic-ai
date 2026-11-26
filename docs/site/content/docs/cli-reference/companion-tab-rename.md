@@ -9,7 +9,7 @@ group = "Reference"
 
 # Tab renames
 
-Rename a running chat's Ghostty tab on macOS, and the chat takes that name on the next refresh or the one after. Only the companion and a user-level `serve` do this. A `serve` limited to one project cannot see a chat outside it that may share the tab, so it leaves tab names alone. The name goes through the same steps as a rename in the list: the tool first, then the marks file. So the row, a search and the mailbox show it, and it stays after the session ends.
+Rename a running chat's tab in Ghostty 1.4 or later on macOS, and the chat takes that name on the next refresh or the one after. Only the companion and a user-level `serve` do this. A `serve` limited to one project cannot see a chat outside it that may share the tab, so it leaves tab names alone. The name goes through the same steps as a rename in the list: the tool first, then the marks file. So the row, a search and the mailbox show it, and it stays after the session ends.
 
 - Companion reads only the tab's `name override`, the name Ghostty keeps for a tab you renamed. A title the shell or the tool sets should not land there, so it should not be copied. This is not yet checked by hand.
 - The tab must hold one pane, and only one running chat. A split tab, or a tab Companion cannot match to one chat for sure, changes nothing.
@@ -18,7 +18,7 @@ Rename a running chat's Ghostty tab on macOS, and the chat takes that name on th
 - A name the tool or the name check refuses (empty, longer than 120 characters, or a possible credential) is not saved. It is tried again only once you type another name. The server log says why, without the name.
 - F2 still names the tab. The tab then shows the chat's name, so Companion renames nothing back.
 - Each refresh asks Ghostty once for all its tabs, only while a running chat is in Ghostty. The read is skipped when Ghostty is not running.
-- The first read may make macOS ask whether Companion may control Ghostty, even if you never used F2. If you refuse, or leave the question open for 3 seconds, the list still works, no name changes, and Companion waits 5 minutes before it asks Ghostty again.
+- The first read may make macOS ask whether Companion may control Ghostty, even if you never used F2. The list still works if a read fails. If you leave the question open, the read stops after 3 seconds. After any failed read, Companion waits 5 minutes before trying again.
 
 | OS | Terminal | Tab name read | Status |
 |----|----------|---------------|--------|

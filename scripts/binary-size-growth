@@ -2,5 +2,5 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# Reading Ghostty tab names to follow names typed on a tab, the shared chat rename path, and the per-app read pause.
-36864
+# Ghostty tab name reads, shared renames and coordination with F2.
+49152

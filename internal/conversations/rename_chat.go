@@ -11,10 +11,6 @@ type RenameInTool func(ctx context.Context, c Conversation, title string) error
 // ErrConversationGone says the list no longer holds the conversation.
 var ErrConversationGone = errors.New("the conversation is not listed any more")
 
-// errRenamedMeanwhile says the conversation's saved name changed after
-// the caller read it, so the caller's name is older than the saved one.
-var errRenamedMeanwhile = errors.New("the conversation was renamed meanwhile")
-
 // ToolRenameError says the tool did not take the name; Err says why.
 type ToolRenameError struct{ Err error }
 
@@ -32,9 +28,9 @@ type ChatRename struct {
 	InTool RenameInTool
 	// Check may refuse the conversation found; nil takes it.
 	Check func(Conversation) error
-	// Saved, when set, is the name the conversation must still have. A
-	// rename that finds another one changes nothing.
-	Saved *string
+	// TabLauncher, when set, lets the saved chat name also reach its tab.
+	TabLauncher Launcher
+	tab         *tabChat
 }
 
 // RenameChat renames one conversation as the person's rename does: it
@@ -47,29 +43,74 @@ func (s *Scanner) RenameChat(ctx context.Context, r ChatRename) (Conversation, e
 	if err != nil {
 		return Conversation{}, err
 	}
-	defer release()
-	c, ok := s.Find(ctx, r.Tool, r.ID, r.Opts)
-	if !ok {
-		return Conversation{}, ErrConversationGone
+	defer func() {
+		if release != nil {
+			release()
+		}
+	}()
+	c, err := s.renameChat(ctx, r)
+	if err != nil {
+		return c, err
+	}
+	if host, ok := tabOf(c); ok && r.TabLauncher != nil {
+		tabCtx := context.WithoutCancel(ctx)
+		if len(tabNameReads[host.App]) == 0 {
+			go func() { _ = TitleTab(tabCtx, c, s.Processes, r.TabLauncher, r.Title) }()
+		} else {
+			// A tab read must not copy the old name back while this write is pending.
+			go func(done func()) {
+				defer done()
+				if err := TitleTab(tabCtx, c, s.Processes, r.TabLauncher, r.Title); err != nil {
+					s.resetTabNameObservation(c, host)
+				}
+			}(release)
+			release = nil
+		}
+	}
+	return c, nil
+}
+
+// renameChat runs with the conversation rename lock held.
+func (s *Scanner) renameChat(ctx context.Context, r ChatRename) (Conversation, error) {
+	c, err := s.findChatToRename(ctx, r)
+	if err != nil {
+		return c, err
 	}
 	if r.Check != nil {
 		if err := r.Check(c); err != nil {
 			return c, err
 		}
 	}
-	if r.Saved != nil {
-		saved, err := s.savedName(r.Tool, r.ID)
-		if err != nil {
-			return c, err
-		}
-		if saved != *r.Saved {
-			return c, errRenamedMeanwhile
-		}
-	}
 	if err := r.InTool(ctx, c, r.Title); err != nil {
 		return c, &ToolRenameError{Err: err}
 	}
-	return c, s.Rename(r.Tool, r.ID, r.Title)
+	if err := s.Rename(r.Tool, r.ID, r.Title); err != nil {
+		return c, err
+	}
+	return c, nil
+}
+
+func (s *Scanner) findChatToRename(ctx context.Context, r ChatRename) (Conversation, error) {
+	if r.tab == nil {
+		c, ok := s.Find(ctx, r.Tool, r.ID, r.Opts)
+		if !ok {
+			return Conversation{}, ErrConversationGone
+		}
+		return c, nil
+	}
+	s.lock()
+	defer s.unlock()
+	results, _ := s.readAll(ctx, r.Opts)
+	if ctx.Err() == nil {
+		for _, chat := range uniqueTabChats(results) {
+			c := chat.c
+			if c.Tool == r.Tool && c.ID == r.ID && chat.host == r.tab.host &&
+				*c.process == *r.tab.c.process && c.placed.process == r.tab.c.placed.process && stillRuns(c, s.Processes) {
+				return c, nil
+			}
+		}
+	}
+	return Conversation{}, errTabMoved
 }
 
 // savedName is the name the marks file holds for one conversation.

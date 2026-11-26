@@ -726,9 +726,8 @@ type tabsFile struct {
 type rememberedTab struct {
 	Host terminalHost `json:"host"`
 	At   string       `json:"at"`
-	// TabName is the name the person gave the tab when the server last
-	// looked; nil until the first look at this tab.
-	TabName *string `json:"tabName,omitempty"`
+	// A tab name can contain a credential. Only its fingerprint is kept.
+	NameFingerprint string `json:"nameFingerprint,omitempty"`
 	// NameSession is the session that showed in the tab at that look. A
 	// look by another session, such as one resumed on a reused tty, is
 	// a first look.
@@ -749,7 +748,7 @@ func (f *tabsFile) remember(key string, host terminalHost, now time.Time) bool {
 	}
 	tab := rememberedTab{Host: host, At: stamp(now)}
 	if kept, ok := f.Tabs[key]; ok && kept.Host == host {
-		tab.TabName, tab.NameSession = kept.TabName, kept.NameSession
+		tab.NameFingerprint, tab.NameSession = kept.NameFingerprint, kept.NameSession
 	}
 	f.Tabs[key] = tab
 	for other, tab := range f.Tabs {

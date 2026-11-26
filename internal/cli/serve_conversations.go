@@ -204,10 +204,6 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	if !allowGetOnly(w, r) {
 		return
 	}
-	// A refresh also follows the names typed on terminal tabs, after the
-	// reply and outside the scan, so an unanswered Automation prompt
-	// never holds the list. A rename shows on the next refresh.
-	defer func() { go h.followTabNames(context.WithoutCancel(r.Context())) }()
 	query := r.URL.Query()
 	var before time.Time
 	if text := query.Get("before"); text != "" {
@@ -227,6 +223,10 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	if tool != "" && !checkConversationTool(w, tool) {
 		return
 	}
+	// A refresh also follows the names typed on terminal tabs, after the
+	// reply and outside the scan, so an unanswered Automation prompt
+	// never holds the list. A rename shows on the next refresh.
+	defer func() { go h.followTabNames(context.WithoutCancel(r.Context())) }()
 	// The tag is taken before the scan. A scan that itself writes the
 	// marks then changes the stamp, and the caller's next question gets
 	// one more scan instead of a list that missed a write made meanwhile.
@@ -499,7 +499,7 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	conversation, err := h.scanner.RenameChat(r.Context(), conversations.ChatRename{
-		Tool: req.Tool, ID: req.ID, Title: title, Opts: h.scanOptions(""), InTool: h.renameInTool,
+		Tool: req.Tool, ID: req.ID, Title: title, Opts: h.scanOptions(""), InTool: h.renameInTool, TabLauncher: h.launcher,
 		Check: func(c conversations.Conversation) error {
 			if conversations.RenameReachesCloud(c) && h.refuseUnproven(w, r, "Renaming an online conversation", "The name did not change.", "rename online conversations") {
 				return errRenameAnswered
@@ -527,11 +527,6 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	// The tab follows after the reply, since an unanswered Automation
-	// prompt holds osascript; a tab that cannot take the name keeps its own.
-	go func(ctx context.Context) {
-		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
-	}(context.WithoutCancel(r.Context()))
 }
 
 // errRenameAnswered means the rename's check already answered the request.

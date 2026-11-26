@@ -2,6 +2,8 @@ package conversations
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"maps"
 	"slices"
@@ -38,13 +40,15 @@ var tabNameReads = map[string][]string{
 		"end repeat",
 		"set o to name override of k",
 		"if o is missing value then set o to \"\"",
+		`if (o contains (character id 30)) or (o contains (character id 31)) then set o to ""`,
 		"set row to row & (character id 31) & o",
 		"set end of rows to row",
 		"end repeat",
 		"end repeat",
 		"end tell",
 		"set AppleScript's text item delimiters to (character id 30)",
-		"return rows as text",
+		"if (count of rows) is 0 then return \"\"",
+		"return (rows as text) & (character id 30)",
 	},
 }
 
@@ -82,9 +86,7 @@ func parseTabNames(out string) []TerminalTab {
 // Automation prompt would otherwise hold it for launchTimeout.
 const tabNameReadTimeout = 3 * time.Second
 
-// tabNameReadPause is how long an app is not read again after macOS
-// refused the read or it timed out, as it does while the Automation
-// prompt waits for an answer, so refreshes do not stack reads.
+// tabNameReadPause keeps a failed read from running on every refresh.
 const tabNameReadPause = 5 * time.Minute
 
 func tabNameReadArgs(app string) ([]string, bool) {
@@ -108,30 +110,39 @@ type tabChats struct {
 	chats []tabChat
 }
 
-// keepTabChats keeps the live chats of the scan's rows that each show
-// alone in a tab whose name can be read.
-func (s *Scanner) keepTabChats(opts ScanOptions, results []sourceResult) {
+func uniqueTabChats(results []sourceResult) []tabChat {
 	var chats []tabChat
-	onTTY := map[terminalHost]int{}
+	onTTY := map[string]int{}
 	for _, result := range results {
-		for _, c := range result.conversations {
-			host, ok := tabOf(c)
-			if !ok || c.Open.Kind != RouteFocus || RenameReachesCloud(c) {
-				continue
+		for index, rows := range [][]Conversation{result.conversations, result.unlisted} {
+			for _, c := range rows {
+				if c.Open.Kind != RouteFocus || c.placed == nil {
+					continue
+				}
+				if len(c.placed.ttys) > 0 {
+					for _, tty := range c.placed.ttys {
+						onTTY[tty]++
+					}
+					continue
+				}
+				if c.placed.host.TTY != "" {
+					onTTY[c.placed.host.TTY]++
+				}
+				host, ok := tabOf(c)
+				if index == 0 && ok && !RenameReachesCloud(c) && len(tabNameReads[host.App]) > 0 {
+					chats = append(chats, tabChat{c: c, host: host})
+				}
 			}
-			if _, read := tabNameReads[host.App]; !read {
-				continue
-			}
-			onTTY[host]++
-			chats = append(chats, tabChat{c: c, host: host})
 		}
 	}
-	chats = slices.DeleteFunc(chats, func(chat tabChat) bool { return onTTY[chat.host] > 1 })
-	// A server limited to some folders cannot see a live chat outside
-	// them that shares the tty, so it cannot prove the match; a
-	// user-level server, such as the companion's, follows every tab.
-	if len(opts.Within) > 0 {
-		chats = nil
+	return slices.DeleteFunc(chats, func(chat tabChat) bool { return onTTY[chat.host.TTY] != 1 })
+}
+
+func (s *Scanner) keepTabChats(opts ScanOptions, results []sourceResult) {
+	var chats []tabChat
+	// A folder-limited scan cannot count chats outside its scope that share a tty.
+	if len(opts.Within) == 0 {
+		chats = uniqueTabChats(results)
 	}
 	opts.Before, opts.Query, opts.Tool, opts.NeedsYou = time.Time{}, "", "", nil
 	s.tabChatsMu.Lock()
@@ -160,34 +171,36 @@ func (s *Scanner) SyncTabNames(ctx context.Context, launcher Launcher, inTool Re
 	s.tabChatsMu.Lock()
 	kept := s.tabChats
 	s.tabChatsMu.Unlock()
+	if len(kept.chats) == 0 {
+		return nil
+	}
+	// Take the saved names before checking for a rename and reading the tabs.
+	marks, _, err := readMarks(s.MarksPath, s.Now())
+	if err != nil {
+		return nil
+	}
 	byApp := map[string][]tabChat{}
 	for _, chat := range kept.chats {
 		if s.Now().Before(s.tabReadsPaused[chat.host.App]) {
 			continue
 		}
+		release, err := s.LockRename(chat.c.Tool, chat.c.ID)
+		if err != nil {
+			continue
+		}
+		release()
 		byApp[chat.host.App] = append(byApp[chat.host.App], chat)
-	}
-	if len(byApp) == 0 {
-		return nil
-	}
-	// The saved names are read before the tabs, so a name saved while
-	// the tabs are read is newer than the tab's and is kept.
-	marks, _, err := readMarks(s.MarksPath, s.Now())
-	if err != nil {
-		return nil
 	}
 	var failures []TabRenameFailure
 	for _, app := range slices.Sorted(maps.Keys(byApp)) {
 		readCtx, cancel := context.WithTimeout(ctx, tabNameReadTimeout)
 		tabs, err := launcher.ReadTabNames(readCtx, app)
 		cancel()
-		if errors.Is(err, errAutomationDenied) || errors.Is(err, context.DeadlineExceeded) {
+		if err != nil {
 			if s.tabReadsPaused == nil {
 				s.tabReadsPaused = map[string]time.Time{}
 			}
 			s.tabReadsPaused[app] = s.Now().Add(tabNameReadPause)
-		}
-		if err != nil {
 			continue
 		}
 		byTTY := map[string]TerminalTab{}
@@ -219,11 +232,19 @@ var errTabMoved = errors.New("the chat left the tab")
 // the tab since the last look. The look is recorded first, whatever
 // follows, so a name is tried once per change.
 func (s *Scanner) followTabName(ctx context.Context, opts ScanOptions, file marksFile, chat tabChat, name string, inTool RenameInTool) error {
-	changed, first, sameTab := s.noteTabName(markKey(chat.c.Tool, chat.c.ID), chat.host, sessionOf(chat.c), name)
+	release, err := s.LockRename(chat.c.Tool, chat.c.ID)
+	if errors.Is(err, ErrRenameInProgress) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	defer release()
+	saved := file.Marks[markKey(chat.c.Tool, chat.c.ID)].Title
+	changed, first, sameTab := s.noteTabName(chat, name, saved)
 	if !changed || name == "" {
 		return nil
 	}
-	saved := file.Marks[markKey(chat.c.Tool, chat.c.ID)].Title
 	if name == saved || (first && saved != "") {
 		return nil
 	}
@@ -236,39 +257,50 @@ func (s *Scanner) followTabName(ctx context.Context, opts ScanOptions, file mark
 	if err != nil {
 		return err
 	}
-	if !stillRuns(chat.c, s.Processes) {
+	if title == saved || !stillRuns(chat.c, s.Processes) {
 		return nil
 	}
-	_, err = s.RenameChat(ctx, ChatRename{
-		Tool: chat.c.Tool, ID: chat.c.ID, Title: title, Opts: opts, InTool: inTool, Saved: &saved,
-		Check: func(found Conversation) error {
-			host, ok := tabOf(found)
-			if !ok || host != chat.host || RenameReachesCloud(found) || !stillRuns(found, s.Processes) {
-				return errTabMoved
-			}
-			return nil
-		},
+	_, err = s.renameChat(ctx, ChatRename{
+		Tool: chat.c.Tool, ID: chat.c.ID, Title: title, Opts: opts, InTool: inTool,
+		tab: &chat,
 	})
-	switch {
-	case errors.Is(err, ErrRenameInProgress), errors.Is(err, ErrConversationGone), errors.Is(err, errTabMoved), errors.Is(err, errRenamedMeanwhile):
+	if errors.Is(err, errTabMoved) {
 		return nil
-	default:
-		return err
 	}
+	return err
 }
 
-// sessionOf names the session process of a live chat.
-func sessionOf(c Conversation) string {
-	return strconv.Itoa(c.process.PID) + "@" + c.process.ProcStart
+func tabSessionOf(c Conversation) string {
+	session := strconv.Itoa(c.process.PID) + "@" + c.process.ProcStart
+	// A Codex thread can outlive the terminal client that showed it.
+	if client := c.placed.process; client != *c.process {
+		session += "|" + strconv.Itoa(client.PID) + "@" + client.ProcStart
+	}
+	return session
 }
 
-// noteTabName records name as the one the tab of key showed, under the
-// lock every server shares, so two servers never both act on one
-// change. changed is false when the last look saw the same name; first
-// is true when no look at this tab by this session was recorded before. sameTab are
-// the other chats remembered in that tab; a first look whose name one
-// of them saw last is not changed.
-func (s *Scanner) noteTabName(key string, host terminalHost, session, name string) (changed, first bool, sameTab []string) {
+func (s *Scanner) resetTabNameObservation(c Conversation, host terminalHost) {
+	path := s.tabsPath()
+	release, err := lockMarks(path)
+	if err != nil {
+		return
+	}
+	defer release()
+	file := readTabs(path)
+	key := markKey(c.Tool, c.ID)
+	tab, ok := file.Tabs[key]
+	if !ok || tab.Host != host || tab.NameSession != tabSessionOf(c) || tab.NameFingerprint == "" {
+		return
+	}
+	tab.NameSession = ""
+	file.Tabs[key] = tab
+	_ = writeJSONFile(path, file)
+}
+
+// noteTabName records an observation only if the chat's saved title still
+// matches the snapshot taken before reading Ghostty.
+func (s *Scanner) noteTabName(chat tabChat, name, saved string) (changed, first bool, sameTab []string) {
+	key, host, session := markKey(chat.c.Tool, chat.c.ID), chat.host, tabSessionOf(chat.c)
 	path := s.tabsPath()
 	if path == "" {
 		return false, false, nil
@@ -284,21 +316,27 @@ func (s *Scanner) noteTabName(key string, host terminalHost, session, name strin
 		tab = rememberedTab{Host: host, At: stamp(s.Now())}
 	}
 	if tab.NameSession != session {
-		tab.TabName, tab.NameSession = nil, session
+		tab.NameFingerprint, tab.NameSession = "", session
 	}
-	if tab.TabName != nil && *tab.TabName == name {
+	hash := sha256.Sum256([]byte(name))
+	fingerprint := hex.EncodeToString(hash[:])
+	if tab.NameFingerprint == fingerprint {
 		return false, false, nil
 	}
-	first = tab.TabName == nil
+	current, err := s.savedName(chat.c.Tool, chat.c.ID)
+	if err != nil || current != saved {
+		return false, false, nil
+	}
+	first = tab.NameFingerprint == ""
 	inherited := false
 	for other, kept := range file.Tabs {
 		if other == key || kept.Host != host {
 			continue
 		}
 		sameTab = append(sameTab, other)
-		inherited = inherited || (kept.TabName != nil && *kept.TabName == name)
+		inherited = inherited || kept.NameFingerprint == fingerprint
 	}
-	tab.TabName = &name
+	tab.NameFingerprint = fingerprint
 	file.Tabs[key] = tab
 	if writeJSONFile(path, file) != nil {
 		return false, false, nil

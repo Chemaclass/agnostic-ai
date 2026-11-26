@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -254,6 +255,56 @@ func TestSyncTabNames_TwoChatsOnOneTTYAreLeftAlone(t *testing.T) {
 	}
 }
 
+func TestSyncTabNames_LeavesAChatAloneWhenAnotherJoinsDuringTheRead(t *testing.T) {
+	s := newTabSync(t)
+	s.launcher.onRead = func() {
+		table := ghosttyTable(ghosttyTab("/dev/ttys004", 45469, 45864, "claude"))
+		table = append(table, ProcessInfo{PID: 45964, PPID: 1, Stat: "S+", TTY: "/dev/ttys004", Started: "Tue Nov 10 21:49:17 2026", Command: "claude"})
+		s.scanner.Processes = processesWithTable(table)
+	}
+
+	if failures := s.sync(t, tab("typed in the tab", "/dev/ttys004")); len(failures) != 0 || len(s.named) != 0 {
+		t.Errorf("failures %v, tool got %q after another chat joined the tty", failures, s.named)
+	}
+}
+
+func TestSyncTabNames_DoesNotConsumeANameWhileAnotherRenameHasTheLock(t *testing.T) {
+	s := newTabSync(t)
+	var release func()
+	s.launcher.onRead = func() {
+		var err error
+		release, err = s.scanner.LockRename(ToolClaude, idSafari)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	tabs := tab("typed while a rename was running", "/dev/ttys004")
+	if failures := s.sync(t, tabs); len(failures) != 0 || len(s.named) != 0 {
+		t.Errorf("during the rename: failures %v, tool got %q", failures, s.named)
+	}
+	release()
+	s.launcher.onRead = nil
+
+	if failures := s.sync(t, tabs); len(failures) != 0 || len(s.named) != 1 {
+		t.Errorf("after the rename: failures %v, tool got %q", failures, s.named)
+	}
+}
+
+func TestSyncTabNames_DoesNotSaveARefusedTitle(t *testing.T) {
+	s := newTabSync(t)
+	name := "token ghp_0123456789abcdefghijABCDEFGHIJ012345"
+	if failures := s.sync(t, tab(name, "/dev/ttys004")); len(failures) != 1 {
+		t.Fatalf("expected a refused title, got %v", failures)
+	}
+	data, err := os.ReadFile(s.scanner.tabsPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), name) {
+		t.Error("conversation tabs persisted a refused title")
+	}
+}
+
 func TestSyncTabNames_ReadsOnlyAppsWithAReadAndAChatInThem(t *testing.T) {
 	s := newTabSync(t)
 	s.scanner.Processes = fakeProcesses{}
@@ -289,33 +340,103 @@ func TestSyncTabNames_BothDirectionsInSequence(t *testing.T) {
 	}
 }
 
-func TestRenameChat_LeavesANameSavedMeanwhile(t *testing.T) {
+type pendingTabWrite struct {
+	*fakeLauncher
+	started chan struct{}
+	finish  chan error
+}
+
+func (l pendingTabWrite) TitleTab(ctx context.Context, _, _, _ string) (bool, error) {
+	close(l.started)
+	select {
+	case err := <-l.finish:
+		return err == nil, err
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+}
+
+func TestSyncTabNames_KeepsF2WhileTheTabWriteIsPending(t *testing.T) {
 	s := newTabSync(t)
-	if err := s.scanner.Rename(ToolClaude, idSafari, "newer"); err != nil {
+	s.sync(t, tab("seen before F2", "/dev/ttys004"))
+	launcher := pendingTabWrite{fakeLauncher: s.launcher, started: make(chan struct{}), finish: make(chan error, 1)}
+	defer close(launcher.finish)
+	if _, err := s.scanner.RenameChat(context.Background(), ChatRename{
+		Tool: ToolClaude, ID: idSafari, Title: "from F2", InTool: s.inTool, TabLauncher: launcher,
+	}); err != nil {
 		t.Fatal(err)
 	}
-	older := ""
+	select {
+	case <-launcher.started:
+	case <-time.After(time.Second):
+		t.Fatal("the F2 tab write did not start")
+	}
 
-	_, err := s.scanner.RenameChat(context.Background(), ChatRename{Tool: ToolClaude, ID: idSafari, Title: "older", InTool: s.inTool, Saved: &older})
+	// The old tab name changed before F2, but the scanner had not seen it.
+	s.sync(t, tab("old unread tab name", "/dev/ttys004"))
 
-	if !errors.Is(err, errRenamedMeanwhile) || len(s.named) != 0 || s.title(t, idSafari) != "newer" {
-		t.Errorf("err %v, tool got %q, chat = %q", err, s.named, s.title(t, idSafari))
+	want := []string{idSafari + " seen before F2", idSafari + " from F2"}
+	if !reflect.DeepEqual(s.named, want) || s.title(t, idSafari) != "from F2" {
+		t.Errorf("tool got %q, chat = %q", s.named, s.title(t, idSafari))
+	}
+	if _, err := s.scanner.RenameChat(context.Background(), ChatRename{
+		Tool: ToolClaude, ID: idSafari, Title: "another F2", InTool: s.inTool, TabLauncher: launcher,
+	}); !errors.Is(err, ErrRenameInProgress) {
+		t.Errorf("a second F2 passed the pending tab writer: %v", err)
+	}
+
+	launcher.finish <- errors.New("Ghostty refused the tab write")
+	timeout := time.NewTimer(time.Second)
+	defer timeout.Stop()
+	for {
+		release, err := s.scanner.LockRename(ToolClaude, idSafari)
+		if err == nil {
+			release()
+			break
+		}
+		if !errors.Is(err, ErrRenameInProgress) {
+			t.Fatal(err)
+		}
+		select {
+		case <-timeout.C:
+			t.Fatal("the F2 tab writer did not release the lock")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	s.sync(t, tab("old unread tab name", "/dev/ttys004"))
+	if !reflect.DeepEqual(s.named, want) || s.title(t, idSafari) != "from F2" {
+		t.Errorf("after the tab refused the write, tool got %q, chat = %q", s.named, s.title(t, idSafari))
+	}
+	s.sync(t, tab("typed after F2", "/dev/ttys004"))
+	if s.title(t, idSafari) != "typed after F2" {
+		t.Errorf("a later tab rename was ignored: %q", s.title(t, idSafari))
+	}
+}
+
+func TestTabSessionOf_ChangesWhenTheCodexClientChanges(t *testing.T) {
+	holder := &liveProcess{PID: 20, ProcStart: "holder start"}
+	chat := Conversation{Tool: ToolCodex, process: holder, placed: &placement{process: liveProcess{PID: 21, ProcStart: "first client start"}}}
+	first := tabSessionOf(chat)
+	chat.placed.process.ProcStart = "restarted client with the same PID"
+
+	if tabSessionOf(chat) == first {
+		t.Error("the replacement client took the earlier client's observation")
 	}
 }
 
 func TestRemember_KeepsTheTabNameOnlyForTheSameTab(t *testing.T) {
 	host := terminalHost{App: "Ghostty", TTY: "/dev/ttys004"}
 	name := "codex:agnostic"
-	file := tabsFile{Tabs: map[string]rememberedTab{"claude:x": {Host: host, At: "2026-11-01T12:00:00Z", TabName: &name}}}
+	file := tabsFile{Tabs: map[string]rememberedTab{"claude:x": {Host: host, At: "2026-11-01T12:00:00Z", NameFingerprint: name}}}
 	now := parseStamp("2026-11-10T12:00:00Z")
 
 	file.remember("claude:x", host, now)
-	if kept := file.Tabs["claude:x"].TabName; kept == nil || *kept != name {
+	if kept := file.Tabs["claude:x"].NameFingerprint; kept != name {
 		t.Errorf("the same tab lost its name: %v", kept)
 	}
 	file.remember("claude:x", terminalHost{App: "Ghostty", TTY: "/dev/ttys005"}, now)
-	if kept := file.Tabs["claude:x"].TabName; kept != nil {
-		t.Errorf("another tab took the name %q", *kept)
+	if kept := file.Tabs["claude:x"].NameFingerprint; kept != "" {
+		t.Errorf("another tab took the name %q", kept)
 	}
 }
 
@@ -400,12 +521,18 @@ func TestSyncTabNames_KeepsANameSavedWhileTheTabsAreRead(t *testing.T) {
 	if !reflect.DeepEqual(s.named, []string{idSafari + " manual"}) || s.title(t, idSafari) != "from F2" {
 		t.Errorf("tool got %q, chat = %q", s.named, s.title(t, idSafari))
 	}
+	s.launcher.onRead = nil
+	s.sync(t, tab("typed", "/dev/ttys004"))
+	if s.title(t, idSafari) != "typed" {
+		t.Errorf("the next read missed a tab name still present: %q", s.title(t, idSafari))
+	}
 }
 
 func TestSyncTabNames_PausesReadsAfterARefusalOrATimeout(t *testing.T) {
 	for name, readErr := range map[string]error{
 		"Automation denied": errAutomationDenied,
 		"prompt unanswered": fmt.Errorf("osascript: %w", context.DeadlineExceeded),
+		"older Ghostty":     errors.New("tab name override is unavailable"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := newTabSync(t)
