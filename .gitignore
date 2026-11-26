@@ -104,7 +104,6 @@ desktop.ini
 /.agent/
 /.augment/
 /.vscode/mcp.json
-/CLAUDE.md
 /.codebuddy/
 /CONVENTIONS.md
 /.aider.conf.yml
@@ -118,7 +117,11 @@ desktop.ini
 /.ellipsis/
 # Codex / Amp / Warp share the open AGENTS.md standard and emit
 # hierarchically; Gemini emits GEMINI.md hierarchically too.
+# The root AGENTS.md and CLAUDE.md stay committed: cloud agents with no
+# repository setup step (Codex Cloud, Jules) read them straight from the
+# clone. Sync keeps them current and CI's sync --check catches drift.
 **/AGENTS.md
+!/AGENTS.md
 **/GEMINI.md
 **/CODEBUDDY.md
 !docs/site/content/docs/targets/codebuddy.md
