@@ -42,7 +42,7 @@ Create a branch, keep the change to one outcome, and add tests for behavior you 
 
 ## Check
 
-Choose local checks and remote CI from [checks by change type](docs/internal/contributing.md#choose-checks-for-your-change). Record their results in the PR. `make hooks` installs quick formatting and commit-message checks.
+Choose local checks and remote CI from [checks by change type](docs/internal/contributing.md#choose-checks-for-your-change). Record their results in the PR. `make hooks` installs quick formatting and commit-message checks. It also installs hooks that run `agnostic-ai sync --keep-edits` after a branch switch, a pull and a rebase; they need `make build` first. Agent sessions in Claude Code, Codex and Gemini also sync when they start.
 
 ## Submit
 

@@ -6,3 +6,4 @@ go mod download
 make tools
 make hooks
 make build
+.agnostic-ai/scripts/sync-generated.sh

@@ -8,6 +8,25 @@ pre-commit:
       run: gofmt -l {staged_files} | (! grep .)
       fail_text: "Run `gofmt -w` on the listed files."
 
+# Regenerate the ignored tool files after a branch switch, a merging pull and
+# a rebase, so agents read the specs of the code that is checked out.
+post-checkout:
+  commands:
+    agnostic-ai-sync:
+      # {3} is 1 for a branch checkout and 0 for a file checkout. During a
+      # rebase, post-rewrite syncs once the final tree is in place.
+      run: test "{3}" = 1 || exit 0; .agnostic-ai/scripts/sync-generated.sh --skip-while-rebasing
+
+post-merge:
+  commands:
+    agnostic-ai-sync:
+      run: .agnostic-ai/scripts/sync-generated.sh
+
+post-rewrite:
+  commands:
+    agnostic-ai-sync:
+      run: test "{1}" = rebase || exit 0; .agnostic-ai/scripts/sync-generated.sh
+
 commit-msg:
   commands:
     conventional-commits:
