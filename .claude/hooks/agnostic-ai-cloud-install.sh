@@ -18,18 +18,18 @@ else
   printf '%s\n' 'Claude Code cloud install needs flock or lockf.' >&2
   exit 1
 fi
-expected=eae5a7cd4f48225004d4439e71b9043bbdd84b3399f8e1d389126e97b09e575d
+expected=d853b11e21209a7003c543df020f4f9235bfa2d92ecc001af6d7bb244970b4da
 if [ -f "$marker" ] && [ "$(cat "$marker")" = "$expected" ]; then
   exit 0
 fi
 rm -f "$marker" || exit 1
-sh -e /dev/fd/8 </dev/null 9>&- 8<<'AGNOSTIC_AI_INSTALL_eae5a7cd4f48225004d4439e71b9043bbdd84b3399f8e1d389126e97b09e575d' || exit $?
+sh -e /dev/fd/8 </dev/null 9>&- 8<<'AGNOSTIC_AI_INSTALL_d853b11e21209a7003c543df020f4f9235bfa2d92ecc001af6d7bb244970b4da' || exit $?
 export PATH="$(go env GOPATH)/bin:$PATH"
 go mod download
-make tools
+make tools-lefthook
 make hooks
 make build
 .agnostic-ai/scripts/sync-generated.sh
 
-AGNOSTIC_AI_INSTALL_eae5a7cd4f48225004d4439e71b9043bbdd84b3399f8e1d389126e97b09e575d
+AGNOSTIC_AI_INSTALL_d853b11e21209a7003c543df020f4f9235bfa2d92ecc001af6d7bb244970b4da
 printf '%s\n' "$expected" > "$marker"

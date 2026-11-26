@@ -23,8 +23,8 @@ func f() int {
 }
 '
 
-# Each test gets a project with the hook script at its real place, so the
-# script finds the project root from its own path. PATH holds only what
+# Each test gets a Git project with the hook script at its real place, so
+# the script finds the project root from its own path. PATH holds only what
 # the script needs, so a missing tool is really missing.
 function set_up() {
   project="$(mktemp -d "${TMPDIR:-/tmp}/agnostic-gofmt-hook-tests.XXXXXX")"
@@ -32,6 +32,7 @@ function set_up() {
   sys="$project/.sys"
   mkdir -p "$project/.agnostic-ai/scripts" "$project/pkg/sub" "$sys"
   cp "$HOOK_SCRIPT" "$project/.agnostic-ai/scripts/"
+  git_quiet -C "$project" init
   ln -s "$(command -v dirname)" "$sys/dirname"
   ln -s "$(command -v gofmt)" "$sys/gofmt"
   ln -s "$(command -v git)" "$sys/git"
@@ -80,6 +81,18 @@ function write_bad() {
 function test_claude_edit_formats_the_go_file() {
   write_bad pkg/a.go
   run_hook claude "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}"
+  assert_successful_code "$?"
+  assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
+"
+}
+
+function test_a_copy_three_folders_deep_finds_the_root() {
+  mkdir -p "$project/.github/hooks/scripts"
+  mv "$project/.agnostic-ai/scripts/gofmt-on-edit.sh" "$project/.github/hooks/scripts/"
+  write_bad pkg/a.go
+  printf '%s' "{\"cwd\":\"$project\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$project/pkg/a.go\"}}" |
+    (cd "$project" && env -i HOME="$project" PATH="$sys" AGNOSTIC_AI_TARGET=claude AGNOSTIC_AI_BIN="$AGNOSTIC_AI_TEST_BIN" \
+      /bin/sh "$project/.github/hooks/scripts/gofmt-on-edit.sh")
   assert_successful_code "$?"
   assert_same "$GOOD_GO" "$(cat "$project/pkg/a.go")
 "

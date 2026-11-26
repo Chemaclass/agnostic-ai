@@ -4,6 +4,30 @@
     "commit": "",
     "pr": ""
   },
+  "permissions": {
+    "allow": [
+      "Bash(go build ./...)",
+      "Bash(go vet ./...)",
+      "Bash(go test ./...)",
+      "Bash(make build)",
+      "Bash(make test-short)",
+      "Bash(make vet)",
+      "Bash(make fmt-check)",
+      "Bash(./agnostic-ai sync)",
+      "Bash(./agnostic-ai sync --check)",
+      "Bash(./agnostic-ai lint)",
+      "Bash(git status)",
+      "Bash(git status --short)",
+      "Bash(git diff)",
+      "Bash(git diff --stat)",
+      "Bash(git diff --cached)",
+      "Bash(git log --oneline)"
+    ],
+    "ask": [
+      "Edit(/ui/embedded/**)",
+      "Edit(/docs/schemas/config.schema.json)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
@@ -13,6 +37,16 @@
             "type": "command",
             "command": "[ \"$AGNOSTIC_AI_TARGET\" = cursor ] && exit 0; \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync-generated.sh\"",
             "timeout": 60
+          }
+        ]
+      },
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/agnostic-ai-worktree-setup.sh\"; [ ! -f \"$f\" ] || sh \"$f\"",
+            "shell": "bash"
           }
         ]
       },
@@ -37,6 +71,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "EnterWorktree",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/agnostic-ai-worktree-setup.sh\"; [ ! -f \"$f\" ] || sh \"$f\"",
+            "shell": "bash"
+          }
+        ]
       }
     ],
     "SubagentStart": [
@@ -46,6 +90,11 @@
           {
             "type": "command",
             "command": "sh -c 'd=$(pwd); until [ -x \"$d/node_modules/.bin/agnostic-ai\" ] || [ -f \"$d/agnostic-ai.yaml\" ] || [ -f \"$d/agnostic.config.yaml\" ] || [ \"$d\" = \"$(dirname \"$d\")\" ]; do d=$(dirname \"$d\"); done; bin=\"$d/node_modules/.bin/agnostic-ai\"; [ -x \"$bin\" ] || bin=agnostic-ai; command -v \"$bin\" >/dev/null || exit 0; AGNOSTIC_AI_NO_UPDATE_CHECK=1 \"$bin\" project --help >/dev/null 2>&1 || { echo \"agnostic-ai: this version has no project command; upgrade to 0.83.0 or newer\" >&2; exit 1; }; exec \"$bin\" project -- hook memory --target claude'"
+          },
+          {
+            "type": "command",
+            "command": "f=\"$CLAUDE_PROJECT_DIR/.claude/hooks/agnostic-ai-worktree-setup.sh\"; [ ! -f \"$f\" ] || sh \"$f\"",
+            "shell": "bash"
           }
         ]
       }

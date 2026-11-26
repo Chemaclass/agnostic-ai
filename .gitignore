@@ -119,7 +119,9 @@ desktop.ini
 # hierarchically; Gemini emits GEMINI.md hierarchically too.
 # The root AGENTS.md and CLAUDE.md stay committed: cloud agents with no
 # repository setup step (Codex Cloud, Jules) read them straight from the
-# clone. Sync keeps them current and CI's sync --check catches drift.
+# clone. Sync keeps them current, and CI's Spec lint job runs sync and
+# fails when a committed output differs (a plain sync --check on a fresh
+# clone would also flag every ignored output as missing).
 **/AGENTS.md
 !/AGENTS.md
 **/GEMINI.md

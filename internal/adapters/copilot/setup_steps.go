@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 
@@ -23,20 +24,28 @@ const checkoutCommit = "3d3c42e5aac5ba805825da76410c181273ba90b1"
 // trailing comment that Renovate, Dependabot and pin policies read.
 const checkoutVersion = "v7"
 
-// versionComment splits `<ref> # <version>`, the form a quoted spec value
-// uses to keep the comment that YAML would otherwise drop.
-var versionComment = regexp.MustCompile(`^(\S+)\s+#\s*(\S.*)$`)
+// commentStart finds the first ` #` that opens a YAML line comment. A `#`
+// with no whitespace before it belongs to the value, as in
+// `docker://alpine#tag`.
+var commentStart = regexp.MustCompile(`\s#`)
 
-// splitVersionComment returns the ref and its version comment, if any.
+// splitVersionComment returns the ref and its version comment, if any, from
+// `<ref> # <version>`, the form a quoted spec value uses to keep the comment
+// that YAML would otherwise drop. A comment needs a ref with no whitespace
+// and text without control characters.
 func splitVersionComment(value string) (string, string, bool) {
-	if !strings.Contains(value, "#") {
+	loc := commentStart.FindStringIndex(value)
+	if loc == nil {
 		return value, "", true
 	}
-	m := versionComment.FindStringSubmatch(strings.TrimSpace(value))
-	if m == nil {
+	ref := strings.TrimSpace(value[:loc[0]])
+	comment := value[loc[1]:]
+	version := strings.TrimSpace(comment)
+	if ref == "" || strings.IndexFunc(ref, unicode.IsSpace) >= 0 || version == "" ||
+		strings.IndexFunc(comment, unicode.IsControl) >= 0 {
 		return value, "", false
 	}
-	return m[1], strings.TrimSpace(m[2]), true
+	return ref, version, true
 }
 
 func SetupStepsPath(cfg *config.Config) string {
