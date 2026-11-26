@@ -28,6 +28,12 @@ func PersonalMemoryDir(cfg *config.Config, root string) (string, error) {
 	return emit.PersonalMemoryDir(cfg, root)
 }
 
+// MainCheckoutProject locates the same project in the repository's main checkout.
+func MainCheckoutProject(root string) (string, bool) {
+	_, project, ok := emit.MainCheckoutAt(root)
+	return project, ok
+}
+
 // GrantedRoots names the directories sync grants write access to outside
 // the checkout: stores of personal memory and the shared handoff store.
 // Each is a path on one machine, so an import leaves it out of the specs.

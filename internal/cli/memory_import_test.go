@@ -297,6 +297,92 @@ func TestLintMemory_ReportsClaudesFactsThatNoLongerLoad(t *testing.T) {
 	}
 }
 
+func TestLintMemory_ClaudeFactsInEitherCheckoutArePresent(t *testing.T) {
+	isolateGit(t)
+	native := importProject(t)
+	main, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectIndex := defaultMemoryStores[0].indexPath()
+	writeFile(t, projectIndex, "# Project memory\n")
+	git(t, main, "add", "agnostic-ai.yaml", filepath.ToSlash(projectIndex))
+	git(t, main, "commit", "-qm", "memory fixture")
+	writeStore(t, personalStore, map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(t, main, "worktree", "add", "-q", "--detach", linked)
+	testutil.Chdir(t, linked)
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	if out, err := runRoot(t, "lint"); err != nil || strings.Contains(out, "LINT043") {
+		t.Errorf("lint with the fact only in the main checkout: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(personalStore); !os.IsNotExist(err) {
+		t.Errorf("lint should leave the worktree store absent: %v", err)
+	}
+
+	writeStore(t, personalStore, map[string]string{"MEMORY.md": "- [CI](ci-ubuntu.md): CI\n", "ci-ubuntu.md": ciFact})
+	writeStore(t, native, map[string]string{"ci-ubuntu.md": ciFact, "another-fact.md": tabsFact})
+	out, _ := runRoot(t, "lint")
+	if !strings.Contains(out, "LINT043") || !strings.Contains(out, "1 fact(s) here no longer load") || !strings.Contains(out, "memory import --from claude") {
+		t.Errorf("lint with a fact missing from both checkouts:\n%s", out)
+	}
+
+	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: checkout\n")
+	t.Run("main checkout switches to repo mode", func(t *testing.T) {
+		testutil.Chdir(t, main)
+		writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")
+		if err := runSync(t); err != nil {
+			t.Fatal(err)
+		}
+	})
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	out, err = runRoot(t, "lint")
+	if err != nil || !strings.Contains(out, "LINT043") || !strings.Contains(out, "2 fact(s) here no longer load") {
+		t.Errorf("lint with a stale fact in the main checkout store: %v\n%s", err, out)
+	}
+}
+
+func TestLintMemory_ClaudeFactsUseTheSameProjectInTheMainCheckout(t *testing.T) {
+	isolateGit(t)
+	native := importProject(t)
+	main, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	project := filepath.Join("apps", "client")
+	configPath := filepath.Join(project, "agnostic-ai.yaml")
+	projectIndex := filepath.Join(project, defaultMemoryStores[0].indexPath())
+	writeFile(t, configPath, readFile(t, "agnostic-ai.yaml"))
+	writeFile(t, projectIndex, "# Project memory\n")
+	git(t, main, "add", filepath.ToSlash(configPath), filepath.ToSlash(projectIndex))
+	git(t, main, "commit", "-qm", "nested memory fixture")
+	writeStore(t, personalStore, map[string]string{"ci-ubuntu.md": ciFact})
+	writeStore(t, filepath.Join(project, personalStore), map[string]string{"MEMORY.md": "- [Tabs](tabs.md): tabs\n", "tabs.md": tabsFact})
+
+	linked := filepath.Join(t.TempDir(), "linked")
+	git(t, main, "worktree", "add", "-q", "--detach", linked)
+	testutil.Chdir(t, filepath.Join(linked, project))
+	if err := runSync(t); err != nil {
+		t.Fatal(err)
+	}
+	writeStore(t, native, map[string]string{"tabs.md": tabsFact})
+	if out, err := runRoot(t, "lint"); err != nil || strings.Contains(out, "LINT043") {
+		t.Errorf("lint with the fact in the same project in the main checkout: %v\n%s", err, out)
+	}
+	writeStore(t, native, map[string]string{"ci-ubuntu.md": ciFact})
+	out, err := runRoot(t, "lint")
+	if err != nil || !strings.Contains(out, "LINT043") || !strings.Contains(out, "1 fact(s) here no longer load") {
+		t.Errorf("lint with a fact only at the main repository root: %v\n%s", err, out)
+	}
+}
+
 func TestLintMemory_ReportsTheCheckoutStoreAfterSwitchingToRepoMode(t *testing.T) {
 	importProject(t)
 	writeFile(t, "agnostic-ai.local.yaml", "memory:\n  personal: repo\n")

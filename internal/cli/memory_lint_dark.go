@@ -60,6 +60,13 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		if err != nil {
 			return nil, err
 		}
+		var mainFacts []string
+		if c.from == memorySourceClaude && !readers.cfg.RepoPersonalMemory() && len(facts) > 0 {
+			mainFacts, err = mainCheckoutMemoryFacts(root)
+			if err != nil {
+				return nil, err
+			}
+		}
 		isDeclined := func(record string, body func() ([]byte, error)) bool {
 			sum, ok := declined[c.from+"/"+record]
 			if !ok || sum == "" {
@@ -84,7 +91,7 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		}
 		for _, f := range facts {
 			switch {
-			case slices.Contains(have, f) || handled[c.from+"/"+f]:
+			case slices.Contains(have, f) || slices.Contains(mainFacts, f) || handled[c.from+"/"+f]:
 			case isDeclined(f, func() ([]byte, error) { return readMemoryFact(filepath.Join(c.dir, f)) }):
 				declinedHere++
 			default:
@@ -106,6 +113,18 @@ func lintMemoryDarkStores(readers memoryReaders, root string) ([]lintFinding, er
 		})
 	}
 	return out, nil
+}
+
+func mainCheckoutMemoryFacts(root string) ([]string, error) {
+	main, ok := adapters.MainCheckoutProject(root)
+	if !ok || canonicalDir(main) == canonicalDir(root) {
+		return nil, nil
+	}
+	cfg, err := config.Load(main)
+	if err != nil || cfg.RepoPersonalMemory() {
+		return nil, nil
+	}
+	return adapters.MemoryFactFiles(filepath.Join(main, defaultMemoryStores[1].dir))
 }
 
 // claudeReadsPersonalMemory reports whether the Claude Code settings sync
