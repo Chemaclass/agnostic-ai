@@ -6,3 +6,4 @@ install: |
   make tools
   make hooks
   make build
+  ./agnostic-ai sync --keep-edits

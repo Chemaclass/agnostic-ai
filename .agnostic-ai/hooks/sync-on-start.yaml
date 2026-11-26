@@ -1,0 +1,6 @@
+name: sync-on-start
+description: Regenerate tool files from .agnostic-ai/ when a session starts.
+targets: [claude, codex, gemini]
+on: session-start
+command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'
+timeout: 60
