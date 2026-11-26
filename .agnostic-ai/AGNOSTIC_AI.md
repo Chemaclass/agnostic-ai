@@ -2,7 +2,7 @@
 
 agnostic-ai emits native AI tool configuration from portable specs. Go code: `cmd/`, `internal/`. Web client: `ui/`, with its built bundle committed in `ui/embedded/`. Companion app: `companion/`, its own Go module that root Go commands skip. Docs site: `docs/site/`. Editor extensions: `editors/`.
 
-Edit canonical specs in `.agnostic-ai/` and `agnostic-ai.yaml`, then run `go run ./cmd/agnostic-ai sync`. Most native tool files are generated and ignored. The root `AGENTS.md` and `CLAUDE.md` and the cloud setup files (`.claude/settings.json`, `.claude/hooks/`, `.openhands/`, `.cursor/environment.json`, `.agents/setup`, `.github/workflows/copilot-setup-steps.yml`) are generated and tracked: commit them with the spec change, and CI fails when they drift. See `CONTRIBUTING.md#generated-files`.
+Edit canonical specs in `.agnostic-ai/` and `agnostic-ai.yaml`, then run `go run ./cmd/agnostic-ai sync`. Most native tool files are generated and ignored. The root `AGENTS.md` and `CLAUDE.md` and the Claude Code cloud setup files (`.claude/settings.json`, `.claude/hooks/`) are generated and tracked: commit them with the spec change, and CI fails when they drift. See `CONTRIBUTING.md#generated-files`.
 
 Paths here are repository-root relative. Start with `CONTRIBUTING.md`; `docs/internal/contributing.md#choose-checks-for-your-change` picks the checks. Read `docs/internal/adding-adapters.md` for adapter work. Run checks once the change set is complete; releases need `make ci-local`.
 

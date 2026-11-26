@@ -6,10 +6,6 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
-### General
-
-- `sync --scope user` removes the skills and agents it wrote for a tool you drop from the home config's `targets`. Before, those tools kept stale copies, including skills renamed since.
-
 ## v0.99.0 - 2026-11-24
 
 ### Highlights

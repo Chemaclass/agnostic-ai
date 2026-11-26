@@ -4,7 +4,7 @@
 # This repo dogfoods the tool: source specs live under .agnostic-ai/
 # and `agnostic-ai sync` regenerates the per-CLI configs in the working tree.
 #
-# Generated outputs (CLAUDE.md, AGENTS.md, .cursor/, etc.) stay in .gitignore,
+# Generated outputs (CLAUDE.md, AGENTS.md, .claude/, etc.) stay in .gitignore,
 # except the cloud setup files and the root AGENTS.md and CLAUDE.md, which
 # cloud agents read from a clone (see .gitignore).
 
@@ -13,66 +13,17 @@ requires: ">=0.99.0"
 builtins: [cloud-handoff, handoff, memory]
 
 # Use default source directories under .agnostic-ai/.
-# Dogfood the registered targets; Grok needs an explicit policy below.
-# Targets sharing an output path must emit identical content there.
+# Sync only the tools maintainers use. Adapter and integration tests
+# cover every target with their own configs, not this file.
 targets:
-  - codebuddy
   - claude
   - codex
-  - gemini
-  - qwen
 
-  - pi
-  - cursor
-  - copilot
-  - aider
-  - cline
-  - windsurf
-  - continue
-  - zed
-  - opencode
-  - antigravity
-  - junie
-  - kiro
-  - crush
-  - trae
-  - qoder
-  - vibe
-  - kimi
-  - openhands
-  - factory
-  - kilo
-  - jules
-  - goose
-  # Grok requires an explicit visible-instructions policy; see https://agnostic-ai.org/docs/targets/grok/.
-  # - grok
-  - augment
-  - amp
-  - warp
-  # Ignored dogfood fixture; names live in .agnostic-ai/settings/ellipsis.yaml.
-  - ellipsis
-
-# Enable optional outputs so the repository exercises their emitters.
 outputs:
-  aider:
-    file: CONVENTIONS.md
-    conf-file: .aider.conf.yml
-    # Fold agents and skills into the concatenated CONVENTIONS.md
-    # (legacy rules-file layout). Without this they never reach aider.
-    rules-file: CONVENTIONS.md
-  gemini:
-    # Emit skills as slash commands under .gemini/commands/.
-    emit-skills-as-commands: true
-  opencode:
-    # Emit skills as commands under .opencode/command/.
-    emit-skills-as-commands: true
   codex:
     # Inline glob-scoped rules in the root AGENTS.md. Codex nested files
     # cannot express file filters such as **/*.go, so they load always.
     nested-glob-rules: false
-  zed:
-    # Render hooks as on-demand Zed Tasks (Zed has no hook surface).
-    tasks-file: .zed/tasks.json
 
 # What to do when a target does not support a spec kind.
 on-unsupported: warn   # warn | error | silent

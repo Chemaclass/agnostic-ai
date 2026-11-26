@@ -5,7 +5,7 @@ description: "Use after editing specs or adapters to run sync --check and pick t
 
 # run-sync-check
 
-Checks local generated files against the current specs and adapters. Most generated files are ignored by Git in this repository; `.openhands/setup.sh` is tracked for bootstrap.
+Checks local generated files against the current specs and adapters. Most generated files are ignored by Git in this repository; the root `AGENTS.md` and `CLAUDE.md` and the Claude Code setup files are tracked.
 
 ## Steps
 

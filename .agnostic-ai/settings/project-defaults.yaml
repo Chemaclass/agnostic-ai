@@ -24,7 +24,7 @@ permissions:
     - shell(git diff --stat)
     - shell(git diff --cached)
     - shell(git log --oneline)
-# Sync outputs (AGENTS.md, CLAUDE.md, .claude/, .openhands/) are left out:
+# Sync outputs (AGENTS.md, CLAUDE.md, .claude/) are left out:
 # lint warns that protecting them guards the output while the source stays
 # open (LINT022), and CI's drift check fails on a hand edit to them.
 protected:

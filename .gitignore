@@ -67,13 +67,12 @@ desktop.ini
 # stay out of git.
 # =============================================================================
 # Cloud agents start from a clone, so commit the setup files they read:
-# Claude Code settings and hooks (install and session-start sync), the
-# Cursor environment, and the Amp setup script. Sync keeps them current.
+# Claude Code settings and hooks (install and session-start sync). Sync
+# keeps them current.
 /.claude/*
 !/.claude/settings.json
 !/.claude/hooks/
-/.cursor/*
-!/.cursor/environment.json
+/.cursor/
 /.gemini/
 /.qwen/
 
@@ -96,8 +95,7 @@ desktop.ini
 /.kilo/
 /kilo.jsonc
 /crush.json
-/.agents/*
-!/.agents/setup
+/.agents/
 /.amp/
 /.zed/
 /.warp/

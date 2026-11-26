@@ -55,7 +55,7 @@ git -c core.hooksPath=/dev/null checkout <branch>   # also skips hooks lefthook 
 
 ### Generated files
 
-The root `AGENTS.md` and `CLAUDE.md` and the setup files cloud agents read are generated and committed: `.claude/settings.json`, `.claude/hooks/`, `.openhands/`, `.cursor/environment.json`, `.agents/setup` and `.github/workflows/copilot-setup-steps.yml`. Commit them together with the spec change that regenerates them. CI's Spec lint job runs `./agnostic-ai sync` on a clean checkout and fails when a committed file differs or sync writes a file Git neither tracks nor ignores.
+The root `AGENTS.md` and `CLAUDE.md` and the setup files Claude Code cloud sessions read are generated and committed: `.claude/settings.json` and `.claude/hooks/`. Commit them together with the spec change that regenerates them. CI's Spec lint job runs `./agnostic-ai sync` on a clean checkout and fails when a committed file differs or sync writes a file Git neither tracks nor ignores.
 
 Sync has no option to leave out personal overrides, so `.agnostic-ai/local/` and `agnostic-ai.local.yaml` put your personal content in those files. While you have either, move them aside before you sync the content you commit, then move them back and sync again:
 
