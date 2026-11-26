@@ -2,5 +2,5 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# Names-only environment validation, doctor output, and Cursor allowlist import and export.
-28672
+# The gitignore.commit cloud preset, and the exact .gitignore edits doctor environment plans from git check-ignore.
+49152

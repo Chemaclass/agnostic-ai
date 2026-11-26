@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -215,7 +216,9 @@ type Gitignore struct {
 	// every configured target, so adding a target needs no new pattern.
 	// `<target>:<kind>` limits a kind to one target, such as
 	// `cursor:environments` for the files a cloud agent reads from Git.
-	Commit []string `yaml:"commit,omitempty" json:"commit,omitempty" jsonschema:"pattern=^([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores)$"`
+	// `cloud` expands, per configured target, to the kinds that target's
+	// cloud agent reads from a clone (see CloudCommitKinds).
+	Commit []string `yaml:"commit,omitempty" json:"commit,omitempty" jsonschema:"pattern=^(cloud|([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores))$"`
 	// WorktreeInclude keeps the same managed block in `.worktreeinclude`
 	// when claude is a target, so Claude Code copies the ignored outputs
 	// and the local layer into every worktree it creates. Defaults to true.
@@ -237,11 +240,44 @@ func GitignoreCommitKinds() []string {
 	return []string{GitignoreInstructions, "agents", "skills", "commands", "hooks", "mcps", "settings", "reviews", "environments", "ignores"}
 }
 
+// GitignoreCommitCloud is the gitignore.commit preset that keeps every
+// file a configured target's cloud agent reads from a clone in Git.
+const GitignoreCommitCloud = "cloud"
+
+// cloudCommitKinds lists, per target with a cloud agent, the kinds that
+// agent reads from a fresh clone: the instructions it loads, plus the
+// environment and hook outputs that set up its session. Codex Cloud and
+// Jules take setup from their UI, so they read only instructions.
+var cloudCommitKinds = map[string][]string{
+	"amp":       {GitignoreInstructions, "environments"},
+	"claude":    {GitignoreInstructions, "environments", "hooks"},
+	"codex":     {GitignoreInstructions},
+	"copilot":   {GitignoreInstructions, "environments"},
+	"cursor":    {GitignoreInstructions, "environments"},
+	"ellipsis":  {"environments"},
+	"jules":     {GitignoreInstructions},
+	"openhands": {GitignoreInstructions, "environments"},
+}
+
+// CloudCommitKinds returns the kinds the `cloud` preset commits for
+// target, nil for a target without a cloud agent.
+func CloudCommitKinds(target string) []string {
+	return slices.Clone(cloudCommitKinds[target])
+}
+
+// CloudCommitTargets returns the targets the `cloud` preset covers, sorted.
+func CloudCommitTargets() []string {
+	return slices.Sorted(maps.Keys(cloudCommitKinds))
+}
+
 // Validate rejects a gitignore.commit entry whose kind no output belongs
 // to, or whose target part is empty, naming source.
 func (g Gitignore) Validate(source string) error {
 	kinds := GitignoreCommitKinds()
 	for _, entry := range g.Commit {
+		if entry == GitignoreCommitCloud {
+			continue
+		}
 		target, kind, scoped := strings.Cut(entry, ":")
 		if !scoped {
 			kind = entry
@@ -249,18 +285,30 @@ func (g Gitignore) Validate(source string) error {
 		if scoped && target == "" {
 			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: %q names no target before the colon", source, entry)
 		}
+		if scoped && kind == GitignoreCommitCloud {
+			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: %q: %s already covers every configured target, so list it without a target", source, entry, GitignoreCommitCloud)
+		}
 		if !slices.Contains(kinds, kind) {
-			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: unknown kind %q (want one of %s, optionally as <target>:<kind>)", source, kind, strings.Join(kinds, ", "))
+			return errs.Coded(errs.CodeConfigDecode, "%s: gitignore.commit: unknown kind %q (want %s, or one of %s, optionally as <target>:<kind>)", source, kind, GitignoreCommitCloud, strings.Join(kinds, ", "))
 		}
 	}
 	return nil
 }
 
 // CommitKinds returns the gitignore.commit kinds that apply to target:
-// every plain kind, and each `<target>:<kind>` naming it.
+// every plain kind, each `<target>:<kind>` naming it, and the kinds the
+// `cloud` preset expands to for it.
 func (g Gitignore) CommitKinds(target string) []string {
 	var out []string
 	for _, entry := range g.Commit {
+		if entry == GitignoreCommitCloud {
+			for _, kind := range cloudCommitKinds[target] {
+				if !slices.Contains(out, kind) {
+					out = append(out, kind)
+				}
+			}
+			continue
+		}
 		t, kind, scoped := strings.Cut(entry, ":")
 		if !scoped {
 			kind = entry

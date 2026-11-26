@@ -27,7 +27,7 @@ func TestDoctorEnvironment_ReportsCloudTargetsAndGitStatus(t *testing.T) {
 	handoffGit(t, dir, "add", ".cursor/environment.json")
 	before := sourceSnapshot(t, dir)
 	out := run("doctor", "environment")
-	for _, want := range []string{"Claude Code", "Cursor", "GitHub Copilot", "Codex Cloud", "OpenHands", "Amp", "Ellipsis", "gitignore.commit: [claude:environments", ".cursor/environment.json (tracked)", "setup-steps.yml", ".openhands/setup.sh", ".agents/setup", "project-readiness"} {
+	for _, want := range []string{"Claude Code", "Cursor", "GitHub Copilot", "Codex Cloud", "OpenHands", "Amp", "Ellipsis", "gitignore.commit: [cloud], which includes claude:environments, claude:hooks", ".cursor/environment.json (tracked)", "setup-steps.yml", ".openhands/setup.sh", ".agents/setup", "project-readiness"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("report lacks %q:\n%s", want, out)
 		}
@@ -123,5 +123,91 @@ outputs:
 		if !strings.Contains(out, want) {
 			t.Errorf("report lacks %q:\n%s", want, out)
 		}
+	}
+}
+
+// With a hand-written .gitignore, doctor environment prints the lines to
+// change so each ignored setup file becomes trackable: a folder line
+// turns into `/dir/*` with `!` exceptions, and a `**/NAME` line gets a
+// root `!/NAME` after it. Applying them leaves nothing to change.
+func TestDoctorEnvironment_PrintsGitignoreLinesForHandWrittenIgnores(t *testing.T) {
+	dir := t.TempDir()
+	binary := builtBinary(t)
+	handoffGit(t, dir, "init", "-q")
+	writeProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [claude, openhands]\ngitignore:\n  enabled: false\n")
+	writeProjectFile(t, dir, ".agnostic-ai/environments/dev.yaml", "install: npm ci\n")
+	writeProjectFile(t, dir, ".gitignore", "# generated\n/.claude/\n**/setup.sh\n")
+	run := func(args ...string) string {
+		t.Helper()
+		out, err := ellipsisCommand(t, binary, dir, args...)
+		if err != nil {
+			t.Fatalf("%v: %v\n%s", args, err, out)
+		}
+		return out
+	}
+	run("sync")
+	out := run("doctor", "environment")
+	want := `Ignore file changes
+  Sync does not manage your ignore files. Make these edits, then commit the files above. Line numbers refer to the file as it is now.
+  .gitignore line 2: replace
+    /.claude/
+  with
+    /.claude/*
+    !/.claude/hooks/
+    /.claude/hooks/*
+    !/.claude/hooks/agnostic-ai-cloud-install.sh
+    !/.claude/settings.json
+  .gitignore after line 3 (**/setup.sh): add
+    !/.openhands/setup.sh
+`
+	if !strings.Contains(out, want) {
+		t.Errorf("report lacks the ignore file changes:\n%s", out)
+	}
+	if strings.Contains(out, "Set gitignore.commit") {
+		t.Errorf("report gives managed-ignore advice for a hand-written .gitignore:\n%s", out)
+	}
+	var report struct {
+		ManagedIgnores bool `json:"managed_ignores"`
+		Edits          []struct {
+			Source string   `json:"source"`
+			Line   int      `json:"line"`
+			Add    []string `json:"add"`
+		} `json:"gitignore_edits"`
+	}
+	if err := json.Unmarshal([]byte(run("doctor", "environment", "--json")), &report); err != nil {
+		t.Fatal(err)
+	}
+	if report.ManagedIgnores || len(report.Edits) != 2 || report.Edits[1].Line != 3 {
+		t.Errorf("JSON edits = %+v", report)
+	}
+
+	writeProjectFile(t, dir, ".gitignore", "# generated\n/.claude/*\n!/.claude/hooks/\n/.claude/hooks/*\n!/.claude/hooks/agnostic-ai-cloud-install.sh\n!/.claude/settings.json\n**/setup.sh\n!/.openhands/setup.sh\n")
+	out = run("doctor", "environment")
+	if strings.Contains(out, "(ignored)") || strings.Contains(out, "Ignore file changes") {
+		t.Errorf("report still finds ignored files after the edits:\n%s", out)
+	}
+	handoffGit(t, dir, "add", "-A")
+	for _, rel := range []string{".claude/settings.json", ".claude/hooks/agnostic-ai-cloud-install.sh", ".openhands/setup.sh"} {
+		if strings.TrimSpace(handoffGit(t, dir, "ls-files", rel)) != rel {
+			t.Errorf("git add did not stage %s", rel)
+		}
+	}
+}
+
+func TestDoctorEnvironment_SuggestsOneCommitKindWhenOnlyOneApplies(t *testing.T) {
+	dir := t.TempDir()
+	binary := builtBinary(t)
+	handoffGit(t, dir, "init", "-q")
+	writeProjectFile(t, dir, "agnostic-ai.yaml", "version: 1\ntargets: [openhands]\ngitignore:\n  enabled: true\n")
+	writeProjectFile(t, dir, ".agnostic-ai/environments/dev.yaml", "install: npm ci\n")
+	if out, err := ellipsisCommand(t, binary, dir, "sync"); err != nil {
+		t.Fatalf("sync: %v\n%s", err, out)
+	}
+	out, err := ellipsisCommand(t, binary, dir, "doctor", "environment")
+	if err != nil {
+		t.Fatalf("doctor environment: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "Set gitignore.commit: [openhands:environments] and commit the files.") || strings.Contains(out, "Ignore file changes") {
+		t.Errorf("unexpected managed-ignore advice:\n%s", out)
 	}
 }

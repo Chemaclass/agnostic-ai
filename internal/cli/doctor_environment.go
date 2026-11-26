@@ -99,6 +99,10 @@ type cloudEnvironmentReport struct {
 	Command   string                   `json:"command"`
 	Targets   []cloudEnvironmentTarget `json:"targets"`
 	Readiness string                   `json:"project_readiness"`
+	// ManagedIgnores is gitignore.enabled. Without it, GitignoreEdits
+	// lists the lines that make the ignored setup files trackable.
+	ManagedIgnores bool            `json:"managed_ignores"`
+	GitignoreEdits []gitignoreEdit `json:"gitignore_edits,omitempty"`
 }
 
 func newDoctorEnvironmentCmd() *cobra.Command {
@@ -138,8 +142,9 @@ func describeCloudEnvironments(cfg *config.Config, bundle spec.Bundle, targets [
 	defer adapters.SetAsideNotes()()
 	report := cloudEnvironmentReport{
 		Version: "1", Command: "doctor environment", Readiness: cloudProjectReadiness,
-		Targets: []cloudEnvironmentTarget{},
+		Targets: []cloudEnvironmentTarget{}, ManagedIgnores: cfg.Gitignore.Enabled,
 	}
+	var ignored []string
 	sess := adapters.NewSession()
 	for _, target := range targets {
 		guide, ok := cloudEnvironmentGuides[target]
@@ -165,16 +170,39 @@ func describeCloudEnvironments(cfg *config.Config, bundle spec.Bundle, targets [
 		}
 		entry.Files = files
 		for _, file := range files {
-			if file.Status == "ignored" && !file.InspectionOnly && len(entry.Commit) == 0 {
-				entry.Commit = []string{target + ":environments"}
-				if target == "claude" {
-					entry.Commit = append(entry.Commit, "claude:hooks")
-				}
+			if file.Status != "ignored" || file.InspectionOnly {
+				continue
+			}
+			if !slices.Contains(ignored, file.Path) {
+				ignored = append(ignored, file.Path)
+			}
+			if len(entry.Commit) == 0 {
+				entry.Commit = cloudSetupCommitKinds(target)
 			}
 		}
 		report.Targets = append(report.Targets, entry)
 	}
+	if !report.ManagedIgnores && len(ignored) != 0 {
+		edits, err := planGitignoreEdits(".", ignored)
+		if err != nil {
+			return report, err
+		}
+		report.GitignoreEdits = edits
+	}
 	return report, nil
+}
+
+// cloudSetupCommitKinds returns the gitignore.commit entries for the
+// setup files target's cloud agent reads: the `cloud` preset's kinds
+// for target other than instructions, each scoped to target.
+func cloudSetupCommitKinds(target string) []string {
+	var out []string
+	for _, kind := range config.CloudCommitKinds(target) {
+		if kind != config.GitignoreInstructions {
+			out = append(out, target+":"+kind)
+		}
+	}
+	return out
 }
 
 func cloudEnvironmentInstall(envs []spec.Entry, target string) string {
@@ -308,6 +336,14 @@ func printCloudEnvironments(cmd *cobra.Command, report cloudEnvironmentReport) {
 	if len(report.Targets) == 0 {
 		cmd.Println("No enabled cloud targets.")
 	}
+	var kinds []string
+	for _, target := range report.Targets {
+		for _, kind := range target.Commit {
+			if !slices.Contains(kinds, kind) {
+				kinds = append(kinds, kind)
+			}
+		}
+	}
 	for _, target := range report.Targets {
 		cmd.Println(target.Name)
 		if len(target.Files) == 0 {
@@ -320,8 +356,16 @@ func printCloudEnvironments(cmd *cobra.Command, report cloudEnvironmentReport) {
 			}
 			cmd.Printf("  %s (%s)\n", file.Path, status)
 		}
-		if len(target.Commit) != 0 {
-			cmd.Printf("  For managed ignores, set gitignore.commit: [%s] and commit the files.\n", strings.Join(target.Commit, ", "))
+		switch {
+		case len(target.Commit) == 0:
+		case !report.ManagedIgnores:
+			if len(report.GitignoreEdits) != 0 {
+				cmd.Println("  To commit the ignored files, see Ignore file changes below.")
+			}
+		case len(kinds) > 1:
+			cmd.Printf("  Set gitignore.commit: [%s], which includes %s, and commit the files.\n", config.GitignoreCommitCloud, strings.Join(target.Commit, ", "))
+		default:
+			cmd.Printf("  Set gitignore.commit: [%s] and commit the files.\n", strings.Join(target.Commit, ", "))
 		}
 		cmd.Printf("  Configure %s in the UI.\n", strings.Join(target.Settings, ", "))
 		if target.Install != "" {
@@ -347,5 +391,31 @@ func printCloudEnvironments(cmd *cobra.Command, report cloudEnvironmentReport) {
 		}
 		cmd.Println()
 	}
+	printGitignoreEdits(cmd, report.GitignoreEdits)
 	cmd.Printf("Project readiness checks\n  %s\n", report.Readiness)
+}
+
+func printGitignoreEdits(cmd *cobra.Command, edits []gitignoreEdit) {
+	if len(edits) == 0 {
+		return
+	}
+	cmd.Println("Ignore file changes")
+	cmd.Println("  Sync does not manage your ignore files. Make these edits, then commit the files above. Line numbers refer to the file as it is now.")
+	for _, edit := range edits {
+		switch {
+		case edit.Replace && len(edit.Add) == 0:
+			cmd.Printf("  %s line %d: delete\n    %s\n", edit.Source, edit.Line, edit.Pattern)
+			continue
+		case edit.Replace:
+			cmd.Printf("  %s line %d: replace\n    %s\n  with\n", edit.Source, edit.Line, edit.Pattern)
+		case edit.Line != 0:
+			cmd.Printf("  %s after line %d (%s): add\n", edit.Source, edit.Line, edit.Pattern)
+		default:
+			cmd.Printf("  %s at the end: add\n", edit.Source)
+		}
+		for _, line := range edit.Add {
+			cmd.Printf("    %s\n", line)
+		}
+	}
+	cmd.Println()
 }
