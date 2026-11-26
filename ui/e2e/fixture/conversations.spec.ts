@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page, type Locator } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { saveScreenshot } from '../helpers'
 
@@ -67,6 +67,8 @@ async function mockServer(page: Page, reply: Reply = opened, week: Week = () => 
 }
 
 const row = (page: Page, title: string) => page.locator('li.conversation', { has: page.getByRole('heading', { level: 3, name: title, exact: true, includeHidden: true }) })
+const resumeAction = (chat: Locator) => chat.getByRole('menuitem', { name: 'Copy resume command', exact: true, includeHidden: true })
+const showMore = async (chat: Locator) => { await chat.getByRole('button', { name: /^More actions for/ }).click() }
 const chips = (page: Page) => page.getByRole('group', { name: 'Filter by tool' }).getByRole('button')
 const chip = (page: Page, label: string) => chips(page).filter({ hasText: label })
 
@@ -122,7 +124,7 @@ test.describe('conversations', () => {
     await expect(working.getByRole('button', { name: /^Open in Terminal/ })).toHaveClass(/button-primary/)
     await expect(working.locator('.conversation-tool')).toHaveText('Claude Code, Terminal')
     await expect(working.getByRole('button', { name: 'Open in Terminal: Add a Conversations page to the local UI' })).toBeVisible()
-    await expect(working.getByRole('button', { name: 'Copy the command that resumes Add a Conversations page to the local UI' })).toHaveCount(0)
+    await expect(resumeAction(working)).toHaveCount(0)
 
     await expect(row(page, 'Plan the sync --scope user dry run').locator('.conversation-reason')).toHaveText('Asks you a question')
     await expect(row(page, 'Speed up the sqlite reader').locator('.conversation-reason')).toHaveText('New reply')
@@ -181,8 +183,8 @@ test.describe('conversations', () => {
     await expect(working.getByText(/Faramir left a shell running for 1 hour/)).toBeVisible()
     await expect(working.locator('.conversation-live')).toHaveCount(0)
     await expect(working.getByText(other.command)).toBeVisible()
-    await working.hover()
-    const stop = working.getByRole('button', { name: 'Stop shell (PID 38)…' })
+    await showMore(working)
+    const stop = working.getByRole('menuitem', { name: 'Stop shell (PID 38)…' })
     await stop.click()
     const dialog = page.getByRole('dialog', { name: 'Stop this shell?' })
     await expect(dialog.getByText(other.command)).toBeVisible()
@@ -191,7 +193,7 @@ test.describe('conversations', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     expect(stops).toEqual([])
 
-    await working.hover()
+    await showMore(working)
     await stop.click()
     await dialog.getByRole('button', { name: 'Stop shell', exact: true }).click()
     await expect(dialog).toHaveCount(0)
@@ -199,7 +201,7 @@ test.describe('conversations', () => {
     await expect.poll(() => views.length).toBe(2)
     await expect(working.getByText(other.command)).toBeVisible()
 
-    await working.hover()
+    await showMore(working)
     await stop.click()
     await dialog.getByRole('button', { name: 'Stop shell', exact: true }).click()
     await expandArchived(page)
@@ -316,6 +318,8 @@ test.describe('conversations', () => {
     // Tab follows the drawn order: from the parent's link to the child's.
     await parent.getByRole('button', { name: /^Open in Terminal: / }).focus()
     await page.keyboard.press('Tab')
+    await expect(parent.getByRole('button', { name: /^More actions for/ })).toBeFocused()
+    await page.keyboard.press('Tab')
     await expect(child.getByRole('button', { name: 'Open in Cursor: Tighten the nav labels on phones' })).toBeFocused()
 
     await chip(page, 'Cursor').click()
@@ -345,27 +349,27 @@ test.describe('conversations', () => {
     await expect(page.getByRole('heading', { level: 3 })).toHaveCount(0)
   })
 
-  test('turns the row link into the ink pill and shows Copy command on hover and keyboard focus', async ({ page }) => {
+  test('keeps the primary link hover style and makes secondary actions available through the keyboard menu', async ({ page }) => {
     await mockServer(page)
     await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/')
     const sqlite = row(page, 'Speed up the sqlite reader')
     const open = sqlite.getByRole('button', { name: /^Open in Terminal/ })
-    const copy = sqlite.getByRole('button', { name: /^Copy the command that resumes/ })
-    const look = async () => [await sqlite.evaluate((element) => getComputedStyle(element).backgroundColor), await open.evaluate((element) => getComputedStyle(element).backgroundColor), await copy.evaluate((element) => getComputedStyle(element).opacity)]
-    const [restRow, restOpen, restCopy] = await look()
-    expect(restCopy).toBe('0')
+    const look = async () => [await sqlite.evaluate((element) => getComputedStyle(element).backgroundColor), await open.evaluate((element) => getComputedStyle(element).backgroundColor)]
+    const rest = await look()
     await sqlite.hover()
-    const [hoverRow, hoverOpen, hoverCopy] = await look()
-    expect(hoverRow).not.toBe(restRow)
-    expect(hoverOpen).not.toBe(restOpen)
-    expect(hoverCopy).toBe('1')
-    await page.mouse.move(0, 0)
-    await expect.poll(async () => (await look())[2]).toBe('0')
-    await open.focus()
-    await expect.poll(look).toEqual([hoverRow, hoverOpen, '1'])
-    await page.keyboard.press('Tab')
-    await expect(copy).toBeFocused()
+    const hover = await look()
+    expect(hover[0]).not.toBe(rest[0])
+    expect(hover[1]).not.toBe(rest[1])
+    await expect(resumeAction(sqlite)).toBeHidden()
+    const more = sqlite.getByRole('button', { name: /^More actions for/ })
+    await more.focus()
+    await page.keyboard.press('Enter')
+    await expect(sqlite.getByRole('menuitem', { name: 'Mark as read', exact: true })).toBeFocused()
+    await page.keyboard.press('End')
+    await expect(resumeAction(sqlite)).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(more).toBeFocused()
   })
 
   test('asks the server to open a conversation and shows its reply', async ({ page }) => {
@@ -402,7 +406,7 @@ test.describe('conversations', () => {
     await mockServer(page, () => ({ json: { opened: true, guessed: true, message } }))
     await page.goto('/')
     const sqlite = row(page, 'Speed up the sqlite reader')
-    const copy = sqlite.getByRole('button', { name: /^Copy the command that resumes/ })
+    const copy = resumeAction(sqlite)
     await sqlite.getByRole('button', { name: /^Open in Terminal/ }).click()
 
     await expect(sqlite.getByRole('status')).toHaveText(message)
@@ -425,16 +429,17 @@ test.describe('conversations', () => {
     await page.goto('/')
     await expandArchived(page)
     const shared = row(page, title)
-    const copy = shared.getByRole('button', { name: `Copy the command that resumes ${title}` })
-    const openCloud = shared.getByRole('button', { name: `Open on claude.ai: ${title}` })
+    const copy = resumeAction(shared)
+    const openCloud = shared.getByRole('menuitem', { name: 'Open on claude.ai', exact: true })
     await expect(copy).toHaveCount(1)
-    await expect(shared.getByRole('button', { name: /^Copy resume command/ })).toHaveCount(0)
+    await showMore(shared)
     await openCloud.click()
 
     await expect(shared.getByRole('status')).toHaveText(cloudMessage)
     expect(mocks.opens.map((open) => open.body)).toEqual([{ tool: 'claude', id: cloud.id, editor: 'cursor' }])
-    await expect(openCloud).toBeFocused()
+    await expect(shared.getByRole('button', { name: /^More actions for/ })).toBeFocused()
     await expect(copy).toHaveCount(1)
+    await showMore(shared)
     await copy.click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
 
@@ -464,7 +469,8 @@ test.describe('conversations', () => {
     await page.goto('/')
 
     const hosted = row(page, cloud.title)
-    const copy = hosted.getByRole('button', { name: `Copy resume command for ${cloud.title}` })
+    const copy = resumeAction(hosted)
+    await showMore(hosted)
     await copy.click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
     expect(mocks.opens).toHaveLength(0)
@@ -472,7 +478,7 @@ test.describe('conversations', () => {
     for (const title of ['Cloud chat without a command', 'Cloud chat with a malformed command', 'Codex cloud chat']) {
       const other = row(page, title)
       await expect(other).toBeVisible()
-      await expect(other.getByRole('button', { name: /^Copy resume command/ })).toHaveCount(0)
+      await expect(resumeAction(other)).toHaveCount(0)
     }
 
     await hosted.getByRole('button', { name: `Open on claude.ai: ${cloud.title}` }).click()
@@ -490,19 +496,18 @@ test.describe('conversations', () => {
     })
     await page.goto('/')
     const sqlite = row(page, 'Speed up the sqlite reader')
-    const copy = sqlite.getByRole('button', { name: /^Copy the command that resumes/ })
+    const copy = resumeAction(sqlite)
     const open = sqlite.getByRole('button', { name: /^Open in Terminal/ })
     await open.click()
-    await page.keyboard.press('Tab')
-    await expect(copy).toBeFocused()
+    await expect(copy).toHaveCount(0)
 
     answer()
     await expect(sqlite.getByRole('status')).toHaveText('Resumed it in a new Terminal tab.')
     await expect(copy).toHaveCount(0)
-    // The button it hid held the focus, so the focus moves to Open.
+    // Opening keeps focus on the primary action while the resume command is withheld.
     await expect(open).toBeFocused()
     await expandArchived(page)
-    await expect(row(page, 'Summarize failing CI jobs').getByRole('button', { name: /^Copy the command that resumes/ })).toHaveCount(1)
+    await expect(resumeAction(row(page, 'Summarize failing CI jobs'))).toHaveCount(1)
 
     // A return to the page redraws the kept list; the chat is still not reported open, so it still offers none.
     const nav = page.getByRole('navigation', { name: 'Configuration sections' })
@@ -1010,8 +1015,8 @@ test.describe('conversations by week', () => {
     await expect(page.getByText("That's every conversation.")).toHaveCount(0)
 
     const working = row(page, title)
-    await working.hover()
-    await working.getByRole('button', { name: 'Stop shell…', exact: true }).click()
+    await showMore(working)
+    await working.getByRole('menuitem', { name: 'Stop shell…', exact: true }).click()
     const confirm = page.getByRole('dialog', { name: 'Stop this shell?' })
     await confirm.getByRole('button', { name: 'Stop shell', exact: true }).click()
     await expect(working.getByText('The shell changed before it could be stopped.')).toBeVisible()
@@ -1025,14 +1030,14 @@ test.describe('conversations by week', () => {
 test.describe('conversations on a touch screen', () => {
   test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } })
 
-  test('puts Copy command behind the row menu', async ({ page, context }) => {
+  test('puts Copy resume command behind the row menu', async ({ page, context }) => {
     await context.grantPermissions(['clipboard-read', 'clipboard-write'])
     await mockServer(page)
     await page.goto('/')
     const sqlite = row(page, 'Speed up the sqlite reader')
-    await expect(sqlite.getByRole('button', { name: /^Copy the command/ })).toBeHidden()
+    await expect(resumeAction(sqlite)).toBeHidden()
     await sqlite.getByRole('button', { name: 'More actions for Speed up the sqlite reader' }).click()
-    await sqlite.getByRole('button', { name: /^Copy the command that resumes/ }).click()
+    await resumeAction(sqlite).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/resume/)
     const live = row(page, 'Add a Conversations page to the local UI').getByRole('button', { name: /^Open in Terminal/ })
     expect((await live.boundingBox())!.width).toBeGreaterThan(200)

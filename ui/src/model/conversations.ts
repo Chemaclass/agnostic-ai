@@ -173,7 +173,7 @@ const GROUP_OF_STATE = {
   dormant: 'archived',
 } satisfies Record<ConversationState, GroupId>
 
-function groupOf(conversation: Conversation): GroupId {
+export function conversationGroupOf(conversation: Conversation): GroupId {
   if (conversation.claimConflicts?.length) return 'needs-you'
   if (conversation.state !== undefined) return GROUP_OF_STATE[conversation.state]
   return conversation.live ? 'active' : 'archived'
@@ -199,7 +199,7 @@ function mostUrgentFirst(group: Pick<ConversationGroup, 'conversations' | 'under
 export function groupConversations(conversations: Conversation[], _now?: Date): ConversationGroup[] {
   const ordered = [...conversations].sort(newestFirst)
   return GROUP_ORDER.map((id) => {
-    const nested = nestRows(ordered.filter((conversation) => groupOf(conversation) === id))
+    const nested = nestRows(ordered.filter((conversation) => conversationGroupOf(conversation) === id))
     return { id, label: GROUP_LABELS[id], ...(id === 'needs-you' ? mostUrgentFirst(nested) : nested) }
   }).filter((group) => group.conversations.length > 0)
 }
@@ -445,7 +445,7 @@ function claimConflictReason(conversation: Conversation, nameOf: ConversationNam
 const APPROVAL_VERBS: Readonly<Record<string, string>> = { Edit: 'edit', MultiEdit: 'edit', Write: 'edit', NotebookEdit: 'edit', Read: 'read' }
 
 export function needsYouReason(conversation: Conversation, now: Date, nameOf?: ConversationName): string | undefined {
-  if (groupOf(conversation) !== 'needs-you') return undefined
+  if (conversationGroupOf(conversation) !== 'needs-you') return undefined
   const waiting = conversation.waiting
   if (conversation.state === 'blocked' && waiting?.for === 'permission') {
     if (!waiting.tool) return 'Needs permission'

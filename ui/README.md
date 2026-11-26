@@ -4,7 +4,7 @@ Run `agnostic-ai view` from a project or any folder inside it to open its config
 
 | Section | Shows |
 | --- | --- |
-| Conversations | Recent Claude Code, Codex, and Cursor chats, with actions to reopen them |
+| Conversations | Recent Claude Code, Codex, and Cursor chats, with actions to reopen and organize them |
 | Context | Context size, instructions, rules, agents, and skills |
 | Authority | Permission rules, default mode, and protected paths, with edit previews |
 | Tools | MCP servers and their cached tool listings |
@@ -177,13 +177,15 @@ Each row shows its title, latest available reply, tool, place, folder, branch an
 
 Search sends `q` after a 300 ms typing pause and covers chats of every age, including unloaded weeks. Every word must match the displayed title, folder, branch, last prompt, latest reply, tool, or app. An unfiltered search reports its total match count. Place and tool filters count matches in the weeks already loaded. Scroll to the end or choose **Load the week before** to look beyond an empty filtered page. The list without a search is cached for a quick return. Mock mode applies the same matching rule.
 
-The primary action, such as **Open in Terminal** or **Switch to Ghostty**, becomes a filled button on hover or keyboard focus and stays filled for open chats. **Copy command** sits beside it, or in the ⋯ menu on touch screens and phones. Opening posts `{tool, id, editor}` to `POST /api/conversations/open`; the row displays the server's reply. For editor extensions, the server first opens the chat's folder, waiting about one second for an existing window or up to five for a new one. If opening fails and the server supplies a command, **Copy command** offers it. Opening the claude.ai copy of a shared chat keeps the local resume command available. If a helper opens its parent and points to a detached tmux pane, **Copy command** offers the attach command.
+The primary action, such as **Open in Terminal** or **Switch to Ghostty**, becomes a filled button on hover or keyboard focus and stays filled for open chats. Opening posts `{tool, id, editor}` to `POST /api/conversations/open`. The row displays the server's reply. For editor extensions, the server first opens the chat's folder, waiting about one second for an existing window or up to five for a new one. If opening fails or a helper points to a detached tmux pane, **Copy command** beside the reply offers any command the server supplied.
 
-On a Claude Code cloud row, **Open on claude.ai** opens the hosted session. **Copy resume command** copies the command from `cloudResumeCommand` for use in a terminal.
+The row's **More actions** menu holds copy, read, completion and rename actions where available. For a shared chat, **Open on claude.ai** opens its hosted copy and the local resume command stays available. **Copy resume command** copies an available local command or the `cloudResumeCommand` on a Claude Code cloud row. **Copy session ID** copies the row's `id`. Writes use the row's `tool` and `id`.
+
+**Mark all as read** in expanded Needs you and **Mark all complete** in Active act on eligible chats in the loaded list that match the current filters. The list refreshes after the action. Archived chats can be hidden from list and search while keeping their transcripts. Permanent deletion and stopping a shell require confirmation. A refusal shows the server's reason.
 
 A chat whose `parent` is in the same group sits right after it, indented, and screen readers hear "Started from" and the parent's title. Children of children sit under the same parent, oldest first, one level deep. A parent in another group, on a week not loaded yet, or filtered out leaves the child as a normal row; when the parent's week loads, the child moves under it. A loop typed by hand draws each row as a normal one.
 
-Helpers live in `src/model/conversations.ts`. Mock mode uses `src/fixtures/conversations.mock.json` as one week and sends no open requests. Snapshots explain that Conversations needs a running server.
+Helpers live in `src/model/conversations.ts` and `src/model/conversation-actions.ts`. Mock mode uses `src/fixtures/conversations.mock.json` as one week and keeps actions local. Snapshots explain that Conversations needs a running server.
 
 ## Findings and setup health
 

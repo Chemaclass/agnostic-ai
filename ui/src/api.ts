@@ -7,7 +7,7 @@
 //
 // Every response is normalized before the UI reads it.
 
-import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationStopShellReply, type ConversationStopShellRequest, type ConversationTool, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
+import { API, CONTEXT_SCHEMA_VERSION, OVERVIEW_SCHEMA_VERSION, type Conversation, type ConversationMarkRequest, type ConversationRenameRequest, type ConversationDeleteRequest, type ConversationDeleteReply, type ContextView, type ConversationOpenReply, type ConversationOpenRequest, type ConversationStopShellReply, type ConversationStopShellRequest, type ConversationTool, type ConversationsView, type HookSpecPreview, type HookSpecRequest, type SourceView, type MCPSpecPreview, type NativeHolder, type OverviewView, type PermissionEditRequest, type ProtectedEditRequest, type SpecMovePreview, type SpecMoveRequest } from './contract'
 import { filterConversations, isConversationProcessRef } from './model/conversations'
 import { normalizeContextView, normalizeConversationsView, normalizeOverviewView } from './model/normalize'
 import { parsePermissionPreview } from './model/permission-edit'
@@ -165,6 +165,18 @@ export async function loadConversations(source: DataSource, editor: string, page
   }
 }
 
+export async function findConversation(source: DataSource, editor: string, depth: number, selected: Pick<Conversation, 'tool' | 'id'>, query?: string): Promise<Conversation | undefined> {
+  let before: string | undefined
+  for (let at = 0; at < Math.max(1, depth); at++) {
+    const loaded = await loadConversations(source, editor, { query, before })
+    const row = loaded.data.conversations.find((row) => row.tool === selected.tool && row.id === selected.id)
+    if (row) return row
+    before = loaded.data.next
+    if (!before) break
+  }
+  return undefined
+}
+
 /** The server's answer to an open request, or why the request got no answer. */
 export type ConversationOpenOutcome =
   | { kind: 'reply'; reply: ConversationOpenReply }
@@ -218,6 +230,43 @@ export async function stopConversationShell(request: ConversationStopShellReques
     if (Array.isArray(stillRunning) && stillRunning.every(isConversationProcessRef)) return { stillRunning }
   }
   throw new Error('The server sent an unreadable reply. Check the shell before retrying.')
+}
+
+async function conversationMutation(path: string, request: unknown): Promise<Response> {
+  let response: Response
+  try {
+    response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...sessionHeaders() }, body: JSON.stringify(request) })
+  } catch {
+    throw new Error('Could not reach the server to change the conversation.')
+  }
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => undefined)
+    let message = `The server answered ${response.status}.`
+    if (body && typeof body === 'object') {
+      const { error, removed, remaining } = body as Record<string, unknown>
+      if (typeof error === 'string') message = error
+      if (Array.isArray(removed) && removed.every((path) => typeof path === 'string') && removed.length) message += ` Removed: ${removed.join(', ')}.`
+      if (Array.isArray(remaining) && remaining.every((path) => typeof path === 'string') && remaining.length) message += ` Remaining: ${remaining.join(', ')}.`
+    }
+    throw new Error(message)
+  }
+  return response
+}
+
+export async function markConversation(request: ConversationMarkRequest): Promise<void> {
+  await conversationMutation(API.conversationMark, request)
+}
+
+export async function renameConversation(request: ConversationRenameRequest): Promise<void> {
+  await conversationMutation(API.conversationRename, request)
+}
+
+export async function deleteConversation(request: ConversationDeleteRequest): Promise<ConversationDeleteReply> {
+  const response = await conversationMutation(API.conversationDelete, request)
+  const body: unknown = await response.json().catch(() => undefined)
+  if (!body || typeof body !== 'object' || !('deleted' in body) || body.deleted !== true) throw new Error('The server did not confirm deletion. Refresh the list before retrying.')
+  const { freedBytes, note } = body as Record<string, unknown>
+  return { deleted: true, ...(typeof freedBytes === 'number' ? { freedBytes } : {}), ...(typeof note === 'string' ? { note } : {}) }
 }
 
 /** One listed file's content from the running server. */

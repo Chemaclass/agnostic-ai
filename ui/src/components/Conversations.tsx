@@ -1,6 +1,6 @@
-import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { CONVERSATIONS_NEED_SERVER, loadConversations, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
-import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
+import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, type ReactNode, type RefObject } from 'react'
+import { CONVERSATIONS_NEED_SERVER, loadConversations, findConversation, markConversation, renameConversation, deleteConversation, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
+import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationMarkRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
 import { appLabel, CONVERSATION_PLACES, conversationSearchStatus, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, needsYouReason, conversationToolLabel, conversationPlaceLabel, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter, type PlaceFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
@@ -9,7 +9,12 @@ import { formatTime, plural } from '../model/format'
 import { PageHeader, useApp } from './app-context'
 import { ErrorPanel, Notice } from './Banner'
 import { useEditorChoice } from './EditorLink'
-import { Badge, CopyButton, Icon, RowActions, ToolAvatar } from './ui'
+import { Badge, CopyButton, Icon, copyText, ToolAvatar } from './ui'
+
+import { BLANK_NAME_MESSAGE, canComplete, canRead, CLOUD_RESUME_TOOLTIP, cloudResumeOf, conversationMenuOf, DANGER_ITEMS, deletedOf, deleteReason, MARK_ALL_COMPLETE_TOOLTIP, MARK_ALL_READ_TOOLTIP, MENU_LABELS, MENU_TOOLTIPS, NEEDS_SERVER_MESSAGE, renameOf, unchangedForMark, type ConversationMenuItem } from '../model/conversation-actions'
+import { ConversationMenu, type ConversationMenuAction } from './ConversationMenu'
+import { ConversationDeleteDialog } from './ConversationDeleteDialog'
+import { useConversationFeedbackFocus, type ConversationFocusIntent } from './useConversationFeedbackFocus'
 
 const TITLE = 'Conversations'
 const NEEDS_SERVER = CONVERSATIONS_NEED_SERVER
@@ -56,8 +61,23 @@ export function ConversationsPage() {
   const matchesCloudNote = useEffectEvent((note: string | undefined) => note === cloudNote)
   const [error, setError] = useState<Error>()
   const [refresh, setRefresh] = useState(0)
+  const forceFresh = useRef(false)
+  const [actionNotice, setActionNotice] = useState<(ShellFeedback & { key: string })>()
+  const feedbackTarget = useRef<HTMLParagraphElement>(null)
+  const [bulkPending, setBulkPending] = useState(false)
+  const [bulkFeedback, setBulkFeedback] = useState('')
+  const bulkTarget = useRef<HTMLParagraphElement>(null)
+  const context = JSON.stringify([app.source, editor, app.state.q ?? '', app.state.place ?? 'all'])
+  const latestContext = useRef(context)
+  latestContext.current = context
+  const feedbackFocus = useConversationFeedbackFocus(context, feedbackTarget, bulkTarget)
   const [shellFeedback, setShellFeedback] = useState<ReadonlyMap<string, ShellFeedback>>(() => new Map())
-  const updateShellFeedback = (key: string, feedback?: ShellFeedback) => {
+  const reloadAfterWrite = (focusIntent: ConversationFocusIntent | undefined, sent: boolean) => {
+    if (focusIntent) feedbackFocus.schedule(focusIntent)
+    if (sent) forceFresh.current = true
+    setRefresh((count) => count + 1)
+  }
+  const updateShellFeedback = (key: string, feedback?: ShellFeedback, focusIntent?: ConversationFocusIntent, sent = true) => {
     setShellFeedback((current) => {
       if (!feedback && !current.has(key)) return current
       const next = new Map(current)
@@ -65,7 +85,7 @@ export function ConversationsPage() {
       else next.delete(key)
       return next
     })
-    if (feedback) setRefresh((count) => count + 1)
+    if (feedback) reloadAfterWrite(focusIntent, sent)
   }
   const [older, setOlder] = useState<Older>({ state: 'idle' })
   const [tool, setTool] = useState<ToolFilter>('all')
@@ -101,25 +121,30 @@ export function ConversationsPage() {
   useEffect(() => {
     if (needsServer) return
     const controller = new AbortController()
+    const focusForRefresh = feedbackFocus.take()
     olderRequest.current?.abort()
     olderRequest.current = undefined
     setOlder({ state: 'idle' })
     setError(undefined)
     // Only the list without a search is kept for a quick return.
+    // After a write the fresh first page replaces every loaded week, so no older row stays stale.
+    const forced = forceFresh.current
     const cached = searched ? undefined : firstPages.get(cacheKey)
-    if (cached) setPages((current) => current[0] === cached ? current : [cached])
+    if (cached && !forced) setPages((current) => current[0] === cached ? current : [cached])
     setSearching(searched !== '')
     loadConversations(app.source, editor, { query: searched || undefined }, controller.signal).then(
       (loaded) => {
         if (controller.signal.aborted) return
+        if (forced) forceFresh.current = false
         setSearching(false)
+        feedbackFocus.complete(focusForRefresh)
         setDisplayedQuery(searched)
         keepAvailableTool(loaded.data.tools)
         for (const conversation of loaded.data.conversations) {
           if (conversation.live) openedChats.delete(rowKey(conversation))
         }
         setOpened(new Set(openedChats))
-        if (cached && sameFirstPage(cached, loaded.data) && matchesCloudNote(loaded.data.cloudNote)) return
+        if (!forced && cached && sameFirstPage(cached, loaded.data) && matchesCloudNote(loaded.data.cloudNote)) return
         if (!searched) firstPages.set(cacheKey, loaded.data)
         // A week loaded or loading after the kept page may leave a gap
         // before the fresh one, so the list starts over from it.
@@ -131,10 +156,11 @@ export function ConversationsPage() {
       (failure: Error) => {
         if (controller.signal.aborted || failure.name === 'AbortError') return
         setSearching(false)
+        feedbackFocus.complete(focusForRefresh)
         setError(failure)
       },
     )
-    return () => controller.abort()
+    return () => { controller.abort(); feedbackFocus.abandon(focusForRefresh) }
   }, [needsServer, app.source, editor, cacheKey, searched, refresh])
 
   useEffect(() => () => olderRequest.current?.abort(), [])
@@ -186,6 +212,45 @@ export function ConversationsPage() {
     return () => observer.disconnect()
   }, [loaded])
 
+  const bulkMark = async (shown: Conversation[], as: 'seen' | 'completed') => {
+    if (bulkPending || searching || query.trim() !== searched || query.trim() !== displayedQuery) return
+    const focusIntent = feedbackFocus.start('bulk')
+    if (app.source.kind !== 'api') { setBulkFeedback(NEEDS_SERVER_MESSAGE); feedbackFocus.complete(focusIntent); return }
+    const selected = shown.filter(as === 'seen' ? canRead : canComplete)
+    const depth = pages.length
+    const startedIn = latestContext.current
+    let saved = 0
+    let skipped = 0
+    let failure = ''
+    let sent = false
+    setBulkPending(true)
+    setBulkFeedback('')
+    try {
+      for (const original of selected) {
+        if (latestContext.current !== startedIn) { failure = 'The search or place changed. Remaining conversations were not changed.'; break }
+        const current = await findConversation(app.source, editor, depth, original, searched || undefined)
+        if (latestContext.current !== startedIn) { failure = 'The search or place changed. Remaining conversations were not changed.'; break }
+        if (!current || filterConversations([current], '', tool, place).length === 0 || !unchangedForMark(original, current, as)) { skipped++; continue }
+        try {
+          sent = true
+          await markConversation({ tool: original.tool, id: original.id, as })
+          saved++
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Could not change the conversation.'
+          setShellFeedback((current) => new Map(current).set(rowKey(original), { failed: true, message }))
+          failure = `${original.title || 'Untitled conversation'}: ${message}`
+          break
+        }
+      }
+    } catch (error) {
+      failure = error instanceof Error ? error.message : 'Could not change the conversation.'
+    } finally {
+      setBulkPending(false)
+      setBulkFeedback(`${saved} ${saved === 1 ? 'conversation' : 'conversations'} ${as === 'seen' ? 'marked as read' : 'marked complete'}.${skipped ? ` ${skipped} changed and skipped.` : ''}${failure ? ` ${failure}` : ''}`)
+      reloadAfterWrite(focusIntent, sent)
+    }
+  }
+
   if (needsServer) {
     return (
       <>
@@ -219,10 +284,13 @@ export function ConversationsPage() {
   const queryMatchesPage = query.trim() === displayedQuery
   const searchFailed = error !== undefined && searched === query.trim()
   const pendingSearch = !searchFailed && (searching || !queryMatchesPage)
+  const bulkReady = queryMatchesPage && query.trim() === searched && !searching
   const status = searchFailed && !queryMatchesPage ? 'Search could not finish.' : conversationSearchStatus(pendingSearch, matches, matching.length, rows.length, filtered)
   const emptyMessage = next && (filtered || matches !== 0) ? 'No matches in the loaded weeks. Load the week before to check older conversations.' : 'No conversation matches.'
   const canOpen = app.source.kind === 'api'
   const loading = older.state === 'loading'
+  const noticeGroup = actionNotice && groups.find((group) => group.conversations.some((row) => rowKey(row) === actionNotice.key))
+  const noticeOutside = actionNotice && (!noticeGroup || collapsed.has(noticeGroup.id))
 
   return (
     <>
@@ -242,12 +310,15 @@ export function ConversationsPage() {
           ? <ToolFilterButtons sources={pages.at(-1)!.tools} tool={tool} onChoose={setTool} />
           : <ToolFilterSkeleton />}
       />
+      {noticeOutside && <p ref={feedbackTarget} tabIndex={-1} role="status" className="conversation-action-feedback">{actionNotice.message}</p>}
+      {bulkFeedback && <p ref={bulkTarget} tabIndex={-1} role="status" className="conversation-action-feedback">{bulkFeedback}</p>}
       {!loaded && <ListSkeleton />}
       {loaded && queryMatchesPage && !pendingSearch && groups.length === 0 && <p className="muted empty-matches">{emptyMessage}</p>}
       {groups.map((group) => {
         const headingId = `conversations-${group.id}`
         return (
           <section className="block conversation-group" aria-labelledby={headingId} key={group.id}>
+            {((group.id === 'needs-you' && !collapsed.has(group.id)) || group.id === 'active') && <div className="conversation-group-actions"><button type="button" className="button" title={group.id === 'needs-you' ? MARK_ALL_READ_TOOLTIP : MARK_ALL_COMPLETE_TOOLTIP} disabled={bulkPending || !bulkReady || !group.conversations.some(group.id === 'needs-you' ? canRead : canComplete)} onClick={() => bulkMark(group.conversations, group.id === 'needs-you' ? 'seen' : 'completed')}>{group.id === 'needs-you' ? 'Mark all as read' : 'Mark all complete'}</button></div>}
             <details open={!collapsed.has(group.id)} onToggle={(event) => {
               const closed = !event.currentTarget.open
               setCollapsed((current) => {
@@ -261,7 +332,7 @@ export function ConversationsPage() {
               <summary className="conversation-group-heading"><h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2></summary>
               <ul className="conversation-list">
               {group.conversations.map((conversation) => (
-                <ConversationRow key={rowKey(conversation)} conversation={conversation} reason={needsYouReason(conversation, now, (ref) => names.get(rowKey(ref)))} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
+                <ConversationRow key={rowKey(conversation)} conversation={conversation} reason={needsYouReason(conversation, now, (ref) => names.get(rowKey(ref)))} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} onMutationStart={() => feedbackFocus.start('row')} feedbackRef={!noticeOutside && actionNotice?.key === rowKey(conversation) ? feedbackTarget : undefined} onMutation={(feedback, focusIntent, sent = true) => { setActionNotice({ ...feedback, key: rowKey(conversation) }); updateShellFeedback(rowKey(conversation), feedback, focusIntent, sent) }} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
               ))}
               </ul>
             </details>
@@ -391,18 +462,21 @@ interface ShellFeedback {
   failed: boolean
 }
 
-function ConversationRow({ conversation, reason, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback }: { conversation: Conversation; reason?: string; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void }) {
+function ConversationRow({ conversation, reason, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback, onMutation, onMutationStart, feedbackRef }: { conversation: Conversation; reason?: string; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void; onMutation: (feedback: ShellFeedback, focusIntent: ConversationFocusIntent, sent?: boolean) => void; onMutationStart: () => ConversationFocusIntent; feedbackRef?: RefObject<HTMLParagraphElement | null> }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
   const [shellSelection, setShellSelection] = useState<StuckShell>()
+  const [deleting, setDeleting] = useState(false)
+  const [renaming, setRenaming] = useState(false)
+  const mutationBusy = useRef(false)
+  const refocusMore = useRef(false)
   const openButton = useRef<HTMLButtonElement>(null)
   const actions = useRef<HTMLDivElement>(null)
   const title = chatText(conversation.title || 'Untitled')
   const withheld = conversation.withheld ?? []
   const prompt = withheld.includes('prompt') ? undefined : shownPrompt(title, conversation.prompt)
   const route = conversation.open
-  const command = opened ? undefined : rowCommand(route)
-  const cloudResumeCommand = conversation.cloudResumeCommand
+  const command = opened || pending ? undefined : rowCommand(route)
   const shells = conversation.stuckShells ?? []
   const chooseShell = (shell: StuckShell) => {
     setStatus(undefined)
@@ -413,6 +487,7 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
   const open = async (request: ConversationOpenRequest = { tool: conversation.tool, id: conversation.id, editor }, ownRow = true, subject = title.text) => {
     if (pending) return
     if (!canOpen) {
+      onShellFeedback()
       setStatus({ tone: 'not-opened', message: MOCK_OPEN_MESSAGE, subject })
       return
     }
@@ -429,6 +504,78 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
     }
   }
 
+  const focusMore = () => actions.current?.querySelector<HTMLButtonElement>('.row-menu-button')?.focus()
+  const change = async (as: ConversationMarkRequest['as']) => {
+    if (mutationBusy.current) return
+    const focusIntent = onMutationStart()
+    if (!canOpen) { onMutation({ failed: true, message: NEEDS_SERVER_MESSAGE }, focusIntent, false); return }
+    mutationBusy.current = true
+    try {
+      await markConversation({ tool: conversation.tool, id: conversation.id, as })
+      onMutation({ failed: false, message: MARKED[as] }, focusIntent)
+    } catch (error) { onMutation({ failed: true, message: error instanceof Error ? error.message : 'Could not change the conversation.' }, focusIntent) }
+    finally { mutationBusy.current = false }
+  }
+  const copy = async (text: string, what: string) => {
+    onShellFeedback()
+    const ok = await copyText(text)
+    setStatus({ tone: ok ? 'opened' : 'failed', message: ok ? `${what} copied.` : 'Copy failed.', subject: title.text })
+  }
+  const startRename = () => {
+    if (!canOpen) { onMutation({ failed: true, message: NEEDS_SERVER_MESSAGE }, onMutationStart(), false); return }
+    setRenaming(true)
+  }
+  const saveRename = async (name: string): Promise<string | undefined> => {
+    try {
+      await renameConversation({ tool: conversation.tool, id: conversation.id, title: name })
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Could not rename the conversation.'
+    }
+    const focusIntent = onMutationStart()
+    setRenaming(false)
+    onMutation({ failed: false, message: 'Renamed.' }, focusIntent)
+    return undefined
+  }
+  const startDelete = () => {
+    if (!canOpen) { onMutation({ failed: true, message: NEEDS_SERVER_MESSAGE }, onMutationStart(), false); return }
+    const refusal = deleteReason(conversation)
+    if (refusal) { onMutation({ failed: true, message: refusal }, onMutationStart(), false); return }
+    setDeleting(true)
+  }
+  useEffect(() => {
+    if (!deleting) return
+    const refusal = deleteReason(conversation)
+    if (!refusal) return
+    setDeleting(false)
+    onShellFeedback()
+    setStatus({ tone: 'failed', message: refusal, subject: title.text })
+    refocusMore.current = true
+  }, [deleting, conversation])
+  useEffect(() => {
+    if (deleting || !refocusMore.current) return
+    refocusMore.current = false
+    focusMore()
+  }, [deleting])
+  const localResume = command
+  const resume = cloudResumeOf(conversation) ?? localResume
+  const run: Record<ConversationMenuItem, () => void> = {
+    read: () => { void change('seen') },
+    rename: startRename,
+    complete: () => { void change('completed') },
+    reopen: () => { void change('open') },
+    hide: () => { void change('hidden') },
+    web: () => { if (conversation.cloud) void open({ tool: conversation.tool, id: conversation.cloud.id, editor }, false) },
+    'copy-session-id': () => { void copy(conversation.id, 'Session ID') },
+    'copy-resume': () => { if (resume) void copy(resume, 'Resume command') },
+    delete: startDelete,
+    'stop-shell': () => {},
+  }
+  const menu: ConversationMenuAction[] = conversationMenuOf(conversation, { localResume, server: canOpen }).flatMap((item): ConversationMenuAction[] => {
+    if (item === 'stop-shell') return shells.map((shell) => ({ id: shellKey(shell), label: shells.length === 1 ? MENU_LABELS[item] : `Stop shell (PID ${shell.pid})…`, description: MENU_TOOLTIPS[item], danger: true, run: () => chooseShell(shell) }))
+    const description = item === 'copy-resume' ? (cloudResumeOf(conversation) ? CLOUD_RESUME_TOOLTIP : `Copies the command that resumes ${title.text}`) : MENU_TOOLTIPS[item]
+    return [{ id: item, label: MENU_LABELS[item], description, danger: DANGER_ITEMS.has(item), run: run[item] }]
+  })
+
   const statusTone = shellFeedback ? (shellFeedback.failed ? 'failed' : 'opened') : status?.tone
 
   const place = conversationPlaceLabel(conversation)
@@ -438,6 +585,7 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
       <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
       <div className="conversation-body">
         <h3 className="conversation-title">{title.shell ? <code>{title.text}</code> : title.text}</h3>
+        {renaming && <RenameField shown={conversation.title} subject={title.text} onSave={saveRename} onClose={(refocus) => { setRenaming(false); if (refocus) focusMore() }} />}
         {reason && <p className="conversation-reason">{reason}</p>}
         {under && <p className="sr-only">Started from {chatText(under.title || 'Untitled').text}</p>}
         {withheld.includes('title') && <Withheld label={withheldLabel('title')} />}
@@ -467,22 +615,7 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
         <button ref={openButton} type="button" className={`button conversation-open${conversation.live ? ' button-primary' : ''}`} aria-disabled={pending || undefined} aria-label={`${route.label}: ${title.text}`} onClick={() => open()}>
           {route.label}
         </button>
-        {conversation.cloud && (
-          <button type="button" className="button conversation-open" aria-disabled={pending || undefined} aria-label={`Open on claude.ai: ${title.text}`} onClick={() => conversation.cloud && open({ tool: conversation.tool, id: conversation.cloud.id, editor }, false)}>
-            Open on claude.ai
-          </button>
-        )}
-        {(command || cloudResumeCommand || (canOpen && shells.length > 0)) && (
-          <RowActions label={title.text}>
-            {command && <CopyButton text={command} label="Copy command" ariaLabel={`Copy the command that resumes ${title.text}`} />}
-            {cloudResumeCommand && <CopyButton text={cloudResumeCommand} label="Copy resume command" ariaLabel={`Copy resume command for ${title.text}`} />}
-            {canOpen && shells.map((shell) => (
-              <button key={shellKey(shell)} type="button" className="button button-quiet" aria-haspopup="dialog" onClick={() => chooseShell(shell)}>
-                {shells.length === 1 ? 'Stop shell…' : `Stop shell (PID ${shell.pid})…`}
-              </button>
-            ))}
-          </RowActions>
-        )}
+        <ConversationMenu title={title.text} actions={menu} />
       </div>
       <Helpers conversation={conversation} now={now} pending={pending} onOpen={(helper) => {
         const request = helperOpenRequest(conversation, helper, editor)
@@ -491,9 +624,16 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
         open(request, ownRow, ownRow ? title.text : helperTitle(helper))
       }} />
       <div className="conversation-result">
-        <p className={`conversation-status${statusTone ? ` is-${statusTone}` : ''}`} role="status">{pending ? 'Opening…' : shellFeedback?.message ?? status?.message ?? ''}</p>
+        <p ref={feedbackRef} tabIndex={-1} className={`conversation-status${statusTone ? ` is-${statusTone}` : ''}`} role="status">{pending ? 'Opening…' : shellFeedback?.message ?? status?.message ?? ''}</p>
         {status?.command && <CopyButton text={status.command} label="Copy command" ariaLabel={`Copy the command the server suggests for ${status.subject}`} />}
       </div>
+      {deleting && <ConversationDeleteDialog row={conversation} onClose={(confirmed) => { setDeleting(false); if (!confirmed) focusMore() }} onConfirm={async () => {
+        const focusIntent = onMutationStart()
+        try {
+          const reply = await deleteConversation({ tool: conversation.tool, id: conversation.id })
+          onMutation({ failed: false, message: deletedOf(reply) }, focusIntent)
+        } catch (error) { onMutation({ failed: true, message: error instanceof Error ? error.message : 'Could not delete the conversation.' }, focusIntent) }
+      }} />}
       {shellSelection && (
         <StopShellDialog
           conversation={conversation}
@@ -511,6 +651,45 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
         />
       )}
     </li>
+  )
+}
+
+const MARKED: Readonly<Record<ConversationMarkRequest['as'], string>> = {
+  seen: 'Marked as read.',
+  completed: 'Marked complete.',
+  open: 'Completion undone.',
+  hidden: 'Hidden from agnostic-ai. The transcript stays.',
+}
+
+function RenameField({ shown, subject, onSave, onClose }: { shown: string; subject: string; onSave(name: string): Promise<string | undefined>; onClose(refocus: boolean): void }) {
+  const [draft, setDraft] = useState(shown)
+  const [problem, setProblem] = useState<string>()
+  const [saving, setSaving] = useState(false)
+  const input = useRef<HTMLInputElement>(null)
+  const problemId = useId()
+  useEffect(() => {
+    input.current?.focus()
+    input.current?.select()
+  }, [])
+  const save = async () => {
+    if (saving) return
+    const decision = renameOf(draft, shown)
+    if ('keep' in decision) { onClose(true); return }
+    if ('empty' in decision) { setProblem(BLANK_NAME_MESSAGE); return }
+    setSaving(true)
+    const refusal = await onSave(decision.title)
+    setSaving(false)
+    if (refusal) { setProblem(refusal); input.current?.focus() }
+  }
+  return (
+    <div className="conversation-rename">
+      <input ref={input} className="conversation-rename-input" aria-label={`New name for ${subject}`} aria-describedby={problem ? problemId : undefined} aria-invalid={problem ? true : undefined} value={draft} readOnly={saving} onChange={(event) => { setDraft(event.target.value); setProblem(undefined) }} onBlur={(event) => { if (!saving && !problem && !event.currentTarget.parentElement?.contains(event.relatedTarget)) onClose(false) }} onKeyDown={(event) => {
+        if (event.nativeEvent.isComposing || event.keyCode === 229) return
+        if (event.key === 'Enter') { event.preventDefault(); void save() }
+        if (event.key === 'Escape' && !saving) { event.preventDefault(); event.stopPropagation(); onClose(true) }
+      }} />
+      {problem && <p id={problemId} className="conversation-rename-problem" role="alert">{problem}</p>}
+    </div>
   )
 }
 

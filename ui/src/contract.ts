@@ -1082,6 +1082,12 @@ export interface ConversationMarkRequest {
   as: 'seen' | 'completed' | 'open' | 'hidden'
 }
 
+export interface ConversationRenameRequest {
+  tool: ConversationTool
+  id: string
+  title: string
+}
+
 /** Deletes one archived conversation from this machine for good. Only a `completed` local Claude Code session that no process holds can be deleted. */
 export interface ConversationDeleteRequest {
   tool: ConversationTool
@@ -1164,6 +1170,7 @@ export interface ConversationOpenReply {
 //   POST /api/conversations/stop-session                 → ConversationStopSessionReply (body: ConversationStopSessionRequest); 403 without the companion secret or session key, 409 if it no longer runs here
 //   POST /api/conversations/send                          → ConversationSendReply (body: ConversationSendRequest); 403 without the companion secret or session key, 404 when not listed, 413 over 256 KB
 //   POST /api/conversations/mark                          → 204 (body: ConversationMarkRequest)
+//   POST /api/conversations/rename                        → 204 (body: ConversationRenameRequest); 400 for an empty or unsafe name, 403 without proof for an online conversation, 409 while another rename of it runs
 //   POST /api/conversations/delete                        → ConversationDeleteReply (body: ConversationDeleteRequest); 403 without the companion secret or session key, 404 when not listed, else ConversationDeleteRefusal
 //   GET  /api/health                                      → { ok, root, global, ui, projectRoot?, version?, requires?, requiresMet?, scanningSince? }; scanningSince is when the running conversation read began, set only while one runs
 //   POST /api/switch                                      → SwitchReply (body: {}); 409 { missing, root } when there is no user setup
@@ -1187,6 +1194,9 @@ export const API = {
   editSpecMove: '/api/edit/spec/move',
   conversations: '/api/views/conversations',
   conversationOpen: '/api/conversations/open',
+  conversationMark: '/api/conversations/mark',
+  conversationRename: '/api/conversations/rename',
+  conversationDelete: '/api/conversations/delete',
   conversationStopShell: '/api/conversations/stop-shell',
   conversationStopSession: '/api/conversations/stop-session',
   health: '/api/health',

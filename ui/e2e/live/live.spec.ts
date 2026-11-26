@@ -1880,6 +1880,35 @@ test('live a rename made through another server shows after a reload and in a se
   }
 })
 
+test('live the row menu renames a chat and marks it complete through the page', async ({ page }) => {
+  const f = await conversationServers()
+  try {
+    const id = '11111111-1111-4111-8111-111111111111'
+    await f.writeSession(id, 'Fix the parser', new Date())
+    const dashboard = await f.start()
+    const row = (title: string) => page.locator('li.conversation').filter({ has: page.getByRole('heading', { level: 3, name: title, exact: true, includeHidden: true }) })
+
+    await page.goto(dashboard)
+    await row('Fix the parser').getByRole('button', { name: 'More actions for Fix the parser' }).click()
+    await page.getByRole('menuitem', { name: 'Rename…', exact: true }).click()
+    const field = page.getByRole('textbox', { name: 'New name for Fix the parser' })
+    await field.fill('Release notes')
+    await field.press('Enter')
+    await expect(row('Release notes')).toBeVisible()
+    await expect(row('Release notes').getByRole('status')).toHaveText('Renamed.')
+
+    await row('Release notes').getByRole('button', { name: 'More actions for Release notes' }).click()
+    await page.getByRole('menuitem', { name: 'Mark complete', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 2 })).toHaveText(['Archived 1'])
+    const listed = await (await fetch(`${dashboard}api/views/conversations`)).json() as { conversations: { id: string; title: string; completedAt?: string }[] }
+    const chat = listed.conversations.find((c) => c.id === id)
+    expect(chat?.title).toBe('Release notes')
+    expect(chat?.completedAt).toBeTruthy()
+  } finally {
+    await f.close()
+  }
+})
+
 test('live an archived session that starts working leaves Archived on another server after a reload', async ({ page }) => {
   test.skip(process.platform === 'win32', 'Claude Code reports a running session by pid; the fixture uses this process')
   const f = await conversationServers()

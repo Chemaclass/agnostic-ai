@@ -512,3 +512,72 @@
     min-height: 44px;
   }
 }
+
+.conversation-group {
+  position: relative;
+}
+
+.conversation-group-actions {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  right: 0;
+}
+
+.conversation-group:has(.conversation-group-actions) .conversation-group-heading {
+  padding-inline-end: 156px;
+}
+
+.conversation-menu .row-menu-panel {
+  max-height: min(70vh, 520px);
+  min-width: 230px;
+  max-width: calc(100vw - 32px);
+  overflow-y: auto;
+}
+
+.conversation-menu [role='group'] {
+  display: grid;
+  justify-items: stretch;
+  width: 100%;
+}
+
+.conversation-menu [role='menuitem'] {
+  justify-content: start;
+  text-align: start;
+  white-space: normal;
+}
+
+.conversation-menu [role='separator'] {
+  width: 100%;
+  border-top: 1px solid var(--line);
+}
+
+.conversation-menu .is-danger {
+  color: var(--blocked);
+}
+
+.conversation-action-feedback {
+  font-size: var(--text-sm);
+  color: var(--text-soft);
+}
+
+.conversation-rename {
+  display: grid;
+  gap: 4px;
+  margin-block: 4px;
+}
+
+.conversation-rename-input {
+  width: 100%;
+  max-width: 40rem;
+}
+
+.conversation-rename-problem {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--blocked);
+}
+
+.conversation-edit-dialog .is-danger {
+  color: var(--blocked);
+}

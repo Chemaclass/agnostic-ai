@@ -92,8 +92,10 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 | You want to | Do this |
 |-------------|---------|
 | Reopen a chat | Use the row's action. |
-| Resume an ended chat by hand | **Copy command**. |
-| Resume a Claude Code cloud session in a terminal | **Copy resume command**. |
+| Resume an ended chat by hand | **More actions**, then **Copy resume command**. |
+| Resume a Claude Code cloud session in a terminal | **More actions**, then **Copy resume command**. |
+| Rename or organize a chat | Open **More actions** for available actions. |
+| Mark a group read or complete | Use **Mark all as read** in expanded **Needs you** or **Mark all complete** in **Active**. This applies to eligible chats in the loaded list that match your filters. |
 | Find a chat | Search, or the tool filter beside it. |
 | See older chats | Scroll to the end, or **Load the week before**. |
 
@@ -104,7 +106,8 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 - It loads the past week and every blocked or unread chat of any age. It loads the week before each time you scroll to the end, or with **Load the week before**.
 - A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group.
 - A row's action reopens the chat where it lives: the Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
-- **Copy command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
+- **Copy resume command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.
+- **Hide from agnostic-ai** removes an archived chat from the list and search until new activity. Its transcript stays in the tool. **Delete permanently…** removes an eligible transcript after confirmation. When a chat cannot be deleted from here, the row says why.
 - If agnostic-ai cannot check whether a Claude Code terminal session is still running, it leaves the terminal alone and shows the command to run after the session ends.
 - The first time, macOS asks to let agnostic-ai control each terminal app.
 - Codex and Cursor chats need the `sqlite3` command. On Windows, `winget install SQLite.SQLite` installs it. The list says which chats are missing without it.
