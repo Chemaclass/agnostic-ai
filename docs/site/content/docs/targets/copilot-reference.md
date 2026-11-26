@@ -163,7 +163,7 @@ x-copilot:
           go-version-file: go.mod
 ```
 
-Sync writes that step as `- uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7`. A value without a comment is written as it is.
+Sync writes that step as `- uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7`. A value without a comment is written as it is. Only a `#` after a space starts the comment, so `docker://alpine#tag` keeps its `#`. Lint rejects a comment with a line break or other control character.
 
 Commit `.github/workflows/copilot-setup-steps.yml` on the default branch. Sync leaves this path out of its managed ignore block. Copilot runs these steps in sessions on Actions. You can also run the workflow manually from the Actions tab. Sync and `doctor --fix` keep an existing hand-written workflow and report a conflict if its contents differ. `import copilot` leaves the workflow in place.
 

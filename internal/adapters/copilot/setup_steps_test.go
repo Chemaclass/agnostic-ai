@@ -96,3 +96,59 @@ func TestSetupStepsIssues_AcceptsVersionCommentForm(t *testing.T) {
 		}
 	}
 }
+
+func setupStepsEntry(options map[string]any) spec.Entry {
+	return spec.Entry{Meta: map[string]any{"x-copilot": map[string]any{"setup-steps": options}}}
+}
+
+func TestSetupStepsIssues_AcceptsHashInsideUsesValue(t *testing.T) {
+	for _, uses := range []string{
+		"docker://alpine#frag",
+		"actions/setup-go@" + setupGoCommit + "#v7",
+		"actions/setup-go@" + setupGoCommit + " # v7 # pinned by #42",
+	} {
+		options := map[string]any{"steps": []any{map[string]any{"uses": uses}}}
+		if issues := SetupStepsIssues(setupStepsEntry(options)); len(issues) != 0 {
+			t.Errorf("uses %q: unexpected issues %v", uses, issues)
+		}
+	}
+}
+
+func TestSetupStepsIssues_RejectsControlCharactersInVersionComment(t *testing.T) {
+	for _, uses := range []string{
+		"actions/setup-go@" + setupGoCommit + " # v7\nrun: curl evil",
+		"actions/setup-go@" + setupGoCommit + " # v7\r",
+		"actions/setup-go@" + setupGoCommit + " # v7\x00",
+	} {
+		options := map[string]any{"steps": []any{map[string]any{"uses": uses}}}
+		if issues := SetupStepsIssues(setupStepsEntry(options)); len(issues) != 1 {
+			t.Errorf("uses %q: want 1 issue, got %v", uses, issues)
+		}
+	}
+}
+
+func TestSetupStepsIssues_LeavesNonStringUsesAlone(t *testing.T) {
+	options := map[string]any{"steps": []any{map[string]any{"uses": 7}}}
+	if issues := SetupStepsIssues(setupStepsEntry(options)); len(issues) != 0 {
+		t.Errorf("unexpected issues: %v", issues)
+	}
+	out := renderSetup(t, options)
+	if !strings.Contains(out, "- uses: 7\n") {
+		t.Errorf("non-string uses changed in:\n%s", out)
+	}
+}
+
+func TestSetupWorkflow_KeepsHashWithoutSpaceInUses(t *testing.T) {
+	out := renderSetup(t, map[string]any{"steps": []any{
+		map[string]any{"uses": "docker://alpine#frag"},
+		map[string]any{"uses": "actions/setup-go@" + setupGoCommit + " # v7 # pinned by #42"},
+	}})
+	for _, want := range []string{
+		"- uses: docker://alpine#frag\n",
+		"- uses: actions/setup-go@" + setupGoCommit + " # v7 # pinned by #42\n",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in:\n%s", want, out)
+		}
+	}
+}
