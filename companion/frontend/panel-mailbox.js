@@ -194,6 +194,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   let claimsFor
   let nativeCopy = false
   let previewTimer
+  let dragged
 
   function nameOf(ref, fallback) {
     const row = rows().find((conversation) => keyOf(conversation) === keyOf(ref))
@@ -284,17 +285,19 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   }
 
   function markRows() {
-    const marking = draft && !draft.thread
-    const fromKey = draft && keyOf(draft.from)
-    const toKey = marking && receiverOf().to?.tool ? keyOf(receiverOf().to) : undefined
+    const marking = Boolean(dragged) || Boolean(draft && !draft.thread)
+    const fromKey = dragged ? dragged.from : draft && keyOf(draft.from)
+    const toKey = dragged ? dragged.to : marking && receiverOf().to?.tool ? keyOf(receiverOf().to) : undefined
     const byKey = new Map(rows().map((conversation) => [keyOf(conversation), conversation]))
     for (const row of shownRows()) {
       const key = row.dataset.key
       const conversation = byKey.get(key)
-      const tag = marking && key === fromKey ? 'From' : marking && key === toKey ? 'To' : ''
+      const end = marking && key === fromKey ? 'From' : marking && key === toKey ? 'To' : ''
+      // A tag is a line of its own: during a drag it would move the rows under the pointer.
+      const tag = dragged ? '' : end
       row.classList.toggle('is-mailbox-receivable', Boolean(marking && conversation && key !== fromKey && mailboxSessionOf(conversation)))
-      row.classList.toggle('is-mailbox-from', tag === 'From')
-      row.classList.toggle('is-mailbox-to', tag === 'To')
+      row.classList.toggle('is-mailbox-from', end === 'From')
+      row.classList.toggle('is-mailbox-to', end === 'To')
       const shown = row.querySelector(':scope > .text > .mailbox-tag')
       if (!tag) {
         shown?.remove()
@@ -483,6 +486,18 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     const field = type.value === REVIEW ? base : type.value !== HANDOFF ? body : blocked ? handoffWorktree : send
     field.focus()
     return true
+  }
+
+  /** Marks the rows of a handoff being dragged, by key: `from` and the row under the pointer. Without `from` it clears them. */
+  function markDrag(from, to) {
+    dragged = from ? { from, to } : undefined
+    markRows()
+  }
+
+  /** A drop of `from` on `to`: the new draft the menu opens, with the receiver chosen. */
+  function handOff(from, to) {
+    start(from)
+    if (draft && !draft.thread && keyOf(draft.from) === keyOf(from)) choose(to)
   }
 
   toSelect.addEventListener('change', () => {
@@ -1161,7 +1176,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   }
 
   return {
-    start, choose, rowsOf, viewChanged, markRows, escape, closeDetails, openClaims, closeClaims,
+    start, choose, handOff, markDrag, rowsOf, viewChanged, markRows, escape, closeDetails, openClaims, closeClaims,
     get composing() { return Boolean(draft) },
     get open() { return Boolean(draft || opened || claimsFor) },
   }

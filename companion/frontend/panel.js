@@ -3,6 +3,7 @@ import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenNotice, dismissLateOpenNotice, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, startsShortcutHelp, shortcutHelpRowsOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { handoffReceiverOf, handsOff, isDrag } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
@@ -104,6 +105,12 @@ const state = {
    */
   shellStops: new Map(),
 }
+
+/**
+ * A row pressed to drag it onto another session: {key, x, y, pointerId, dragging, over, cancelled}.
+ * swallowClick eats the click the release of a drag would send to the row.
+ */
+const handoff = { press: undefined, swallowClick: false }
 
 /** A help link: a "?" that names its docs page on hover and opens it in the browser. */
 for (const link of document.querySelectorAll('[data-help]')) {
@@ -884,6 +891,8 @@ async function askAgain() {
 }
 
 function draw({ force } = { force: false }) {
+  // A new list would take the dragged row away; it waits until the drag ends.
+  if (handoff.press?.dragging && !force) return
   // A new list would take the name being typed away; it waits until the rename ends.
   if (state.renaming && !force) return
   // A new list would redraw a row in the middle of its green tick; it waits until the tick is over.
@@ -1041,6 +1050,7 @@ function tipAfterRedraw() {
 }
 
 list.addEventListener('pointermove', (event) => {
+  if (handoff.press?.dragging) return
   tip.pointer = { x: event.clientX, y: event.clientY }
   tipSoon(tipTargetOf(event.target))
 })
@@ -1054,6 +1064,150 @@ list.addEventListener('wheel', hideTip, { passive: true })
 list.addEventListener('scroll', tipAfterRedraw, { passive: true })
 document.addEventListener('keydown', hideTip, true)
 window.addEventListener('blur', hideTip)
+
+/*
+ * Drag a row onto another session to open the handoff form with both ends chosen. It runs on pointer events, so a
+ * file or text dragged in from another app starts nothing here, and a press that barely moves stays a click.
+ */
+const handoffPreview = element('div', 'handoff-preview')
+handoffPreview.setAttribute('role', 'status')
+handoffPreview.hidden = true
+document.body.append(handoffPreview)
+const HANDOFF_PREVIEW_GAP = 14
+
+function listedRows() {
+  return state.view?.conversations ?? []
+}
+
+function rowKeyAt(x, y) {
+  const row = document.elementFromPoint(x, y)?.closest('.row[data-key]')
+  return row && list.contains(row) ? row.dataset.key : undefined
+}
+
+list.addEventListener('pointerdown', (event) => {
+  handoff.swallowClick = false
+  // A release the page never saw leaves a press behind; a new press replaces it.
+  if (handoff.press) endHandoff()
+  if (event.button !== 0 || event.ctrlKey || !event.isPrimary) return
+  if (mailbox.open || state.pick || state.renaming) return
+  // A held request's text stays selectable with the mouse.
+  if (event.target.closest('input, textarea, select, .held-request')) return
+  const key = event.target.closest('.row[data-key]')?.dataset.key
+  const conversation = key && listedRows().find((listed) => keyOf(listed) === key)
+  if (!conversation || !handsOff(conversation)) return
+  handoff.press = { key, x: event.clientX, y: event.clientY, pointerId: event.pointerId, dragging: false }
+})
+for (const kind of ['dragstart', 'selectstart']) {
+  list.addEventListener(kind, (event) => {
+    if (handoff.press) event.preventDefault()
+  })
+}
+
+window.addEventListener('pointermove', (event) => {
+  const press = handoff.press
+  if (!press || event.pointerId !== press.pointerId || press.cancelled) return
+  if ((event.buttons & 1) === 0) {
+    endHandoff()
+    return
+  }
+  if (!press.dragging) {
+    if (!isDrag(press, { x: event.clientX, y: event.clientY })) return
+    press.dragging = true
+    try {
+      list.setPointerCapture(event.pointerId)
+    } catch {
+      // A pointer the page no longer tracks still ends on the window's pointerup.
+    }
+    hideTip()
+    getSelection()?.removeAllRanges()
+    card.classList.add('is-handing-off')
+    press.over = null
+  }
+  aimHandoff(event.clientX, event.clientY)
+})
+// A list scrolled under a still pointer puts another row under it.
+list.addEventListener('scroll', () => {
+  const press = handoff.press
+  if (press?.dragging && !press.cancelled) aimHandoff(press.at.x, press.at.y)
+}, { passive: true })
+
+/** Marks the row under the pointer when it can receive, and names it next to the pointer. */
+function aimHandoff(x, y) {
+  const press = handoff.press
+  press.at = { x, y }
+  const key = rowKeyAt(x, y)
+  if (key !== press.over) {
+    press.over = key
+    const receiver = key && handoffReceiverOf(listedRows(), press.key, key, Date.now())
+    mailbox.markDrag(press.key, receiver ? key : undefined)
+    handoffPreview.textContent = receiver ? `Hand off to ${receiver.label}` : ''
+    handoffPreview.hidden = !receiver
+  }
+  if (!handoffPreview.hidden) placeHandoffPreview(x, y)
+}
+
+function placeHandoffPreview(x, y) {
+  const width = handoffPreview.offsetWidth
+  const height = handoffPreview.offsetHeight
+  const below = y + HANDOFF_PREVIEW_GAP + height <= window.innerHeight
+  handoffPreview.style.left = `${Math.max(8, Math.min(x + HANDOFF_PREVIEW_GAP, window.innerWidth - width - 8))}px`
+  handoffPreview.style.top = `${below ? y + HANDOFF_PREVIEW_GAP : Math.max(8, y - HANDOFF_PREVIEW_GAP - height)}px`
+}
+
+/** Clears what the drag shows; a press that already moved keeps eating its click until the release. */
+function clearHandoffMarks() {
+  handoffPreview.hidden = true
+  handoffPreview.textContent = ''
+  card.classList.remove('is-handing-off')
+  mailbox.markDrag()
+}
+
+function endHandoff() {
+  const dragged = handoff.press?.dragging
+  handoff.press = undefined
+  if (!dragged) return
+  clearHandoffMarks()
+  draw()
+}
+
+window.addEventListener('pointerup', (event) => {
+  const press = handoff.press
+  if (!press || event.pointerId !== press.pointerId) return
+  const dropped = press.dragging && !press.cancelled ? rowKeyAt(event.clientX, event.clientY) : undefined
+  if (press.dragging) {
+    handoff.swallowClick = true
+    setTimeout(() => { handoff.swallowClick = false })
+  }
+  endHandoff()
+  if (dropped) dropHandoff(press.key, dropped)
+})
+window.addEventListener('pointercancel', endHandoff)
+window.addEventListener('blur', endHandoff)
+window.addEventListener('click', (event) => {
+  if (!handoff.swallowClick) return
+  handoff.swallowClick = false
+  event.preventDefault()
+  event.stopPropagation()
+}, true)
+// During a drag the keys belong to it: Escape cancels it, and the rest wait, so F2 cannot start a rename under it.
+window.addEventListener('keydown', (event) => {
+  if (!handoff.press?.dragging || handoff.press.cancelled) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  if (event.key !== 'Escape') return
+  handoff.press.cancelled = true
+  clearHandoffMarks()
+}, true)
+
+/** A drop opens the form the row menu opens, with the receiver chosen; anything but a listed receiver does nothing. */
+function dropHandoff(fromKey, toKey) {
+  const rows = listedRows()
+  if (mailbox.open || state.renaming || !handoffReceiverOf(rows, fromKey, toKey, Date.now())) return
+  const from = rows.find((conversation) => keyOf(conversation) === fromKey)
+  const to = rows.find((conversation) => keyOf(conversation) === toKey)
+  leavePick()
+  mailbox.handOff(from, to)
+}
 
 /**
  * The phase delay counts from the frame the orbit starts, not from when its mark was made,
