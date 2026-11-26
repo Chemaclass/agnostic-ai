@@ -1793,6 +1793,25 @@ test('a drag refreshes its preview and refuses a receiver that leaves the list',
   await expect(target).toHaveCount(0)
 })
 
+test('a drag cancels when its sender leaves the list', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const source = row(page, 'Draft the tests')
+  const target = row(page, 'Review the parser')
+  await dragRow(page, source.locator('.meta'), target, { release: false })
+  await expect(handoffPreview(page)).toBeVisible()
+  await expect(target).toHaveClass(/is-mailbox-receivable/)
+
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mailbox-alone' } })).ok()).toBe(true)
+  await expectListUntouched(page)
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+
+  await expectListUntouched(page)
+  await expect(source).toHaveCount(0)
+  expect(await calledPaths(page)).not.toContain('/api/panel/hide')
+  expect(await handoffCalls(page)).toEqual([])
+})
+
 test('a file or text dropped from another app opens no form and makes no call', async ({ page }) => {
   await openPanel(page, 'mailbox')
   const dropped = await page.evaluateHandle(() => {

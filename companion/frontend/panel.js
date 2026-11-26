@@ -1137,8 +1137,14 @@ function aimHandoff(x, y, { refresh = false } = {}) {
   press.at = { x, y }
   const key = rowKeyAt(x, y)
   if (refresh || key !== press.over) {
+    const rows = listedRows()
+    const from = rows.find((row) => keyOf(row) === press.key)
+    if (!from || !handsOff(from)) {
+      cancelHandoff(press)
+      return
+    }
     press.over = key
-    const receiver = key && handoffReceiverOf(listedRows(), press.key, key, Date.now())
+    const receiver = key && handoffReceiverOf(rows, press.key, key, Date.now())
     mailbox.markDrag(press.key, receiver ? key : undefined)
     handoffPreview.textContent = receiver ? `Hand off to ${receiver.label}` : ''
     handoffPreview.hidden = !receiver
@@ -1160,6 +1166,11 @@ function clearHandoffMarks() {
   handoffPreview.textContent = ''
   card.classList.remove('is-handing-off')
   mailbox.markDrag()
+}
+
+function cancelHandoff(press) {
+  press.cancelled = true
+  clearHandoffMarks()
 }
 
 function endHandoff() {
@@ -1195,9 +1206,7 @@ window.addEventListener('keydown', (event) => {
   if (!press?.dragging) return
   event.preventDefault()
   event.stopImmediatePropagation()
-  if (event.key !== 'Escape' || press.cancelled) return
-  press.cancelled = true
-  clearHandoffMarks()
+  if (event.key === 'Escape' && !press.cancelled) cancelHandoff(press)
 }, true)
 
 /** A drop opens the form the row menu opens, with the receiver chosen; anything but a listed receiver does nothing. */
