@@ -346,3 +346,20 @@ The test should fail at this point. Ask the agent to place the generated header 
 For each run, record submission, first execution, setup completion, first passing task test and availability of the reviewable diff. Include retries, repeated installs, manual steps and any billed usage the provider reports. Mark unavailable observations as unknown. Keep one-time dashboard setup separate. Use a matched rerun to check any change aimed at the slowest repeated step.
 
 Local control on Darwin arm64 with Go 1.27.4 at `47e82b256`: the committed files passed. The working-tree check reported drift in the ignored `.claude/settings.local.json` after the install hook. Using the macOS temporary directory through its physical path and its symlink reproduced the difference. Regenerating and checking from the same physical path cleared it. Appending a line to `AGENTS.md` made the check exit 1 and restoring the file made it pass. The regression test exited 1 with the production hunk reversed and 0 after restoring it. [Hosted measurements are tracked in #4032](https://github.com/Chemaclass/agnostic-ai/issues/4032).
+
+### Hosted pilot on November 26, 2026
+
+Two sequential Claude Code 2.1.332 launches requested the personal pilot branches at `2c86deb30` in the same Default environment. Both workers reported Linux x86_64 and Go 1.27.4. Each checkout had a seed commit, no Git remote and no copy of the requested commit. The first run stopped there. The second brief added a recovery step to clone the public branch and verify the base SHA.
+
+| UTC event | First run | Recovery run |
+|---|---|---|
+| Local CLI launch, before the folder trust prompt | 15:50:56 | 15:53:05 |
+| Provider session created | 15:51:11 | 15:53:23 |
+| First timed shell command | 15:52:17 | 15:54:23 |
+| Named test failed | 15:52:24 on seed checkout | 15:54:31 on requested base |
+| Named test passed | No pass | 15:54:44 |
+| Result delivery | No diff | 15:54:50 push refused, HTTP 403 |
+
+The recovery run reached a passing test in 99 seconds from launch. It also passed the header package tests and committed the one-file fix as `070034eadc44443f728e6f2802472f9077aee7ac` in its worker. The Git proxy said the repository was outside the session's authorized repository set. Replaying the edit from the transcript on a fresh local clone reproduced the failure before the edit and both passes afterward.
+
+For a repeat, attach this repository as a session source and verify the base before editing. Record an observable cache marker for the first and reused environments. These runs exposed neither cache state nor billed usage. The launch-to-first-command interval includes trust confirmation and provider startup. The runs establish no cache speedup or time to a remotely available diff. [Pilot evidence](https://github.com/Chemaclass/agnostic-ai/issues/4032)
