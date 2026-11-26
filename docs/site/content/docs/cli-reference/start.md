@@ -84,7 +84,7 @@ agnostic-ai sync
 | Flag | Description |
 |------|-------------|
 | `[dir]` | Base directory for the source folders (`.` for the old root layout). Writes matching `sources:` paths; the default `.agnostic-ai/` writes none. |
-| `--memory` | Enable shared memory. In Git with managed ignores, also write `memory.personal: repo` to a new `agnostic-ai.local.yaml`, never to an existing one. See [repo memory](@/docs/memory.md#one-store-per-repository) for Kilo Code. |
+| `--memory` | Enable shared memory and start an empty project index, `.agnostic-ai/memory/MEMORY.md`. In Git with managed ignores, also write `memory.personal: repo` to a new `agnostic-ai.local.yaml`, never to an existing one. See [repo memory](@/docs/memory.md#one-store-per-repository) for Kilo Code. |
 | `--demo` | Add example specs, one per source folder plus the `memory-curator` skill and two [spec guard hooks](@/docs/spec-format/hook-reference.md#spec-guard). The [`no-force-push` hook](@/docs/spec-format/hook-recipes.md#shared-hook-scripts) script goes to `.agnostic-ai/scripts/` whatever the base dir. Never overwrites files. |
 | `--preset <name>` | Add starter specs for a stack: `go`, `ts-react`, `python`. Combines with `--demo` and `--all`. Never overwrites files. |
 | `-a, --all` | Skip the target picker and enable every supported target. |

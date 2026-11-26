@@ -1067,3 +1067,39 @@ func TestInitCmd_DemoProjectPassesLintWithNoMigration(t *testing.T) {
 		t.Errorf("a fresh demo project must need no migration, got %q", hint)
 	}
 }
+
+func TestInitCmd_IgnoredOutputNotesCoverFreshnessAndCloud(t *testing.T) {
+	cases := map[string]struct {
+		args      []string
+		in        string
+		freshness bool
+		cloud     bool
+	}{
+		"cloud target":     {[]string{"init"}, "codex\n", true, true},
+		"no cloud target":  {[]string{"init"}, "gemini\n", true, false},
+		"committed output": {[]string{"init", "--gitignore=off"}, "codex\n", false, false},
+		"--dry-run":        {[]string{"init", "--dry-run"}, "codex\n", false, false},
+		"--quiet":          {[]string{"init", "--quiet"}, "codex\n", false, false},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			testutil.Chdir(t, t.TempDir())
+			silence(t)
+
+			var stderr strings.Builder
+			root := NewRootCmd("test")
+			root.SetIn(strings.NewReader(tc.in))
+			root.SetErr(&stderr)
+			root.SetArgs(tc.args)
+			if err := root.Execute(); err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if got := strings.Contains(stderr.String(), ignoredOutputFreshnessNote); got != tc.freshness {
+				t.Errorf("freshness note printed = %v, want %v:\n%s", got, tc.freshness, stderr.String())
+			}
+			if got := strings.Contains(stderr.String(), ignoredOutputCloudNote); got != tc.cloud {
+				t.Errorf("cloud note printed = %v, want %v:\n%s", got, tc.cloud, stderr.String())
+			}
+		})
+	}
+}

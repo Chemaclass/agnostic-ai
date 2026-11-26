@@ -173,6 +173,11 @@ func scaffoldDryRun(opts scaffoldOptions, cfgPath string) error {
 			}
 		}
 	}
+	if index := projectMemoryIndexFor(opts.Root); opts.MemoryEnabled && index != "" {
+		if _, err := os.Lstat(index); os.IsNotExist(err) {
+			fmt.Printf("create: %s\n", index)
+		}
+	}
 	note := filepath.Join(opts.Root, agnosticMainFile)
 	if !isUserSourceDir(filepath.Dir(note)) {
 		if _, err := os.Lstat(note); os.IsNotExist(err) {
@@ -259,6 +264,11 @@ func writeScaffold(opts scaffoldOptions, cfgPath string) error {
 	if err := writeStarterNote(opts.Root); err != nil {
 		return err
 	}
+	if opts.MemoryEnabled {
+		if err := writeProjectMemoryIndex(opts.Root); err != nil {
+			return err
+		}
+	}
 	if opts.MemoryEnabled && opts.GitignoreEnabled && gitIgnores(opts.Root, config.LocalOverrideFileName) {
 		if _, err := writeNewFile(filepath.Join(opts.Root, config.LocalOverrideFileName), []byte("memory:\n  personal: repo\n")); err != nil {
 			return err
@@ -291,6 +301,32 @@ func writeStarterNote(root string) error {
 		return err
 	}
 	_, err := writeNewFile(path, []byte(adapters.EntryPointBody()))
+	return err
+}
+
+// projectMemoryIndexFor returns the project memory index of the project
+// at root, or "" in the home folder, whose .agnostic-ai/ is the user
+// source and holds no project memory.
+func projectMemoryIndexFor(root string) string {
+	index := filepath.Join(root, filepath.FromSlash(adapters.ProjectMemoryIndexPath))
+	if isUserSourceDir(filepath.Dir(filepath.Dir(index))) {
+		return ""
+	}
+	return index
+}
+
+// writeProjectMemoryIndex starts an empty project memory index, keeping
+// an existing one. The generated CLAUDE.md imports it, and the import
+// loads nothing until the file exists (LINT067).
+func writeProjectMemoryIndex(root string) error {
+	index := projectMemoryIndexFor(root)
+	if index == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(index), 0o755); err != nil {
+		return err
+	}
+	_, err := writeNewFile(index, nil)
 	return err
 }
 

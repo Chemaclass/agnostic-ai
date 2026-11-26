@@ -87,6 +87,7 @@ func TestBuiltins_ProjectChecksSkipInactiveMemoryHooks(t *testing.T) {
 		t.Run(target, func(t *testing.T) {
 			dir := builtinProject(t, "handoff, caveman, memory")
 			writeFile(t, filepath.Join(dir, config.ConfigFileName), "version: 1\ntargets: ["+target+"]\nbuiltins: [handoff, caveman, memory]\n")
+			writeFile(t, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md"), "")
 
 			for _, args := range [][]string{{"validate"}, {"lint", "--strict"}} {
 				if out, err := runBuiltinCLI(t, args...); err != nil {

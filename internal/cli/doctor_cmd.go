@@ -50,7 +50,9 @@ const doctorLong = "Start troubleshooting with doctor. It is read-only by defaul
 	"     project skills or agents that share a name with a user-level one, and\n" +
 	"     synced skills a Claude settings file turns off (skillOverrides).\n" +
 	"  5. Compare what sync would emit against files on disk (drift), and flag\n" +
-	"     a generated file still tracked despite being ignored.\n" +
+	"     a generated file still tracked despite being ignored, and warn when\n" +
+	"     ignored files have nothing to regenerate them or hide root instructions\n" +
+	"     from cloud agents.\n" +
 	"     --check-globs and --check-references add opt-in checks here.\n" +
 	"  6. Check MCP server command binaries.\n" +
 	"  7. Check persisted Codex hook trust, and Claude hook specs an older\n" +
@@ -234,6 +236,7 @@ type doctorTextFindings struct {
 	mergedHooks     int
 	unloadableRules int
 	brokenRefs      int
+	cloneSetup      cloneSetupReport
 }
 
 // runDoctorText prints the numbered checks, suggests a next step, and with
@@ -253,7 +256,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 		} else {
 			cmd.Println("  ✗ agnostic-ai.yaml not found. Run: agnostic-ai init")
 		}
-		doctorNextStep(cmd, false, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0)
+		doctorNextStep(cmd, false, false, false, false, nil, 0, 0, 0, errDoctorNoConfig, 0, 0, cloneSetupReport{})
 		return errDoctorNoConfig
 	}
 	if err := resolveRequestedTargets(opts.targets); err != nil {
@@ -263,7 +266,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	scope, err := loadCheckScope(false)
 	if err != nil {
 		cmd.Printf("  ✗ %v\n", err)
-		doctorNextStep(cmd, false, false, false, false, nil, 0, 0, 0, err, 0, 0)
+		doctorNextStep(cmd, false, false, false, false, nil, 0, 0, 0, err, 0, 0, cloneSetupReport{})
 		return err
 	}
 	cfg := scope.cfg
@@ -364,6 +367,10 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 	// 4d. Generated files git tracks despite ignoring.
 	reportTrackedIgnored(cmd, drift.reports)
 
+	// 4e. Ignored files a clone or cloud agent starts without.
+	cloneSetup := collectCloneSetup(".", cfg, bundle, driftGeneratedPaths(drift.reports), opts.checks != "project")
+	reportCloneSetup(cmd, cloneSetup)
+
 	// 5. MCP resolution
 	reportMCPCommandResolution(cmd, bundle)
 	reportMCPUnsetEnvRefs(cmd, cfg, bundle, targets)
@@ -396,6 +403,7 @@ func runDoctorText(cmd *cobra.Command, opts doctorOptions) error {
 		mergedHooks:     len(mergedHooks),
 		unloadableRules: unloadableRules,
 		brokenRefs:      brokenRefs,
+		cloneSetup:      cloneSetup,
 	})
 }
 
@@ -517,7 +525,7 @@ func finishDoctorText(cmd *cobra.Command, opts doctorOptions, cfg *config.Config
 	manualFiles, manualOnly := manualOnlyDrift(reports)
 	// Hook script divergence is drift a scope document does not explain.
 	manualOnly = manualOnly && !f.scriptDrift && len(f.drift.copies) == 0 && !f.drift.handWritten
-	doctorNextStep(cmd, f.drift.hasDrift, manualOnly, f.drift.copiesOnly, f.drift.handWritten, manualFiles, len(f.lint), len(f.hookTrust), f.unmanaged, nil, len(f.packaging), f.mergedHooks)
+	doctorNextStep(cmd, f.drift.hasDrift, manualOnly, f.drift.copiesOnly, f.drift.handWritten, manualFiles, len(f.lint), len(f.hookTrust), f.unmanaged, nil, len(f.packaging), f.mergedHooks, f.cloneSetup)
 
 	// A rule whose globs match nothing never loads, so it
 	// silently does not exist. Reported before, but exit 0 meant

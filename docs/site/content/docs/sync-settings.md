@@ -205,7 +205,7 @@ sync:
 
 `sync --gitignore` and `init --gitignore` override it per run ([CLI reference](@/docs/cli-reference/start.md#init)).
 
-Use `commit` for files that review bots and fresh worktrees read before any sync:
+Use `commit` for files that review bots, cloud agents, and fresh worktrees read before any sync. Cloud agents such as Codex Cloud, Jules, and Claude Code on the web start from a clone, so without `instructions` they start with no project instructions; [`doctor`](@/docs/cli-reference/doctor.md#clones-and-cloud-agents) names them:
 
 ```yaml
 gitignore:

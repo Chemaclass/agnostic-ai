@@ -2,5 +2,5 @@
 # checked by `make size-growth-check` in CI. The number counts only while the
 # pull request edits this file; otherwise the allowance is 16384 bytes.
 # A pull request that needs more sets the bytes here and says why in a comment above them.
-# The gitignore.commit cloud preset, and the exact .gitignore edits doctor environment plans from git check-ignore.
-49152
+# Doctor's clone and cloud freshness check, init's closing notes, and the missing memory index lint (LINT067).
+45056

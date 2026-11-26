@@ -110,3 +110,19 @@ func TestInit_MemoryDryRunWritesNothing(t *testing.T) {
 		}
 	}
 }
+
+func TestInit_MemoryStartsAnEmptyProjectIndex(t *testing.T) {
+	dir := t.TempDir()
+	testutil.Chdir(t, dir)
+	silence(t)
+	if out, err := runRoot(t, "init", "--memory", "--gitignore=off"); err != nil {
+		t.Fatalf("init --memory: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "memory", "MEMORY.md")); got != "" {
+		t.Errorf("init --memory must start an empty project index, got %q", got)
+	}
+	if out, _ := runRoot(t, "memory", "lint"); strings.Contains(out, "LINT067") {
+		t.Errorf("a project init set up must not warn about its own index:\n%s", out)
+	}
+}

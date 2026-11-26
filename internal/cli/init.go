@@ -173,6 +173,11 @@ func newInitCmd() *cobra.Command {
 			if gitignoreDefaulted && !dryRun && verbosity >= levelDefault {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), gitignoreDefaultNote)
 			}
+			if gitignoreEnabled && !dryRun && verbosity >= levelDefault {
+				for _, note := range ignoredOutputNotes(targets) {
+					_, _ = fmt.Fprintln(cmd.ErrOrStderr(), note)
+				}
+			}
 			if release, stable := stableReleaseVersion(opts.Version); stable && !gitignoreEnabled && !dryRun && verbosity >= levelDefault {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), requiresExactPinNote(release))
 			}
@@ -320,3 +325,20 @@ func requiresExactPinNote(release string) string {
 }
 
 const gitignoreDefaultNote = "generated files are git-ignored, so each clone needs agnostic-ai sync (pass --gitignore=off to commit them, so a clone works without the tool)"
+
+// ignoredOutputFreshnessNote says how to keep ignored outputs current.
+const ignoredOutputFreshnessNote = "to sync after each pull and branch switch: agnostic-ai install-hook --post-checkout"
+
+// ignoredOutputCloudNote says hosted agents read only committed files.
+const ignoredOutputCloudNote = "cloud agents read only committed files; to commit their instruction files, see " + gitignoreCommitDocs
+
+// ignoredOutputNotes are the closing notes for ignored outputs: how to
+// keep them current, and, with a target that has a hosted agent, that
+// the agent reads only what is committed.
+func ignoredOutputNotes(targets []string) []string {
+	notes := []string{ignoredOutputFreshnessNote}
+	if hasCloudInstructionTarget(targets) {
+		notes = append(notes, ignoredOutputCloudNote)
+	}
+	return notes
+}

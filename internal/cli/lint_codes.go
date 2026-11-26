@@ -333,6 +333,12 @@ var lintCodes = map[string]lintCode{
 		Cause:    "A memory store holds facts personal memory lacks, and no tool reads that store any longer: Claude Code's own auto memory store once sync points Claude at personal memory, or the personal store of the other `memory.personal` mode after a switch. It counts facts by file name, and notes kept in that store's index as one more, leaves out facts you declined, and never prints what a fact says.",
 		Fix:      "Run the `agnostic-ai memory import` command the finding names. It copies the facts into personal memory and leaves the source as it is. To leave a fact behind, decline it with `--skip <file>`, or decline every fact not imported yet with `--skip-rest`.",
 	},
+	"LINT067": {
+		Severity: lintWarn,
+		Title:    "Project memory index missing",
+		Cause:    "The `memory` built-in is on, but `.agnostic-ai/memory/MEMORY.md` does not exist, and a target names it by path: the generated `CLAUDE.md` imports it, Kiro and Antigravity include it, and OpenCode and Kilo Code list it. Without the file these load nothing. Targets that load memory through a session-start hook or the memory rule skip a missing index, so they are not checked, and neither is personal memory, which is missing in CI and on a fresh clone.",
+		Fix:      "Run `agnostic-ai memory index` to create the file, empty when there are no facts, then commit it. Or remove `memory` from `builtins`.",
+	},
 	"LINT045": {
 		Severity: lintError,
 		Title:    "Invalid session retention",
