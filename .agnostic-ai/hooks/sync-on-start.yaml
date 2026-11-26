@@ -4,3 +4,4 @@ targets: [claude, codex, gemini]
 on: session-start
 command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'
 timeout: 60
+commandWindows: 'sh "$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'
