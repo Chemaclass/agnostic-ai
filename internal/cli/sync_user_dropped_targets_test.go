@@ -60,7 +60,7 @@ func TestSyncUser_TargetDroppedFromConfigLosesItsSkillsAndAgents(t *testing.T) {
 	if _, _, err := runUserAgentTest(); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{cursorSkill, cursorAgent} {
+	for _, path := range []string{cursorSkill, cursorAgent, filepath.Dir(cursorSkill)} {
 		if _, err := os.Stat(path); !os.IsNotExist(err) {
 			t.Errorf("dropped target kept %s: %v", path, err)
 		}

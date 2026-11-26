@@ -212,6 +212,10 @@ func runUserSync(cmd *cobra.Command, o userSyncOptions) error {
 		return err
 	}
 	removals := removedUserFiles(old.Files, next.Files, writes...)
+	// Folders a dropped target's removals leave empty go too.
+	for _, target := range dropped {
+		trees = append(trees, userTargets[target].trees(home)...)
+	}
 	run := userRun{
 		cmd: cmd, o: o, warn: warn, source: source, statePath: statePath,
 		writes: writes, removals: removals, existing: existingPaths(removals), adopted: adopted, trees: trees,
