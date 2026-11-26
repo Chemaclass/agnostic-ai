@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -27,7 +28,7 @@ func companionAppForCommand(path string) (string, bool) {
 	return app, filepath.Base(path) == binaryName && filepath.Base(resources) == "Resources" && filepath.Base(contents) == "Contents" && filepath.Ext(app) == ".app"
 }
 
-func downloadableCompanionApp(app string) (string, error) {
+func resolvedCompanionApp(app string) (string, error) {
 	if !filepath.IsAbs(app) || filepath.Ext(app) != ".app" {
 		return "", fmt.Errorf("%s: expected an absolute app path", app)
 	}
@@ -35,25 +36,113 @@ func downloadableCompanionApp(app string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("%s: %w", app, err)
 	}
-	for _, part := range []string{filepath.Join("Contents", "MacOS", companionName), filepath.Join("Contents", "Resources", binaryName)} {
-		path := filepath.Join(resolved, part)
-		info, err := os.Lstat(path)
-		if err != nil {
-			return "", fmt.Errorf("%s: %w", path, err)
-		}
-		if !info.Mode().IsRegular() || runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
-			return "", fmt.Errorf("%s: expected an executable file", path)
-		}
-	}
 	return resolved, nil
 }
 
+type companionAppLayout struct {
+	path       string
+	executable string
+}
+
+func (a companionAppLayout) programAt(app string) string {
+	return filepath.Join(app, "Contents", "MacOS", a.executable)
+}
+
+func knownCompanionExecutable(name string) bool {
+	return name == "agnostic-ai-companion" || name == "agnostic-companion"
+}
+
+func downloadableCompanionApp(app string) (companionAppLayout, error) {
+	app, err := resolvedCompanionApp(app)
+	if err != nil {
+		return companionAppLayout{}, err
+	}
+	return readCompanionAppLayout(app)
+}
+
+func readCompanionAppLayout(app string) (companionAppLayout, error) {
+	root, err := os.OpenRoot(app)
+	if err != nil {
+		return companionAppLayout{}, err
+	}
+	defer func() { _ = root.Close() }()
+	plist := filepath.Join("Contents", "Info.plist")
+	info, err := root.Lstat(plist)
+	if err != nil {
+		return companionAppLayout{}, fmt.Errorf("%s: %w", filepath.Join(app, plist), err)
+	}
+	const maxPlistSize = 64 << 10
+	if !info.Mode().IsRegular() || info.Size() > maxPlistSize {
+		return companionAppLayout{}, fmt.Errorf("%s: expected a regular Info.plist up to %d bytes", filepath.Join(app, plist), maxPlistSize)
+	}
+	file, err := root.Open(plist)
+	if err != nil {
+		return companionAppLayout{}, fmt.Errorf("%s: %w", filepath.Join(app, plist), err)
+	}
+	defer func() { _ = file.Close() }()
+	executable, err := readCompanionExecutable(io.LimitReader(file, maxPlistSize))
+	if err != nil {
+		return companionAppLayout{}, fmt.Errorf("parse %s: %w", filepath.Join(app, plist), err)
+	}
+	for _, part := range []string{filepath.Join("Contents", "MacOS", executable), filepath.Join("Contents", "Resources", binaryName)} {
+		info, err := root.Lstat(part)
+		if err != nil {
+			return companionAppLayout{}, fmt.Errorf("%s: %w", filepath.Join(app, part), err)
+		}
+		if !info.Mode().IsRegular() || runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
+			return companionAppLayout{}, fmt.Errorf("%s: expected an executable file", filepath.Join(app, part))
+		}
+	}
+	return companionAppLayout{path: app, executable: executable}, nil
+}
+
+func readCompanionExecutable(info io.Reader) (string, error) {
+	var plist struct {
+		XMLName xml.Name `xml:"plist"`
+		Dict    struct {
+			Fields []struct {
+				XMLName xml.Name
+				Text    string `xml:",chardata"`
+			} `xml:",any"`
+		} `xml:"dict"`
+	}
+	if err := xml.NewDecoder(info).Decode(&plist); err != nil {
+		return "", err
+	}
+	values := map[string]string{}
+	fields := plist.Dict.Fields
+	if len(fields)%2 != 0 {
+		return "", errors.New("expected a value for each bundle property")
+	}
+	for i := 0; i < len(fields); i += 2 {
+		key, value := fields[i], fields[i+1]
+		if key.XMLName.Local != "key" {
+			return "", errors.New("expected a key in the bundle properties")
+		}
+		if key.Text != "CFBundleIdentifier" && key.Text != "CFBundleExecutable" {
+			continue
+		}
+		if _, duplicate := values[key.Text]; duplicate || value.XMLName.Local != "string" {
+			return "", fmt.Errorf("expected exactly one string for %s", key.Text)
+		}
+		values[key.Text] = value.Text
+	}
+	if values["CFBundleIdentifier"] != companionBundleID {
+		return "", fmt.Errorf("expected bundle identifier %s", companionBundleID)
+	}
+	executable := values["CFBundleExecutable"]
+	if !knownCompanionExecutable(executable) {
+		return "", fmt.Errorf("unrecognized Companion executable %q", executable)
+	}
+	return executable, nil
+}
+
 func installCompanionCommand(out io.Writer, app string, folders []string, lookPath func(string) (string, error)) error {
-	app, err := downloadableCompanionApp(app)
+	layout, err := downloadableCompanionApp(app)
 	if err != nil {
 		return err
 	}
-	source := filepath.Join(app, "Contents", "Resources", binaryName)
+	source := filepath.Join(layout.path, "Contents", "Resources", binaryName)
 	if existing, err := lookPath(binaryName); err == nil {
 		resolved, _ := filepath.EvalSymlinks(existing)
 		if resolved == source {
@@ -93,7 +182,7 @@ type companionAppDeps struct {
 	// sameSigner refuses a built app that does not meet the installed app's designated requirement.
 	sameSigner func(ctx context.Context, installed, built string) error
 	// runBuilt executes the built app's binaries, so it runs only after sameSigner accepts the app.
-	runBuilt func(ctx context.Context, built, version string) error
+	runBuilt func(ctx context.Context, built companionAppLayout, version string) error
 	start    func(string) error
 }
 
@@ -132,7 +221,7 @@ func sameCompanionSigner(ctx context.Context, installed, built string) error {
 }
 
 func updateCompanionApp(ctx context.Context, out io.Writer, app, version string, tools companionTools, deps companionAppDeps) error {
-	app, err := downloadableCompanionApp(app)
+	app, err := resolvedCompanionApp(app)
 	if err != nil {
 		return err
 	}
@@ -146,6 +235,10 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return err
 	}
 	defer unlock()
+	installed, err := readCompanionAppLayout(app)
+	if err != nil {
+		return err
+	}
 	staging, err := os.MkdirTemp(filepath.Dir(app), ".companion-update-")
 	if err != nil {
 		return fmt.Errorf("%s cannot be updated where it is (%w). Move the app to Applications, open it from there, then update", app, err)
@@ -162,12 +255,20 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	if err != nil {
 		return fmt.Errorf("prepare %s: %w", app, err)
 	}
+	candidate, err := downloadableCompanionApp(built)
+	if err != nil {
+		return fmt.Errorf("prepare %s: %w", app, err)
+	}
+	built = candidate.path
+	if rel, ok := pathBelow(staging, built); !ok || rel == "." {
+		return fmt.Errorf("%s: expected the downloaded app inside %s", built, staging)
+	}
 	if err := deps.sameSigner(ctx, app, built); errors.Is(err, errInstalledUnpinned) {
 		return fmt.Errorf("%w. Download the new disk image by hand once", err)
 	} else if err != nil {
 		return fmt.Errorf("%s is not signed by this project: %w", built, err)
 	}
-	if err := deps.runBuilt(ctx, built, version); err != nil {
+	if err := deps.runBuilt(ctx, candidate, version); err != nil {
 		return fmt.Errorf("prepare %s: %w", app, err)
 	}
 	if err := ctx.Err(); err != nil {
@@ -175,8 +276,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 	}
 	ctx = context.WithoutCancel(ctx)
 	_, _ = fmt.Fprintln(out, "Restarting the companion.")
-	program := filepath.Join(app, "Contents", "MacOS", companionName)
-	if _, err := endCompanion(ctx, tools, program); err != nil {
+	if _, err := endCompanion(ctx, tools, installed.programAt(app)); err != nil {
 		return err
 	}
 	aside := filepath.Join(staging, companionAsideName)
@@ -190,7 +290,7 @@ func updateCompanionApp(ctx context.Context, out io.Writer, app, version string,
 		return errors.Join(fmt.Errorf("replace %s: %w", app, err), restartEarlierCompanion(out, app, deps.start))
 	}
 	_, _ = fmt.Fprintln(out, "Swapped the companion app.")
-	if err := launchUpdatedCompanion(ctx, out, tools, program, func() error { return deps.start(app) }); err != nil {
+	if err := launchUpdatedCompanion(ctx, out, tools, candidate.programAt(app), func() error { return deps.start(app) }); err != nil {
 		launchErr := fmt.Errorf("start %s: %w", app, err)
 		_, _ = fmt.Fprintln(out, "Could not start the updated companion.")
 		// Move the failed app out of the way before putting the original back.
@@ -271,25 +371,22 @@ func prepareCompanionApp(ctx context.Context, out io.Writer, version, staging st
 	if err := runCompanionAppTool(ctx, "ditto", filepath.Join(mount, companionAppName+".app"), app); err != nil {
 		return "", err
 	}
-	if _, err := downloadableCompanionApp(app); err != nil {
-		return "", err
-	}
 	if err := runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", app); err != nil {
 		return "", err
 	}
 	return app, nil
 }
 
-func runBuiltCompanionApp(ctx context.Context, app, version string) error {
-	if err := verifyReleaseBinary(ctx, filepath.Join(app, "Contents", "Resources", binaryName), version); err != nil {
+func runBuiltCompanionApp(ctx context.Context, layout companionAppLayout, version string) error {
+	if err := verifyReleaseBinary(ctx, filepath.Join(layout.path, "Contents", "Resources", binaryName), version); err != nil {
 		return err
 	}
-	got, err := companionBuiltFor(ctx, filepath.Join(app, "Contents", "MacOS", companionName))
+	got, err := companionBuiltFor(ctx, layout.programAt(layout.path))
 	if err != nil {
 		return err
 	}
 	if got != version {
-		return fmt.Errorf("%s: companion version %q, expected %s", app, got, version)
+		return fmt.Errorf("%s: companion version %q, expected %s", layout.path, got, version)
 	}
 	return nil
 }

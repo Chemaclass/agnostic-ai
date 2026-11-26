@@ -10,17 +10,24 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 )
 
 func testDownloadableApp(t *testing.T, parent string) string {
 	t.Helper()
-	app := filepath.Join(parent, companionAppName+".app")
+	return testDownloadableAppLayout(t, parent, companionAppName+".app", companionName)
+}
+
+func testDownloadableAppLayout(t *testing.T, parent, bundle, executable string) string {
+	t.Helper()
+	app := filepath.Join(parent, bundle)
+	plist := strings.Replace(string(companionInfoPlist("1.2.3")), "<string>"+companionName+"</string>", "<string>"+executable+"</string>", 1)
 	for path, data := range map[string][]byte{
-		filepath.Join(app, "Contents", "Info.plist"):            companionInfoPlist("1.2.3"),
+		filepath.Join(app, "Contents", "Info.plist"):            []byte(plist),
 		filepath.Join(app, "Contents", "Resources", binaryName): []byte("cli"),
-		filepath.Join(app, "Contents", "MacOS", companionName):  []byte("companion"),
+		filepath.Join(app, "Contents", "MacOS", executable):     []byte("companion"),
 	} {
 		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 			t.Fatal(err)
@@ -103,6 +110,95 @@ func TestCompanionUpdateApp_VerifiesBeforeStoppingAndReplacesTogether(t *testing
 	raw, err := os.ReadFile(filepath.Join(app, "Contents", "Resources", binaryName))
 	if err != nil || string(raw) != "updated cli" || !stopped || !started {
 		t.Errorf("update = %q, %v, stopped %v, started %v", raw, err, stopped, started)
+	}
+}
+
+func TestCompanionUpdateApp_UsesEachBundlesExecutable(t *testing.T) {
+	app := testDownloadableAppLayout(t, t.TempDir(), "My Companion.app", companionName)
+	oldProgram := filepath.Join(app, "Contents", "MacOS", companionName)
+	newProgram := filepath.Join(app, "Contents", "MacOS", "agnostic-companion")
+	tools := builtTools(t)
+	var quits []string
+	tools.quit = func(_ context.Context, path string) (bool, error) {
+		quits = append(quits, path)
+		return false, nil
+	}
+	started := false
+	tools.running = func(_ context.Context, path string) (bool, error) {
+		if path != newProgram {
+			t.Errorf("looked for %q, want %q", path, newProgram)
+		}
+		return started, nil
+	}
+	deps := companionAppDeps{
+		prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
+			return testDownloadableAppLayout(t, staging, "agnostic companion.app", "agnostic-companion"), nil
+		},
+		sameSigner: acceptSigner,
+		runBuilt:   acceptBuilt,
+		start: func(path string) error {
+			started = true
+			if path != app {
+				t.Errorf("started %q, want %q", path, app)
+			}
+			return nil
+		},
+	}
+	if err := updateCompanionApp(context.Background(), io.Discard, app, "2.0.0", tools, deps); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(quits, []string{oldProgram}) || !started {
+		t.Errorf("quit %q, started %t; want %q stopped before the new app starts", quits, started, oldProgram)
+	}
+	if _, err := os.Stat(newProgram); err != nil {
+		t.Errorf("the new executable must be installed at the chosen app path: %v", err)
+	}
+	if _, err := os.Stat(oldProgram); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("the old executable must be gone: %v", err)
+	}
+}
+
+func TestRunBuiltCompanionApp_UsesItsDeclaredExecutable(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the app executables in this test are shell scripts")
+	}
+	app := testDownloadableAppLayout(t, t.TempDir(), "agnostic companion.app", "agnostic-companion")
+	for path, script := range map[string]string{
+		filepath.Join(app, "Contents", "MacOS", "agnostic-companion"): "#!/bin/sh\necho 2.0.0\n",
+		filepath.Join(app, "Contents", "MacOS", companionName):        "#!/bin/sh\necho 1.0.0\n",
+		filepath.Join(app, "Contents", "Resources", binaryName):       "#!/bin/sh\necho 'agnostic-ai version 2.0.0'\n",
+	} {
+		if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	layout, err := downloadableCompanionApp(app)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := runBuiltCompanionApp(context.Background(), layout, "2.0.0"); err != nil {
+		t.Error(err)
+	}
+}
+
+func TestDownloadableCompanionApp_RequiresKnownBundleMetadata(t *testing.T) {
+	for _, edit := range []struct{ name, from, to string }{
+		{"different bundle", "<string>" + companionBundleID + "</string>", "<string>dev.example.companion</string>"},
+		{"arbitrary executable", "<string>" + companionName + "</string>", "<string>../unexpected</string>"},
+		{"missing declared executable", "<string>" + companionName + "</string>", "<string>agnostic-companion</string>"},
+		{"dangling property", "</dict>", "<key>MissingValue</key></dict>"},
+	} {
+		t.Run(edit.name, func(t *testing.T) {
+			app := testDownloadableApp(t, t.TempDir())
+			plist := filepath.Join(app, "Contents", "Info.plist")
+			raw := strings.Replace(string(companionInfoPlist("1.2.3")), edit.from, edit.to, 1)
+			if err := os.WriteFile(plist, []byte(raw), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := downloadableCompanionApp(app); err == nil {
+				t.Error("accepted an invalid Companion layout")
+			}
+		})
 	}
 }
 
@@ -223,14 +319,14 @@ func TestCompanionUpdateApp_NamesEachStepForTheCompanion(t *testing.T) {
 
 func acceptSigner(context.Context, string, string) error { return nil }
 
-func acceptBuilt(context.Context, string, string) error { return nil }
+func acceptBuilt(context.Context, companionAppLayout, string) error { return nil }
 
 func TestCompanionUpdateApp_RunsNoDownloadedBinaryBeforeTheSignerCheck(t *testing.T) {
 	app := testDownloadableApp(t, t.TempDir())
 	for _, signer := range []error{errors.New("codesign: test-requirement: failed"), fmt.Errorf("%s: %w", app, errInstalledUnpinned)} {
 		deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
 			return testDownloadableApp(t, staging), nil
-		}, sameSigner: func(context.Context, string, string) error { return signer }, runBuilt: func(context.Context, string, string) error {
+		}, sameSigner: func(context.Context, string, string) error { return signer }, runBuilt: func(context.Context, companionAppLayout, string) error {
 			t.Errorf("ran a binary from the downloaded app before refusing its signer %v", signer)
 			return nil
 		}}
@@ -251,9 +347,9 @@ func TestCompanionUpdateApp_RefusesAnAppWhoseBinariesFailTheirCheck(t *testing.T
 	signed := false
 	deps := companionAppDeps{prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
 		return testDownloadableApp(t, staging), nil
-	}, sameSigner: func(context.Context, string, string) error { signed = true; return nil }, runBuilt: func(_ context.Context, built, version string) error {
-		if !signed || filepath.Base(built) != companionAppName+".app" || version != "2.0.0" {
-			t.Errorf("ran %q for %q, signer checked %v", built, version, signed)
+	}, sameSigner: func(context.Context, string, string) error { signed = true; return nil }, runBuilt: func(_ context.Context, built companionAppLayout, version string) error {
+		if !signed || filepath.Base(built.path) != companionAppName+".app" || version != "2.0.0" {
+			t.Errorf("ran %q for %q, signer checked %v", built.path, version, signed)
 		}
 		return errors.New("companion version \"1.0.0\", expected 2.0.0")
 	}}

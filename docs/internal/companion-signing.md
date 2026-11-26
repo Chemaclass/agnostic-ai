@@ -154,6 +154,10 @@ go test ./internal/cli -run '^TestCompanionUpdateApp_RefusesADifferentMacSignerB
 
 The test signs two temporary app bundles with separate certificates and verifies each with macOS `codesign`. It supplies the local candidate directly to the updater in place of a release download. The updater must report a signer refusal before it runs a candidate binary, quits the installed app, moves a bundle, or starts an app. The test compares every file in the installed bundle before and after. A manual install from Finder and its new Accessibility grant are separate desktop checks.
 
+### Update between executable names
+
+`TestCompanionUpdateApp_UsesEachBundlesExecutable` and `TestCompanionUpdateApp_RestoresAndRelaunchesOldAppWhenOpenFails` exercise an old installed executable and a candidate with the name planned in #4048. The updater uses the installed app's path for the swap and verifies that the candidate's executable starts there. The rollback test checks that it restores the original bundle when the candidate fails to start.
+
 ## Troubleshooting
 
 | Message | Cause | Fix |

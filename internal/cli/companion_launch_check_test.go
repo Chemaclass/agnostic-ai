@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -75,15 +76,20 @@ func TestCompanionStaysUp_KeepsTheNewCompanionWhenTheProcessListCannotBeRead(t *
 
 func TestProgramListed_MatchesTheAppAndTheProgramInsideIt(t *testing.T) {
 	t.Parallel()
-	program := "/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion"
+	path := func(parent, name string) string {
+		return filepath.Join(parent, "agnostic-ai companion.app", "Contents", "MacOS", name)
+	}
+	parent := t.TempDir()
+	program := path(parent, "agnostic-companion")
 	for _, tc := range []struct {
 		list string
 		want bool
 	}{
-		{"/sbin/launchd\n/private/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion\n", true},
-		{"/usr/local/bin/agnostic-ai-companion\n", false},
-		{"/Applications/other.app/Contents/MacOS/agnostic-ai-companion\n", false},
-		{"/var/x/agnostic-ai companion.app/Contents/MacOS/agnostic-ai-companion-helper\n", false},
+		{"/sbin/launchd\n" + program + "\n", true},
+		{"/usr/local/bin/agnostic-companion\n", false},
+		{path(t.TempDir(), "agnostic-companion") + "\n", false},
+		{path(parent, "agnostic-ai-companion") + "\n", false},
+		{program + "-helper\n", false},
 	} {
 		if got := programListed(tc.list, program); got != tc.want {
 			t.Errorf("programListed(%q) = %t; want %t", tc.list, got, tc.want)
@@ -91,6 +97,24 @@ func TestProgramListed_MatchesTheAppAndTheProgramInsideIt(t *testing.T) {
 	}
 	if !programListed("agnostic-ai-companion\n/opt/c/agnostic-ai-companion\n", "/home/me/c/agnostic-ai-companion") {
 		t.Error("a program outside an app was not found by its name")
+	}
+}
+
+func TestProgramListed_ResolvesTheSameBundlesOtherPath(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("this test uses a folder symlink")
+	}
+	t.Parallel()
+	parent := t.TempDir()
+	app := testDownloadableApp(t, parent)
+	alias := filepath.Join(t.TempDir(), "linked")
+	if err := os.Symlink(parent, alias); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(app, "Contents", "MacOS", companionName)
+	listed := filepath.Join(alias, filepath.Base(app), "Contents", "MacOS", companionName)
+	if !programListed(listed+"\n", path) {
+		t.Errorf("the same executable listed at %q did not match %q", listed, path)
 	}
 }
 
@@ -185,11 +209,20 @@ func TestInstallCompanion_RestoresTheEarlierAppWhenTheRecordFailsAndTheNewOneDoe
 
 func TestCompanionUpdateApp_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts(t *testing.T) {
 	app := testDownloadableApp(t, t.TempDir())
+	oldProgram := filepath.Join(app, "Contents", "MacOS", companionName)
+	newProgram := filepath.Join(app, "Contents", "MacOS", "agnostic-companion")
 	tools := builtTools(t)
-	tools.quit = func(context.Context, string) (bool, error) { return false, nil }
+	var quits []string
+	tools.quit = func(_ context.Context, program string) (bool, error) {
+		quits = append(quits, program)
+		return false, nil
+	}
 	var launches []string
 	looks := 0
-	tools.running = func(context.Context, string) (bool, error) {
+	tools.running = func(_ context.Context, program string) (bool, error) {
+		if program != newProgram {
+			t.Errorf("looked for %q, want %q", program, newProgram)
+		}
 		if len(launches) == 0 {
 			return false, nil
 		}
@@ -200,7 +233,7 @@ func TestCompanionUpdateApp_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts
 	var out bytes.Buffer
 	deps := companionAppDeps{
 		prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
-			built := testDownloadableApp(t, staging)
+			built := testDownloadableAppLayout(t, staging, "agnostic companion.app", "agnostic-companion")
 			if err := os.WriteFile(filepath.Join(built, "Contents", "Resources", binaryName), []byte("new cli"), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -219,6 +252,9 @@ func TestCompanionUpdateApp_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts
 	}
 	if strings.Join(launches, ", ") != "new cli, cli" {
 		t.Errorf("launches = %q; want the new app, then the restored one", launches)
+	}
+	if !slices.Equal(quits, []string{oldProgram, newProgram}) {
+		t.Errorf("quit %q; want the original executable, then the failed replacement", quits)
 	}
 	raw, _ := os.ReadFile(filepath.Join(app, "Contents", "Resources", binaryName))
 	if string(raw) != "cli" {

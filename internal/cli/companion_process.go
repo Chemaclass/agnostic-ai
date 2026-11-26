@@ -61,8 +61,7 @@ func runGoBuild(ctx context.Context, dir string, env []string, lines func(string
 }
 
 func companionLaunchCommand(path, goos string) (command *exec.Cmd, viaOpen bool) {
-	bundle := filepath.Dir(filepath.Dir(filepath.Dir(path)))
-	if goos == "darwin" && filepath.Base(bundle) == companionAppName+".app" {
+	if bundle, inside := companionAppForProgram(path); goos == "darwin" && inside && knownCompanionExecutable(filepath.Base(path)) {
 		// Each invocation starts a process so the existing companion receives its second-start event.
 		return exec.Command("/usr/bin/open", "-g", "-n", "-a", bundle), true
 	}
@@ -129,9 +128,7 @@ func quitCompanion(ctx context.Context, path string) (bool, error) {
 }
 
 // companionProgramRuns reports whether this user's process list holds the
-// program at path. macOS lists each program by the path it started from,
-// which can be spelled another way than path, such as through /private, so
-// the app's name and the path inside it are compared.
+// program at path.
 func companionProgramRuns(ctx context.Context, path string) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
 	defer cancel()
@@ -142,15 +139,20 @@ func companionProgramRuns(ctx context.Context, path string) (bool, error) {
 	return programListed(string(out), path), nil
 }
 
-// programListed reports whether one line of list ends like path, from the
-// app folder on, or by its name for a program outside an app.
+// Match app executables by their resolved paths so another copy cannot
+// make an update look successful. Bare programs still match by name.
 func programListed(list, path string) bool {
-	tail := "/" + filepath.Base(path)
-	if app, inside := companionAppForProgram(path); inside {
-		tail = "/" + filepath.Base(app) + "/Contents/MacOS/" + filepath.Base(path)
+	name := filepath.Base(path)
+	_, insideApp := companionAppForProgram(path)
+	if insideApp {
+		path = resolvedPath(path)
 	}
 	for line := range strings.Lines(list) {
-		if line = strings.TrimSpace(line); line == tail[1:] || strings.HasSuffix(line, tail) {
+		line = strings.TrimSpace(line)
+		if filepath.Base(line) != name {
+			continue
+		}
+		if !insideApp || filepath.IsAbs(line) && resolvedPath(line) == path {
 			return true
 		}
 	}
