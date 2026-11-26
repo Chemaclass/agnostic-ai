@@ -2,6 +2,13 @@ name: sync-on-start
 description: Regenerate tool files from .agnostic-ai/ when a session starts.
 # Every target with a session-start event except Codex, which has its own
 # spec for the Windows command (sync-on-start-codex.yaml).
+#
+# This repo does not use `builtins: [autosync]`. Autosync runs the binary
+# from node_modules or PATH, but contributors and cloud sessions build
+# ./agnostic-ai from source, and a released binary on PATH would regenerate
+# the tracked files with an older emitter. sync-generated.sh uses the
+# checkout's own build, falls back to the main worktree's, and skips a
+# binary built from older code.
 targets: [claude, gemini, qwen, codebuddy, factory, qoder, openhands, goose, augment, cursor, copilot]
 on: session-start
 command: '"$CLAUDE_PROJECT_DIR/.agnostic-ai/scripts/sync-generated.sh"'
