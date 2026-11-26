@@ -67,3 +67,22 @@ func TestSync_RefusesAnOutputPathInTheSourceFolder(t *testing.T) {
 		})
 	}
 }
+
+// exec-policies-file names a list sync reads, and the Codex page puts it
+// in .agnostic-ai, so the source-folder guard must let it through.
+func TestSync_ReadsExecPoliciesFileFromTheSourceFolder(t *testing.T) {
+	const policies = "- pattern: [\"git\", \"push\", \"--force\"]\n  decision: forbidden\n"
+	dir := sourceOutputProject(t, "    exec-policies-file: ./.agnostic-ai/codex.exec-policies.yaml\n")
+	writeFile(t, filepath.Join(dir, ".agnostic-ai", "codex.exec-policies.yaml"), policies)
+
+	if out, err := runCLI(t, "sync", "--gitignore=off"); err != nil {
+		t.Fatalf("sync refused a policy file in the source folder: %v\n%s", err, out)
+	}
+
+	if got := readFile(t, filepath.Join(dir, ".codex", "rules", "default.rules")); !strings.Contains(got, `"--force"`) {
+		t.Errorf("default.rules lacks the policy from the file:\n%s", got)
+	}
+	if got := readFile(t, filepath.Join(dir, ".agnostic-ai", "codex.exec-policies.yaml")); got != policies {
+		t.Errorf("policy file = %q, want it kept byte for byte", got)
+	}
+}
