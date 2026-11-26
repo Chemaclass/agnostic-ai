@@ -3,7 +3,9 @@
 # expects. It never fails the edit: a missing tool, a payload it cannot read
 # or a file gofmt cannot parse leaves every file as it is.
 
-root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd) || exit 0
+# Tools copy this script to different depths (.claude/hooks/,
+# .github/hooks/scripts/, ...), so ask Git for the root.
+root=$(CDPATH='' cd -- "$(dirname -- "$0")" && git rev-parse --show-toplevel 2>/dev/null) || exit 0
 cd "$root" || exit 0
 
 bin=${AGNOSTIC_AI_BIN:-}
