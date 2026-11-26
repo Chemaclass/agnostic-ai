@@ -94,6 +94,10 @@ func (l *recordingLauncher) TitleTab(_ context.Context, app, tty, title string) 
 	return true, nil
 }
 
+func (l *recordingLauncher) ReadTabNames(context.Context, string) ([]conversations.TerminalTab, error) {
+	return nil, errors.New("unexpected read")
+}
+
 func (l *recordingLauncher) TypeInTab(_ context.Context, app, tty, text string, _ bool) (bool, error) {
 	l.calls = append(l.calls, "type "+app+" "+tty+" "+text)
 	return true, nil

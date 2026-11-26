@@ -223,6 +223,10 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	if tool != "" && !checkConversationTool(w, tool) {
 		return
 	}
+	// A refresh also follows the names typed on terminal tabs, after the
+	// reply and outside the scan, so an unanswered Automation prompt
+	// never holds the list. A rename shows on the next refresh.
+	defer func() { go h.followTabNames(context.WithoutCancel(r.Context())) }()
 	// The tag is taken before the scan. A scan that itself writes the
 	// marks then changes the stamp, and the caller's next question gets
 	// one more scan instead of a list that missed a write made meanwhile.
@@ -494,46 +498,39 @@ func (h *conversationsHandler) rename(w http.ResponseWriter, r *http.Request) {
 		writeEditJSON(w, http.StatusBadRequest, editError{Error: err.Error()})
 		return
 	}
-	// The lock spans the tool's write and the marks' write, so a second
-	// rename of the conversation cannot put its name in one and leave
-	// this one's in the other.
-	release, err := h.scanner.LockRename(req.Tool, req.ID)
-	if errors.Is(err, conversations.ErrRenameInProgress) {
+	conversation, err := h.scanner.RenameChat(r.Context(), conversations.ChatRename{
+		Tool: req.Tool, ID: req.ID, Title: title, Opts: h.scanOptions(""), InTool: h.renameInTool, TabLauncher: h.launcher,
+		Check: func(c conversations.Conversation) error {
+			if conversations.RenameReachesCloud(c) && h.refuseUnproven(w, r, "Renaming an online conversation", "The name did not change.", "rename online conversations") {
+				return errRenameAnswered
+			}
+			return nil
+		},
+	})
+	var notTaken *conversations.ToolRenameError
+	switch {
+	case errors.Is(err, errRenameAnswered):
+		return
+	case errors.Is(err, conversations.ErrRenameInProgress):
 		writeEditJSON(w, http.StatusConflict, editError{Error: "This conversation is being renamed already. Wait for that to finish, then try again."})
 		return
-	}
-	if err != nil {
-		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
-		return
-	}
-	defer release()
-	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
-	if !ok {
+	case errors.Is(err, conversations.ErrConversationGone):
 		writeConversationGone(w)
 		return
-	}
-	if conversations.RenameReachesCloud(conversation) && h.refuseUnproven(w, r, "Renaming an online conversation", "The name did not change.", "rename online conversations") {
-		return
-	}
-	// The tool takes the name first, so the list never shows a name the
-	// tool behind it does not have. It may take seconds.
-	if err := h.renameInTool(r.Context(), conversation, title); err != nil {
-		h.logRenameFailure(conversation, err)
-		status, message := renameFailureReply(err)
+	case errors.As(err, &notTaken):
+		h.logRenameFailure(conversation, notTaken.Err)
+		status, message := renameFailureReply(notTaken.Err)
 		writeEditJSON(w, status, editError{Error: message})
 		return
-	}
-	if err := h.scanner.Rename(req.Tool, req.ID, title); err != nil {
+	case err != nil:
 		writeEditJSON(w, http.StatusInternalServerError, editError{Error: err.Error()})
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	// The tab follows after the reply, since an unanswered Automation
-	// prompt holds osascript; a tab that cannot take the name keeps its own.
-	go func(ctx context.Context) {
-		_ = conversations.TitleTab(ctx, conversation, h.scanner.Processes, h.launcher, title)
-	}(context.WithoutCancel(r.Context()))
 }
+
+// errRenameAnswered means the rename's check already answered the request.
+var errRenameAnswered = errors.New("answered")
 
 // renameFailureStatuses is the status each reason a tool did not take a
 // name answers with.
@@ -574,6 +571,18 @@ func (h *conversationsHandler) logRenameFailure(c conversations.Conversation, er
 		return
 	}
 	_, _ = fmt.Fprintf(h.logOut, "! could not rename %s conversation %s in the tool: %v\n", c.Tool, c.ID, err)
+}
+
+// followTabNames gives live chats the names typed on their tabs, and
+// logs a name that was not taken. The name itself is never logged.
+func (h *conversationsHandler) followTabNames(ctx context.Context) {
+	for _, failure := range h.scanner.SyncTabNames(ctx, h.launcher, h.renameInTool) {
+		if notTaken, ok := errors.AsType[*conversations.ToolRenameError](failure.Err); ok {
+			h.logRenameFailure(failure.Conversation, notTaken.Err)
+			continue
+		}
+		_, _ = fmt.Fprintf(h.logOut, "! did not give %s conversation %s the name on its tab: %v\n", failure.Conversation.Tool, failure.Conversation.ID, failure.Err)
+	}
 }
 
 // delete removes a conversation under Archived from this machine for good.

@@ -168,6 +168,9 @@ func (countingLauncher) FocusTab(context.Context, string, string) (bool, error) 
 func (countingLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
 	return false, nil
 }
+func (countingLauncher) ReadTabNames(context.Context, string) ([]TerminalTab, error) {
+	return nil, nil
+}
 func (countingLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {
 	return false, nil
 }

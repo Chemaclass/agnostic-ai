@@ -37,6 +37,9 @@ type Launcher interface {
 	// TitleTab names the tab of app that shows tty; ok is false when no
 	// tab shows that tty.
 	TitleTab(ctx context.Context, app, tty, title string) (ok bool, err error)
+	// ReadTabNames lists every tab of app with the name the person gave
+	// it and the ttys of its panes, in one look.
+	ReadTabNames(ctx context.Context, app string) ([]TerminalTab, error)
 	// TypeInTab types text into the tab of app that shows tty, without
 	// pressing Enter, and brings it to the front; ok is false when no
 	// tab shows that tty. An app that pastes from the clipboard puts
@@ -658,10 +661,7 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 // chose. It does nothing for a session that ended or runs where no tab
 // can be named.
 func TitleTab(ctx context.Context, c Conversation, processes Processes, launcher Launcher, title string) error {
-	if c.process == nil || c.placed == nil || len(c.placed.ttys) > 0 || !tabApps[c.placed.host.App] {
-		return nil
-	}
-	if !processes.Alive(c.process.PID, c.process.ProcStart) || (c.Tool == ToolCodex && !c.placed.clientStillRuns(c.process.PID, processes)) {
+	if _, ok := tabOf(c); !ok || !stillRuns(c, processes) {
 		return nil
 	}
 	ok, err := launcher.TitleTab(ctx, c.placed.host.App, c.placed.host.TTY, title)
@@ -669,6 +669,21 @@ func TitleTab(ctx context.Context, c Conversation, processes Processes, launcher
 		err = fmt.Errorf("no %s tab shows %s", c.placed.host.App, shortTTY(c.placed.host.TTY))
 	}
 	return err
+}
+
+// tabOf is the tab of an app in tabApps that shows c's live session
+// on one exact tty.
+func tabOf(c Conversation) (terminalHost, bool) {
+	if c.process == nil || c.placed == nil || len(c.placed.ttys) > 0 || !tabApps[c.placed.host.App] {
+		return terminalHost{}, false
+	}
+	return c.placed.host, true
+}
+
+// stillRuns reports whether the session tabOf placed still runs, and
+// for Codex whether its terminal client does.
+func stillRuns(c Conversation, processes Processes) bool {
+	return processes.Alive(c.process.PID, c.process.ProcStart) && (c.Tool != ToolCodex || c.placed.clientStillRuns(c.process.PID, processes))
 }
 
 func (p placement) clientStillRuns(holderPID int, processes Processes) bool {
@@ -1031,6 +1046,18 @@ func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, 
 	return out == "ok", nil
 }
 
+func (macLauncher) ReadTabNames(ctx context.Context, app string) ([]TerminalTab, error) {
+	args, ok := tabNameReadArgs(app)
+	if !ok {
+		return nil, errNotHere
+	}
+	out, err := run(ctx, "osascript", args...)
+	if err != nil {
+		return nil, err
+	}
+	return parseTabNames(out), nil
+}
+
 func (macLauncher) TypeInTab(ctx context.Context, app, tty, text string, setClipboard bool) (bool, error) {
 	if driver, ok := commandTabs[app]; ok {
 		return driver.typeIn(ctx, tty, text)
@@ -1144,6 +1171,10 @@ func (linuxLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool
 	return false, errNotHere
 }
 
+func (linuxLauncher) ReadTabNames(context.Context, string) ([]TerminalTab, error) {
+	return nil, errNotHere
+}
+
 func (linuxLauncher) TypeInTab(ctx context.Context, app, tty, text string, _ bool) (bool, error) {
 	if driver, ok := linuxCommandTabs[app]; ok {
 		return driver.typeIn(ctx, tty, text)
@@ -1173,6 +1204,10 @@ func (unsupportedLauncher) ShowTmuxPane(context.Context, int, string) (int, erro
 
 func (unsupportedLauncher) TitleTab(context.Context, string, string, string) (bool, error) {
 	return false, errNotHere
+}
+
+func (unsupportedLauncher) ReadTabNames(context.Context, string) ([]TerminalTab, error) {
+	return nil, errNotHere
 }
 
 func (unsupportedLauncher) TypeInTab(context.Context, string, string, string, bool) (bool, error) {

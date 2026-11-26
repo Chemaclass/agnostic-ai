@@ -165,6 +165,16 @@ type Scanner struct {
 	// files, where a resumed session can write; nil runs nothing.
 	betweenReads func()
 
+	// tabChatsMu guards tabChats apart from mu: a tab name sync reads
+	// them after the scan, without waiting for the next one.
+	tabChatsMu sync.Mutex
+	tabChats   tabChats
+	// tabSyncMu keeps a second tab name sync from starting while one
+	// runs, and guards tabReadsPaused.
+	tabSyncMu sync.Mutex
+	// tabReadsPaused holds, by app, until when its tabs are not read.
+	tabReadsPaused map[string]time.Time
+
 	// scanningSince is when the holder of mu took it, in Unix
 	// nanoseconds; zero while none holds it. It is read without mu.
 	scanningSince atomic.Int64
@@ -350,6 +360,9 @@ func (s *Scanner) searchRead(ctx context.Context, opts ScanOptions, words []stri
 	startedAt := s.Now()
 	results, cloudNote := s.readAll(ctx, opts)
 	needsYou, marksErr := s.applyMarks(results, startedAt, ctx.Err() == nil)
+	if ctx.Err() == nil {
+		s.keepTabChats(opts, results)
+	}
 	read = keptSearch{needsYou: needsYou, calm: map[Ref]bool{}, marksErr: marksErr, cloudNote: cloudNote}
 	for _, result := range results {
 		for _, c := range result.conversations {
