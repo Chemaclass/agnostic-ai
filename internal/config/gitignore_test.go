@@ -97,3 +97,53 @@ func TestGitignore_AllowsPath(t *testing.T) {
 		})
 	}
 }
+
+func TestGitignore_CloudCommitKindsExpandPerTarget(t *testing.T) {
+	g := config.Gitignore{Commit: []string{"cloud", "skills", "claude:hooks"}}
+	tests := []struct {
+		target string
+		want   []string
+	}{
+		{"claude", []string{"instructions", "environments", "hooks", "skills"}},
+		{"codex", []string{"instructions", "skills"}},
+		{"jules", []string{"instructions", "skills"}},
+		{"copilot", []string{"instructions", "environments", "skills"}},
+		{"cursor", []string{"instructions", "environments", "skills"}},
+		{"amp", []string{"instructions", "environments", "skills"}},
+		{"openhands", []string{"instructions", "environments", "skills"}},
+		{"ellipsis", []string{"environments", "skills"}},
+		{"gemini", []string{"skills"}},
+	}
+	for _, tt := range tests {
+		if got := g.CommitKinds(tt.target); !slices.Equal(got, tt.want) {
+			t.Errorf("%s kinds = %v, want %v", tt.target, got, tt.want)
+		}
+	}
+	if got := config.CloudCommitTargets(); !slices.Equal(got, []string{"amp", "claude", "codex", "copilot", "cursor", "ellipsis", "jules", "openhands"}) {
+		t.Errorf("cloud targets = %v", got)
+	}
+}
+
+func TestLoad_AcceptsTheCloudCommitPreset(t *testing.T) {
+	dir := t.TempDir()
+	writeConfig(t, dir, "version: 1\ntargets: [claude, gemini]\ngitignore:\n  enabled: true\n  commit: [cloud]\n")
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if !slices.Equal(cfg.Gitignore.CommitKinds("claude"), []string{"instructions", "environments", "hooks"}) || len(cfg.Gitignore.CommitKinds("gemini")) != 0 {
+		t.Errorf("claude = %v, gemini = %v", cfg.Gitignore.CommitKinds("claude"), cfg.Gitignore.CommitKinds("gemini"))
+	}
+}
+
+func TestGitignore_ValidateRejectsAScopedOrMisspelledCloudPreset(t *testing.T) {
+	for entry, want := range map[string]string{
+		"claude:cloud": "list it without a target",
+		"clouds":       `unknown kind "clouds" (want cloud, or one of instructions`,
+	} {
+		err := (config.Gitignore{Commit: []string{entry}}).Validate("agnostic-ai.yaml")
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%q: error = %v, want %q", entry, err, want)
+		}
+	}
+}

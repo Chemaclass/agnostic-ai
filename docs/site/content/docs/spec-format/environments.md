@@ -94,7 +94,7 @@ Fields a tool does not use get a no-effect note. Other tools report the spec as 
 
 ## Cloud sessions {#cloud-sessions}
 
-A cloud session starts from a clone. Commit the generated files it needs. If sync manages your `.gitignore`, use [`gitignore.commit`](@/docs/sync-settings.md#gitignore) for the environment and hook outputs you want to commit.
+A cloud session starts from a clone. Commit the generated files it needs. If sync manages your `.gitignore`, set [`gitignore.commit: [cloud]`](@/docs/sync-settings.md#commit-cloud) to keep the instructions and setup files every configured cloud agent reads in Git. If you write `.gitignore` yourself, `doctor environment` prints the lines to change.
 
 Run [`agnostic-ai doctor environment`](@/docs/cli-reference/doctor.md#doctor-environment) to see which setup files Git can send to your enabled cloud tools and which settings you need to enter in their UIs.
 
@@ -112,7 +112,7 @@ Run [`agnostic-ai doctor environment`](@/docs/cli-reference/doctor.md#doctor-env
 
 Sync writes `install` to `.claude/hooks/agnostic-ai-cloud-install.sh` and registers a `SessionStart` hook in `.claude/settings.json`. In a cloud session the script runs from the repository root. It records a successful install in the Git directory and retries on the next start or resume if the commands changed or the last run failed. If only the dependencies changed in a running session, rerun the install commands yourself.
 
-With managed ignores enabled, set `gitignore.commit: [claude:environments, claude:hooks]` and commit the generated files. If a hook calls a separate script, commit that script too. Remove any hand-written hook that runs the same install because Claude Code runs matching hooks in parallel.
+With managed ignores enabled, set `gitignore.commit: [cloud]`, or `[claude:environments, claude:hooks]` for these files alone, and commit the generated files. If a hook calls a separate script, commit that script too. Remove any hand-written hook that runs the same install because Claude Code runs matching hooks in parallel.
 
 Claude Code gives command hooks 600 seconds by default. Each start and resume runs the hook, outside the environment cache. Allow network access to the package registries the hook needs. On a self-hosted runner, make sure `flock` or `lockf` is available. Use the cached setup script in the web UI for toolchains and slow installs. See [Claude Code's cloud hook limits](https://code.claude.com/docs/en/cloud-environments#limitations-in-cloud-sessions).
 

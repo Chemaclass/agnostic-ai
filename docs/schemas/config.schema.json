@@ -517,7 +517,7 @@
         "commit": {
           "items": {
             "type": "string",
-            "pattern": "^([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores)$"
+            "pattern": "^(cloud|([a-z0-9-]+:)?(instructions|agents|skills|commands|hooks|mcps|settings|reviews|environments|ignores))$"
           },
           "type": "array"
         },

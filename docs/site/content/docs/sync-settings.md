@@ -198,7 +198,7 @@ sync:
 |-------|---------|-------------|
 | `enabled` | `false` when absent; `agnostic-ai init` writes `true` | Every `sync` rewrites a managed `.gitignore` block listing every path the configured adapters write. |
 | `path` | `.gitignore` | Another file inside the project, such as a nested `.gitignore` or `.git/info/exclude`. Any other path outside the project or in `.git/` fails to load. |
-| `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one. The block leaves out their paths. |
+| `commit` | empty | Kinds of generated output to keep in Git, for every target or as `<target>:<kind>` for one, or `cloud` for every file cloud agents read. The block leaves out their paths. |
 | `allow` | empty | Globs written as `!` lines at the end of the block, so a hand-written file at a generated path (such as `testdata/AGENTS.md`) is not ignored. One pattern per entry; a line break fails to load. |
 | `worktree-include` | `true` | Keep the same block in `.worktreeinclude`. See [Claude Code worktrees](#claude-code-worktrees). |
 | `ignore-worktree-include` | `false` | Keep `.worktreeinclude` out of Git. See [Claude Code worktrees](#claude-code-worktrees). |
@@ -216,7 +216,7 @@ gitignore:
 <details>
 <summary>Commit kinds in detail</summary>
 
-- Kinds: `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`. An unknown kind fails config loading.
+- Kinds: `instructions`, `agents`, `skills`, `commands`, `hooks`, `mcps`, `settings`, `reviews`, `environments`, and `ignores`, plus the [`cloud`](#commit-cloud) preset. An unknown kind fails config loading.
 - `instructions` covers entry-point files (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) and rule outputs, root and scoped. Every other kind is named after its spec source.
 - A file written by several kinds, such as `.claude/settings.json`, is committed when any of them is listed.
 - `ellipsis:reviews`, `ellipsis:environments`, and `ellipsis:mcps` also count the settings spec that holds `x-ellipsis`, because `.ellipsis/code-review.yaml` and `.ellipsis/environments/<name>.yaml` need both ([Ellipsis](@/docs/targets/ellipsis.md#keep-the-files-in-git)).
@@ -233,6 +233,33 @@ gitignore:
 ```
 
 This keeps `.cursor/environment.json`, `.cursor/worktrees.json`, and every `BUGBOT.md` in Git, and ignores `.claude/launch.json` and `.codex/environments/environment.toml`. `lint` warns (LINT017) when the target is not in `targets`.
+
+### Commit what cloud agents read {#commit-cloud}
+
+A cloud agent starts from a clone, so it reads only committed files. `cloud` keeps every file the configured cloud agents read in Git:
+
+```yaml
+gitignore:
+  enabled: true
+  commit: [cloud]
+```
+
+It expands to these kinds for each configured target. Targets missing here get nothing from it, and listing a kind beside it adds that kind as usual.
+
+| Target | Cloud agent | `cloud` commits |
+|---|---|---|
+| `claude` | Claude Code on the web | `claude:instructions`, `claude:environments`, `claude:hooks` |
+| `codex` | Codex Cloud | `codex:instructions` |
+| `copilot` | Copilot cloud agent | `copilot:instructions`, `copilot:environments` |
+| `cursor` | Cursor cloud agents | `cursor:instructions`, `cursor:environments` |
+| `amp` | Amp orbs | `amp:instructions`, `amp:environments` |
+| `openhands` | OpenHands | `openhands:instructions`, `openhands:environments` |
+| `jules` | Jules | `jules:instructions` |
+| `ellipsis` | Ellipsis | `ellipsis:environments` |
+
+`instructions` covers the root entry file (`AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`) and the rule outputs each tool loads. `environments` and `hooks` cover the setup files that [`doctor environment`](@/docs/cli-reference/doctor.md#doctor-environment) lists. Codex Cloud and Jules take their setup from the web UI, so they get instructions only. Review files stay ignored; add `ellipsis:reviews` or `cursor:reviews` to commit them.
+
+`cloud` takes no target prefix. Without managed ignores, `doctor environment` prints the `.gitignore` lines that make the setup files trackable.
 
 The block sits between `# >>> agnostic-ai (managed) >>>` and `# <<< agnostic-ai (managed) <<<`. Lines outside it stay.
 

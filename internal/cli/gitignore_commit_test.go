@@ -266,3 +266,40 @@ func TestLint_WarnsOnGitignoreCommitForAnUnconfiguredTarget(t *testing.T) {
 		t.Errorf("findings = %v, want one LINT017 for cursr", got)
 	}
 }
+
+// `cloud` commits what each configured cloud agent reads from a clone:
+// instructions plus environment and hook outputs. A target without a
+// cloud agent keeps its files ignored, and so do outputs no cloud agent
+// reads, such as skills and the Codex app's local environment file.
+func TestSync_GitignoreCommitCloudKeepsCloudAgentFilesVisible(t *testing.T) {
+	dir := syncCommitProject(t, "claude, codex, cursor, amp, openhands, gemini", "cloud", map[string]string{
+		".agnostic-ai/environments/dev.yaml":  "name: dev\nsetup: npm ci\ninstall: npm ci\n",
+		".agnostic-ai/rules/style.md":         "---\nname: style\ndescription: Style.\n---\nKeep it short.\n",
+		".agnostic-ai/hooks/fmt.yaml":         "name: fmt\nevent: PostToolUse\nmatcher: Edit\ncommand: echo hi\n",
+		".agnostic-ai/skills/review/SKILL.md": "---\nname: review\ndescription: Review a diff.\n---\nReview it.\n",
+	})
+	block := managedBlockLines(readFile(t, filepath.Join(dir, ".gitignore")))
+	committed := []string{"AGENTS.md", "CLAUDE.md", ".claude/rules/style.md", ".claude/settings.json", ".claude/hooks/agnostic-ai-cloud-install.sh", ".cursor/environment.json", ".agents/setup", ".openhands/setup.sh"}
+	ignored := []string{"GEMINI.md", ".claude/skills/review/SKILL.md", ".codex/environments/environment.toml"}
+	files := generatedFiles(t, dir)
+	for _, p := range append(slices.Clone(committed), ignored...) {
+		if !slices.Contains(files, p) {
+			t.Fatalf("fixture did not generate %s; got %v", p, files)
+		}
+	}
+	for _, p := range committed {
+		if gitIgnored(t, dir, p) {
+			t.Errorf("%s is ignored under commit: [cloud]; block:\n%s", p, strings.Join(block, "\n"))
+		}
+	}
+	for _, p := range ignored {
+		if !gitIgnored(t, dir, p) {
+			t.Errorf("%s is visible; cloud agents do not read it", p)
+		}
+	}
+	for _, line := range []string{"/AGENTS.md", "/CLAUDE.md", "/.agents/setup", "/.openhands/setup.sh"} {
+		if slices.Contains(block, line) {
+			t.Errorf("managed block lists %s under commit: [cloud]", line)
+		}
+	}
+}
