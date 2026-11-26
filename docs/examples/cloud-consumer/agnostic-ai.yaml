@@ -1,0 +1,6 @@
+version: 1
+targets: [claude, codex]
+builtins: []
+gitignore:
+  enabled: true
+  commit: [cloud]

@@ -57,6 +57,7 @@ complete user documentation.
 - [Session wrap-ups](https://agnostic-ai.org/docs/wrap-up/): end a session with a short summary to share.
 - [Session mailbox](https://agnostic-ai.org/docs/mailbox/): share questions and findings between local Claude Code and Codex sessions in the companion.
 - [Side conversations](https://agnostic-ai.org/docs/side-conversation/): start a second task in a new terminal tab, linked to the session it came from.
+- [Cloud setup walkthrough](https://agnostic-ai.org/docs/cloud-consumer/): verify project instructions and setup in a fresh clone before assigning cloud work.
 - [Cloud handoffs](https://agnostic-ai.org/docs/cloud-handoff/): push the current task and continue it in a Claude Code, Codex or GitHub Copilot cloud session.
 - [Git hooks](https://agnostic-ai.org/docs/git-hooks/): keeping generated files in step with commits.
 - [Sync on session start](https://agnostic-ai.org/docs/autosync/): regenerate ignored tool files when a coding session starts.
