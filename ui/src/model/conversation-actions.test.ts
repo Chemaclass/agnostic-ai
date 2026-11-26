@@ -7,18 +7,25 @@ const conflict = { id: 'c', worktree: '/repo', path: 'app.ts', requester: { tool
 const menu = (over: Partial<Conversation> = {}, options: { localResume?: string; server?: boolean } = {}) => conversationMenuOf(row(over), { server: true, ...options })
 
 describe('conversation menu', () => {
+  it('offers Pin or Unpin after Rename only for a top-level chat on a server', () => {
+    expect(menu({ state: 'working' }).slice(0, 2)).toEqual(['rename', 'pin'])
+    expect(menu({ pinnedAt: '2026-11-07T12:00:00Z' }).slice(0, 2)).toEqual(['rename', 'unpin'])
+    expect(menu({ parent: { tool: 'claude', id: 'above' } })).not.toContain('pin')
+    expect(menu({}, { server: false })).not.toContain('pin')
+  })
+
   it('offers the Companion items for each state, in menu order', () => {
     expect((['blocked', 'unread', 'working', 'active', 'completed', 'dormant'] as const).map((state) => menu({ state, ...(state === 'completed' ? { completedAt: 'now' } : {}) }))).toEqual([
-      ['read', 'rename', 'complete', 'copy-session-id'],
-      ['read', 'rename', 'complete', 'copy-session-id'],
-      ['rename', 'copy-session-id'],
-      ['rename', 'complete', 'copy-session-id'],
-      ['rename', 'reopen', 'hide', 'copy-session-id', 'delete'],
-      ['rename', 'hide', 'copy-session-id', 'delete'],
+      ['read', 'rename', 'pin', 'complete', 'copy-session-id'],
+      ['read', 'rename', 'pin', 'complete', 'copy-session-id'],
+      ['rename', 'pin', 'copy-session-id'],
+      ['rename', 'pin', 'complete', 'copy-session-id'],
+      ['rename', 'pin', 'reopen', 'hide', 'copy-session-id', 'delete'],
+      ['rename', 'pin', 'hide', 'copy-session-id', 'delete'],
     ])
   })
   it('keeps Hide but drops Delete on a live archived row', () => {
-    expect(menu({ state: 'completed', completedAt: 'now', live: true })).toEqual(['rename', 'reopen', 'hide', 'copy-session-id'])
+    expect(menu({ state: 'completed', completedAt: 'now', live: true })).toEqual(['rename', 'pin', 'reopen', 'hide', 'copy-session-id'])
     expect(menu({ state: 'dormant', deleteUnsupported: 'Stored in the cloud.' })).toContain('delete')
   })
   it('gives an archived row no read state', () => {
@@ -30,7 +37,7 @@ describe('conversation menu', () => {
     expect(menu({ app: 'cloud' })).toContain('rename')
   })
   it('offers Open on claude.ai on a shared row and a local resume command only when the row has one', () => {
-    expect(menu({ cloud: { id: 'cse_1', link: 'https://claude.ai/code/cse_1' } }, { localResume: 'claude --resume internal' })).toEqual(['rename', 'complete', 'web', 'copy-session-id', 'copy-resume'])
+    expect(menu({ cloud: { id: 'cse_1', link: 'https://claude.ai/code/cse_1' } }, { localResume: 'claude --resume internal' })).toEqual(['rename', 'pin', 'complete', 'web', 'copy-session-id', 'copy-resume'])
     expect(menu({}, {})).not.toContain('copy-resume')
   })
   it('offers Copy resume command on a Claude cloud row with cloudResumeCommand only', () => {
@@ -40,13 +47,13 @@ describe('conversation menu', () => {
   })
   it('offers Stop shell only with a stuck shell and a running server', () => {
     const stuckShells = [{ pid: 37, procStart: 'start', command: 'sleep 90', processCount: 1, since: '2026-11-07T12:00:00Z' }]
-    expect(menu({ state: 'working', stuckShells })).toEqual(['rename', 'copy-session-id', 'stop-shell'])
+    expect(menu({ state: 'working', stuckShells })).toEqual(['rename', 'pin', 'copy-session-id', 'stop-shell'])
     expect(menu({ state: 'working', stuckShells }, { server: false })).toEqual(['rename', 'copy-session-id'])
   })
   it('keeps a row with a path conflict in Needs you, with Mark complete and no archive actions', () => {
     const items = menu({ state: 'dormant', claimConflicts: [conflict] })
-    expect(items).toEqual(['rename', 'complete', 'copy-session-id'])
-    expect(menu({ state: 'dormant', completedAt: 'now', claimConflicts: [conflict] })).toEqual(['rename', 'reopen', 'copy-session-id'])
+    expect(items).toEqual(['rename', 'pin', 'complete', 'copy-session-id'])
+    expect(menu({ state: 'dormant', completedAt: 'now', claimConflicts: [conflict] })).toEqual(['rename', 'pin', 'reopen', 'copy-session-id'])
   })
 })
 

@@ -561,6 +561,8 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
   const run: Record<ConversationMenuItem, () => void> = {
     read: () => { void change('seen') },
     rename: startRename,
+    pin: () => { void change('pinned') },
+    unpin: () => { void change('unpinned') },
     complete: () => { void change('completed') },
     reopen: () => { void change('open') },
     hide: () => { void change('hidden') },
@@ -657,6 +659,8 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
 const MARKED: Readonly<Record<ConversationMarkRequest['as'], string>> = {
   seen: 'Marked as read.',
   completed: 'Marked complete.',
+  pinned: 'Pinned.',
+  unpinned: 'Unpinned.',
   open: 'Completion undone.',
   hidden: 'Hidden from agnostic-ai. The transcript stays.',
 }

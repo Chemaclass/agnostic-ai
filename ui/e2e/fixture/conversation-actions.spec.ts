@@ -22,6 +22,7 @@ async function setup(page: Page, initial: Conversation[]) {
     const at = state.rows.findIndex((row) => row.id === body.id)
     if (action === 'mark' && at >= 0) {
       if (body.as === 'hidden') state.rows.splice(at, 1)
+      else if (body.as === 'pinned' || body.as === 'unpinned') state.rows[at] = { ...state.rows[at], pinnedAt: body.as === 'pinned' ? '2026-11-08T12:00:00Z' : undefined }
       else state.rows[at] = { ...state.rows[at], state: body.as === 'completed' ? 'completed' : 'active', unread: false, completedAt: body.as === 'completed' ? 'now' : undefined }
     }
     if (action === 'rename' && at >= 0) state.rows[at].title = body.title
@@ -30,6 +31,36 @@ async function setup(page: Page, initial: Conversation[]) {
   })
   return state
 }
+
+test('pins by keyboard, keeps the read mark on refresh, and unpins into the state group', async ({ page }) => {
+  const state = await setup(page, [
+    base({ state: 'unread' }),
+    base({ id: 'old', title: 'Previous release', state: 'completed', pinnedAt: '2026-11-07T12:00:00Z' }),
+    base({ id: 'nested', title: 'Child review', parent: { tool: 'claude', id: 'old' } }),
+  ])
+  await page.goto('/')
+  const pinned = page.getByRole('region', { name: /^Pinned/ })
+  await expect(pinned.getByRole('heading', { level: 3 })).toHaveText(['Previous release', 'Child review'])
+  await expect((await menu(page, 'Child review')).getByRole('menuitem', { name: 'Pin to top' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await row(page, 'Parser').getByRole('button', { name: 'More actions for Parser' }).focus()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Pin to top' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(pinned.getByRole('heading', { level: 3 })).toHaveText(['Previous release', 'Child review', 'Parser'])
+  await expect(row(page, 'Parser').getByRole('status')).toHaveText('Pinned.')
+  await page.reload()
+  await expect(pinned.getByRole('heading', { level: 3 })).toHaveText(['Previous release', 'Child review', 'Parser'])
+  const actions = await menu(page)
+  await expect(actions.getByRole('menuitem', { name: 'Mark as read' })).toBeVisible()
+  await actions.getByRole('menuitem', { name: 'Unpin' }).click()
+  await expect(page.getByRole('region', { name: /^Needs you/ }).getByRole('heading', { level: 3 })).toHaveText(['Parser'])
+  expect(state.posts.map(({ body }) => body)).toEqual([{ tool: 'claude', id: 'internal', as: 'pinned' }, { tool: 'claude', id: 'internal', as: 'unpinned' }])
+  await page.goto('/?place=cloud')
+  await expect(pinned).toHaveCount(0)
+})
 
 test('row menu keyboard marks, regroups, undoes and hides using the protected internal ID', async ({ page }) => {
   const state = await setup(page, [base({ state: 'unread' })])

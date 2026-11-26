@@ -82,6 +82,25 @@ describe('conversation groups', () => {
     expect(groupsOf([child, parent])).toEqual([['needs-you', 'Needs you', ['child']], ['archived', 'Archived', ['parent']]])
     expect(groupConversations([child, parent])[0].under.size).toBe(0)
   })
+
+  it('puts pinned families first by precise pin time, then tool and id', () => {
+    const first = '2026-11-15T12:00:00Z'
+    const later = '2026-11-15T12:00:00.000000001Z'
+    const pinned = conversation({ id: 'older-pin', state: 'dormant', pinnedAt: first, updatedAt: '2026-10-01T12:00:00Z' })
+    const rows = [
+      conversation({ id: 'active', state: 'active' }),
+      conversation({ id: 'new-pin', state: 'working', pinnedAt: later }),
+      conversation({ id: 'child', state: 'blocked', parent: { tool: 'claude', id: pinned.id } }),
+      conversation({ id: 'codex-pin', tool: 'codex', state: 'blocked', pinnedAt: first }),
+      pinned,
+    ]
+    expect(groupsOf(rows)).toEqual([
+      ['pinned', 'Pinned', ['older-pin', 'child', 'codex-pin', 'new-pin']],
+      ['active', 'Active', ['active']],
+    ])
+    expect(groupConversations(rows)[0].under.get('claude:child')).toBe(pinned)
+    expect(groupsOf(filterConversations(rows, '', 'codex'))).toEqual([['pinned', 'Pinned', ['codex-pin']]])
+  })
 })
 
 describe('nested rows', () => {
