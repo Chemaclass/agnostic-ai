@@ -5,13 +5,17 @@ package cli
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/chemaclass/agnostic-ai/internal/testutil"
 )
 
 func TestSignCompanion_KeepsOneRequirementThatAnotherSignerFails(t *testing.T) {
@@ -296,5 +300,63 @@ func TestSameCompanionSigner_ReadsNoRequirementFromTheAppPath(t *testing.T) {
 
 	if err := sameCompanionSigner(context.Background(), installed, installed); !errors.Is(err, errInstalledUnpinned) {
 		t.Errorf("err = %v; want %v", err, errInstalledUnpinned)
+	}
+}
+
+func TestCompanionUpdateApp_RefusesADifferentMacSignerBeforeReplacement(t *testing.T) {
+	useRealHome(t)
+	ctx := context.Background()
+	signedApp := func(folder, program string) string {
+		app := testDownloadableApp(t, folder)
+		writeTestApp(t, app, program)
+		if err := signCompanion(ctx, t.TempDir(), app); err != nil {
+			t.Fatal(err)
+		}
+		if err := sameCompanionSigner(ctx, app, app); err != nil {
+			t.Fatalf("verify %s against its own signer: %v", app, err)
+		}
+		return app
+	}
+	installed := signedApp(t.TempDir(), "/usr/bin/true")
+	before, err := testutil.LoadExpectedTree(installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) {
+		t.Error("quit the installed app")
+		return false, nil
+	}
+	tools.rename = func(string, string) error {
+		t.Error("tried to move a bundle")
+		return errors.New("unexpected move")
+	}
+	deps := companionAppDeps{
+		prepare: func(_ context.Context, _ io.Writer, _, staging string) (string, error) {
+			return signedApp(staging, "/usr/bin/false"), nil
+		},
+		sameSigner: sameCompanionSigner,
+		runBuilt: func(context.Context, string, string) error {
+			t.Error("tried to run a candidate binary")
+			return nil
+		},
+		start: func(string) error {
+			t.Error("tried to start the app")
+			return nil
+		},
+	}
+
+	err = updateCompanionApp(ctx, io.Discard, installed, "2.0.0", tools, deps)
+
+	var rejected *exec.ExitError
+	if err == nil || !strings.Contains(err.Error(), "is not signed by this project") || !errors.As(err, &rejected) {
+		t.Errorf("update error = %v, want a codesign refusal", err)
+	}
+	after, err := testutil.LoadExpectedTree(installed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !maps.Equal(before, after) {
+		t.Error("the installed bundle changed after refusal")
 	}
 }

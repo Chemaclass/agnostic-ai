@@ -129,7 +129,7 @@ Use two consecutive published releases with disk images. Test in a separate macO
 3. Choose **Update to vX.Y.Z**, then **Update and restart**. The list should show each step, and the app should come back on the new version.
 4. Check the version in the app and with the bundled CLI's `--version`. Open the settings and confirm the old choices are still shown.
 5. Check that the new app still has Accessibility access. Record any Gatekeeper prompt during the update. Check the first launch of a quarantined disk image install separately. After verifying that download, use **Open Anyway** if Gatekeeper blocks the launch.
-6. Confirm the release checksum and, when `gh` is available and logged in, the build provenance. Check that an app signed with a different certificate is refused before swap, and install it by hand to verify certificate rotation.
+6. Confirm the release checksum and, when `gh` is available and logged in, the build provenance. Run the [local signer refusal check](#local-signer-refusal), then install an app signed with a different certificate by hand to verify certificate rotation.
 7. Check that `~/Library/Application Support/agnostic-ai/companion-update.log` has the line `Replaced the companion app.`
 
 Record the result in the update details of `docs/site/content/docs/cli-reference/companion.md`.
@@ -143,6 +143,16 @@ The published npm CLI upgraded from v0.97.0 to v0.98.0 in a scratch prefix using
 A quarantined scratch copy of the published v0.98.0 app passed `codesign --verify --deep --strict`. Gatekeeper assessment with `spctl --assess --type execute` rejected it, and `syspolicy_check distribution` reported a missing notarization ticket. Strict signature verification also passed for the terminal-installed app with its per-Mac certificate. Each app failed verification against the other's certificate requirement.
 
 The remaining Mac desktop checks are the panel update for both install types, the Finder launch and copy fallback, Accessibility after the swap, the first-launch Gatekeeper prompt and **Open Anyway**, and a manual install after certificate rotation.
+
+### Local signer refusal
+
+Run the test on macOS from the repository root.
+
+```bash
+go test ./internal/cli -run '^TestCompanionUpdateApp_RefusesADifferentMacSignerBeforeReplacement$' -count=1
+```
+
+The test signs two temporary app bundles with separate certificates and verifies each with macOS `codesign`. It supplies the local candidate directly to the updater in place of a release download. The updater must report a signer refusal before it runs a candidate binary, quits the installed app, moves a bundle, or starts an app. The test compares every file in the installed bundle before and after. A manual install from Finder and its new Accessibility grant are separate desktop checks.
 
 ## Troubleshooting
 
