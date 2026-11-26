@@ -114,3 +114,54 @@ function test_refuses_impossible_calendar_dates_in_the_interval() {
   assert_exit_code 2 "$?"
   assert_contains 'invalid UTC interval' "$output"
 }
+
+function test_lists_description_drift_as_a_review_note() {
+  jq --slurpfile map "$FEATURE_MAP" 'map(.name as $n | . + {description: ([$map[0].groups[].features[] | select(.label == $n) | .scope][0])}) |
+    map(if .name == "cli:sync" then .description = "Old text" else . end)' "$feature_fixture/labels.json" >"$feature_fixture/report.json"
+  mv "$feature_fixture/report.json" "$feature_fixture/labels.json"
+  printf '[{"number":1,"labels":["cli:sync"]}]\n' >"$feature_fixture/issues.json"
+  verify_fixture
+  assert_successful_code "$?"
+  assert_equals true "$(jq .valid "$feature_fixture/report.json")"
+  assert_equals 1 "$(jq '.definitions.descriptionDrift | length' "$feature_fixture/report.json")"
+  assert_equals 'cli:sync,Old text' "$(jq -r '.definitions.descriptionDrift[0] | [.label,.github] | join(",")' "$feature_fixture/report.json")"
+  assert_equals "$(jq -r '.groups[].features[] | select(.label == "cli:sync") | .scope' "$FEATURE_MAP")" \
+    "$(jq -r '.definitions.descriptionDrift[0].map' "$feature_fixture/report.json")"
+}
+
+function test_lists_no_drift_when_descriptions_match_or_labels_have_names_only() {
+  printf '[{"number":1,"labels":["cli:sync"]}]\n' >"$feature_fixture/issues.json"
+  verify_fixture
+  assert_equals 0 "$(jq '.definitions.descriptionDrift | length' "$feature_fixture/report.json")"
+  jq --slurpfile map "$FEATURE_MAP" 'map(.name as $n | . + {description: ([$map[0].groups[].features[] | select(.label == $n) | .scope][0])})' \
+    "$feature_fixture/labels.json" >"$feature_fixture/report.json"
+  mv "$feature_fixture/report.json" "$feature_fixture/labels.json"
+  verify_fixture
+  assert_successful_code "$?"
+  assert_equals 0 "$(jq '.definitions.descriptionDrift | length' "$feature_fixture/report.json")"
+}
+
+function test_counts_an_empty_github_description_as_drift() {
+  jq 'map(if .name == "cli:sync" then . + {description: null} else . end)' "$feature_fixture/labels.json" >"$feature_fixture/report.json"
+  mv "$feature_fixture/report.json" "$feature_fixture/labels.json"
+  printf '[{"number":1,"labels":["cli:sync"]}]\n' >"$feature_fixture/issues.json"
+  verify_fixture
+  assert_successful_code "$?"
+  assert_equals 'cli:sync' "$(jq -r '[.definitions.descriptionDrift[].label] | join(",")' "$feature_fixture/report.json")"
+}
+
+function test_lists_issues_that_keep_a_legacy_area_label_as_a_review_note() {
+  printf '[{"number":1,"labels":["cli:sync","area:sync","area:cli"]},{"number":2,"labels":["cli:checks","bug"]},{"number":3,"pull_request":{},"labels":["cli:sync","area:ui"]}]\n' >"$feature_fixture/issues.json"
+  verify_fixture
+  assert_successful_code "$?"
+  assert_equals true "$(jq .valid "$feature_fixture/report.json")"
+  assert_equals 1 "$(jq '.legacyArea | length' "$feature_fixture/report.json")"
+  assert_equals '1,area:cli area:sync' "$(jq -r '.legacyArea[0] | [.number, (.areas | join(" "))] | join(",")' "$feature_fixture/report.json")"
+}
+
+function test_does_not_list_legacy_area_for_issues_without_a_feature() {
+  printf '[{"number":1,"labels":["area:sync"]}]\n' >"$feature_fixture/issues.json"
+  verify_fixture
+  assert_general_error "$?"
+  assert_equals 0 "$(jq '.legacyArea | length' "$feature_fixture/report.json")"
+}
