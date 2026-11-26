@@ -789,7 +789,7 @@ test('a subagent row says what its click does', () => {
 })
 
 test('a guessed open leaves a neutral notice that a late failure can replace', () => {
-  const message = 'Switched to the Ghostty tab with the only Codex session that may show this thread.'
+  const message = 'Switched to the only matching Codex tab in Ghostty. The session could not be confirmed.'
   const reply = { opened: true, guessed: true, message }
   assert.equal(openFailureOf(reply), undefined)
   const notice = openNoticeOf(reply)
@@ -885,8 +885,8 @@ test('a saved late helper notice cannot replace itself on each inbox refresh', (
 })
 
 test('a late guessed open names its chat and uses the neutral tab notice', () => {
-  assert.deepEqual(lateOpenNoticeOf({ id: 4, title: 'Draft the release notes', message: 'The tab may show this thread.', guessed: true }), {
-    message: 'Draft the release notes: The tab may show this thread.',
+  assert.deepEqual(lateOpenNoticeOf({ id: 4, title: 'Draft the release notes', message: 'The session could not be confirmed.', guessed: true }), {
+    message: 'Draft the release notes: The session could not be confirmed.',
     late: true,
     id: 4,
     about: NOTICES.guessedTab,

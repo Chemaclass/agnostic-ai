@@ -662,7 +662,7 @@ func TestPlace_OnlyPossibleCodexClientIsUsedOnlyForFocus(t *testing.T) {
 
 	launcher := &fakeLauncher{focusOK: true}
 	reply := Open(context.Background(), c, processes, launcher)
-	if !reply.Opened || !strings.Contains(reply.Message, "may show") || reply.Command != "" ||
+	if !reply.Opened || !reply.Guessed || !strings.Contains(reply.Message, "The session could not be confirmed.") || reply.Command != "" ||
 		strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" {
 		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
 	}
