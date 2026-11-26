@@ -4,6 +4,25 @@
     "commit": "",
     "pr": ""
   },
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(gofmt -l:*)",
+      "Bash(make test-short)",
+      "Bash(./agnostic-ai sync)",
+      "Bash(./agnostic-ai sync --check)",
+      "Bash(./agnostic-ai lint)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ],
+    "ask": [
+      "Edit(/ui/embedded/**)",
+      "Edit(/docs/schemas/config.schema.json)"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {
