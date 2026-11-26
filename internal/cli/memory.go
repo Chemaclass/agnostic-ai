@@ -313,6 +313,7 @@ func lintMemory(readers memoryReaders) ([]lintFinding, error) {
 			loaded = append(loaded, c)
 		}
 	}
+	out = append(out, lintMissingProjectIndex(readers, stores)...)
 	size, err := lintMemorySize(readers, loaded)
 	if err != nil {
 		return nil, err
@@ -322,6 +323,46 @@ func lintMemory(readers memoryReaders) ([]lintFinding, error) {
 		return nil, err
 	}
 	return append(append(out, size...), dark...), nil
+}
+
+// memoryIndexByPath names the targets whose generated files name the
+// project index by path, so a missing file loads nothing there: Claude
+// Code imports it, Kiro and Antigravity include it, OpenCode and Kilo
+// Code list it. A hook or the memory rule skips a missing index.
+var memoryIndexByPath = []string{"claude", "kiro", "antigravity", "opencode", "kilo"}
+
+// lintMissingProjectIndex warns when the memory built-in is on, a target
+// names the project index by path, and the file is missing (LINT067).
+// Personal memory is left out: it is missing in CI and on a fresh clone
+// by design.
+func lintMissingProjectIndex(readers memoryReaders, stores []memoryStore) []lintFinding {
+	if readers.cfg == nil {
+		return nil
+	}
+	var byPath []string
+	for _, target := range memoryIndexByPath {
+		if slices.Contains(readers.cfg.Targets, target) {
+			byPath = append(byPath, target)
+		}
+	}
+	if len(byPath) == 0 {
+		return nil
+	}
+	for _, s := range stores {
+		if s.scope != "project" {
+			continue
+		}
+		if _, err := os.Stat(s.indexPath()); !errors.Is(err, fs.ErrNotExist) {
+			return nil
+		}
+		return []lintFinding{{
+			Code:     "LINT067",
+			Severity: lintWarn,
+			Path:     s.indexPath(),
+			Message:  "the memory built-in is on and the files sync writes for " + strings.Join(byPath, ", ") + " load this index, but it is missing, so they load nothing; run `agnostic-ai memory index` to create it, then commit it",
+		}}
+	}
+	return nil
 }
 
 // lintMemorySize warns when the indexes pass memoryContextLimit
@@ -606,7 +647,7 @@ func newMemoryLintCmd() *cobra.Command {
 		Use:   "lint",
 		Short: "Run only the memory lint checks",
 		Long: "Reports an index over 100 lines, or indexes over 6,000 bytes together, naming the facts the session-start hook drops (LINT039), an index line whose file is missing (LINT040), " +
-			"a fact no index line links (LINT041), a line that looks like a secret (LINT042), a store whose facts no longer load (LINT043), and a line with hidden characters (LINT044). " +
+			"a fact no index line links (LINT041), a line that looks like a secret (LINT042), a store whose facts no longer load (LINT043), a line with hidden characters (LINT044), and, with the memory built-in on, a missing project index (LINT067). " +
 			"`lint` and `doctor` report the same findings. Exit code 1 on error findings, or on " +
 			"warnings with --strict. --json prints the findings in the `lint --json` format.",
 		Example: `  agnostic-ai memory lint
@@ -624,14 +665,16 @@ func newMemoryLintCmd() *cobra.Command {
 			if asJSON {
 				return printLintJSON(cmd, "memory lint", findings, strict)
 			}
-			if len(findings) == 0 {
-				if stores, err := memoryStores(); err != nil || !anyMemoryStore(stores) {
-					if err != nil {
-						stores = defaultMemoryStores
-					}
-					cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(stores[0].dir), filepath.ToSlash(stores[1].dir))
+			// No store leaves only LINT067 to report, after the notice.
+			if stores, err := memoryStores(); err != nil || !anyMemoryStore(stores) {
+				if err != nil {
+					stores = defaultMemoryStores
+				}
+				cmd.Printf("No memory store found in %s/ or %s/.\n", filepath.ToSlash(stores[0].dir), filepath.ToSlash(stores[1].dir))
+				if len(findings) == 0 {
 					return nil
 				}
+			} else if len(findings) == 0 {
 				cmd.Println("ok, no memory findings")
 				return nil
 			}
@@ -650,10 +693,15 @@ func newMemoryIndexCmd() *cobra.Command {
 		Short: "Rebuild each MEMORY.md from its fact files",
 		Long: "Rewrites each store's MEMORY.md without merge conflict markers, links to missing " +
 			"files, or repeated links. Every other line keeps its text and order. A fact without " +
-			"a line gets `- [name](file.md): description` from its frontmatter.",
+			"a line gets `- [name](file.md): description` from its frontmatter. With the memory " +
+			"built-in on, it creates a missing project index, empty when there are no facts.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			stores, err := memoryStores()
+			if err != nil {
+				return err
+			}
+			readers, err := memoryLintReaders()
 			if err != nil {
 				return err
 			}
@@ -661,6 +709,12 @@ func newMemoryIndexCmd() *cobra.Command {
 				c, ok, err := loadMemoryStore(s)
 				if err != nil {
 					return err
+				}
+				if created, err := createProjectIndex(s, c, ok, readers); err != nil {
+					return err
+				} else if created {
+					cmd.Printf("%s: created, %d fact(s)\n", filepath.ToSlash(s.indexPath()), len(c.topics))
+					continue
 				}
 				if !ok {
 					continue
@@ -682,6 +736,28 @@ func newMemoryIndexCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+// createProjectIndex writes the project index when the memory built-in
+// is on and the file is missing, so Claude Code's import of it and the
+// tools that list it find a file. It reports whether it wrote one.
+func createProjectIndex(s memoryStore, c memoryContents, loaded bool, readers memoryReaders) (bool, error) {
+	if s.scope != "project" || readers.cfg == nil {
+		return false, nil
+	}
+	if _, err := os.Stat(s.indexPath()); !errors.Is(err, fs.ErrNotExist) {
+		return false, nil
+	}
+	if !loaded {
+		c = memoryContents{memoryStore: s}
+	}
+	if err := os.MkdirAll(s.dir, 0o755); err != nil {
+		return false, fmt.Errorf("%s: %w", s.dir, err)
+	}
+	if err := os.WriteFile(s.indexPath(), []byte(c.rebuildIndex()), 0o644); err != nil {
+		return false, fmt.Errorf("%s: %w", s.indexPath(), err)
+	}
+	return true, nil
 }
 
 func newMemoryListCmd() *cobra.Command {

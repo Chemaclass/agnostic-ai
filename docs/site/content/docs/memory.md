@@ -22,9 +22,10 @@ builtins: [memory]
 
 ```bash
 agnostic-ai sync
+agnostic-ai memory index
 ```
 
-Saving a fact needs no further sync.
+`memory index` creates the empty project list, `.agnostic-ai/memory/MEMORY.md` (`init --memory` creates it too). Commit it. Saving a fact needs no further sync.
 
 - To enable it for all projects, use [user configuration](@/docs/global-configuration.md) instead. Pick one, or facts can load twice.
 - Claude Code needs a project sync either way.
@@ -60,6 +61,7 @@ Each folder holds one file per fact and a `MEMORY.md` list. Tools read the list 
 
 `agnostic-ai lint` and `doctor` flag:
 
+- a missing project list, which the generated `CLAUDE.md` imports. `agnostic-ai memory index` creates it; commit it.
 - lists over 100 lines each or 6,000 bytes combined
 - broken links and unlisted facts
 - possible secrets and hidden characters
