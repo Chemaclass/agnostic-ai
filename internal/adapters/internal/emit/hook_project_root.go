@@ -136,6 +136,15 @@ func projectHookRootEscaped(escape *strings.Replacer) string {
 	}
 }
 
+// ProjectHookPrefix returns the project's path below its Git worktree
+// root, escaped for a POSIX double-quoted string, or "" when the project
+// is that root or sits outside Git. A command that finds a project file
+// from `git rev-parse --show-toplevel` adds it, so a project below the
+// Git root still finds the file.
+func ProjectHookPrefix() string {
+	return strings.TrimPrefix(strings.TrimPrefix(projectHookRoot(), gitHookRoot), "/")
+}
+
 // RewriteHookProjectRoot translates shell-form root references; args are literal argv.
 func RewriteHookProjectRoot(command, target, root string, args []string) string {
 	return rewriteHookProjectRoot(command, target, func() string { return root }, args)

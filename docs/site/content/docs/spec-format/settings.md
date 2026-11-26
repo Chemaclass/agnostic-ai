@@ -124,6 +124,7 @@ Protection covers the agent's edit tools; a shell command can still change the f
 - The Codex and Gemini CLI hooks and `lint` ignore case, so `.GITHUB/ci.yml` counts as protected. Claude Code's docs do not say whether `Edit` rules ignore case.
 - `lint` warns (LINT022) when a protected path covers a file sync writes, since sync rewrites it, and reports an invalid block as LINT023.
 - `sync --scope user` does not write protected paths.
+- The Codex and Gemini CLI hook scripts take the folder that holds their tool folder as the project root. A copy moved elsewhere uses the nearest `agnostic-ai.yaml` above it, then the Git worktree root, and blocks every edit when it finds neither. In a project below its Git root, the Codex command adds the project's path to the Git root.
 
 </details>
 
