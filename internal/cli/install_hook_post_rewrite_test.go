@@ -18,7 +18,7 @@ func TestInstallHookPostCheckout_WritesPostRewrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(dir, ".git", "hooks", "post-rewrite")
-	if !strings.Contains(out, "installed .git/hooks/post-rewrite") {
+	if !strings.Contains(out, "installed "+filepath.Join(".git", "hooks", "post-rewrite")) {
 		t.Errorf("output %q does not report post-rewrite", out)
 	}
 	got := readHook(t, path)
