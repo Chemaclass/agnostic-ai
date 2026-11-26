@@ -163,8 +163,20 @@ var postMergeHook = hookBlock{
 	upgrades:     map[string]string{projectHookMissingV1: projectHookMissing},
 }
 
+// postRewriteHook syncs after a rebase, pull --rebase included, which
+// runs neither post-checkout on its final tree nor post-merge. An amend
+// changes no branch, so it skips.
+var postRewriteHook = hookBlock{
+	file:     "post-rewrite",
+	sentinel: "# agnostic-ai install-hook --post-checkout (post-rewrite)",
+	checks:   `[ "$1" = "rebase" ] || exit 0` + "\n" + projectSyncHookChecks,
+}
+
+// syncHookBlocks are the hooks --post-checkout writes.
+var syncHookBlocks = []hookBlock{postCheckoutHook, postMergeHook, postRewriteHook}
+
 func newInstallHookCmd() *cobra.Command {
-	var shared, userLevel, postCheckout bool
+	var shared, userLevel, postCheckout, force bool
 	cmd := &cobra.Command{
 		Use:   "install-hook",
 		Short: "Install a pre-commit check or checkout and merge sync hooks.",
@@ -175,7 +187,9 @@ func newInstallHookCmd() *cobra.Command {
 			"validate, and sync --check at user scope. With --post-checkout, writes " +
 			"post-checkout and post-merge in .git/hooks (or .githooks with --shared) instead: " +
 			"they run `agnostic-ai project` with the local binary from the worktree root after a branch or " +
-			"worktree checkout or a merge, including a pull, to restore the tool files.",
+			"worktree checkout or a merge, including a pull, to restore the tool files. It also writes post-rewrite, " +
+			"which does the same after a rebase. When the project uses lefthook, husky or pre-commit, it writes no " +
+			"hook and prints the lines to add to that tool's config instead; --force writes the hooks anyway.",
 		Example: `  # Install into .git/hooks/pre-commit (local only)
   agnostic-ai install-hook
 
@@ -189,20 +203,29 @@ func newInstallHookCmd() *cobra.Command {
   agnostic-ai install-hook --post-checkout
 
   # Same, committed alongside the project
-  agnostic-ai install-hook --post-checkout --shared`,
+  agnostic-ai install-hook --post-checkout --shared
+
+  # Write the hooks even though the project uses lefthook
+  agnostic-ai install-hook --post-checkout --force`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if userLevel {
 				// The flag groups below only see the deprecated --global.
-				if shared || postCheckout {
-					return errs.Coded(errs.CodeFlagConflict, "--scope user cannot be combined with --shared or --post-checkout")
+				if shared || postCheckout || force {
+					return errs.Coded(errs.CodeFlagConflict, "--scope user cannot be combined with --shared, --post-checkout or --force")
 				}
 				return installUserPreCommitHook(".", cmd.OutOrStdout())
 			}
 			if err := refuseUserSource(".", userHomeHookRemedy); err != nil {
 				return err
 			}
+			if !force {
+				printed, err := printHookManagerSnippet(".", postCheckout, cmd.OutOrStdout())
+				if err != nil || printed {
+					return err
+				}
+			}
 			if postCheckout {
-				for _, block := range []hookBlock{postCheckoutHook, postMergeHook} {
+				for _, block := range syncHookBlocks {
 					if err := installHook(".", block, shared, cmd.OutOrStdout(), cmd.ErrOrStderr()); err != nil {
 						return err
 					}
@@ -214,7 +237,8 @@ func newInstallHookCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&shared, "shared", false, "Write .githooks/<hook> and set core.hooksPath so the hook is shared with the team.")
 	addScopeFlag(cmd, &userLevel, "Write the pre-commit hook of the user source in $AGNOSTIC_AI_HOME (default ~/.agnostic-ai), which must be the root of a git repository.")
-	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout and post-merge hooks that run `agnostic-ai project` after a checkout or pull, preserving edits and never installing dependencies.")
+	cmd.Flags().BoolVar(&postCheckout, "post-checkout", false, "Write post-checkout, post-merge and post-rewrite hooks that run `agnostic-ai project` after a checkout, pull or rebase, preserving edits and never installing dependencies.")
+	cmd.Flags().BoolVar(&force, "force", false, "Write the git hooks even when the project uses lefthook, husky or pre-commit, which can replace or skip them.")
 	cmd.MarkFlagsMutuallyExclusive("shared", "global")
 	cmd.MarkFlagsMutuallyExclusive("global", "post-checkout")
 	return cmd

@@ -12,7 +12,7 @@ group = "Workflows"
 Git hooks check or regenerate files on commit and checkout. [Coding-agent hooks](@/docs/spec-format/hooks.md) run inside a coding tool. Pick the recipe that matches how your team [handles generated files](@/docs/getting-started.md#commit-or-ignore-generated-outputs).
 
 - Committed outputs: [check the staged files](#check-staged-files) at commit time, so you never commit output you forgot to stage.
-- Ignored outputs: run `sync` once in each checkout, then [regenerate on checkout and pull](#regenerate-on-checkout) so coding agents find their files. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
+- Ignored outputs: run `sync` once in each checkout, then [regenerate on checkout and pull](#regenerate-on-checkout) so coding agents find their files. Add [`builtins: [autosync]`](@/docs/autosync.md) to also sync when a coding session starts. In CI, use the [ignored-output recipe](@/docs/ci.md#ignored-outputs).
 
 ## Install the project hooks
 
@@ -21,7 +21,11 @@ agnostic-ai install-hook
 agnostic-ai install-hook --post-checkout
 ```
 
-The first command adds the commit check. The second regenerates files after checkout and pull. Run them once per checkout. If you use a hook manager, follow its recipe to keep its hooks.
+The first command adds the commit check. The second regenerates files after checkout, pull and rebase. Run them once per checkout.
+
+### Hook managers {#hook-managers}
+
+lefthook, husky and pre-commit replace or skip hooks in `.git/hooks`. When the worktree root has `lefthook.yml`, `.husky/` or `.pre-commit-config.yaml`, `install-hook` writes no hook. It prints the lines to add to that tool's config and the command that applies them. `--force` writes the plain git hooks anyway. The commit-check recipes below add file filters to the same check.
 
 <details>
 <summary>Use pre-commit, lefthook, or husky instead</summary>
@@ -59,7 +63,7 @@ pre-commit:
   commands:
     agnostic-ai-check:
       glob: "{.agnostic-ai/**,agnostic-ai.yaml}"
-      run: agnostic-ai sync --check
+      run: agnostic-ai project --check --against index
 ```
 
 Then install it:
@@ -139,13 +143,16 @@ Paste the list into the glob, or drop the glob. Rerun after adding an `@path` li
 
 With ignored outputs (`gitignore.enabled: true`), a fresh clone or worktree has no tool files until `sync` runs, so an automated session can start without its config.
 
-`git checkout`, `git clone`, and `git worktree add` run `post-checkout`. A pull that merges runs `post-merge`, which also restores generated files untracked by the incoming commit. `agnostic-ai install-hook --post-checkout` writes both. Rerun it to update older hooks and add pull coverage.
+`git checkout`, `git clone`, and `git worktree add` run `post-checkout`. A pull that merges runs `post-merge`, which also restores generated files untracked by the incoming commit. A rebase, `pull --rebase` included, runs `post-rewrite`. `agnostic-ai install-hook --post-checkout` writes all three. Rerun it to update older hooks and add pull and rebase coverage.
+
+Git hooks run only when Git changes the tree. A session started in a clone made before the hooks were installed, or in a cloud sandbox with no hooks, still starts without its files. The [`autosync` built-in](@/docs/autosync.md) covers those by syncing when the session starts.
 
 <details>
 <summary>What the installed hooks do</summary>
 
 - They prefer the local binary.
 - They run `agnostic-ai project` from the worktree root. It keeps manual edits and installs nothing.
+- `post-checkout` skips a single-file checkout, and `post-rewrite` skips `git commit --amend`.
 - They skip a checkout without `agnostic-ai.yaml`.
 - They print a recovery command when the binary is missing.
 
@@ -153,14 +160,24 @@ With ignored outputs (`gitignore.enabled: true`), a fresh clone or worktree has 
 
 To write them yourself, use [`sync --keep-edits`](@/docs/cli-reference/sync.md#sync). It writes every other output and leaves files you edited since the last sync, printing `~ kept <path>`. To keep an edit, move it into `.agnostic-ai/` and sync.
 
-lefthook (`lefthook.yml`):
+lefthook (`lefthook.yml`), the lines `install-hook` prints:
 
 ```yaml
 post-checkout:
   commands:
-    sync:
-      run: agnostic-ai sync --keep-edits
+    agnostic-ai-sync:
+      run: '[ "{3}" = 1 ] || exit 0; agnostic-ai project'
+post-merge:
+  commands:
+    agnostic-ai-sync:
+      run: agnostic-ai project
+post-rewrite:
+  commands:
+    agnostic-ai-sync:
+      run: '[ "{1}" = rebase ] || exit 0; agnostic-ai project'
 ```
+
+`agnostic-ai project` runs `sync --keep-edits --quiet` with the project's pinned binary when there is one. husky gets the same lines in `.husky/post-checkout`, `.husky/post-merge` and `.husky/post-rewrite`, with `$3` and `$1` in place of `{3}` and `{1}`. For pre-commit, run `install-hook --post-checkout` to print its config.
 
 Plain git (`.git/hooks/post-checkout`, `chmod +x`):
 
@@ -177,7 +194,7 @@ To run only on branch and worktree switches, check the third argument (`0` for a
 agnostic-ai sync --keep-edits
 ```
 
-The same command works in `post-merge` (no `$3` check) and in `postinstall`. A pull with rebase needs `post-rewrite` (see [Node monorepos](#node-monorepos)).
+The same command works in `post-merge` (no `$3` check) and in `postinstall`. In `post-rewrite`, check that the first argument is `rebase`.
 
 `agnostic-ai` must be on `PATH` wherever the repo is checked out. Document the install in `CONTRIBUTING.md`, so a new contributor does not hit `command not found`. If some contributors lack the CLI, commit the outputs, or in a Node project install it with the dependencies ([Node monorepos](#node-monorepos)).
 
@@ -232,7 +249,7 @@ post-rewrite:
       run: node_modules/.bin/agnostic-ai project
 ```
 
-`post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend`. Git hooks do not put `node_modules/.bin` on `PATH`, so these commands name the binary by path. If it is missing, run the package install, or a global `agnostic-ai project --bootstrap` with a version that supports the command. `--quiet` hides the summary but still reports `~ kept <path>`.
+`post-merge` runs after `git pull`, and `post-rewrite` after a rebase or `git commit --amend` (add the `rebase` check above to skip an amend). Git hooks do not put `node_modules/.bin` on `PATH`, so these commands name the binary by path. If it is missing, run the package install, or a global `agnostic-ai project --bootstrap` with a version that supports the command. `--quiet` hides the summary but still reports `~ kept <path>`.
 
 ### First pull
 
