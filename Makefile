@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools tools-lefthook doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -216,11 +216,16 @@ wasm-test:
 	GOOS=js GOARCH=wasm go test -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/opencode -run '^TestProjectPermissionBrowserReplaysPlannedRulesWithoutFilesystem$$'
 	GOOS=js GOARCH=wasm go test -timeout=30s -count=1 -exec="$$(go env GOROOT)/lib/wasm/go_js_wasm_exec" ./internal/adapters/internal/emit -run '^TestMergeTOMLFileBrowserCapturesWithoutFilesystem$$'
 
-# tools installs the developer toolchain pinned to the versions CI uses.
-# Idempotent. Run once after cloning, and again whenever the pins above
-# bump.
-tools:
+# tools installs the developer toolchain pinned to the versions CI uses:
+# golangci-lint for make lint and make ci-local, and lefthook for make
+# hooks. Idempotent. Run once after cloning, and again whenever the pins
+# above bump.
+tools: tools-lefthook
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+# tools-lefthook installs only lefthook, for setups that need the Git hooks
+# but not the linter, such as cloud agent sessions.
+tools-lefthook:
 	go install github.com/evilmartians/lefthook/v2@$(LEFTHOOK_VERSION)
 
 # doctor-dev lists each contributor tool with the version found and the

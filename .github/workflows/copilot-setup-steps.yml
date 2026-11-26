@@ -18,7 +18,7 @@ jobs:
               run: |
                 export PATH="$(go env GOPATH)/bin:$PATH"
                 go mod download
-                make tools
+                make tools-lefthook
                 make hooks
                 make build
                 .agnostic-ai/scripts/sync-generated.sh

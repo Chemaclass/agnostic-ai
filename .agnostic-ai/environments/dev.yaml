@@ -1,12 +1,23 @@
 name: dev
-description: Install development tools and Git hooks using the existing Go toolchain.
+description: Install what an agent needs on start (Go modules, lefthook and its Git hooks, the binary) and sync.
+# make lint and make ci-local also need golangci-lint, which make tools
+# installs. It is the slowest install, so cloud sessions skip it.
 install: |
   export PATH="$(go env GOPATH)/bin:$PATH"
   go mod download
-  make tools
+  make tools-lefthook
   make hooks
   make build
   .agnostic-ai/scripts/sync-generated.sh
+# A new worktree builds its own binary, so sync uses the code checked out
+# there.
+setup:
+  - go build -o agnostic-ai ./cmd/agnostic-ai
+  - .agnostic-ai/scripts/sync-generated.sh
+dev-commands:
+  - name: Docs site
+    command: [make, site-serve]
+    port: 1111
 x-copilot:
   setup-steps:
     timeout-minutes: 30
