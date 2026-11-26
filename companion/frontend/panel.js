@@ -1132,11 +1132,11 @@ list.addEventListener('scroll', () => {
 }, { passive: true })
 
 /** Marks the row under the pointer when it can receive, and names it next to the pointer. */
-function aimHandoff(x, y) {
+function aimHandoff(x, y, { refresh = false } = {}) {
   const press = handoff.press
   press.at = { x, y }
   const key = rowKeyAt(x, y)
-  if (key !== press.over) {
+  if (refresh || key !== press.over) {
     press.over = key
     const receiver = key && handoffReceiverOf(listedRows(), press.key, key, Date.now())
     mailbox.markDrag(press.key, receiver ? key : undefined)
@@ -1191,11 +1191,12 @@ window.addEventListener('click', (event) => {
 }, true)
 // During a drag the keys belong to it: Escape cancels it, and the rest wait, so F2 cannot start a rename under it.
 window.addEventListener('keydown', (event) => {
-  if (!handoff.press?.dragging || handoff.press.cancelled) return
+  const press = handoff.press
+  if (!press?.dragging) return
   event.preventDefault()
   event.stopImmediatePropagation()
-  if (event.key !== 'Escape') return
-  handoff.press.cancelled = true
+  if (event.key !== 'Escape' || press.cancelled) return
+  press.cancelled = true
   clearHandoffMarks()
 }, true)
 
@@ -1383,6 +1384,8 @@ function show(reply, problem) {
   // A search's answer may leave out the selected row; the picker then selects one it offers, so Enter sends.
   if (state.pick && state.view) state.activeKey = pickKey(state.activeKey)
   draw()
+  const press = handoff.press
+  if (press?.dragging && !press.cancelled) aimHandoff(press.at.x, press.at.y, { refresh: true })
   keepRowMenuCurrent()
   keepDeleteConfirmCurrent()
   keepStopSessionCurrent()

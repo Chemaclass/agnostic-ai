@@ -1726,8 +1726,10 @@ test('a drag dropped on itself, outside the list, or after Escape opens and send
 
   await dragRow(page, source.locator('.meta'), row(page, 'Draft the tests'), { release: false })
   await expect(handoffPreview(page)).toBeVisible()
-  await page.keyboard.press('Escape')
+  await page.keyboard.down('Escape')
   await expectListUntouched(page)
+  await page.keyboard.down('Escape')
+  await page.keyboard.up('Escape')
   await page.mouse.up()
   await expectListUntouched(page)
   await expect(page.getByLabel('Search every conversation')).toBeVisible()
@@ -1772,18 +1774,23 @@ test('only a mailbox session drags, and a drop goes to the exact tool and ID', a
   await expect(page.getByRole('button', { name: 'Send to Draft the docs' })).toBeFocused()
 })
 
-test('a receiver that leaves the list during a drag gets no form', async ({ page }) => {
+test('a drag refreshes its preview and refuses a receiver that leaves the list', async ({ page }) => {
   await openPanel(page, 'mailbox')
-  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Draft the tests'), { release: false })
-  await expect(handoffPreview(page)).toBeVisible()
-  const read = page.waitForResponse((response) => response.url().endsWith('/api/inbox'))
-  await page.request.post('/dev/fixture', { data: { name: 'mailbox-alone' } })
-  await read
-  await page.evaluate(() => new Promise((done) => requestAnimationFrame(done)))
-  await expect(row(page, 'Draft the tests')).toHaveCount(1)
+  const target = row(page, 'Draft the tests')
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), target, { release: false })
+  await expect(handoffPreview(page)).toHaveText(`Hand off to ${mailboxTargetLabel}`)
+
+  const renamed = await page.request.post('/api/rename', { data: { tool: 'codex', id: mailboxTarget, title: 'Update the tests' } })
+  expect(renamed.ok()).toBe(true)
+  await expect(handoffPreview(page)).toHaveText('Hand off to Update the tests · Codex · agnostic-ai')
+
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mailbox-alone' } })).ok()).toBe(true)
+  await expect(handoffPreview(page)).toBeHidden()
+  await expect(target).toHaveCount(1)
+  await expect(target).not.toHaveClass(/is-mailbox-receivable|is-mailbox-to/)
   await page.mouse.up()
   await expectListUntouched(page)
-  await expect(row(page, 'Draft the tests')).toHaveCount(0)
+  await expect(target).toHaveCount(0)
 })
 
 test('a file or text dropped from another app opens no form and makes no call', async ({ page }) => {
