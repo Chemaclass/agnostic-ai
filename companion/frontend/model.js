@@ -758,6 +758,18 @@ export function receiversOf(conversations, from, now) {
     .filter((group) => group.options.length > 0)
 }
 
+/** A row that can be dragged onto another to hand it over: the rows whose menu offers Message another session. */
+export function handsOff(conversation) {
+  return rowMenuOf(conversation).includes('send-to')
+}
+
+/** The receiver option a drag from `fromKey` onto `toKey` would choose, as the To list shows it; undefined when it cannot receive. */
+export function handoffReceiverOf(conversations, fromKey, toKey, now) {
+  const from = conversations.find((conversation) => keyOf(conversation) === fromKey)
+  if (!from || !handsOff(from)) return undefined
+  return receiversOf(conversations, from, now).flatMap((group) => group.options).find((option) => option.value === toKey)
+}
+
 const TYPE_HELP = {
   question: (name) => `Ask ${name} something. Its reply comes back to this thread.`,
   finding: (name) => `Tell ${name} what you found. It can reply or close the thread.`,

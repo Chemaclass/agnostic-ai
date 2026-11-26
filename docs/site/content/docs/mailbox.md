@@ -49,6 +49,8 @@ Split a review if it exceeds 200 paths or the 5,000-byte message limit. A path i
 2. Pick the receiver. A new thread starts on **Handoff**.
 3. Choose **Send to** and the receiver's name. The note and claimed files are optional.
 
+When both chats show in the Companion list, you can drag one onto the other instead. Press on the chat that hands over and move it onto the receiver. The chats that can receive light up, and the pointer reads "Hand off to" and the receiver's name. Drop it to open the same form with **From**, **To** and **Handoff** filled in. Nothing is sent until you choose **Send to**. **Cancel**, **Esc** during the drag, or a drop anywhere else sends nothing.
+
 From a session, you can also run [`agnostic-ai mailbox send`](@/docs/cli-reference/mailbox.md#mailbox-send) with the receiver and `"type": "handoff"`. You can write a [handoff note](@/docs/handoff.md) before or after sending.
 
 Open **Handoff details** for the source worktree, branch, short commit hash and saved note, if there is one. Use **More → Copy full commit hash** to copy the full value. With automatic delivery set up, the request arrives on the recipient’s next prompt. The recipient tells you it arrived and waits for you to ask it to resume. On resume it finds the newest note in the source project, including one saved after you sent the request.

@@ -112,6 +112,7 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   decide how to open it. Copying keeps the chat state and marks.
 - Choose **Message another session…** on a local Claude Code or Codex chat to start
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). Pick a receiver and send the default **Handoff** to hand a session over.
+  Or drag the chat onto the receiver's row: the same form opens with both chats and **Handoff** chosen, and nothing is sent until **Send**.
   The thread appears under both chats and says what happens next. Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
   A message an agent sends shows as **Held for you** until you choose **Approve message** or **More → Reject message**.
   **More → Queue for delivery** hands a message you copied or pasted back to the

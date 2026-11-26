@@ -1634,6 +1634,270 @@ test('a handoff excludes paths when their disclosure is closed', async ({ page }
   })
 })
 
+type Point = { x: number, y: number }
+const handoffPreview = (page: Page) => page.locator('.handoff-preview')
+const HANDOFF_CALLS = ['/api/mailbox/send', '/api/open', '/api/mark']
+
+async function middleOf(target: Locator): Promise<Point> {
+  const box = await target.boundingBox()
+  expect(box).not.toBeNull()
+  return { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 }
+}
+
+/** Presses on `from`, moves past the drag distance, then onto `to`; releases unless told to hold. */
+async function dragRow(page: Page, from: Locator | Point, to: Locator | Point, { release = true } = {}) {
+  const start = 'x' in from ? from : await middleOf(from)
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(start.x + 12, start.y + 6, { steps: 4 })
+  const end = 'x' in to ? to : await middleOf(to.locator('.meta'))
+  await page.mouse.move(end.x, end.y, { steps: 8 })
+  if (release) await page.mouse.up()
+}
+
+/** The handoff calls made since the fixture was chosen: a drop alone must make none. */
+async function handoffCalls(page: Page) {
+  return (await calledPaths(page)).filter((path) => HANDOFF_CALLS.includes(path))
+}
+
+async function expectListUntouched(page: Page) {
+  await expect(page.getByRole('form', { name: 'Message another session' })).toBeHidden()
+  await expect(handoffPreview(page)).toBeHidden()
+  await expect(page.locator('.row.is-mailbox-receivable, .row.is-mailbox-from, .row.is-mailbox-to')).toHaveCount(0)
+  await expect(page.locator('.mailbox-tag')).toHaveCount(0)
+  await expect(page.locator('#card')).not.toHaveClass(/is-handing-off/)
+}
+
+test('dragging a session onto another opens the handoff form with both ends chosen and sends nothing', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Draft the tests'), { release: false })
+  await expect(handoffPreview(page)).toHaveText(`Hand off to ${mailboxTargetLabel}`)
+  await expect(row(page, 'Review the parser')).toHaveClass(/is-mailbox-from/)
+  await expect(row(page, 'Draft the tests')).toHaveClass(/is-mailbox-receivable/)
+  await expect(row(page, 'Draft the tests')).toHaveClass(/is-mailbox-to/)
+  await page.mouse.up()
+
+  await expect(page.getByRole('form', { name: 'Message another session' })).toBeVisible()
+  await expect(handoffPreview(page)).toBeHidden()
+  await expect(page.locator('#mailbox-from')).toHaveText('Review the parser · Claude Code')
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  await expect(mailboxTo(page).locator('option:checked')).toHaveText(mailboxTargetLabel)
+  await expect(mailboxType(page)).toHaveValue('handoff')
+  await expect(page.getByRole('button', { name: 'Send to Draft the tests' })).toBeFocused()
+  await expect(row(page, 'Review the parser').locator('.mailbox-tag')).toHaveText('From')
+  await expect(row(page, 'Draft the tests').locator('.mailbox-tag')).toHaveText('To')
+  expect(await handoffCalls(page)).toEqual([])
+})
+
+test('a dropped handoff sends once on Send, with the note, and nothing on Cancel', async ({ page }) => {
+  await openPanel(page, 'mailbox-handoff')
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Draft the tests'))
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expectListUntouched(page)
+  expect(await handoffCalls(page)).toEqual([])
+
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Draft the tests'))
+  const composer = page.getByRole('form', { name: 'Message another session' })
+  await composer.getByRole('textbox', { name: 'Note (optional)', exact: true }).fill('Finish the parser tests.')
+  await claimedFilesDetails(page).click()
+  await expect(composer.getByLabel('Paths, one per line')).toBeVisible()
+  await claimedFilesDetails(page).click()
+  await expect(composer.getByLabel('Paths, one per line')).toBeHidden()
+  const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/send'))
+  await mailboxSend(page).click()
+  expect((await sent).postDataJSON()).toEqual({
+    from: { tool: 'claude', id: mailboxSource }, to: { tool: 'codex', id: mailboxTarget }, type: 'handoff', body: 'Finish the parser tests.',
+  })
+  await expect(page.locator('#toast')).toHaveText('Handoff waiting for Draft the tests, with the note feat-mailbox.md.')
+  expect(await handoffCalls(page)).toEqual(['/api/mailbox/send'])
+})
+
+test('a drag dropped on itself, outside the list, or after Escape opens and sends nothing', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const source = row(page, 'Review the parser')
+
+  await dragRow(page, source.locator('.meta'), source, { release: false })
+  await expect(handoffPreview(page)).toBeHidden()
+  await page.mouse.up()
+  await expectListUntouched(page)
+
+  await dragRow(page, source.locator('.meta'), await middleOf(page.getByLabel('Search every conversation')))
+  await expectListUntouched(page)
+
+  await dragRow(page, source.locator('.meta'), row(page, 'Draft the tests'), { release: false })
+  await expect(handoffPreview(page)).toBeVisible()
+  await page.keyboard.down('Escape')
+  await expectListUntouched(page)
+  await page.keyboard.down('Escape')
+  await page.keyboard.up('Escape')
+  await page.mouse.up()
+  await expectListUntouched(page)
+  await expect(page.getByLabel('Search every conversation')).toBeVisible()
+  expect(await calledPaths(page)).not.toContain('/api/panel/hide')
+  expect(await handoffCalls(page)).toEqual([])
+
+  await composeMailbox(page)
+  await expect(page.locator('#mailbox-from')).toHaveText('Review the parser · Claude Code')
+})
+
+test('a drag from the name or a row button starts no rename and fires no button', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const source = row(page, 'Review the parser')
+  await dragRow(page, source.locator('.title'), row(page, 'Draft the tests'))
+  await expect(page.locator('.rename')).toHaveCount(0)
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+
+  await source.hover()
+  await dragRow(page, completeButton(source), await middleOf(page.getByLabel('Search every conversation')))
+  await expectListUntouched(page)
+  expect(await handoffCalls(page)).toEqual([])
+})
+
+test('only a mailbox session drags, and a drop goes to the exact tool and ID', async ({ page }) => {
+  await openPanel(page, 'mailbox-receivers')
+  await dragRow(page, row(page, 'Ask in the cloud').locator('.meta'), row(page, 'Draft the tests'), { release: false })
+  await expect(page.locator('#card')).not.toHaveClass(/is-handing-off/)
+  await expect(handoffPreview(page)).toBeHidden()
+  await page.mouse.up()
+  await expectListUntouched(page)
+
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Ask in the cloud'), { release: false })
+  await expect(row(page, 'Ask in the cloud')).not.toHaveClass(/is-mailbox-receivable/)
+  await expect(handoffPreview(page)).toBeHidden()
+  await page.mouse.up()
+  await expectListUntouched(page)
+  expect(await handoffCalls(page)).toEqual([])
+
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Draft the docs'))
+  await expect(mailboxTo(page)).toHaveValue(`claude:${mailboxTarget}`)
+  await expect(page.getByRole('button', { name: 'Send to Draft the docs' })).toBeFocused()
+})
+
+test('a drag refreshes its preview and refuses a receiver that leaves the list', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const target = row(page, 'Draft the tests')
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), target, { release: false })
+  await expect(handoffPreview(page)).toHaveText(`Hand off to ${mailboxTargetLabel}`)
+
+  const renamed = await page.request.post('/api/rename', { data: { tool: 'codex', id: mailboxTarget, title: 'Update the tests' } })
+  expect(renamed.ok()).toBe(true)
+  await expect(handoffPreview(page)).toHaveText('Hand off to Update the tests · Codex · agnostic-ai')
+
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mailbox-alone' } })).ok()).toBe(true)
+  await expect(handoffPreview(page)).toBeHidden()
+  await expect(target).toHaveCount(1)
+  await expect(target).not.toHaveClass(/is-mailbox-receivable|is-mailbox-to/)
+  await page.mouse.up()
+  await expectListUntouched(page)
+  await expect(target).toHaveCount(0)
+})
+
+test('a drag cancels when its sender leaves the list', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const source = row(page, 'Draft the tests')
+  const target = row(page, 'Review the parser')
+  await dragRow(page, source.locator('.meta'), target, { release: false })
+  await expect(handoffPreview(page)).toBeVisible()
+  await expect(target).toHaveClass(/is-mailbox-receivable/)
+
+  expect((await page.request.post('/dev/fixture', { data: { name: 'mailbox-alone' } })).ok()).toBe(true)
+  await expectListUntouched(page)
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+
+  await expectListUntouched(page)
+  await expect(source).toHaveCount(0)
+  expect(await calledPaths(page)).not.toContain('/api/panel/hide')
+  expect(await handoffCalls(page)).toEqual([])
+})
+
+test('a file or text dropped from another app opens no form and makes no call', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const dropped = await page.evaluateHandle(() => {
+    const data = new DataTransfer()
+    data.setData('text/plain', 'Review the parser')
+    data.items.add(new File(['notes'], 'notes.md', { type: 'text/markdown' }))
+    return data
+  })
+  for (const kind of ['dragenter', 'dragover', 'drop']) await row(page, 'Draft the tests').dispatchEvent(kind, { dataTransfer: dropped })
+  await expectListUntouched(page)
+  expect(await handoffCalls(page)).toEqual([])
+})
+
+test('a pressed row cancels the browser drag, and a press that barely moves still opens the row', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const start = await middleOf(row(page, 'Review the parser').locator('.meta'))
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  const nativeDrag = await row(page, 'Review the parser').locator('.meta').evaluate((node) => {
+    const event = new DragEvent('dragstart', { bubbles: true, cancelable: true })
+    node.dispatchEvent(event)
+    return event.defaultPrevented
+  })
+  expect(nativeDrag).toBe(true)
+  await page.mouse.move(start.x + 2, start.y + 1)
+  const opened = page.waitForRequest((request) => request.url().endsWith('/api/open'))
+  await page.mouse.up()
+  expect((await opened).postDataJSON()).toMatchObject({ tool: 'claude', id: mailboxSource })
+  await expectListUntouched(page)
+})
+
+test('a held request keeps its text selectable on a row that drags', async ({ page }) => {
+  await openPanel(page, 'companion-approve')
+  const text = row(page, 'Clean the build folder').locator('.held-text').first()
+  const box = (await text.boundingBox())!
+  await page.mouse.move(box.x + 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width - 2, box.y + box.height / 2, { steps: 8 })
+  await expect(page.locator('#card')).not.toHaveClass(/is-handing-off/)
+  await page.mouse.up()
+  expect(await page.evaluate(() => getSelection()?.toString() ?? '')).not.toBe('')
+  await expectListUntouched(page)
+})
+
+test('F2 during a drag starts no rename, and the drop still opens the form', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  await dragRow(page, row(page, 'Review the parser').locator('.meta'), row(page, 'Draft the tests'), { release: false })
+  await expect(handoffPreview(page)).toBeVisible()
+  await page.keyboard.press('F2')
+  await expect(page.locator('.rename')).toHaveCount(0)
+  await page.mouse.up()
+  await expect(page.locator('.rename')).toHaveCount(0)
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+})
+
+test('a list scrolled under a still pointer moves the drop target, and a drag keeps the scroll', async ({ page }) => {
+  await openPanel(page, 'many')
+  const list = page.locator('#list')
+  await list.hover()
+  await page.mouse.wheel(0, 200)
+  await expect.poll(() => list.evaluate((node) => node.scrollTop)).toBeGreaterThan(0)
+  const draggable = list.locator('.row').filter({ visible: true }).filter({ hasText: /Claude Code|Codex/ })
+  const top = (await list.boundingBox())!.y + 40
+  const points: Point[] = []
+  for (let at = 0; points.length < 3; at += 1) {
+    const point = await middleOf(draggable.nth(at).locator('.meta'))
+    if (point.y > top) points.push(point)
+  }
+  const point = points[2]
+  await dragRow(page, points[0], point, { release: false })
+  await expect(page.locator('#card')).toHaveClass(/is-handing-off/)
+  const first = await page.evaluate(({ x, y }) => (document.elementFromPoint(x, y)?.closest('.row') as HTMLElement | null)?.dataset.key, point)
+  await list.evaluate((node) => { node.scrollTop += 240 })
+  await expect.poll(() => page.evaluate(({ x, y }) => {
+    const under = document.elementFromPoint(x, y)?.closest('.row') as HTMLElement | null
+    const marked = document.querySelector<HTMLElement>('.row.is-mailbox-to')?.dataset.key ?? null
+    const expected = under?.classList.contains('is-mailbox-receivable') ? under.dataset.key : null
+    return { under: under?.dataset.key, matches: marked === expected }
+  }, point)).toEqual({ under: expect.not.stringMatching(`^${first}$`), matches: true })
+  const scrolled = await list.evaluate((node) => node.scrollTop)
+  await page.keyboard.press('Escape')
+  await page.mouse.up()
+  await expectListUntouched(page)
+  expect(await list.evaluate((node) => node.scrollTop)).toBe(scrolled)
+})
+
 async function offerHandoff(page: Page) {
   await composeMailbox(page)
   await chooseMailboxTarget(page)

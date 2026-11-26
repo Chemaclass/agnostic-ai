@@ -4,7 +4,7 @@ import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
-import { arrivalOf, handoffSentOf, messageLabelOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
+import { arrivalOf, handoffReceiverOf, handoffSentOf, handsOff, messageLabelOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
 
 import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
@@ -1321,6 +1321,35 @@ test('a typed session ID finds one receiver, none, two tools or the sender', () 
   assert.deepEqual(typedReceiverOf(receivers, from, 'both'), { status: 'two', note: 'Two sessions use this ID. Choose from the list.' })
   assert.deepEqual(typedReceiverOf(receivers, from, 'sender'), { status: 'sender', note: 'That is the sending session.' })
   assert.deepEqual(typedReceiverOf(receivers, from, '  '), { status: 'empty' })
+})
+
+test('only a row whose menu offers Message another session can be dragged to hand it over', () => {
+  assert.equal(handsOff(row('local', 'active')), true)
+  assert.equal(handsOff(row('codex', 'working', { tool: 'codex' })), true)
+  assert.equal(handsOff(row('helper', 'active', { parent: { tool: 'claude', id: 'local' } })), false)
+  for (const app of ['cloud', 'chat', 'cowork']) assert.equal(handsOff(row(app, 'active', { app })), false)
+  assert.equal(handsOff(row('cursor', 'active', { tool: 'cursor' })), false)
+})
+
+test('a dragged session hands off only to a listed receiver, by tool and ID, with the label the To list shows', () => {
+  const rows = [
+    row('sender', 'active', { title: 'Review' }),
+    row('twin', 'working', { tool: 'codex', title: 'Draft', folder: '/Users/you/Code/shop' }),
+    row('twin', 'active', { title: 'Docs' }),
+    row('helper', 'active', { parent: { tool: 'claude', id: 'sender' } }),
+    row('cloud', 'active', { app: 'cloud' }),
+  ]
+  const receiver = handoffReceiverOf(rows, 'claude:sender', 'codex:twin', receiverNow)
+  assert.deepEqual(receiver.to, { tool: 'codex', id: 'twin' })
+  assert.equal(receiver.label, 'Draft · Codex · shop')
+  assert.deepEqual(handoffReceiverOf(rows, 'claude:sender', 'claude:twin', receiverNow).to, { tool: 'claude', id: 'twin' })
+  assert.deepEqual(handoffReceiverOf(rows, 'claude:sender', 'claude:helper', receiverNow).to, { tool: 'claude', id: 'helper' })
+  assert.equal(handoffReceiverOf(rows, 'claude:sender', 'claude:sender', receiverNow), undefined)
+  assert.equal(handoffReceiverOf(rows, 'claude:sender', 'claude:cloud', receiverNow), undefined)
+  assert.equal(handoffReceiverOf(rows, 'claude:sender', 'claude:gone', receiverNow), undefined)
+  assert.equal(handoffReceiverOf(rows, 'claude:helper', 'codex:twin', receiverNow), undefined)
+  assert.equal(handoffReceiverOf(rows, 'claude:cloud', 'codex:twin', receiverNow), undefined)
+  assert.equal(handoffReceiverOf(rows, 'claude:gone', 'codex:twin', receiverNow), undefined)
 })
 
 test('a held request shows its folder and what it runs or writes, from the hook input', async () => {
