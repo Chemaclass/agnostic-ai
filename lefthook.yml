@@ -13,9 +13,11 @@ pre-commit:
 post-checkout:
   commands:
     agnostic-ai-sync:
-      # {3} is 1 for a branch checkout and 0 for a file checkout. During a
-      # rebase, post-rewrite syncs once the final tree is in place.
-      run: test "{3}" = 1 || exit 0; .agnostic-ai/scripts/sync-generated.sh --skip-while-rebasing
+      # {3} is 1 for a branch checkout and 0 for a file checkout. It also
+      # runs when a rebase checks out its base: a fast-forward rebase
+      # replays nothing, so post-rewrite never fires. A rebase that replays
+      # commits syncs a second time from post-rewrite on the final tree.
+      run: test "{3}" = 1 || exit 0; .agnostic-ai/scripts/sync-generated.sh
 
 post-merge:
   commands:
