@@ -114,8 +114,10 @@ var errDoctorNoConfig = errors.New("no config found")
 // manual, which neither sync nor doctor --fix removes. fixOnly means the
 // drift is nested CLAUDE.md copies, which only doctor --fix removes.
 // handWritten means sync's guard stops on a file it did not write, so
-// neither sync nor doctor --fix reconciles yet.
-func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly, handWritten bool, manual []string, lintFindings, hookFindings, unmanaged int, configErr error, packaging, mergedHookSpecs int) {
+// neither sync nor doctor --fix reconciles yet. cloneSetup holds the
+// ignored files a clone or cloud agent starts without: advice that never
+// fails doctor.
+func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly, handWritten bool, manual []string, lintFindings, hookFindings, unmanaged int, configErr error, packaging, mergedHookSpecs int, cloneSetup cloneSetupReport) {
 	cmd.Println()
 	cmd.Println("Next step:")
 	if errors.Is(configErr, errDoctorNoConfig) {
@@ -160,7 +162,13 @@ func doctorNextStep(cmd *cobra.Command, drift, manualOnly, fixOnly, handWritten 
 	if mergedHookSpecs > 0 {
 		cmd.Println("  Delete the Claude hook spec(s) listed above, run: agnostic-ai sync, then: agnostic-ai import claude")
 	}
-	if !drift && lintFindings == 0 && hookFindings == 0 && unmanaged == 0 && packaging == 0 && mergedHookSpecs == 0 {
+	if cloneSetup.Stale {
+		cmd.Println("  Regenerate ignored files after each pull and branch switch: agnostic-ai install-hook --post-checkout")
+	}
+	if len(cloneSetup.Cloud) > 0 {
+		cmd.Println("  Commit the root instruction files cloud agents read, as listed above")
+	}
+	if !drift && lintFindings == 0 && hookFindings == 0 && unmanaged == 0 && packaging == 0 && mergedHookSpecs == 0 && cloneSetup.findings() == 0 {
 		cmd.Println("  All checks passed. Nothing to do.")
 	}
 }

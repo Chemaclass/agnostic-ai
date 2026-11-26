@@ -63,6 +63,7 @@ On a fresh CI runner, run `agnostic-ai doctor --checks project --check-reference
 | **Coverage notes** | With [`coverage.accept`](@/docs/configuration-reference.md#coverageaccept) set, how many notes it accepts (`coverage_accepted` in `--json`). `sync -vv` lists them. | No |
 | **Packaging ignores** | Generated paths a root `.npmignore`, `.vscodeignore`, or `.dockerignore` does not cover. | No, reported only |
 | **Tracked despite ignored** | A generated path git tracks and ignores, with the `git rm --cached` fix. | No |
+| **Clones and cloud agents** | Generated files Git ignores with nothing to regenerate them after a pull or branch switch, and root instruction files a cloud agent never sees. See [below](#clones-and-cloud-agents). | No, a warning only |
 | **Codex hook trust** | With Codex selected: inactive handlers in the project hooks file and user `hooks.json`. Next step: `/hooks`. | Untrusted, modified, or unreadable fails; disabled does not. Never grants trust. |
 | **MCP** | Whether each stdio `command:` is on PATH, and which `${NAME}` references are unset in this shell. | No |
 | **Claude hook specs** | A hook spec that runs its commands twice (see below). | No |
@@ -84,6 +85,24 @@ On a fresh CI runner, run `agnostic-ai doctor --checks project --check-reference
 - Script divergence: scripts under `.agnostic-ai/scripts/<tool>/`. Doctor suggests the path `.agnostic-ai/scripts/<basename>`.
 - Names shared with the user level: a name in [`sync.allow-global-names`](@/docs/sync-settings.md#syncallow-global-names) shows as allowed. See [shared names](@/docs/global-configuration-reference.md#global-shared-names).
 {% </details> %}
+
+## Clones and cloud agents {#clones-and-cloud-agents}
+
+A clone has only committed files. When Git ignores generated files, doctor warns about two gaps:
+
+```text
+Clones and cloud agents:
+  ! 8 generated files are ignored by Git, and nothing runs sync after a pull or branch switch, so tools read stale or missing files
+    → agnostic-ai install-hook --post-checkout
+  ! AGENTS.md is ignored, so Codex Cloud and Cursor cloud agents start without project instructions
+  ! CLAUDE.md is ignored, so Claude Code on the web starts without project instructions
+    → commit them: set gitignore.commit: [instructions], run agnostic-ai sync, and commit the files (https://agnostic-ai.org/docs/sync-settings/#gitignore)
+```
+
+- The first line goes away once something runs `sync` or `project` after checkout or pull, or at session start: the [`install-hook --post-checkout`](@/docs/git-hooks.md#regenerate-on-checkout) hooks, a hand-written `post-checkout` or `post-merge` hook, a lefthook, husky, or pre-commit `post-checkout` or `post-merge` command, a session-start [hook spec](@/docs/spec-format/hooks.md), or an [environment](@/docs/spec-format/environments.md) `install`. A command that calls a project script counts when the script runs sync.
+- The cloud lines cover Claude Code, Codex, Cursor, Copilot, Jules, Amp, and OpenHands. Each names the root instruction file the agent reads and Git ignores. A target whose environment `install` runs sync is left out, since its cloud session generates the file.
+- `--checks project` skips the first line, since Git hooks are local to a checkout.
+- Neither fails doctor. Outside Git, doctor skips the block.
 
 ## Check skill links {#check-references}
 
@@ -151,7 +170,7 @@ To re-enable skills, run `doctor --fix` in a terminal. It asks once per state, a
 | `doctor config` | Validate `agnostic-ai.yaml` with the checks every command runs when it loads the project. |
 | `doctor install` | Which AI CLIs are on PATH. |
 | `doctor mcp` | Find each MCP server's command and list its unset `${NAME}` references. Fails when the config does not load. |
-| `doctor environment` | List the repo setup files and UI settings for enabled cloud agents. |
+| `doctor environment` | List the repo setup files and UI settings for enabled cloud agents. Root instruction files appear under [Clones and cloud agents](#clones-and-cloud-agents) in `doctor`. |
 | `doctor rtk --command '<command>'` | Preview an RTK rewrite and compare declared Claude Code approval rules. Add `--json` for JSON. |
 
 ### Cloud environment checklist {#doctor-environment}

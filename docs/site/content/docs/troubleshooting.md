@@ -22,7 +22,9 @@ Follow the **Next step** it prints. Run `doctor` for a read-only check and [`doc
 | `agnostic-ai` is not found | Check the [install destination and PATH](@/docs/installation.md) |
 | The version did not change after upgrading | Run `agnostic-ai upgrade --check` to find an older binary that runs before the new one |
 | Config is missing | Change to the project root, or run `agnostic-ai init` for a new project |
-| A new clone or linked checkout (worktree) has no tool files | Run `agnostic-ai sync`; ignored outputs are absent from Git |
+| A new clone or linked checkout (worktree) has no tool files | Run `agnostic-ai sync`; ignored outputs are absent from Git. To regenerate them after each pull and branch switch, run `agnostic-ai install-hook --post-checkout` |
+| A cloud agent (Codex Cloud, Jules, Copilot cloud agent, Claude Code on the web) ignores project instructions | It reads only committed files. `doctor` names each ignored root file under **Clones and cloud agents**; commit them with [`gitignore.commit`](@/docs/sync-settings.md#gitignore) |
+| Claude Code does not load project memory with the `memory` built-in on | Run `agnostic-ai memory index` to create `.agnostic-ai/memory/MEMORY.md` (LINT067), then commit it |
 | An edited spec has no effect | Run `agnostic-ai list` to confirm it loads, then `agnostic-ai sync --dry-run` to see the planned output |
 | Files match, but the agent ignores an instruction | Start a new session from the right directory and check the tool's [loading limits](@/docs/targets/_index.md) |
 | A tool gets only some spec kinds | Check its [capabilities](@/docs/targets/_index.md#capability-matrix) and any unsupported-kind warnings |

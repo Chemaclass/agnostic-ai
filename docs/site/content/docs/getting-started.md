@@ -110,6 +110,8 @@ After cloning, install agnostic-ai as the project documents, then run `sync`. If
 
 `git diff` hides ignored files, so open them to review. To switch later, see [Git ignore settings](@/docs/sync-settings.md#gitignore).
 
+With ignored outputs, `agnostic-ai install-hook --post-checkout` runs sync after each pull and branch switch. Cloud agents, such as Codex Cloud and Jules, read only committed files: commit the root instruction files with [`gitignore.commit: [instructions]`](@/docs/sync-settings.md#gitignore). `agnostic-ai doctor` warns about both.
+
 ## Everyday commands
 
 <details>
