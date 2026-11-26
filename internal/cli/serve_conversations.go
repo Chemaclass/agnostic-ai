@@ -127,6 +127,7 @@ type conversationsHandler struct {
 	// leaves the list as the tools report it.
 	approvals       *approvalsReader
 	stuckShellAfter *time.Duration
+	mailboxDelivery mailboxDeliveryWatch
 	// companion is the secret of the companion that started this
 	// server; a list read without it shows no held request.
 	companion companionSecret
@@ -241,10 +242,13 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 	}
 	store, hasMailbox := h.mailboxStore()
 	hasMailbox = hasMailbox && mailboxOriginStatus(r) == 0
+	deliveryQuery := mailboxDeliveryQuery{before: before.UTC(), search: search, tool: tool, editor: query.Get("editor")}
+	var deliveryStamp string
 	if hasMailbox {
+		deliveryStamp = h.mailboxDelivery.stamp(deliveryQuery)
 		tagged += "\x00mailbox\x00" + store.Stamp() + fileStamps(store.SettingsPath(), filepath.Join(filepath.Dir(h.scanner.MarksPath), companionSettingsFile))
 	}
-	tag := listTag(tagged, r)
+	tag := listTag(tagged+deliveryStamp, r)
 	w.Header().Set("ETag", tag)
 	if r.Header.Get("If-None-Match") == tag {
 		w.WriteHeader(http.StatusNotModified)
@@ -270,7 +274,8 @@ func (h *conversationsHandler) view(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if hasMailbox {
-		h.addMailboxSummaries(mail, &view, opts)
+		deliveryStamp := h.addMailboxSummaries(mail, &view, opts, deliveryQuery)
+		w.Header().Set("ETag", listTag(tagged+deliveryStamp, r))
 	}
 	writeEditJSON(w, http.StatusOK, view)
 }

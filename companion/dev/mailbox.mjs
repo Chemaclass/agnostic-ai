@@ -63,9 +63,13 @@ export function mailboxRows(state, conversations) {
       const other = thread.between.find((member) => !same(row, member))
       const withTitle = state.conversations.find((conversation) => same(conversation, other))?.title
       const conflicts = state.claimConflicts.filter((conflict) => conflict.thread === thread.id)
+      const waiting = thread.messages.reduce((first, message) => {
+        return message.state === 'waiting' && (!first || Date.parse(message.queuedAt) < Date.parse(first.queuedAt)) ? message : first
+      }, undefined)
+      const waitingMessage = waiting && { n: waiting.n, type: waiting.type, from: refOf(waiting.from), to: waiting.to, setup: 'unknown' }
       return {
         id: thread.id, with: other, withTitle, status: thread.status, count: countOf(thread), conflicts,
-        waiting: waitingOf(thread), held: heldOf(thread), cap: thread.cap, lastType: thread.messages.at(-1)?.type,
+        waiting: waitingOf(thread), waitingMessage, held: heldOf(thread), cap: thread.cap, lastType: thread.messages.at(-1)?.type,
       }
     })
     const owned = state.claims.filter((claim) => same(claim.owner, row))

@@ -869,6 +869,7 @@ export const CLAIM_HELP = 'A file claim notes which session works on which paths
 /** The docs section behind each help link, by feature; a test checks every anchor against docs/site/content. */
 export const HELP_TOPICS = {
   'file-claims': { path: '/docs/mailbox/#hand-off-files', page: 'Mailbox: Hand off files' },
+  'mailbox-delivery': { path: '/docs/mailbox/#deliver-with-the-next-prompt', page: 'Mailbox: Deliver with the next prompt' },
 }
 
 /** A help link's hover line and its docs path. */
@@ -998,16 +999,32 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadNextOf({ status, held, waiting, delivering, count, cap }, { recipient, summary = false } = {}) {
+export function threadNextOf({ status, held, waiting, delivering, count, cap }, { recipient = 'the receiving chat', recipientTool, setup, summary = false } = {}) {
   if (status === 'closed') return 'This thread has ended.'
   if (status === 'paused') return 'Resume the thread to send and deliver messages again.'
   if (held) return 'Review the message that needs your approval.'
-  if (waiting && recipient) return `If automatic delivery is set up, ${recipient} gets the message with its next prompt.`
-  if (waiting) return 'The message is waiting. Open the thread for the recipient and delivery options.'
+  if (waiting) {
+    const paste = summary && waiting > 1 ? 'Open the thread to choose a message to paste.' : `Paste into ${recipient} and press Enter.`
+    switch (setup) {
+      case 'auto': return `Automatic delivery is configured. Type a prompt in ${recipient}.`
+      case 'off': return `Automatic delivery is off. ${paste}`
+      case 'trust': return `Open /hooks in Codex and trust the mailbox hooks, then type a prompt in ${recipient}.`
+      case 'disabled': return recipientTool === 'claude'
+        ? `Enable hooks in Claude Code, then type a prompt in ${recipient}.`
+        : `Open /hooks in Codex and enable the mailbox hooks, then type a prompt in ${recipient}.`
+      default: return `Still waiting. Automatic delivery could not be checked. ${paste}`
+    }
+  }
   if (delivering) return 'Automatic delivery is in progress.'
   if (status === 'closing') return 'The thread will end after its remaining messages are handled.'
   if (count >= cap) return `This thread reached its ${cap}-message limit. ${summary ? 'Open it to allow more.' : 'Choose Allow 8 more to reply.'}`
   return summary ? 'Open the thread for delivery status or to reply.' : 'You can reply to this thread.'
+}
+
+export function waitingPasteOf({ status, held, waiting, waitingMessage }) {
+  const { n, setup } = waitingMessage ?? {}
+  if (waiting !== 1 || held || !Number.isInteger(n) || n < 1 || !['off', 'unknown'].includes(setup)) return undefined
+  return messageActionsOf({ state: 'waiting' }, { status }).includes('type') ? n : undefined
 }
 
 export function messageStateLabelOf(state, how) {
@@ -1030,7 +1047,7 @@ export function messageActionsOf(message, { status }, now = Date.now()) {
     case 'held':
       return ['approve', 'reject']
     case 'waiting':
-      return status === 'paused' ? [] : ['type', 'copy']
+      return status === 'open' || status === 'closing' ? ['type', 'copy'] : []
     case 'reserved':
       return (status === 'open' || status === 'closing') && reservationRetryAt(message) <= now ? ['type', 'copy'] : []
     case 'staged':

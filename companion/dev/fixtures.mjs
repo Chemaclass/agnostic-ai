@@ -438,6 +438,17 @@ export const FIXTURES = {
     label: 'A mailbox thread at its cap', conversations: mailboxSessions,
     mailbox: (now) => [mailboxThread(now, { count: 8, status: 'open', state: 'staged', id: 'th_20261107_00000001' })],
   },
+  'mailbox-queue-order': {
+    label: 'Two waiting messages, with the first queued again', conversations: mailboxSessions,
+    mailbox: (now) => {
+      const thread = mailboxThread(now, { count: 2, status: 'open', state: 'waiting', id: 'th_20261107_00000001' })
+      Object.assign(thread.messages[1], {
+        type: 'finding', from: { ...MAILBOX_TARGET, by: 'human' }, to: MAILBOX_SOURCE,
+        queuedAt: new Date(now - 60_000).toISOString(), body: 'A finding for the parser session.',
+      })
+      return [thread]
+    },
+  },
   'mailbox-statuses': {
     label: 'Mailbox thread states', conversations: mailboxSessions,
     mailbox: (now) => [

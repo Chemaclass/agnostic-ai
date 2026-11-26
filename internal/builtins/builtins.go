@@ -20,6 +20,13 @@ type builtinFile struct {
 	body []byte
 }
 
+func ReadFile(path string) ([]byte, error) {
+	if !fs.ValidPath(path) {
+		return nil, fmt.Errorf("%s: %w", path, fs.ErrInvalid)
+	}
+	return sourceFS.ReadFile("data/" + path)
+}
+
 func Names() []string {
 	return slices.Clone(names)
 }

@@ -2147,11 +2147,20 @@ button:focus-visible {
   border-inline-start: 1px solid var(--hairline);
 }
 
+.mailbox-summary-line {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-block: 3px;
+}
+
 .mailbox-summary {
   display: grid;
+  flex: 1;
+  min-width: 0;
   gap: 1px;
-  width: 100%;
   padding: 4px 6px;
+  border: 1px solid var(--hairline);
   border-radius: 5px;
   text-align: start;
   overflow-wrap: anywhere;
@@ -2164,6 +2173,26 @@ button:focus-visible {
 .mailbox-summary span {
   color: var(--paper-dim);
   font-size: 11.5px;
+}
+
+.mailbox-summary-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.mailbox-summary-heading strong {
+  color: var(--paper);
+}
+
+.mailbox-summary .mailbox-summary-arrow {
+  font-size: 14px;
+}
+
+.mailbox-delivery-guide {
+  color: var(--action);
+  text-decoration: underline;
 }
 
 .mailbox-refusal {

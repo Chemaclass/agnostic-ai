@@ -1,5 +1,5 @@
-import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reservationRetryAt, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadNextOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf } from '/model.js'
+import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, openDocs, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
+import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, helpOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reservationRetryAt, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadNextOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf, waitingPasteOf } from '/model.js'
 
 const ACTION_LABELS = {
   approve: 'Approve message',
@@ -96,9 +96,11 @@ function pathDetails({ worktree, paths, except }) {
   return [directory, files, element('p', 'mailbox-muted', 'Except ' + except.join(', '))]
 }
 
-function threadCount({ cap, messages }, now) {
+function threadCount({ cap, messages }, now, listed) {
   let count = 0
   let waiting = 0
+  let waitingMessage
+  let listedWaiting
   let delivering = 0
   let held = 0
   let retryAt = Infinity
@@ -106,13 +108,19 @@ function threadCount({ cap, messages }, now) {
     if (message.type !== 'done' && message.state !== 'rejected') count++
     if (message.state === 'held') held++
     const readyAt = reservationRetryAt(message)
-    if (message.state === 'waiting' || readyAt <= now) waiting++
+    if (message.state === 'waiting' || readyAt <= now) {
+      waiting++
+      waitingMessage ??= message
+      if (message.state === 'waiting' && listed?.n === message.n && keyOf(listed.from) === keyOf(message.from) && keyOf(listed.to) === keyOf(message.to)) {
+        listedWaiting = message
+      }
+    }
     if (readyAt > now) {
       delivering++
       retryAt = Math.min(retryAt, readyAt)
     }
   }
-  return { cap, count, waiting, delivering, held, retryAt }
+  return { cap, count, waiting, waitingMessage: listedWaiting ?? waitingMessage, setup: listedWaiting && listed.setup, delivering, held, retryAt }
 }
 
 function sentAt(when) {
@@ -195,10 +203,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   let nativeCopy = false
   let previewTimer
   let dragged
+  let rowPasteInFlight = false
 
   function nameOf(ref, fallback) {
     const row = rows().find((conversation) => keyOf(conversation) === keyOf(ref))
     return row ? titleOf(row) : fallback || ref.id
+  }
+
+  function threadNameOf(ref, current) {
+    return nameOf(ref, keyOf(ref) === keyOf(current.from) ? current.fromTitle : current.summary.withTitle)
   }
 
   function stopPreview() {
@@ -779,20 +792,42 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     const box = element('div', 'mailbox-threads')
     for (const thread of summaries) {
       const other = nameOf(thread.with, thread.withTitle)
+      const waiting = thread.waiting ? thread.waitingMessage : undefined
+      const recipient = waiting && (keyOf(waiting.to) === keyOf(conversation) ? titleOf(conversation) : other)
+      const heading = waiting
+        ? `${TYPES[waiting.type]} ${keyOf(waiting.from) === keyOf(conversation) ? `sent to ${other}` : `from ${other}`}`
+        : `With ${other}`
+      const next = threadNextOf(thread, { recipient, recipientTool: waiting?.to.tool, setup: waiting?.setup, summary: true })
+      const line = element('div', 'mailbox-summary-line')
       const control = button('', 'open', () => {
-        if (draft || opened?.pending || claimsFor?.pending) return
+        if (draft || opened?.pending || claimsFor?.pending || rowPasteInFlight) return
         closeClaims(false)
         opened?.reading?.abort()
-        opened = { from: refOf(conversation), to: thread.with, summary: thread }
+        opened = { from: refOf(conversation), fromTitle: titleOf(conversation), to: thread.with, summary: thread }
         title.textContent = `Thread with ${other}`
         details.hidden = false
         render(opened)
         dismiss.focus()
         load(opened)
       }, 'mailbox-summary')
-      control.append(element('strong', '', `With ${other}`), element('span', '', [TYPES[thread.lastType], threadNextOf(thread, { summary: true })].filter(Boolean).join(' · ')))
+      control.setAttribute('aria-label', `Open thread with ${other}`)
+      const summary = element('span', 'mailbox-summary-heading')
+      const arrow = element('span', 'mailbox-summary-arrow', '›')
+      arrow.setAttribute('aria-hidden', 'true')
+      summary.append(element('strong', '', heading), arrow)
+      const reason = element('span', '', [waiting ? undefined : TYPES[thread.lastType], next].filter(Boolean).join(' · '))
+      reason.id = `mailbox-summary-${keyOf(conversation)}-${thread.id}`
+      summary.id = `${reason.id}-heading`
+      control.setAttribute('aria-describedby', `${summary.id} ${reason.id}`)
+      control.append(summary, reason)
       for (const conflict of thread.conflicts ?? []) control.append(element('span', 'mailbox-refusal', conflictText(conflict)))
-      box.append(control)
+      line.append(control)
+      const n = waitingPasteOf(thread)
+      if (n !== undefined) {
+        const paste = actionButton('type', () => pasteFromRow(conversation, thread.id, n, paste), n)
+        line.append(paste)
+      }
+      box.append(line)
     }
     return box
   }
@@ -839,7 +874,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       messages.append(element('p', 'mailbox-refusal', conflictText(conflict)))
     }
     const now = Date.now()
-    const counts = threadCount(thread, now)
+    const counts = threadCount(thread, now, current.summary.waitingMessage)
     if (!current.pending && ['open', 'closing'].includes(thread.status) && Number.isFinite(counts.retryAt)) {
       deliveryRetry = setTimeout(() => {
         if (opened === current && !current.pending) load(current)
@@ -848,21 +883,33 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     const threadControls = threadActionsOf({ status: thread.status, ...counts })
       .map((action) => actionButton(action, () => threadAction(current, action)))
     const messageGroups = thread.messages.map((message) => renderMessage(current, message, expanded, now))
-    const primary = choosePrimary(threadControls, messageGroups, thread.status)
+    const { waitingMessage: waiting, setup } = counts
+    const primary = choosePrimary(threadControls, messageGroups, thread.status, waiting)
     const pendingMessage = messageGroups.find((group) => group.controls.includes(primary))?.message
-    const recipient = pendingMessage && nameOf(pendingMessage.to)
+    const recipient = waiting && threadNameOf(waiting.to, current)
+    const showDelivery = waiting && !counts.held && ['open', 'closing'].includes(thread.status)
     const action = primary?.dataset.mailboxControl
-    meta.textContent = action?.startsWith('accept-')
-      ? 'Accept the file offer to move the file notes to the receiving chat.'
-      : threadNextOf({ status: thread.status, ...counts }, { recipient })
-    if (action?.startsWith('type-') && counts.waiting === 1) {
-      meta.textContent += ' You can paste it into the chat now.'
+    meta.textContent = threadNextOf({ status: thread.status, ...counts }, { recipient, recipientTool: waiting?.to.tool, setup })
+    if (showDelivery) {
+      const sender = threadNameOf(waiting.from, current)
+      meta.textContent = `${TYPES[waiting.type]} from ${sender} to ${recipient}. ${meta.textContent}`
     }
-    if (pendingMessage && thread.messages.length > 1) {
-      meta.textContent = `Message ${pendingMessage.n}. ${meta.textContent}`
+    if (action?.startsWith('accept-')) {
+      const accept = 'Accept the file offer to move the file notes to the receiving chat.'
+      meta.textContent = showDelivery ? `${meta.textContent} ${accept}` : accept
+    }
+    const describedMessage = showDelivery ? waiting : pendingMessage
+    if (describedMessage && thread.messages.length > 1) {
+      meta.textContent = `Message ${describedMessage.n}. ${meta.textContent}`
     }
     if (thread.status === 'open' && counts.count >= counts.cap && (counts.waiting || counts.held || counts.delivering || action?.startsWith('accept-'))) {
       meta.textContent += ` This thread reached its ${counts.cap}-message limit.`
+    }
+    if (showDelivery && setup === 'off') {
+      const { path, title: hover } = helpOf('mailbox-delivery')
+      const guide = button('Turn on automatic delivery', 'delivery-guide', () => openDocs(path).catch((error) => say(error.message, 'error')), 'mailbox-delivery-guide')
+      guide.title = hover
+      meta.append(' Add ', element('code', '', 'builtins: [mailbox]'), ' to the receiving project’s ', element('code', '', 'agnostic-ai.yaml'), ', then sync. ', guide)
     }
     for (const refusal of thread.refusals ?? []) {
       messages.append(element('p', 'mailbox-refusal', `Refused (guard: ${refusal.guard})${refusal.reason ? `. ${refusal.reason}` : '.'}`))
@@ -942,14 +989,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     result.hidden = false
   }
 
-  function choosePrimary(threadControls, messageGroups, status) {
+  function choosePrimary(threadControls, messageGroups, status, waiting) {
     if (status === 'paused') return threadControls.find((control) => control.dataset.mailboxControl === 'resume')
     const controls = messageGroups.flatMap((group) => group.controls)
-    for (const prefix of ['approve-', 'accept-', 'type-']) {
+    for (const prefix of ['approve-', 'accept-']) {
       const control = controls.find((item) => item.dataset.mailboxControl.startsWith(prefix))
       if (control) return control
     }
-    return threadControls.find((control) => control.dataset.mailboxControl === 'raise-cap')
+    const paste = waiting && controls.find((control) => control.dataset.mailboxControl === `type-${waiting.n}`)
+    return paste ?? threadControls.find((control) => control.dataset.mailboxControl === 'raise-cap')
       ?? threadControls.find((control) => control.dataset.mailboxControl === 'reply')
   }
 
@@ -1091,11 +1139,27 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     }
   }
 
+  async function pasteFromRow(conversation, id, n, control) {
+    if (rowPasteInFlight || draft || opened?.pending || claimsFor?.pending) return
+    const row = rows().find((item) => keyOf(item) === keyOf(conversation))
+    const summary = row && threadsOf(row).find((thread) => thread.id === id)
+    if (!summary || waitingPasteOf(summary) !== n) return
+    rowPasteInFlight = true
+    control.disabled = true
+    try {
+      await stage({ summary }, n, 'type')
+    } finally {
+      rowPasteInFlight = false
+      control.disabled = false
+    }
+  }
+
   async function stage(current, n, how) {
-    if (current.pending) return
+    const inCard = opened === current
+    if (current.pending || (inCard && rowPasteInFlight)) return
     current.pending = true
     current.result = undefined
-    render(current)
+    if (inCard) render(current)
     let browserCopied = false
     try {
       const id = current.summary.id
@@ -1118,7 +1182,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       current.result = body.message || (body.staged ? (how === 'copy' ? 'Message copied.' : 'Message pasted into the chat.') : 'The message is still waiting.')
       if (body.staged) {
         await afterChange(version)
-        if (how === 'copy') say(current.result)
+        if (how === 'copy' || !inCard) say(current.result)
       } else {
         if (how === 'type') await showAfterRefusal()
         say(current.result, 'error')
@@ -1130,7 +1194,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       say(current.result, 'error')
     } finally {
       current.pending = false
-      await load(current)
+      if (inCard) await load(current)
     }
   }
 

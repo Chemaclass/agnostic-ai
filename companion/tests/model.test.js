@@ -146,7 +146,7 @@ test('says who acts next and keeps thread actions available by state', async () 
   const thread = { status: 'open', count: 3, cap: 8, waiting: 1 }
   assert.deepEqual(threadsOf(row('a', 'active')), [])
   assert.deepEqual(threadsOf(row('a', 'active', { threads: [thread] })), [thread])
-  assert.equal(threadNextOf(thread), 'The message is waiting. Open the thread for the recipient and delivery options.')
+  assert.equal(threadNextOf(thread), 'Still waiting. Automatic delivery could not be checked. Paste into the receiving chat and press Enter.')
   assert.equal(threadNextOf({ ...thread, waiting: 0 }), 'You can reply to this thread.')
   assert.equal(threadNextOf({ ...thread, waiting: 0 }, { summary: true }), 'Open the thread for delivery status or to reply.')
   assert.equal(threadNextOf({ ...thread, count: 8, waiting: 0 }), 'This thread reached its 8-message limit. Choose Allow 8 more to reply.')
@@ -159,6 +159,31 @@ test('says who acts next and keeps thread actions available by state', async () 
   assert.deepEqual(threadActionsOf({ ...thread, status: 'paused' }), ['reply', 'resume', 'stop'])
   assert.deepEqual(threadActionsOf({ ...thread, status: 'closing' }), ['stop'])
   assert.deepEqual(threadActionsOf({ ...thread, status: 'closed' }), [])
+})
+
+test('names the next step for each waiting delivery setup', async () => {
+  const { threadNextOf, waitingPasteOf } = await import('../frontend/model.js')
+  const thread = { status: 'open', waiting: 1, held: 0 }
+  const recipient = 'Draft the tests'
+  for (const [setup, next, paste] of [
+    ['auto', 'Automatic delivery is configured. Type a prompt in Draft the tests.', undefined],
+    ['off', 'Automatic delivery is off. Paste into Draft the tests and press Enter.', 2],
+    ['trust', 'Open /hooks in Codex and trust the mailbox hooks, then type a prompt in Draft the tests.', undefined],
+    ['disabled', 'Open /hooks in Codex and enable the mailbox hooks, then type a prompt in Draft the tests.', undefined],
+    ['unknown', 'Still waiting. Automatic delivery could not be checked. Paste into Draft the tests and press Enter.', 2],
+  ]) {
+    assert.equal(threadNextOf(thread, { recipient, setup }), next)
+    if (setup === 'disabled') {
+      assert.equal(threadNextOf(thread, { recipient, recipientTool: 'claude', setup }), 'Enable hooks in Claude Code, then type a prompt in Draft the tests.')
+    }
+    assert.equal(waitingPasteOf({ ...thread, waitingMessage: { n: 2, setup } }), paste)
+  }
+  const off = { ...thread, waitingMessage: { n: 2, setup: 'off' } }
+  assert.equal(waitingPasteOf({ ...off, status: 'paused' }), undefined)
+  assert.equal(waitingPasteOf({ ...off, status: 'closed' }), undefined)
+  assert.equal(waitingPasteOf({ ...off, held: 1 }), undefined)
+  assert.equal(waitingPasteOf({ ...off, waiting: 2 }), undefined)
+  assert.equal(waitingPasteOf(thread), undefined)
 })
 
 test('labels message states and offers approve, reject and queue only where they apply', async () => {
