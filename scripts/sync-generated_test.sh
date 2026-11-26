@@ -192,6 +192,21 @@ function test_a_linked_worktree_uses_the_main_worktree_binary() {
   assert_same "$fixture/linked" "$(cat "$calls")"
 }
 
+# Git runs hooks from the worktree root with GIT_DIR exported.
+function test_a_git_hook_in_a_linked_worktree_syncs_from_its_root() {
+  fake_bin "$project/agnostic-ai" "$(head_commit)" 'exit 0'
+  git_quiet -C "$project" worktree add -b other "$fixture/linked"
+  local git_dir
+  git_dir="$(git -C "$fixture/linked" rev-parse --absolute-git-dir)"
+  out="$fixture/out"
+  err="$fixture/err"
+  (cd "$fixture/linked" && env -i HOME="$fixture" PATH="$sys" GIT_DIR="$git_dir" \
+    /bin/sh .agnostic-ai/scripts/sync-generated.sh >"$out" 2>"$err")
+  assert_successful_code "$?"
+  assert_empty "$(cat "$err")"
+  assert_same "$fixture/linked" "$(cat "$calls")"
+}
+
 function test_outside_a_git_checkout_it_exits_zero_quietly() {
   mkdir -p "$fixture/plain"
   cp "$SYNC_SCRIPT" "$fixture/plain/"

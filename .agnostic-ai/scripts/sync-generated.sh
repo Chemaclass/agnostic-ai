@@ -5,6 +5,10 @@
 # never fails the checkout, pull or session: a missing or stale binary or a
 # failed sync prints a short note to stderr and exits 0.
 
+# Git hooks export GIT_DIR, which points Git at the hook's repository
+# whatever the folder, so clear it and the other repository variables.
+unset $(git rev-parse --local-env-vars 2>/dev/null)
+
 # Tools copy this script to different depths (.claude/hooks/,
 # .github/hooks/scripts/, ...), so ask Git for the root.
 root=$(CDPATH='' cd -- "$(dirname -- "$0")" && git rev-parse --show-toplevel 2>/dev/null) || exit 0
