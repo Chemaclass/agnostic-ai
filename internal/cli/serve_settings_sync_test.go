@@ -423,7 +423,7 @@ func TestSettingsSync_PlanShowsKimiWindowsHookWithArgs(t *testing.T) {
 	hook := spec.Entry{Kind: spec.KindHook, Name: "guard", Meta: map[string]any{
 		"event": "PreToolUse", "command": "guard.sh", "commandWindows": "guard.exe", "args": []string{"--check"},
 	}}
-	plan, err := runUserPlan(home, source, []string{"kimi"}, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, userState{Version: userStateVersion}, nil, io.Discard, "warn", "windows")
+	plan, err := runUserPlan(home, source, []string{"kimi"}, nil, nil, spec.Bundle{Hooks: []spec.Entry{hook}}, userState{Version: userStateVersion}, nil, io.Discard, "warn", "windows")
 	if err != nil {
 		t.Fatal(err)
 	}

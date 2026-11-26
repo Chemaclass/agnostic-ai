@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -183,7 +184,11 @@ func runUserSync(cmd *cobra.Command, o userSyncOptions) error {
 	if err != nil && skipBroken == nil {
 		return err
 	}
-	plan, err := runUserPlan(home, source, targets, instructions, bundle, old, agentFailure(explicit, warn), warn, onUnsupported, runtime.GOOS)
+	var dropped []string
+	if len(o.targets) == 0 {
+		dropped = droppedUserTargets(old, configured)
+	}
+	plan, err := runUserPlan(home, source, targets, dropped, instructions, bundle, old, agentFailure(explicit, warn), warn, onUnsupported, runtime.GOOS)
 	if err != nil {
 		return err
 	}
@@ -878,4 +883,20 @@ func userContextBridge(base, body, key string) (path, command, script string, mo
 		return path, command, script, 0o644
 	}
 	return path, path, "#!/bin/sh\nprintf '%s\\n' " + adapters.ShellQuote(payload) + "\n", 0o755
+}
+
+// droppedUserTargets lists the targets whose skills or agents the last
+// run recorded but the home config no longer selects. -t replaces the
+// config for one run, so the caller skips this then.
+func droppedUserTargets(old userState, configured []string) []string {
+	var out []string
+	for _, records := range []map[string][]string{old.Skills, old.Agents} {
+		for target := range records {
+			if !slices.Contains(configured, target) && !slices.Contains(out, target) {
+				out = append(out, target)
+			}
+		}
+	}
+	sort.Strings(out)
+	return out
 }

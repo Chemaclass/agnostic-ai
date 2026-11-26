@@ -27,7 +27,7 @@ func buildUserWrites(home, source string, targets []string, intro []byte, b spec
 	return buildUserWritesForPlatform(home, source, targets, intro, b, old, agentErr, warn, onUnsupported, runtime.GOOS)
 }
 func buildUserWritesForPlatform(home, source string, targets []string, intro []byte, b spec.Bundle, old userState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) ([]userWrite, userState, error) {
-	p, err := runUserPlan(home, source, targets, intro, b, old, agentErr, warn, onUnsupported, platform)
+	p, err := runUserPlan(home, source, targets, nil, intro, b, old, agentErr, warn, onUnsupported, platform)
 	switch {
 	case p == nil:
 		return nil, userState{}, err
@@ -40,7 +40,7 @@ func buildUserWritesForPlatform(home, source string, targets []string, intro []b
 // runUserPlan runs the user planner and returns it, with its writes,
 // next state and the records the Apply confirm shows; nil when it could
 // not start.
-func runUserPlan(home, source string, targets []string, intro []byte, b spec.Bundle, old userState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) (*userPlan, error) {
+func runUserPlan(home, source string, targets, dropped []string, intro []byte, b spec.Bundle, old userState, agentErr func(string, error) error, warn io.Writer, onUnsupported, platform string) (*userPlan, error) {
 	for _, target := range targets {
 		if err := userTargets[target].instructionsRootError(platform); err != nil {
 			return nil, fmt.Errorf("%s: %w", target, err)
@@ -52,6 +52,7 @@ func runUserPlan(home, source string, targets []string, intro []byte, b spec.Bun
 		}
 	}
 	p := newUserPlan(home, source, platform, targets, intro, b, old, agentErr, warn, onUnsupported)
+	p.dropped = dropped
 	if err := p.loadPlanApprovals(); err != nil {
 		return nil, err
 	}
@@ -81,10 +82,13 @@ func runUserPlan(home, source string, targets []string, intro []byte, b spec.Bun
 type userPlan struct {
 	home, source, platform string
 	targets                []string
-	bundle                 spec.Bundle
-	old, next              userState
-	writes                 []userWrite
-	seen                   map[string]int
+	// dropped are targets the home config no longer lists; the skills
+	// and agents they placed are removed.
+	dropped   []string
+	bundle    spec.Bundle
+	old, next userState
+	writes    []userWrite
+	seen      map[string]int
 	// emptied holds hooks files the hooks merge left with nothing in
 	// them, which a settings edit must start from instead of the disk.
 	emptied map[string]bool
@@ -181,6 +185,10 @@ func (p *userPlan) carryOverState() {
 	keepUnselected(next.SettingsPaths, old.SettingsPaths, targets, sharedValue)
 	keepUnselected(next.MCPPaths, old.MCPPaths, targets, sharedValue)
 	keepUnselected(next.ReviewPolicies, old.ReviewPolicies, targets, sharedValue)
+	for _, target := range p.dropped {
+		delete(next.Agents, target)
+		delete(next.Skills, target)
+	}
 	for target, hooks := range old.Hooks {
 		next.Hooks[target] = cloneHookState(hooks)
 	}
@@ -213,6 +221,10 @@ func (p *userPlan) sweepOwnedSurfaces() {
 			next.Files = removePathPrefix(next.Files, tree+string(filepath.Separator))
 		}
 		next.Files = removePaths(next.Files, g.filesForOS(p.home, p.platform))
+	}
+	for _, target := range p.dropped {
+		next.Files = removePaths(next.Files, old.Agents[target])
+		next.Files = removePaths(next.Files, old.Skills[target])
 	}
 }
 

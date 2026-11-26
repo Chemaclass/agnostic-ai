@@ -79,6 +79,7 @@ agnostic-ai sync --only claude,cursor
 
 - `sync --scope user` works outside a project. It never loads project config or packs.
 - It loads overrides from `local/` in the source root, and `targets` and `on-unsupported` from an optional `agnostic-ai.yaml` there.
+- A tool you remove from `targets` loses the skills and agents sync wrote for it on the next run without `--target`. Its instructions file, hooks, settings, and MCP servers stay.
 - Accepted: `--target`, `--only`, `--except`, `--dry-run`, `--check`, `--backup`, `--plan`, `--json`, and `--diff` with `--dry-run`, `--check`, or `--plan`.
 - Rejected: `--watch`, `--gitignore`, `--jobs`, and `--plan` with `--dry-run`.
 - `--plan` lists each file a sync would create, update, or delete, with key-level settings and MCP edits. `--json` adds a `keys` list per settings or MCP file.
