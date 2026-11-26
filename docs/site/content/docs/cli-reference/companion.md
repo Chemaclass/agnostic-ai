@@ -289,6 +289,7 @@ Older CLIs, unknown install methods, and other systems use **Copy command** for 
 - On macOS 27.2.1 (arm64), checksums, build provenance and signatures passed for v0.97.0 and v0.98.0. `companion update-app` upgraded between them. The restarted app and its CLI reported v0.98.0, and preferences survived.
 - The published npm CLI upgraded from v0.97.0 to v0.98.0 in a scratch prefix. A Finder-like `PATH` found Homebrew once the folders above were added. With npm absent, the update was offered and then failed. The CLI still reported v0.97.0.
 - The signature of a quarantined v0.98.0 app copy verified. Gatekeeper assessment rejected it, and the policy check reported a missing notarization ticket.
+- A macOS test gives the updater two bundles signed with different certificates. It checks that the updater refuses the candidate before it runs a candidate binary, quits the app, replaces it, or restarts it. The installed files stay unchanged.
 - Browser tests exercised **Copy command** and **Release page**. The remaining Mac desktop checks cover panel updates, the Finder copy fallback, Accessibility, the Gatekeeper prompt and **Open Anyway**, and manual certificate rotation. Native Linux and Windows still need clipboard and browser launch checks.
 {% </details> %}
 
