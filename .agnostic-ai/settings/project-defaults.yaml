@@ -1,19 +1,29 @@
 # Approve safe read-only and build commands without a prompt, and ask
 # before an agent edits a built file. Nothing here allows a push, a
 # delete, network access or an arbitrary shell command.
+#
+# Rules are exact commands, not prefixes: `go build`/`go test` accept
+# -exec and -toolexec, and `git diff`/`git log` accept --output, which
+# would let a prefix rule run any program or write any file. Other forms
+# still ask.
 permissions:
   allow:
-    - shell(go build:*)
-    - shell(go test:*)
-    - shell(go vet:*)
-    - shell(gofmt -l:*)
+    - shell(go build ./...)
+    - shell(go vet ./...)
+    - shell(go test ./...)
+    - shell(make build)
     - shell(make test-short)
+    - shell(make vet)
+    - shell(make fmt-check)
     - shell(./agnostic-ai sync)
     - shell(./agnostic-ai sync --check)
     - shell(./agnostic-ai lint)
-    - shell(git status:*)
-    - shell(git diff:*)
-    - shell(git log:*)
+    - shell(git status)
+    - shell(git status --short)
+    - shell(git diff)
+    - shell(git diff --stat)
+    - shell(git diff --cached)
+    - shell(git log --oneline)
 # Sync outputs (AGENTS.md, CLAUDE.md, .claude/, .openhands/) are left out:
 # lint warns that protecting them guards the output while the source stays
 # open (LINT022), and CI's drift check fails on a hand edit to them.
