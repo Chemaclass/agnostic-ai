@@ -26,6 +26,10 @@ func userSourceHome(home string) string {
 var userSources = config.Sources{Agents: "agents", Skills: "skills", Rules: "rules", Hooks: "hooks", Settings: "settings", MCPs: "mcps"}
 
 func userLayers(source string, names []string) ([]spec.Layer, error) {
+	// autosync syncs one project; at user scope its hooks would rewrite
+	// files in every repository a session opens, so only a project
+	// config turns it on.
+	names = slices.DeleteFunc(slices.Clone(names), func(name string) bool { return name == config.AutosyncBuiltin })
 	layers, err := resolveBuiltinLayers(names, "")
 	if err != nil {
 		return nil, err

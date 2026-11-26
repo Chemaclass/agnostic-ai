@@ -195,6 +195,24 @@ agnostic-ai hook memory --target codex
 - It finds the project as the `shared-memory` skill does.
 {% </details> %}
 
+## hook autosync
+
+Sync the project from a `session-start` hook, keeping files edited since the last sync. The [`autosync` built-in](@/docs/autosync.md) sets this up for every tool with a session-start event.
+
+```bash
+agnostic-ai project -- hook autosync --target codex
+```
+
+| Flag | Description |
+|------|-------------|
+| `-t`, `--target <name>` | Tool that runs the hook. Defaults to `AGNOSTIC_AI_TARGET`. |
+
+{% <details summary="Details: output, exit code and project lookup"> %}
+- It runs `sync --keep-edits --quiet` in the nearest folder with a project config, never the user specs folder. With no project, it does nothing.
+- It always exits 0. Stdout stays empty. Stderr names each kept file, or holds a short note when the sync fails. While another sync holds the project lock, it prints nothing.
+- In a Claude Code cloud session, it first waits up to 90 seconds for the [cloud install hook](@/docs/spec-format/environments.md#claude-code-cloud-install).
+{% </details> %}
+
 ## hook mailbox
 
 Print the mailbox messages waiting for a session, for a prompt or session-start hook to add to the model's context. The [`mailbox` built-in](@/docs/mailbox.md#deliver-with-the-next-prompt) sets this up for Claude Code and Codex.

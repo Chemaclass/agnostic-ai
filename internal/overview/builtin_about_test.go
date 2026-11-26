@@ -66,3 +66,15 @@ func TestBuiltinItems_SideConversationSaysWhereTheNewRowShows(t *testing.T) {
 	}
 	t.Fatal("no side-conversation built-in")
 }
+
+func TestBuiltinItems_UserHidesAutosync(t *testing.T) {
+	has := func(items []SectionItem) bool {
+		return slices.ContainsFunc(items, func(item SectionItem) bool { return item.Name == "autosync" })
+	}
+	if has(builtinItems(Inputs{UserLevel: true})) {
+		t.Error("user overview offers the autosync built-in, which sync --scope user skips")
+	}
+	if !has(builtinItems(Inputs{})) {
+		t.Error("project overview has no autosync built-in")
+	}
+}

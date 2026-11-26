@@ -31,6 +31,11 @@ var ApprovalModes = []string{ApprovalsAsk, ApprovalsReview, ApprovalsYolo}
 // Only sync --scope user writes it: a project sync skips it.
 const ApprovalsBuiltin = "approvals"
 
+// AutosyncBuiltin is the built-in whose session-start hooks sync the
+// project. Only a project sync writes it: sync --scope user skips it,
+// so a personal list never rewrites files in every repository opened.
+const AutosyncBuiltin = "autosync"
+
 // EnvApprovals names the variable that turns approvals off for one
 // session. Only ask is honored: the environment cannot loosen.
 const EnvApprovals = "AGNOSTIC_AI_APPROVALS"
