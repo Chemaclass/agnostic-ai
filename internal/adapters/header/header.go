@@ -112,12 +112,14 @@ func WithCopiedRanges(content string, format Format) (string, []CopiedRange) {
 // content. Returns -1 when no closing delimiter is found. Caller must
 // have already verified that content starts with "---\n".
 func findFrontmatterEnd(content string) int {
+	// Search from the opening delimiter's newline so an empty block
+	// (`---\n---\n`) closes on its second line.
 	const close = "\n---"
-	idx := strings.Index(content[len("---\n"):], close)
+	idx := strings.Index(content[len("---"):], close)
 	if idx < 0 {
 		return -1
 	}
-	end := len("---\n") + idx + len(close)
+	end := len("---") + idx + len(close)
 	if end >= len(content) {
 		return end
 	}
