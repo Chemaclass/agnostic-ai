@@ -317,3 +317,32 @@ Measured 2026-11-19 on an Apple M4 Pro, `-benchtime 20x -count 6`, on a busy mac
 | 380 | 311 | 303 |
 
 The search still stamps the store files once after its read, to catch a write made during it. A new scanner per request reads every store cold, about 14 seconds here, which `BenchmarkScan_CursorAgentChats/uncached` already times.
+
+## Time a contributor task in a hosted agent
+
+Use a disposable clone of this repository. Start one session in a fresh hosted Linux environment and a second with its prepared environment reused. Give each session its own branch at the same starting commit. Record the provider, environment, tool versions and how you established the cache state. Keep the model, prompt, permissions and test command the same.
+
+In the clone root, use `cd -P .` to resolve directory links before setup and verification. Run the install commands from [.agnostic-ai/environments/dev.yaml](../../.agnostic-ai/environments/dev.yaml) in the clone. Verify the checked-out revision with `git rev-parse HEAD` and the built CLI's revision with `go version -m ./agnostic-ai`. Check both the committed and generated working files before starting the task, in a shell that stops on failure:
+
+```sh
+set -e
+./agnostic-ai sync --check --against HEAD
+./agnostic-ai sync --check
+```
+
+Record any drift before repairing it. In a disposable clone with no intended local edits, run `./agnostic-ai sync` to regenerate ignored outputs, then repeat both checks. A stale tracked output in the commit needs a corrected commit. Provision additional tools when the task's [required checks](contributing.md#choose-checks-for-your-change) need them.
+
+For a repeatable Go task, start from `47e82b256` and reverse the production hunk below in the disposable clone, keeping its regression test. Commit that change and use its SHA as the base for both runs.
+
+```sh
+git show 6547c04a5 --format= -- internal/adapters/header/header.go > header.patch
+git apply --reverse header.patch
+rm header.patch
+go test ./internal/adapters/header -run '^TestWith_EmptyFrontmatterInsertsBelowIt$' -count=1
+```
+
+The test should fail at this point. Ask the agent to place the generated header below empty Markdown frontmatter, changing only `internal/adapters/header/header.go`. Give it the base SHA and the test command. Apply each returned diff to its own clean checkout of that base, or check out the returned commit. Run the same test and record the revision and exit code.
+
+For each run, record submission, first execution, setup completion, first passing task test and availability of the reviewable diff. Include retries, repeated installs, manual steps and any billed usage the provider reports. Mark unavailable observations as unknown. Keep one-time dashboard setup separate. Use a matched rerun to check any change aimed at the slowest repeated step.
+
+Local control on Darwin arm64 with Go 1.27.4 at `47e82b256`: the committed files passed. The working-tree check reported drift in the ignored `.claude/settings.local.json` after the install hook. Using the macOS temporary directory through its physical path and its symlink reproduced the difference. Regenerating and checking from the same physical path cleared it. Appending a line to `AGENTS.md` made the check exit 1 and restoring the file made it pass. The regression test exited 1 with the production hunk reversed and 0 after restoring it. [Hosted measurements are tracked in #4032](https://github.com/Chemaclass/agnostic-ai/issues/4032).
