@@ -26,7 +26,7 @@
     { "id": "sendShortcut", "section": "shortcuts", "label": "Send copied text", "kind": "shortcut", "hint": "Change the shortcut that opens the list to send what you copied" },
     { "id": "keyboardShortcuts", "section": "shortcuts", "label": "Keyboard shortcuts", "kind": "action", "page": true },
     { "id": "startAtLogin", "section": "app", "label": "Start at login", "kind": "switch" },
-    { "id": "update", "section": "app", "label": "Check for updates", "kind": "action", "hint": "Looks for a newer release. When one is known, updates the app and its command line tool, then restarts it." },
+    { "id": "update", "section": "app", "label": "Check for updates", "kind": "action", "hint": "Checks for a newer release and shows its update options." },
     { "id": "checkForUpdates", "section": "app", "label": "Check for updates automatically", "kind": "switch", "hint": "Checks once a day while the companion runs. Check for updates works either way." },
     { "id": "hide", "section": "app", "label": "Hide Agnostic Companion", "kind": "action", "hint": "Takes the circle and the list off the screen. The shortcut brings them back. The circle comes back faded on its own when something new waits." },
     { "id": "quit", "section": "app", "label": "Quit Agnostic Companion", "kind": "action", "hint": "Asks first, then ends the program. The shortcut stops working until you start it again with agnostic-ai companion." }

@@ -1700,9 +1700,13 @@ export function hideLabelOf(label, preferences) {
 /** The update entry's label in its state; the shell's updateLabel says the same. */
 export function updateLabelOf(label, update) {
   if (update.state === 'checking') return 'Checking for updates…'
-  if (update.state === 'available' || update.state === 'failed') return `Update to v${update.version}`
+  if (offersUpdate(update)) return `Update to v${update.version}`
   if (update.state === 'updating') return `Updating to v${update.version}…`
   return label
+}
+
+export function offersUpdate(update) {
+  return update.state === 'available' || (update.state === 'failed' && !update.manual)
 }
 
 /**
@@ -1738,13 +1742,26 @@ const UPDATE_STEPS = {
 export function updateMessageOf(update) {
   const note = olderCLINoteOf(update)
   const withNote = (text) => (note ? { text: `${text} ${note.text}`, command: note.command } : { text })
+  const needsCheck = update.state === 'failed' && update.manual
   if (update.result === 'release-changed') return { text: update.reason, log: update.log }
-  if (update.result === 'unreachable') return withNote('Could not check for updates. Check your connection and try again.')
+  if (update.result === 'command-missing') {
+    return {
+      text: 'The selected npm CLI could not run. Repair that installation or reopen the companion from it, then check for updates again.',
+      log: update.log,
+      releasePage: true,
+    }
+  }
+  if (update.result === 'unreachable') {
+    const text = 'Could not check for updates. Check your connection and try again.'
+    return needsCheck ? { text, releasePage: true, log: update.log } : withNote(text)
+  }
   if (update.result === 'latest') return withNote(`No newer version is available for this computer. You have v${update.current}.`)
   if (update.state === 'checking') return { text: 'Checking for updates…' }
   if (update.state === 'updating') return { text: UPDATE_STEPS[update.step]?.(update) ?? `Updating to v${update.version}…` }
   if (update.state === 'failed') {
-    const failed = { text: `The update did not finish: ${update.reason}.`, retry: true, log: update.log }
+    const text = `The update did not finish: ${update.reason}.`
+    if (needsCheck) return { text: `${text} Check for updates again to see the current options.`, log: update.log, releasePage: true }
+    const failed = { text, retry: true, log: update.log }
     return update.command ? { ...failed, command: update.command, releasePage: true } : failed
   }
   return note
@@ -1757,12 +1774,21 @@ function olderCLINoteOf(update) {
   return { text: `The agnostic-ai command at ${path} is v${version}, older than this app (v${update.current}). Run this in a terminal to upgrade it.`, command }
 }
 
-/** The question before an update: {title, body, go, command?, releasePage?}; with a command, the person runs it in a terminal; the release page says what changed. */
+/** The question before an update: {title, body, go?, command?, releasePage?}. */
 export function updateConfirmOf(update) {
-  if (update.command && update.state !== 'failed') {
+  if (update.manual) {
+    const title = `Update to v${update.version}`
+    if (!update.command) {
+      return {
+        title,
+        body: 'Use the package manager you installed agnostic-ai with. Then use the updated command line tool to reinstall the companion.',
+        releasePage: true,
+      }
+    }
+    const shell = update.commandShell ?? 'a terminal'
     return {
-      title: `Update to v${update.version}`,
-      body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together. The release page lists what changed.',
+      title,
+      body: `The companion cannot run this update itself. Run this in ${shell}: it updates the command line tool and the companion together. The release page lists what changed.`,
       go: 'Copy command',
       command: update.command,
       releasePage: true,
@@ -1776,7 +1802,7 @@ export function updateConfirmOf(update) {
 
 /** The settings button's name while an update is known, or undefined when there is none. */
 export function updateBadgeOf(update) {
-  if (!update.version || update.state === 'updating') return undefined
+  if (!update.version || update.state === 'updating' || (update.state === 'failed' && update.manual)) return undefined
   return `Settings: update to v${update.version} available`
 }
 
@@ -1785,7 +1811,7 @@ export function updateBadgeOf(update) {
  * {id, label, kind, hint?, value, disabled?}. A switch's value is its
  * entry in the appearance or the preferences; a shortcut's is its keys, the preference of the same id.
  * The approvals rows read the server's settings document. A choice's value is one of its choices.
- * Hide's label names the way back. The update entry shows only where the companion can update itself.
+ * Hide's label names the way back. The update entry shows when the companion can check for a release.
  */
 export function menuRowsOf(items, { preferences, appearance, mailbox, approvals, update = { state: 'unavailable' } }, isMac = false) {
   const values = { ...appearance, ...preferences, ...mailbox, approvalsMode: approvals?.approvals?.mode, approvalsCompanion: approvals?.approvals?.companion }

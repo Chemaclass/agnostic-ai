@@ -2,7 +2,7 @@ import { Events, System } from '/wails/runtime.js'
 import { mailboxPanel } from '/panel-mailbox.js'
 import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, hideCompanion, hidePanel, markConversation, openConversation, openDashboard, openReleasePage, quitCompanion, readAppearance, readClipboard, readInbox, readMenu, readMailboxSettings, readPreferences, readUpdate, renameConversation, readLateOpenNotice, dismissLateOpenNotice, saveAnimate, saveCheckForUpdates, saveDimWhenIdle, saveMailboxSettings, saveSendShortcut, saveShortcut, saveSmallCompanion, saveStartAtLogin, sendClipboard, showPanel, peekPanel, startUpdate, stopSession, stopShell, readKeptShells, keepShell, forgetShells } from '/api.js'
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
-import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, startsShortcutHelp, shortcutHelpRowsOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
+import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, offersUpdate, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, startsShortcutHelp, shortcutHelpRowsOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { handoffReceiverOf, handsOff, isDrag } from '/model.js'
 import { pinnedOf } from '/model.js'
 import { decideApproval } from '/api.js'
@@ -2609,7 +2609,7 @@ const MENU_ACTIONS = {
   keyboardShortcuts: (event) => openShortcutHelp(event.currentTarget).catch(sayFailure),
   update: () => {
     closeMenu()
-    if (settings.update.state === 'available' || settings.update.state === 'failed') openUpdateConfirm()
+    if (offersUpdate(settings.update)) openUpdateConfirm()
     else checkForUpdates().catch(sayFailure)
   },
   hide: () => hideCompanion().catch(sayFailure),
@@ -2898,21 +2898,21 @@ function openUpdateConfirm() {
   document.getElementById('update-body').textContent = question.body
   updateCommand.hidden = !question.command
   updateCommand.textContent = question.command ?? ''
-  updateGo.textContent = question.go
+  updateGo.hidden = !question.go
+  updateGo.textContent = question.go ?? ''
   updateRelease.hidden = !question.releasePage
   updateConfirm.hidden = false
   updateCancel.focus()
 }
 
-/** Copies command for a terminal and says whether it worked. */
-async function copyUpdateCommand(command) {
+async function copyUpdateCommand(command, shell = 'a terminal') {
   try {
     await navigator.clipboard.writeText(command)
   } catch {
-    say(`Could not copy it. Run ${command} in a terminal.`, 'error')
+    say(`Could not copy it. Run ${command} in ${shell}.`, 'error')
     return
   }
-  say(`Copied ${command}. Paste it in a terminal.`)
+  say(`Copied ${command}. Paste it in ${shell}.`)
 }
 
 function closeUpdateConfirm() {
@@ -2938,12 +2938,16 @@ updateCancel.addEventListener('click', closeUpdateConfirm)
 updateGo.addEventListener('click', () => {
   const offered = confirmedUpdate
   if (!offered) return
-  const { command } = updateConfirmOf(offered)
+  const { command, go } = updateConfirmOf(offered)
+  if (!go) return
   closeUpdateConfirm()
-  if (command) copyUpdateCommand(command)
+  if (command) copyUpdateCommand(command, offered.commandShell)
   else startUpdate(offered.version).catch(sayFailure)
 })
-updateCopy.addEventListener('click', () => copyUpdateCommand(updateMessageOf(settings.update).command))
+updateCopy.addEventListener('click', () => {
+  const command = updateMessageOf(settings.update)?.command
+  if (command) copyUpdateCommand(command, settings.update.commandShell)
+})
 updateRetry.addEventListener('click', () => startUpdate(settings.update.version).catch(sayFailure))
 updateRelease.addEventListener('click', () => {
   closeUpdateConfirm()
@@ -2961,6 +2965,9 @@ holdTab(updateConfirm)
 
 /** Names the settings button after a known update, with a dot on it, and says the step. */
 function showUpdate(update) {
+  if (confirmedUpdate && ['version', 'state', 'manual', 'command', 'commandShell', 'terminal'].some((key) => confirmedUpdate[key] !== update[key])) {
+    closeUpdateConfirm()
+  }
   settings.update = update
   if (JSON.stringify(update) !== updateDismissed) updateDismissed = undefined
   drawUpdateStatus()
@@ -3251,7 +3258,7 @@ Events.On('update-asked', async (event) => {
     sayFailure(error)
     return
   }
-  if (settings.update.state === 'available' || settings.update.state === 'failed') openUpdateConfirm()
+  if (offersUpdate(settings.update)) openUpdateConfirm()
 })
 // Open from anywhere in the right-click menu: the list opens on its menu, ready to change the keys.
 Events.On('settings-shown', (event) => {

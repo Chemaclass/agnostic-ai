@@ -496,6 +496,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     lateOpen = { waiting: undefined, settled: undefined }
     noContent(response)
     listChanged()
+    emit('update', state.update)
   }
 
   async function serveFile(response, folder, name) {
@@ -700,7 +701,7 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
       const expected = url.searchParams.get('version')
       if (expected && expected !== state.update.version) return sendJSON(response, 409, { error: 'the offered release changed; check for updates again' })
       if (state.update.state !== 'available' && state.update.state !== 'failed') return sendJSON(response, 409, { error: 'no update is known; check for updates first' })
-      if (state.update.state === 'available' && state.update.command) return sendJSON(response, 409, { error: `the companion cannot update this install itself; run ${state.update.command} in a terminal` })
+      if (state.update.manual) return sendJSON(response, 409, { error: 'this update requires manual steps' })
       state.update = { state: 'updating', version: state.update.version, current: state.update.current, step: 'downloading' }
       noContent(response)
       emit('update', state.update)

@@ -140,7 +140,8 @@ func fakeTerminalCommand(t *testing.T, status, failure string) (calls string) {
 	}
 	dir := t.TempDir()
 	command, calls := filepath.Join(dir, binaryName), filepath.Join(dir, "calls")
-	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" >> %q\nif [ \"$1\" = companion ]; then echo %q; exit 0; fi\necho %q >&2\nexit 1\n", calls, status, failure)
+	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" >> %s\nif [ \"$1\" = companion ]; then printf '%%s\\n' %s; exit 0; fi\nprintf '%%s\\n' %s >&2\nexit 1\n",
+		shellQuote(calls), shellQuote(status), shellQuote(failure))
 	if err := os.WriteFile(command, []byte(script), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -220,6 +221,138 @@ func TestTerminalUpdate_ShowsTheCommandWhenItCannotRunFromTheApp(t *testing.T) {
 	}
 	if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), upgradeCommand) {
 		t.Errorf("start = %d %s; want a refusal naming the command", rec.Code, rec.Body)
+	}
+}
+
+func TestTerminalUpdate_OffersTheSelectedNPMCommandOrPackageManagerGuidance(t *testing.T) {
+	const targeted = "'/tmp/npm prefix A/lib/node_modules/@agnostic-ai/darwin-arm64/agnostic-ai' upgrade"
+	for _, tc := range []struct {
+		name, method, command, want string
+		oneClick, macOS, manual     bool
+	}{
+		{name: "verified elsewhere", method: "npm", command: targeted, want: targeted, oneClick: true, manual: true},
+		{name: "verified on macOS", method: "npm", command: targeted, want: targeted, oneClick: true, macOS: true},
+		{name: "unknown npm ownership", method: "npm", macOS: true, manual: true},
+		{name: "legacy npm elsewhere", method: "npm", command: "npm install -g agnostic-ai@latest", want: upgradeCommand, oneClick: true, manual: true},
+		{name: "legacy npm on macOS", method: "npm", command: "npm install -g agnostic-ai@latest", oneClick: true, macOS: true},
+		{name: "legacy reply without method", want: upgradeCommand, manual: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withVersion(t, "0.96.0")
+			previous := terminalOneClick
+			t.Cleanup(func() { terminalOneClick = previous })
+			terminalOneClick = tc.macOS
+			payload := fmt.Sprintf(`{"installed":"0.96.0","latest":"0.97.0","method":%q,"command":%q,"oneClick":%t,"confirmsRelease":true}`, tc.method, tc.command, tc.oneClick)
+			calls := fakeTerminalCommand(t, payload, "npm: command not found")
+			s, _, _, _ := menuShell(t)
+			s.appCommands.checkUpdates(t.Context())
+
+			got := s.updateStatus()
+			if got.State != updateAvailable || got.Version != "0.97.0" || got.Command != tc.want || got.Manual != tc.manual {
+				t.Errorf("status = %+v; want 0.97.0 with manual=%t and command %q", got, tc.manual, tc.want)
+			}
+			if !tc.manual {
+				return
+			}
+			refusal := tc.want
+			if refusal == "" {
+				refusal = "package manager"
+			}
+			if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), refusal) {
+				t.Errorf("start = %d %s; want a refusal naming %q", rec.Code, rec.Body, refusal)
+			}
+			if raw, _ := os.ReadFile(calls); strings.TrimSpace(string(raw)) != "companion update-status --json" {
+				t.Errorf("calls = %q; want only the check", raw)
+			}
+		})
+	}
+}
+
+func TestTerminalUpdate_AnNPMFailureKeepsTheCommandOnlyBeforeNPMStarts(t *testing.T) {
+	const targeted = "'/tmp/npm prefix A/lib/node_modules/@agnostic-ai/darwin-arm64/agnostic-ai' upgrade"
+	for _, tc := range []struct {
+		name, outcome, command string
+	}{
+		{"npm missing", `upgrade: install in npm prefix /tmp/npm prefix A: exec: "npm": executable file not found in $PATH`, targeted},
+		{"npm exited", "upgrade: install in npm prefix /tmp/npm prefix A: exit status 1", ""},
+		{"companion refresh failed", "CLI upgrade succeeded, but companion update failed: start the companion: open failed. Retry with: agnostic-ai companion install", ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			withVersion(t, "0.96.0")
+			previous := terminalOneClick
+			t.Cleanup(func() { terminalOneClick = previous })
+			terminalOneClick = true
+			payload := fmt.Sprintf(`{"installed":"0.96.0","latest":"0.97.0","method":"npm","command":%q,"oneClick":true,"confirmsRelease":true}`, targeted)
+			fakeTerminalCommand(t, payload, "Terminal update failed: "+tc.outcome)
+			s, _, _, _ := menuShell(t)
+			s.appCommands.checkUpdates(t.Context())
+			done := make(chan updateStatus, 1)
+			s.tellUpdate = func(status updateStatus) {
+				if status.State == updateFailed {
+					done <- status
+				}
+			}
+
+			if rec := post(s, "/api/update/start"); rec.Code != http.StatusNoContent {
+				t.Fatalf("start = %d %s", rec.Code, rec.Body)
+			}
+			select {
+			case got := <-done:
+				if got.Command != tc.command || got.Manual != (tc.command == "") {
+					t.Errorf("failed status = %+v; want command %q and manual=%t", got, tc.command, tc.command == "")
+				}
+				raw, _ := os.ReadFile(got.Log)
+				if !strings.HasPrefix(string(raw), terminalTarget+"0.97.0.\n"+npmTargetLine+"\n") {
+					t.Errorf("log = %q; want the npm update marker at the start", raw)
+				}
+			case <-time.After(5 * time.Second):
+				t.Error("update did not fail")
+			}
+		})
+	}
+}
+
+func TestTerminalUpdate_RecoveryForTargetedNPMRequiresAFreshCheck(t *testing.T) {
+	withVersion(t, "0.96.0")
+	fakeTerminalCommand(t, `{"installed":"0.96.0","latest":"0.97.0","method":"npm","oneClick":false}`, "")
+	s, _, _, _ := menuShell(t)
+	path := s.appCommands.logPath()
+	log := "Updating the terminal companion to 0.97.0.\nUpdating with a verified npm prefix.\n" +
+		"Terminal update failed: CLI upgrade succeeded, but companion update failed: start the companion: open failed.\n"
+	if err := os.WriteFile(path, []byte(log), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s.appCommands.current = failedUpdateAfterRestart(path, true)
+	got := s.updateStatus()
+	if got.State != updateFailed || got.Version != "0.97.0" || !got.Manual || got.Command != "" || got.Log != path {
+		t.Errorf("recovered status = %+v; want a failed update with no command", got)
+	}
+	if got := updateLabel("Check for updates", got); got != "Check for updates" {
+		t.Errorf("update label = %q; want Check for updates", got)
+	}
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "check for updates again") {
+		t.Errorf("start = %d %s; want a conflict requiring a new check", rec.Code, rec.Body)
+	}
+
+	if err := os.Remove(s.appCommands.command); err != nil {
+		t.Fatal(err)
+	}
+	var checked updateStatus
+	s.tellUpdate = func(status updateStatus) { checked = status }
+	s.appCommands.check(t.Context(), true)
+	if checked.Result != updateCommandMissing || !checked.Manual || checked.Command != "" {
+		t.Errorf("missing CLI status = %+v; want the local repair guidance", checked)
+	}
+}
+
+func TestStartUpdate_NamesPowerShellForAnNPMCommandOnWindows(t *testing.T) {
+	s, _, _ := updateShell(t, "", nil)
+	s.appCommands.current = updateStatus{
+		State: updateAvailable, Version: "0.97.0", Manual: true,
+		Command: `& 'C:\npm prefix A\agnostic-ai.exe' upgrade`, CommandShell: "PowerShell",
+	}
+	if rec := post(s, "/api/update/start"); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "in PowerShell") {
+		t.Errorf("start = %d %s; want a refusal naming PowerShell", rec.Code, rec.Body)
 	}
 }
 
