@@ -1021,20 +1021,25 @@ export function conflictLabelOf({ path }, holder) {
   return holder ? `Path conflict: ${path} is held by ${holder}.` : `Path conflict: no session holds ${path}.`
 }
 
-export function threadNextOf({ status, held, waiting, delivering, count, cap }, { recipient = 'the receiving chat', recipientTool, setup, summary = false } = {}) {
+export function threadNextOf({ status, held, waiting, delivering, count, cap }, { recipient = 'the receiving chat', recipientTool, recipientLive, setup, summary = false } = {}) {
   if (status === 'closed') return 'This thread has ended.'
   if (status === 'paused') return 'Resume the thread to send and deliver messages again.'
   if (held) return 'Review the message that needs your approval.'
   if (waiting) {
-    const paste = summary && waiting > 1 ? 'Open the thread to choose a message to paste.' : `Paste into ${recipient} and press Enter.`
+    const paste = recipientLive === false
+      ? `Copy the message to paste after you resume ${recipient}.`
+      : `Paste into ${recipient} and press Enter.`
+    const next = summary && waiting > 1 ? 'Open the thread to choose a message.' : paste
     switch (setup) {
-      case 'auto': return `Automatic delivery is configured. Type a prompt in ${recipient}.`
-      case 'off': return `Automatic delivery is off. ${paste}`
+      case 'auto': return recipientLive === false
+        ? `Automatic delivery is configured. Resume ${recipient} and type a prompt.`
+        : `Automatic delivery is configured. Type a prompt in ${recipient}.`
+      case 'off': return `Automatic delivery is off. ${next}`
       case 'trust': return `Open /hooks in Codex and trust the mailbox hooks, then type a prompt in ${recipient}.`
       case 'disabled': return recipientTool === 'claude'
         ? `Enable hooks in Claude Code, then type a prompt in ${recipient}.`
         : `Open /hooks in Codex and enable the mailbox hooks, then type a prompt in ${recipient}.`
-      default: return `Still waiting. Automatic delivery could not be checked. ${paste}`
+      default: return `Still waiting. Automatic delivery could not be checked. ${next}`
     }
   }
   if (delivering) return 'Automatic delivery is in progress.'
@@ -1043,10 +1048,11 @@ export function threadNextOf({ status, held, waiting, delivering, count, cap }, 
   return summary ? 'Open the thread for delivery status or to reply.' : 'You can reply to this thread.'
 }
 
-export function waitingPasteOf({ status, held, waiting, waitingMessage }) {
-  const { n, setup } = waitingMessage ?? {}
+export function waitingDeliveryOf({ status, held, waiting, waitingMessage }) {
+  const { n, setup, recipientLive } = waitingMessage ?? {}
   if (waiting !== 1 || held || !Number.isInteger(n) || n < 1 || !['off', 'unknown'].includes(setup)) return undefined
-  return messageActionsOf({ state: 'waiting' }, { status }).includes('type') ? n : undefined
+  const [how] = messageActionsOf({ state: 'waiting' }, { status, recipientLive })
+  return how && { n, how }
 }
 
 export function messageStateLabelOf(state, how) {
@@ -1064,16 +1070,18 @@ export function reservationRetryAt({ state, reservedAt }) {
   return Number.isFinite(reserved) ? reserved + 60_001 : Infinity
 }
 
-export function messageActionsOf(message, { status }, now = Date.now()) {
+export function messageActionsOf(message, { status, recipientLive }, now = Date.now()) {
+  const deliverable = status === 'open' || status === 'closing'
+  const delivery = recipientLive === false ? ['copy'] : ['type', 'copy']
   switch (message.state) {
     case 'held':
       return ['approve', 'reject']
     case 'waiting':
-      return status === 'open' || status === 'closing' ? ['type', 'copy'] : []
+      return deliverable ? delivery : []
     case 'reserved':
-      return (status === 'open' || status === 'closing') && reservationRetryAt(message) <= now ? ['type', 'copy'] : []
+      return deliverable && reservationRetryAt(message) <= now ? delivery : []
     case 'staged':
-      return status === 'open' || status === 'closing' ? ['queue'] : []
+      return deliverable ? ['queue'] : []
     default:
       return []
   }

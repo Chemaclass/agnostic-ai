@@ -1,5 +1,5 @@
 import { CallError, GivenUp, answerHandoff, approveMessage, changeThread, claimPaths, dismissConflict, openDocs, queueMessage, readClaims, readRefs, readThreads, releasePaths, sendMessage, stageMessage } from '/api.js'
-import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, helpOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reservationRetryAt, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadNextOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf, waitingPasteOf } from '/model.js'
+import { arrivalOf, claimMetaOf, claimsButtonOf, claimsCardOf, partialReleaseOf, releaseBatchesOf, releaseInBatches, conflictLabelOf, handoffAnswerOf, handoffSentOf, helpOf, keyOf, mailboxSessionOf, messageActionsOf, messageLabelOf, messageStateLabelOf, modelLabelOf, receiversOf, reservationRetryAt, reviewModelsOf, senderKindOf, sessionLabelOf, statedModelOf, threadActionsOf, threadNextOf, threadsOf, titleOf, typeHelpOf, typedReceiverOf, waitingDeliveryOf } from '/model.js'
 
 const ACTION_LABELS = {
   approve: 'Approve message',
@@ -203,7 +203,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   let nativeCopy = false
   let previewTimer
   let dragged
-  let rowPasteInFlight = false
+  let rowDeliveryInFlight = false
 
   function nameOf(ref, fallback) {
     const row = rows().find((conversation) => keyOf(conversation) === keyOf(ref))
@@ -797,10 +797,12 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       const heading = waiting
         ? `${TYPES[waiting.type]} ${keyOf(waiting.from) === keyOf(conversation) ? `sent to ${other}` : `from ${other}`}`
         : `With ${other}`
-      const next = threadNextOf(thread, { recipient, recipientTool: waiting?.to.tool, setup: waiting?.setup, summary: true })
+      const next = threadNextOf(thread, {
+        recipient, recipientTool: waiting?.to.tool, recipientLive: waiting?.recipientLive, setup: waiting?.setup, summary: true,
+      })
       const line = element('div', 'mailbox-summary-line')
       const control = button('', 'open', () => {
-        if (draft || opened?.pending || claimsFor?.pending || rowPasteInFlight) return
+        if (draft || opened?.pending || claimsFor?.pending || rowDeliveryInFlight) return
         closeClaims(false)
         opened?.reading?.abort()
         opened = { from: refOf(conversation), fromTitle: titleOf(conversation), to: thread.with, summary: thread }
@@ -818,14 +820,16 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       const reason = element('span', '', [waiting ? undefined : TYPES[thread.lastType], next].filter(Boolean).join(' · '))
       reason.id = `mailbox-summary-${keyOf(conversation)}-${thread.id}`
       summary.id = `${reason.id}-heading`
+      control.id = `${reason.id}-control`
       control.setAttribute('aria-describedby', `${summary.id} ${reason.id}`)
       control.append(summary, reason)
       for (const conflict of thread.conflicts ?? []) control.append(element('span', 'mailbox-refusal', conflictText(conflict)))
       line.append(control)
-      const n = waitingPasteOf(thread)
-      if (n !== undefined) {
-        const paste = actionButton('type', () => pasteFromRow(conversation, thread.id, n, paste), n)
-        line.append(paste)
+      const delivery = waitingDeliveryOf(thread)
+      if (delivery) {
+        const action = actionButton(delivery.how, () => deliverFromRow(conversation, thread.id, delivery, action, control.id), delivery.n)
+        action.id = `${control.id}-${delivery.how}`
+        line.append(action)
       }
       box.append(line)
     }
@@ -889,7 +893,9 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     const recipient = waiting && threadNameOf(waiting.to, current)
     const showDelivery = waiting && !counts.held && ['open', 'closing'].includes(thread.status)
     const action = primary?.dataset.mailboxControl
-    meta.textContent = threadNextOf({ status: thread.status, ...counts }, { recipient, recipientTool: waiting?.to.tool, setup })
+    meta.textContent = threadNextOf({ status: thread.status, ...counts }, {
+      recipient, recipientTool: waiting?.to.tool, recipientLive: recipientLiveOf(current, waiting?.to), setup,
+    })
     if (showDelivery) {
       const sender = threadNameOf(waiting.from, current)
       meta.textContent = `${TYPES[waiting.type]} from ${sender} to ${recipient}. ${meta.textContent}`
@@ -927,6 +933,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     restoreDetailFocus(current)
   }
 
+  function recipientLiveOf(current, recipient) {
+    if (!recipient) return undefined
+    const key = keyOf(recipient)
+    const waiting = current.summary.waitingMessage
+    if (waiting && keyOf(waiting.to) === key) return waiting.recipientLive
+    const row = rows().find((listed) => keyOf(listed) === key)
+    return row && row.live === true
+  }
+
   function renderMessage(current, message, expanded, now) {
     const thread = current.thread
     const entry = element('article', 'mailbox-message')
@@ -953,7 +968,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
         controls.push(actionButton('decline', () => respondHandoff(current, message.n, 'decline'), message.n))
       }
     }
-    for (const action of messageActionsOf(message, thread, now)) {
+    for (const action of messageActionsOf(message, { status: thread.status, recipientLive: recipientLiveOf(current, message.to) }, now)) {
       controls.push(actionButton(action, () => messageAction(current, message.n, action), message.n))
     }
     if (message.resume?.head) controls.push(actionButton('copy-commit', () => copyHandoffCommit(current, message.resume.head), message.n))
@@ -996,8 +1011,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       const control = controls.find((item) => item.dataset.mailboxControl.startsWith(prefix))
       if (control) return control
     }
-    const paste = waiting && controls.find((control) => control.dataset.mailboxControl === `type-${waiting.n}`)
-    return paste ?? threadControls.find((control) => control.dataset.mailboxControl === 'raise-cap')
+    const delivery = waiting && controls.find((control) => [`type-${waiting.n}`, `copy-${waiting.n}`].includes(control.dataset.mailboxControl))
+    return delivery ?? threadControls.find((control) => control.dataset.mailboxControl === 'raise-cap')
       ?? threadControls.find((control) => control.dataset.mailboxControl === 'reply')
   }
 
@@ -1139,24 +1154,36 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     }
   }
 
-  async function pasteFromRow(conversation, id, n, control) {
-    if (rowPasteInFlight || draft || opened?.pending || claimsFor?.pending) return
+  async function deliverFromRow(conversation, id, { n, how }, control, summaryID) {
+    if (rowDeliveryInFlight || draft || opened?.pending || claimsFor?.pending) return
     const row = rows().find((item) => keyOf(item) === keyOf(conversation))
     const summary = row && threadsOf(row).find((thread) => thread.id === id)
-    if (!summary || waitingPasteOf(summary) !== n) return
-    rowPasteInFlight = true
+    const delivery = summary && waitingDeliveryOf(summary)
+    if (delivery?.n !== n || delivery.how !== how) return
+    const restoreFocus = how === 'copy' && document.activeElement === control
+    let focused = control
+    const trackFocus = (event) => { focused = event.target }
+    if (restoreFocus) document.addEventListener('focusin', trackFocus)
+    rowDeliveryInFlight = true
     control.disabled = true
     try {
-      await stage({ summary }, n, 'type')
+      await stage({ summary }, n, how)
     } finally {
-      rowPasteInFlight = false
+      rowDeliveryInFlight = false
       control.disabled = false
+      if (restoreFocus) {
+        document.removeEventListener('focusin', trackFocus)
+        if (document.activeElement === document.body || document.activeElement === control) {
+          const id = focused === control && !control.isConnected ? summaryID : focused.id
+          document.getElementById(id)?.focus({ preventScroll: true })
+        }
+      }
     }
   }
 
   async function stage(current, n, how) {
     const inCard = opened === current
-    if (current.pending || (inCard && rowPasteInFlight)) return
+    if (current.pending || (inCard && rowDeliveryInFlight)) return
     current.pending = true
     current.result = undefined
     if (inCard) render(current)

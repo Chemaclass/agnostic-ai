@@ -20,7 +20,7 @@ Keep a question or finding beside the two chats it concerns. The [companion](@/d
 
 The **To** list holds the local Claude Code and Codex chats the companion has loaded, grouped like the main list. With the mailbox built-in on, an archived chat gets the message when it is resumed. An ID that matches no loaded chat still sends, and the server checks it.
 
-The line under each chat names the sender or receiver and says what the waiting message needs. If automatic delivery is off or the Companion cannot check it, a thread with one waiting message offers **Paste into chat** on the row. Press Enter in the receiving terminal to submit the pasted message. Open the thread for details, more waiting messages, or **More → Copy message** to paste it yourself. The thread shows **Pasted by you** or **Copied by you** after either action succeeds.
+The line under each chat names the sender or receiver and says what the waiting message needs. If automatic delivery is off or the Companion cannot check it, a thread with one waiting message offers **Paste into chat** when the receiver is running. Press Enter in the receiving terminal to submit it. If the receiver has stopped, choose **Copy message** and paste after resuming the chat. Open the thread for details, to choose among several messages, or to copy one from **More**. The thread shows **Pasted by you** or **Copied by you** after either action succeeds.
 
 ## Request a code review
 
