@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // errKittyRemoteControlOff means kitty listens on no socket the server
@@ -25,6 +26,8 @@ type kittyTab struct {
 	// window forward: Wayland lets no program raise another's window.
 	noRaising bool
 }
+
+type linuxKittyTab struct{ kittyTab }
 
 // raise brings kitty's window forward, or says it may stay behind.
 func (k kittyTab) raise(ctx context.Context) error {
@@ -100,6 +103,99 @@ func (k kittyTab) reach(ctx context.Context, to string, args ...string) (string,
 	return out, err
 }
 
+type kittyPane struct {
+	ID  int `json:"id"`
+	PID int `json:"pid"`
+}
+
+func (k kittyTab) list(ctx context.Context, to string, into any) error {
+	out, err := k.reach(ctx, to, "ls")
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal([]byte(out), into); err != nil {
+		return fmt.Errorf("%w: %w", errNoTabCommand, err)
+	}
+	return nil
+}
+
+func (k linuxKittyTab) readTabNames(ctx context.Context) ([]TerminalTab, error) {
+	table, err := k.table()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", errNoTabCommand, err)
+	}
+	byPID := make(map[int]ProcessInfo, len(table))
+	var pids []int
+	for _, process := range table {
+		byPID[process.PID] = process
+		if isKitty(process.Command) && k.socket(kittySocket(process.PID)) {
+			pids = append(pids, process.PID)
+		}
+	}
+	var tabs []TerminalTab
+	readErr := errKittyRemoteControlOff
+	read := false
+	for i, pid := range pids {
+		if err := ctx.Err(); err != nil {
+			readErr = err
+			break
+		}
+		socketCtx, cancel := kittySocketReadContext(ctx, len(pids)-i)
+		instance, err := k.instanceTabNames(socketCtx, pid, byPID)
+		cancel()
+		if err != nil {
+			readErr = err
+			continue
+		}
+		read = true
+		tabs = append(tabs, instance...)
+	}
+	if read {
+		return tabs, nil
+	}
+	return nil, readErr
+}
+
+func kittySocketReadContext(ctx context.Context, untried int) (context.Context, context.CancelFunc) {
+	if deadline, ok := ctx.Deadline(); ok && untried > 1 {
+		return context.WithTimeout(ctx, time.Until(deadline)/time.Duration(untried))
+	}
+	return context.WithCancel(ctx)
+}
+
+func (k linuxKittyTab) instanceTabNames(ctx context.Context, pid int, byPID map[int]ProcessInfo) ([]TerminalTab, error) {
+	var windows []struct {
+		Tabs []struct {
+			Title           *string     `json:"title"`
+			TitleOverridden *bool       `json:"title_overridden"`
+			Windows         []kittyPane `json:"windows"`
+		} `json:"tabs"`
+	}
+	if err := k.list(ctx, "unix:"+kittySocket(pid), &windows); err != nil {
+		return nil, err
+	}
+	var tabs []TerminalTab
+	for _, window := range windows {
+		for _, tab := range window.Tabs {
+			if tab.TitleOverridden == nil || (*tab.TitleOverridden && tab.Title == nil) {
+				return nil, fmt.Errorf("%w: kitty %d omitted explicit tab title metadata", errNoTabCommand, pid)
+			}
+			// An unverified pane must still count toward whether the tab is split.
+			name := TerminalTab{TTYs: make([]string, len(tab.Windows))}
+			if *tab.TitleOverridden {
+				name.Name = *tab.Title
+			}
+			for i, pane := range tab.Windows {
+				if child, ok := byPID[pane.PID]; ok && child.PPID == pid && strings.HasPrefix(child.TTY, "/dev/") {
+					name.TTYs[i] = child.TTY
+				}
+			}
+			tabs = append(tabs, name)
+		}
+	}
+	return tabs, nil
+}
+
 // window finds the kitty window whose first process runs on tty; ok is
 // false when none does.
 func (k kittyTab) window(ctx context.Context, tty string) (to, window string, ok bool, err error) {
@@ -107,20 +203,13 @@ func (k kittyTab) window(ctx context.Context, tty string) (to, window string, ok
 	if err != nil || to == "" {
 		return "", "", false, err
 	}
-	out, err := k.reach(ctx, to, "ls")
-	if err != nil {
-		return "", "", false, err
-	}
 	var osWindows []struct {
 		Tabs []struct {
-			Windows []struct {
-				ID  int `json:"id"`
-				PID int `json:"pid"`
-			} `json:"windows"`
+			Windows []kittyPane `json:"windows"`
 		} `json:"tabs"`
 	}
-	if err := json.Unmarshal([]byte(out), &osWindows); err != nil {
-		return "", "", false, fmt.Errorf("%w: %w", errNoTabCommand, err)
+	if err := k.list(ctx, to, &osWindows); err != nil {
+		return "", "", false, err
 	}
 	for _, osWindow := range osWindows {
 		for _, tab := range osWindow.Tabs {

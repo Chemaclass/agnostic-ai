@@ -58,7 +58,7 @@ var tabNameReads = map[string][]string{
 var noTabNameRead = map[string]string{
 	"Terminal": "a manual rename and a title the shell sets are not yet told apart on a real host",
 	"iTerm":    "which of the tab title and the session name a manual rename changes is not yet checked on a real host",
-	"kitty":    "the title_overridden field of kitty @ ls is not yet checked on a real host",
+	"kitty":    "the title_overridden field of kitty @ ls is verified on Linux but not yet on macOS",
 	"Konsole":  "a manual rename cannot yet be told apart from the tab title format",
 }
 

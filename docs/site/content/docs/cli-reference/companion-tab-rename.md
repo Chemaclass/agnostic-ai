@@ -9,19 +9,20 @@ group = "Reference"
 
 # Tab renames
 
-If a chat runs directly in a single-pane tab, rename the tab in WezTerm 20230408 or later on macOS or Linux, or in Ghostty 1.4 or later on macOS. The chat takes that name on the next refresh or the one after. Only the companion and a user-level `serve` do this. A `serve` limited to one project cannot see a chat outside it that may share the tab, so it leaves tab names alone. The name goes through the same steps as a rename in the list: the tool first, then the marks file. So the row, a search and the mailbox show it, and it stays after the session ends.
+If a chat runs directly in a single-pane tab, rename the tab in WezTerm 20230408 or later on macOS or Linux, Ghostty 1.4 or later on macOS, or kitty 0.46.2 or later on Linux. The chat takes that name on the next refresh or the one after. Only the companion and a user-level `serve` do this. A `serve` limited to one project cannot see a chat outside it that may share the tab, so it leaves tab names alone. The name goes through the same steps as a rename in the list: the tool first, then the marks file. So the row, a search and the mailbox show it, and it stays after the session ends.
 
-- Companion reads Ghostty's `name override` or WezTerm's `tab_title`. Titles set by the shell or the tool leave the saved chat name alone.
+- Companion reads Ghostty's `name override`, WezTerm's `tab_title` or kitty's `title_overridden` flag and tab title. Titles set by the shell or the tool leave the saved chat name alone.
 - From another WezTerm tab, use `wezterm cli list` to find the running chat's `TABID`, then run `wezterm cli set-tab-title --tab-id <tab-id> "name"`. [Command reference](https://wezterm.org/cli/cli/set-tab-title.html)
 - A shortcut can call `tab:set_title()`. The example's `initial_value` field requires a nightly build. [Shortcut example](https://wezterm.org/config/lua/keyassignment/PromptInputLine.html)
 - If `wezterm.lua` calls `tab:set_title()` for automatic titles, Companion follows those changes too. An automatic title can replace a name you set in Companion.
+- On Linux, set `allow_remote_control socket-only` and `listen_on unix:/tmp/kitty-{kitty_pid}` in `kitty.conf`, then restart kitty. With the default shortcuts, **Ctrl+Shift+Alt+T** opens the tab rename prompt. [kitty configuration](https://sw.kovidgoyal.net/kitty/conf/#opt-kitty.listen_on) · [Tab title action](https://sw.kovidgoyal.net/kitty/actions/#action-set_tab_title)
 - The tab must hold one pane, and only one running chat. A split tab, or a tab Companion cannot match to one chat for sure, changes nothing.
 - Clearing the tab's name leaves the saved chat name alone.
 - The first time Companion sees a tab that already has a name, it takes that name only when the chat has none of its own, and the name is not one an earlier chat in that tab had. A chat resumed in a new process counts as a first look too.
 - A name the tool or the name check refuses (empty, longer than 120 characters, or a possible credential) is not saved. It is tried again only once you type another name. The server log says why, without the name.
 - F2 still names the tab. The tab then shows the chat's name, so Companion renames nothing back.
-- Each refresh reads a supported app's tabs once, while it has a running chat. WezTerm uses the instance its CLI can reach. It leaves a chat alone if its tty is missing from that instance.
-- The first read may make macOS ask whether Companion may control Ghostty, even if you never used F2. The list still works if a read fails. If you leave the question open, the read stops after 3 seconds. After any failed read, Companion waits 5 minutes before trying again.
+- When a supported terminal has an eligible chat, each refresh takes one tab snapshot per reachable instance. WezTerm uses the instance its CLI can reach. kitty uses its configured sockets owned by your account.
+- The first read may make macOS ask whether Companion may control Ghostty, even if you never used F2. The list still works if a read fails. If you leave the question open, the read stops after 3 seconds. If Companion cannot read an app's tabs, it waits 5 minutes before trying that app again.
 
 ## Verification by terminal
 
@@ -36,7 +37,8 @@ The desktop walkthrough still needs a tab rename typed in Ghostty, F2 in Compani
 | macOS | iTerm2 | iTerm2 3.7.9 rejected an AppleScript write to the tab's `title`. The Python API exposes `titleOverride` per tab, and each session has a tty. | Unavailable. Check the Python API after a menu rename, a shell title change and clearing the tab title. |
 | macOS | WezTerm | The GUI and mux in build `20240203-110809-5046fc22` both report the explicit `tab_title` separately from the pane title. A split repeats the tab ID and override with a separate tty per pane. Setting and clearing the override leaves shell-set titles alone. | Implemented. |
 | Linux | WezTerm | Build `20240203-110809-5046fc22` on Debian 13 ARM64 with Xvfb. A manual rename reached the list, search and mailbox. The list rename updated the matching tab. The shell title, a cleared name and a split left the chat name alone. | Implemented for chats running directly in a WezTerm pane. |
-| macOS, Linux | kitty | On Debian 13 with Xvfb, kitty 0.51.1 set `title_overridden` in `kitty @ ls` after a keyboard rename and cleared it when the title was cleared. Shell OSC 0 changed only the pane title. The other tab kept its name. The window PID identified the pane's tty. Debian's kitty 0.41.1 omitted the field. | Unavailable. Needs a native desktop and Companion check. |
+| Linux | kitty | kitty 0.51.1 on Debian 13 ARM64 with Xvfb. The list, search and mailbox picked up the name from the matching GUI, even though two GUIs reused the same tab and pane IDs. The list rename wrote back to the matching tab. Shell titles, cleared names and splits kept saved names. | Implemented for direct chats using the configured control socket. |
+| macOS | kitty | The command reports a separate `title_overridden` field. The macOS pane mapping needs a native check. | Pending native verification. |
 | Linux | Konsole | In Konsole 25.04.2 on Debian 13 with Xvfb, Tab Properties and shell OSC 30 both changed `title(1)` and `tabTitleFormat(0)` on D-Bus. The process's service and session identify the tab. | Unavailable. Needs a user-set flag in D-Bus. |
 | macOS, Linux | tmux | In a Debian 13 container under tmux 3.5a with `allow-rename` on, `rename-window` and a pane's shell escape yielded the same `window_name`, `automatic-rename` and tty values. The tmux window is separate from the outer terminal tab. | Unavailable. Needs a way to tell the two updates apart. |
 | macOS | Warp | Companion has no way to reach Warp's tabs. | Unavailable. |
