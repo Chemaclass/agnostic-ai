@@ -2398,7 +2398,7 @@ async function offerHandoff(page: Page) {
   await chooseMailboxTarget(page)
   await claimedFilesDetails(page).click()
   const composer = page.getByRole('form', { name: 'Message another session' })
-  await composer.getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
+  await expect(composer.getByLabel('Worktree', { exact: true })).toHaveValue(handoffWorktree)
   await composer.getByLabel('Paths, one per line').fill(handoffPath)
   await page.getByLabel('Note (optional)', { exact: true }).fill('Please finish the handoff implementation.')
   await page.getByRole('button', { name: 'Claim these paths' }).click()
@@ -2461,6 +2461,40 @@ test('an explicit mailbox handoff worktree wins over a pending lookup', async ({
   await claimedFilesDetails(page).click()
   await expect(worktree).toHaveValue('/chosen-worktree')
   await expect(composer.getByRole('button', { name: 'Claim these paths' })).toBeEnabled()
+})
+
+test('typing a handoff worktree replaces a suggestion that arrived after focus', async ({ page }) => {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  await page.route(`**/api/mailbox/claims?tool=claude&id=${mailboxSource}`, async (route) => {
+    await held
+    await route.continue()
+  })
+  await openPanel(page, 'mailbox-handoff')
+  await composeMailbox(page)
+  await chooseMailboxTarget(page)
+  const composer = page.getByRole('form', { name: 'Message another session' })
+  const worktree = composer.getByLabel('Worktree', { exact: true })
+  try {
+    await claimedFilesDetails(page).click()
+    await worktree.focus()
+    await expect(worktree).toBeFocused()
+    await expect(worktree).toHaveValue('')
+  } finally {
+    release()
+  }
+  await expect(worktree).toHaveValue(handoffWorktree)
+  const files = { worktree: '/chosen-worktree', paths: [handoffPath] }
+  await page.keyboard.insertText(files.worktree)
+  await composer.getByLabel('Paths, one per line').fill(handoffPath)
+
+  const claim = page.waitForRequest('**/api/mailbox/claim')
+  await composer.getByRole('button', { name: 'Claim these paths' }).click()
+  expect((await claim).postDataJSON()).toMatchObject(files)
+  const sent = page.waitForRequest('**/api/mailbox/send')
+  await mailboxSend(page).click()
+  expect((await sent).postDataJSON()).toMatchObject({ type: 'handoff', gives: files })
+  await expect(mailboxSummary(page)).toContainText('Handoff')
 })
 
 test('a mailbox handoff moves no claim until the receiver accepts', async ({ page }) => {

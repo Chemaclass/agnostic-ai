@@ -400,6 +400,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       const { worktree } = await readClaims(current.from, reading.signal)
       if (draft !== current || current.reading !== reading) return
       handoffWorktree.value = worktree ?? ''
+      // Typing in the focused field replaces a suggestion that just arrived.
+      if (document.activeElement === handoffWorktree) handoffWorktree.select()
       handoffStatus.textContent = worktree ? '' : 'Enter the Git worktree root.'
     } catch (error) {
       if (error instanceof GivenUp || draft !== current || current.reading !== reading) return

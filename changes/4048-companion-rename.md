@@ -4,3 +4,4 @@
 - macOS downloads use `agnostic-companion_darwin_<arch>` for `.dmg` and `.tar.gz`. The old-layout disk image stays available in new releases through v1.0.0 and for at least 30 days after the first renamed release, whichever is later (#4048, #4060).
 - `agnostic-ai companion` starts the renamed app with its existing settings in `agnostic-ai/` and bundle ID `dev.agnostic-ai.companion`. Disk-image updates keep the installed app's path (#4048).
 - The Companion returns keyboard focus to Dismiss after you release file claims, even if the list refreshes in the meantime.
+- Typing a handoff worktree replaces a suggestion that arrives while the field has focus.
