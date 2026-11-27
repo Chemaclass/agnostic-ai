@@ -33,9 +33,16 @@ type tabNameReader interface {
 	readTabNames(context.Context) ([]TerminalTab, error)
 }
 
-func macCommandTabNameReader(app string) (tabNameReader, bool) {
-	driver, ok := commandTabs[app].(tabNameReader)
-	return driver, ok
+func commandTabNameReader(app, goos string) (tabNameReader, bool) {
+	var driver commandTab
+	switch goos {
+	case "darwin":
+		driver = commandTabs[app]
+	case "linux":
+		driver = linuxCommandTabs[app]
+	}
+	reader, ok := driver.(tabNameReader)
+	return reader, ok
 }
 
 var commandTabs = map[string]commandTab{

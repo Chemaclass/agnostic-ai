@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"runtime"
 	"strings"
@@ -55,17 +56,17 @@ func testWezTerm(commands *fakeCommands) weztermTab {
 	return weztermTab{run: commands.run, runInput: commands.runInput, path: func() (string, error) { return "wezterm", nil }}
 }
 
-func useWezTermList(t *testing.T, output string) *fakeCommands {
+func useWezTermList(t *testing.T, drivers map[string]commandTab, output string) *fakeCommands {
 	t.Helper()
 	commands := &fakeCommands{out: map[string]string{"wezterm cli --no-auto-start list": output}}
-	driver := commandTabs["WezTerm"]
-	t.Cleanup(func() { commandTabs["WezTerm"] = driver })
-	commandTabs["WezTerm"] = testWezTerm(commands)
+	driver := drivers["WezTerm"]
+	t.Cleanup(func() { drivers["WezTerm"] = driver })
+	drivers["WezTerm"] = testWezTerm(commands)
 	return commands
 }
 
 func TestMacLauncher_ReadsExplicitWezTermTitlesInOneList(t *testing.T) {
-	commands := useWezTermList(t, `[
+	commands := useWezTermList(t, commandTabs, `[
 	  {"tab_id":0,"pane_id":0,"title":"shell title","tab_title":"Typed tab name","tty_name":"/dev/ttys004"},
 	  {"tab_id":2,"pane_id":4,"title":"another pane title","tab_title":"","tty_name":"/dev/ttys005"},
 	  {"tab_id":1,"pane_id":1,"title":"shell","tab_title":"Split","tty_name":"/dev/ttys006"},
@@ -87,6 +88,25 @@ func TestMacLauncher_ReadsExplicitWezTermTitlesInOneList(t *testing.T) {
 	}
 }
 
+func TestLinuxLauncher_ReadsExplicitWezTermTitlesInOneList(t *testing.T) {
+	commands := useWezTermList(t, linuxCommandTabs, `[
+	  {"tab_id":0,"pane_id":0,"title":"shell title","tab_title":"Typed tab name","tty_name":"/dev/pts/4"},
+	  {"tab_id":1,"pane_id":1,"title":"another pane title","tab_title":"","tty_name":"/dev/pts/5"}
+	]`)
+
+	if !canReadTabNames("WezTerm", "linux") || canReadTabNames("WezTerm", "windows") {
+		t.Error("WezTerm tab name reads should be supported on Linux and disabled on Windows")
+	}
+	tabs, err := (linuxLauncher{}).ReadTabNames(context.Background(), "WezTerm")
+	want := []TerminalTab{tab("Typed tab name", "/dev/pts/4"), tab("", "/dev/pts/5")}
+	if err != nil || !reflect.DeepEqual(tabs, want) {
+		t.Errorf("tabs = %+v, err = %v, want %+v", tabs, err, want)
+	}
+	if want := []string{"wezterm cli --no-auto-start list --format json"}; !reflect.DeepEqual(commands.calls, want) {
+		t.Errorf("calls = %q, want %q", commands.calls, want)
+	}
+}
+
 func TestMacLauncher_RejectsAmbiguousWezTermSnapshots(t *testing.T) {
 	for name, output := range map[string]string{
 		"no tab ID":         `[{"tab_title":"Typed","tty_name":"/dev/ttys004"}]`,
@@ -97,7 +117,7 @@ func TestMacLauncher_RejectsAmbiguousWezTermSnapshots(t *testing.T) {
 		]`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			useWezTermList(t, output)
+			useWezTermList(t, commandTabs, output)
 			tabs, err := (macLauncher{}).ReadTabNames(context.Background(), "WezTerm")
 			if len(tabs) != 0 || !errors.Is(err, errNoTabCommand) {
 				t.Errorf("tabs = %+v, err = %v, want an unusable snapshot", tabs, err)
@@ -106,29 +126,37 @@ func TestMacLauncher_RejectsAmbiguousWezTermSnapshots(t *testing.T) {
 	}
 }
 
-func TestSyncTabNames_WezTermFollowsItsTabWithF2ProtectionOnMacOS(t *testing.T) {
+func TestSyncTabNames_WezTermFollowsItsTabWithF2Protection(t *testing.T) {
+	drivers, firstTTY, secondTTY := commandTabs, "/dev/ttys004", "/dev/ttys005"
+	if runtime.GOOS == "linux" {
+		drivers, firstTTY, secondTTY = linuxCommandTabs, "/dev/pts/4", "/dev/pts/5"
+	}
 	const list = "wezterm cli --no-auto-start list"
-	const twoTabs = `[
-	  {"tab_id":0,"pane_id":0,"title":"shell","tab_title":"Seen before F2","tty_name":"/dev/ttys004"},
-	  {"tab_id":1,"pane_id":1,"title":"other shell","tab_title":"","tty_name":"/dev/ttys005"}
-	]`
-	commands := useWezTermList(t, twoTabs)
+	twoTabs := fmt.Sprintf(`[
+	  {"tab_id":0,"pane_id":0,"title":"shell","tab_title":"Seen before F2","tty_name":%q},
+	  {"tab_id":1,"pane_id":1,"title":"other shell","tab_title":"","tty_name":%q}
+	]`, firstTTY, secondTTY)
+	commands := useWezTermList(t, drivers, twoTabs)
 	s := newTabSync(t)
 	table := ghosttyTable(
-		ghosttyTab("/dev/ttys004", 45469, 45864, "claude"),
-		ghosttyTab("/dev/ttys005", 45569, 45964, "claude"),
+		ghosttyTab(firstTTY, 45469, 45864, "claude"),
+		ghosttyTab(secondTTY, 45569, 45964, "claude"),
 	)
-	table[0].Command = "/Applications/WezTerm.app/Contents/MacOS/wezterm-gui"
+	table[0].Command = "wezterm-gui"
 	s.scanner.Processes = processesWithTable(table)
 	ctx := context.Background()
+	launcher := SystemLauncher()
 	s.scanner.Scan(ctx, ScanOptions{})
-	failures := s.scanner.SyncTabNames(ctx, macLauncher{}, s.inTool)
+	failures := s.scanner.SyncTabNames(ctx, launcher, s.inTool)
 
-	if runtime.GOOS != "darwin" {
-		if len(commands.calls) != 0 || len(s.named) != 0 {
-			t.Errorf("outside macOS, calls = %q, renamed = %q", commands.calls, s.named)
+	if runtime.GOOS != "darwin" && runtime.GOOS != "linux" {
+		if len(failures) != 0 || len(commands.calls) != 0 || len(s.named) != 0 {
+			t.Errorf("on %s, failures = %v, calls = %q, renamed = %q", runtime.GOOS, failures, commands.calls, s.named)
 		}
 		return
+	}
+	if want := []string{list + " --format json"}; !reflect.DeepEqual(commands.calls, want) {
+		t.Errorf("calls = %q, want %q", commands.calls, want)
 	}
 	if want := []string{idSafari + " Seen before F2"}; len(failures) != 0 || !reflect.DeepEqual(s.named, want) {
 		t.Fatalf("failures = %v, renamed = %q, want %q", failures, s.named, want)
@@ -150,7 +178,7 @@ func TestSyncTabNames_WezTermFollowsItsTabWithF2ProtectionOnMacOS(t *testing.T) 
 		t.Fatal("the F2 tab write did not start")
 	}
 	commands.out[list] = strings.Replace(twoTabs, "Seen before F2", "Unread older title", 1)
-	if failures := s.scanner.SyncTabNames(ctx, macLauncher{}, s.inTool); len(failures) != 0 {
+	if failures := s.scanner.SyncTabNames(ctx, launcher, s.inTool); len(failures) != 0 {
 		t.Errorf("reverse sync during F2: %v", failures)
 	}
 	if want := []string{idSafari + " Seen before F2", idSafari + " from F2"}; !reflect.DeepEqual(s.named, want) {
