@@ -160,6 +160,21 @@ The published v0.99.0 arm64 disk image matched its SHA-256 and the release workf
 
 `TestCompanionUpdateApp_UsesEachBundlesExecutable` and `TestCompanionUpdateApp_RestoresAndRelaunchesOldAppWhenOpenFails` exercise an old installed executable and a candidate with the new executable name. The updater uses the installed app's path for the swap and verifies that the candidate's executable starts there. The rollback test checks that it restores the original bundle when the candidate fails to start.
 
+### Linux update fallbacks
+
+On 2026-11-27, the published Linux arm64 v0.98.0 CLI matched the release SHA-256. In a Debian build container, that CLI built the companion from an archive of the v0.98.0 tag (`45737a6bc95e4aa052ce535fa9984894f8c1437f`) with Go 1.27.3.
+
+```sh
+agnostic-ai companion install --source /opt/aai/companion
+agnostic-ai companion
+```
+
+Both runs used Debian 13.7 arm64, GTK 4.18.6, and WebKitGTK 2.54.3 in an isolated OrbStack machine. X11 ran on Xvfb 21.1.16 with Openbox 3.6.1. Wayland ran on a headless Sway 1.10.1 output. The companion ran as an unprivileged user, and its WebKit content processes ran in their usual sandbox.
+
+The settings menu offered **Update to v0.99.0**. A click opened a dialog with **Later**, **Release page**, and **Copy command**. In both sessions, a click on **Copy command** replaced a test value in the system clipboard with exactly `agnostic-ai upgrade`. X11 used `xclip -selection clipboard -out` to read it. Wayland used `wl-paste --no-newline`. A click on **Release page** opened the default Firefox ESR 153.8.0 in a fresh profile. Its address bar and history both showed the exact release URL. After both clicks, the CLI and companion still reported v0.98.0, and the companion kept its process ID. [Published v0.99.0 release](https://github.com/Chemaclass/agnostic-ai/releases/tag/v0.99.0)
+
+The runs used virtual displays and scripted input. The Linux and Windows checks still require physical desktops and interactive logins. The tooltip on the Linux update menu row described an automatic restart even though the dialog offered the fallbacks. [Desktop verification #3888](https://github.com/Chemaclass/agnostic-ai/issues/3888) · [Update menu wording #4069](https://github.com/Chemaclass/agnostic-ai/issues/4069)
+
 ## Troubleshooting
 
 | Message | Cause | Fix |

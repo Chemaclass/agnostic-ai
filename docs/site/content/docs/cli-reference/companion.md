@@ -283,16 +283,17 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --scope
 
 `agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. When the CLI is already current, as after a direct Homebrew or npm upgrade, it still replaces a companion built for another release.
 
-A terminal install uses the same menus and quiet automatic checks. On macOS, **Update and restart** runs `agnostic-ai upgrade` after you confirm the offer. The CLI first checks that GitHub still shows that release, then uses its install method. Homebrew and npm publish on their own schedules. The updater verifies the installed CLI version before replacing the companion. If the package manager has yet to publish the release, choose **Retry** later. If it already serves a newer release, the updater keeps that CLI and installs the matching companion.
+Terminal installs use the same menus and quiet automatic checks. On macOS, confirming **Update and restart** runs `agnostic-ai upgrade`. The CLI rechecks GitHub's offer, upgrades using its install method, and verifies the installed CLI version before replacing the companion. Homebrew and npm publish on their own schedules. Choose **Retry** if the release has yet to publish there. If the package manager serves a newer release, the updater keeps that CLI and installs its matching companion.
 
-Older CLIs, unknown install methods, and other systems use **Copy command** for `agnostic-ai upgrade` and **Release page** for the GitHub release. Finder and login launches on macOS also search `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. If the update fails because npm lives elsewhere, as with nvm, use **Copy command** in the failure message and paste it into a terminal where npm is available.
+Older CLIs, unknown install methods, and other systems use **Copy command** for `agnostic-ai upgrade` and **Release page** for the GitHub release. Finder and login launches on macOS also search `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. If npm lives elsewhere, such as under nvm, copy the command from the failure message and run it in a terminal with npm.
 
 {% <details summary="Details: what ran for updates"> %}
 - On macOS 27.2.1 (arm64), checksums, build provenance and signatures passed for v0.97.0 and v0.98.0. `companion update-app` upgraded between them. The restarted app and its CLI reported v0.98.0, and preferences survived.
 - The published npm CLI upgraded from v0.97.0 to v0.98.0 in a scratch prefix. A Finder-like `PATH` found Homebrew once the folders above were added. With npm absent, the update was offered and then failed. The CLI still reported v0.97.0.
-- The signature of a quarantined v0.98.0 app copy verified. Gatekeeper assessment rejected it, and the policy check reported a missing notarization ticket.
-- A macOS test gives the updater two bundles signed with different certificates. It checks that the updater refuses the candidate before it runs a candidate binary, quits the app, replaces it, or restarts it. The installed files stay unchanged.
-- Browser tests exercised **Copy command** and **Release page**. The remaining Mac desktop checks cover panel updates, the Finder copy fallback, Accessibility, the Gatekeeper prompt and **Open Anyway**, and manual certificate rotation. Native Linux and Windows still need clipboard and browser launch checks.
+- A quarantined v0.98.0 app copy passed signature verification. Gatekeeper rejected it. The policy check found a missing notarization ticket.
+- A macOS test uses two bundles signed with different certificates. The updater refuses the candidate before running its binary or quitting, replacing or restarting the installed app. Its files stay unchanged.
+- Browser tests covered both fallbacks. On Debian 13.7 arm64, v0.98.0 offered v0.99.0 in virtual X11 (Xvfb/Openbox) and Wayland (Sway) sessions with WebKit's sandbox active. **Copy command** copied `agnostic-ai upgrade` and **Release page** opened the exact release in Firefox ESR.
+- Linux and Windows fallbacks still need physical desktop logins. Mac desktop checks still cover panel updates, the Finder copy fallback, Accessibility, the Gatekeeper prompt and **Open Anyway**, and manual certificate rotation.
 {% </details> %}
 
 {% <details summary="Details: failures and version mismatch"> %}
