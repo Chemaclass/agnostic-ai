@@ -99,12 +99,20 @@ type upgradeInfo struct {
 	Path        string
 	LinkPath    string
 	Method      installMethod
+	NPMPrefix   string
 	Version     string
 	Latest      string
 	LatestError error
 	Command     string
 	Shadows     []string
 	Notes       []string
+}
+
+func (info upgradeInfo) updatedCLIPath() string {
+	if info.NPMPrefix != "" {
+		return npmGlobalPlatformBinary(info.NPMPrefix)
+	}
+	return info.LinkPath
 }
 
 func newUpgradeCmd() *cobra.Command {
@@ -309,6 +317,9 @@ func runUpgradeWithDeps(out io.Writer, checkOnly bool, requestedVersion, current
 func runDetectedUpgrade(out io.Writer, checkOnly bool, requestedVersion string, info upgradeInfo, deps upgradeDeps) error {
 	printUpgradeInfo(out, info, requestedVersion)
 	if checkOnly {
+		if info.Method == installNPM && info.Command == "" {
+			_, _ = fmt.Fprintln(out, "! "+npmUpgradeGuidance)
+		}
 		return nil
 	}
 	if requestedVersion != "" {
@@ -336,12 +347,21 @@ func runDetectedUpgrade(out io.Writer, checkOnly bool, requestedVersion string, 
 		return nil
 	}
 	if info.Command == "" {
+		if info.Method == installNPM {
+			return errors.New("upgrade: " + strings.TrimSuffix(npmUpgradeGuidance, "."))
+		}
 		return fmt.Errorf("upgrade: install method unknown; download a release from %s", releasesHTMLURL)
 	}
 	if info.Method == installHomebrew {
 		if ok, hint := homebrewBinaryOK(info.LinkPath); !ok {
 			return fmt.Errorf("upgrade: homebrew cask state is inconsistent.\n%s", hint)
 		}
+	}
+	if info.NPMPrefix != "" {
+		if err := runNPMUpgrade(out, info.NPMPrefix); err != nil {
+			return fmt.Errorf("upgrade: install in npm prefix %s: %w", info.NPMPrefix, err)
+		}
+		return nil
 	}
 	_, _ = fmt.Fprintf(out, "\n→ %s\n", info.Command)
 	if err := deps.run(out, info.Command); err != nil {
@@ -450,6 +470,12 @@ func detectUpgradeInstallation(currentVersion string) (upgradeInfo, error) {
 		Version:  strings.TrimSpace(currentVersion),
 	}
 	info.Command = upgradeCommandFor(info.Method)
+	if info.Method == installNPM {
+		info.NPMPrefix = npmGlobalPrefix(exe)
+		if info.NPMPrefix == "" {
+			info.Command = ""
+		}
+	}
 	info.Shadows = otherInstancesOnPATH(exe)
 	if info.Method == installUnknown {
 		info.Notes = append(info.Notes,
@@ -473,16 +499,19 @@ func detectUpgradeInstallation(currentVersion string) (upgradeInfo, error) {
 // treated as a raw binary install.
 func detectInstallMethod(exe string) installMethod {
 	p := filepath.ToSlash(exe)
-	for _, marker := range homebrewMarkers {
-		if strings.Contains(p, marker) {
-			return installHomebrew
-		}
-	}
 	// Backslashes are replaced explicitly, not via ToSlash, which is a no-op
 	// off Windows: a Windows path reaching this code from a test or a WSL
 	// mount must classify the same way. Casing is folded too, since these
 	// path segments carry whatever the user typed (C:\Users\Me\Scoop\shims).
 	lower := strings.ToLower(strings.ReplaceAll(p, `\`, "/"))
+	if strings.Contains(lower, "/node_modules/") {
+		return installNPM
+	}
+	for _, marker := range homebrewMarkers {
+		if strings.Contains(p, marker) {
+			return installHomebrew
+		}
+	}
 	for _, m := range pathMarkers {
 		if strings.Contains(lower, m.marker) {
 			return m.method
@@ -521,8 +550,7 @@ var homebrewMarkers = []string{
 
 // pathMarkers map a lowercased path fragment to the channel that owns it.
 // Scoop keeps apps under <root>/apps and shims under <root>/shims; winget
-// portable packages land under Microsoft/WinGet with a shim in its Links
-// dir; an npm global install always sits inside node_modules.
+// portable packages land under Microsoft/WinGet with a shim in its Links dir.
 var pathMarkers = []struct {
 	marker string
 	method installMethod
@@ -530,7 +558,6 @@ var pathMarkers = []struct {
 	{"/scoop/apps/", installScoop},
 	{"/scoop/shims/", installScoop},
 	{"/microsoft/winget/", installWinget},
-	{"/node_modules/", installNPM},
 }
 
 // otherInstancesOnPATH returns absolute paths of every agnostic-ai
@@ -676,6 +703,10 @@ func execShell(out io.Writer, command string) error {
 	} else {
 		cmd = exec.Command("sh", "-c", command)
 	}
+	return runUpgradeCommand(out, cmd)
+}
+
+func runUpgradeCommand(out io.Writer, cmd *exec.Cmd) error {
 	cmd.Stdout = out
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
@@ -688,6 +719,9 @@ func execShell(out io.Writer, command string) error {
 func printUpgradeInfo(out io.Writer, info upgradeInfo, requested string) {
 	_, _ = fmt.Fprintf(out, "Install method: %s\n", info.Method)
 	_, _ = fmt.Fprintf(out, "Binary:         %s\n", info.Path)
+	if info.NPMPrefix != "" {
+		_, _ = fmt.Fprintf(out, "npm prefix:     %s\n", info.NPMPrefix)
+	}
 	if info.Version != "" {
 		_, _ = fmt.Fprintf(out, "Installed:      %s\n", info.Version)
 	}

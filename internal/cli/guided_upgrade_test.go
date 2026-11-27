@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,6 +13,7 @@ import (
 )
 
 func TestGuidedUpgrade_AcceptUsesVerifiedBinaryBeforeProjectChanges(t *testing.T) {
+	info, updatedPath := npmPlatformMove(t, "0.81.0", "0.82.0")
 	var output bytes.Buffer
 	cmd := &cobra.Command{Use: "status"}
 	cmd.SetIn(strings.NewReader("\n"))
@@ -19,25 +21,26 @@ func TestGuidedUpgrade_AcceptUsesVerifiedBinaryBeforeProjectChanges(t *testing.T
 	var calls []string
 	deps := guidedUpgradeDeps{
 		check: func(string) (upgradeOffer, error) {
-			return upgradeOffer{Latest: "0.82.0"}, nil
+			return upgradeOffer{Latest: info.Latest}, nil
 		},
 		project: func() (string, error) { return "/project", nil },
 		install: func(io.Writer, string, string) (string, error) {
 			calls = append(calls, "install")
-			return "/new/agnostic-ai", nil
+			return info.updatedCLIPath(), nil
 		},
 		run: func(path, root string, args []string, out io.Writer) (string, error) {
-			if path != "/new/agnostic-ai" {
-				t.Errorf("binary %s", path)
+			if path != updatedPath {
+				t.Errorf("binary %s, want %s", path, updatedPath)
 			}
 			calls = append(calls, strings.Join(args, " "))
 			if args[0] == "--version" {
-				return "agnostic-ai version 0.82.0\n", nil
+				data, err := os.ReadFile(path)
+				return string(data), err
 			}
 			return "", nil
 		},
 	}
-	handled, err := runGuidedUpgrade(cmd, "0.81.0", deps)
+	handled, err := runGuidedUpgrade(cmd, info.Version, deps)
 	if err != nil {
 		t.Fatal(err)
 	}

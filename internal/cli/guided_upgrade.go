@@ -115,7 +115,7 @@ func defaultGuidedUpgradeDeps() guidedUpgradeDeps {
 			deps := defaultUpgradeDeps()
 			deps.detect = func(string) (upgradeInfo, error) { return info, nil }
 			err = runUpgradeWithDeps(out, false, "", current, deps)
-			return info.LinkPath, err
+			return info.updatedCLIPath(), err
 		},
 		run: runUpdatedBinary,
 	}
