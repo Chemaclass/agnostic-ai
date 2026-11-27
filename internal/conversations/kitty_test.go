@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"testing"
@@ -37,6 +38,103 @@ func testKitty(commands *fakeCommands, sockets ...string) kittyTab {
 		path:   func() (string, error) { return "kitty", nil },
 		table:  func() ([]ProcessInfo, error) { return kittyTable(), nil },
 		socket: func(path string) bool { return len(sockets) == 0 || strings.Contains(strings.Join(sockets, " "), path) },
+	}
+}
+
+func TestLinuxLauncher_ReadsKittyTabNamesFromEachOwnedInstance(t *testing.T) {
+	if !canReadTabNames("kitty", "linux") || canReadTabNames("kitty", "darwin") || canReadTabNames("kitty", "windows") {
+		t.Error("kitty tab name reads should be supported only on Linux")
+	}
+	const prefix = "kitty @ --to unix:/tmp/kitty-"
+	commands := &fakeCommands{
+		errs: map[string]error{prefix + "900 ls": errors.New("connection refused")},
+		out: map[string]string{
+			prefix + "910 ls": `[{"tabs":[{"id":1,"title":"Old shell title","windows":[{"id":1,"pid":911}]}]}]`,
+			prefix + "920 ls": `[{"tabs":[
+			  {"id":1,"title":"Manual title","title_overridden":true,"windows":[{"id":1,"pid":921}]},
+			  {"id":2,"title":"Split tab","title_overridden":true,"windows":[{"id":2,"pid":922},{"id":3,"pid":941},{"id":4,"pid":999}]}
+			]}]`,
+			prefix + "940 ls": `[{"tabs":[{"id":1,"title":"Shell title","title_overridden":false,"windows":[{"id":1,"pid":941}]}]}]`,
+		},
+	}
+	kitty := testKitty(commands, "/tmp/kitty-900", "/tmp/kitty-910", "/tmp/kitty-920", "/tmp/kitty-940")
+	tableReads := 0
+	kitty.table = func() ([]ProcessInfo, error) {
+		tableReads++
+		return []ProcessInfo{
+			{PID: 900, PPID: 1, Command: "/usr/bin/kitty"},
+			{PID: 910, PPID: 1, Command: "/usr/bin/kitty"},
+			{PID: 911, PPID: 910, TTY: "/dev/pts/1", Command: "sh"},
+			{PID: 920, PPID: 1, Command: "/usr/bin/kitty"},
+			{PID: 921, PPID: 920, TTY: "/dev/pts/2", Command: "sh"},
+			{PID: 922, PPID: 920, TTY: "/dev/pts/3", Command: "sh"},
+			{PID: 940, PPID: 1, Command: "/usr/bin/kitty"},
+			{PID: 941, PPID: 940, TTY: "/dev/pts/4", Command: "sh"},
+			{PID: 950, PPID: 1, Command: "/usr/bin/kitty"},
+		}, nil
+	}
+	driver := linuxCommandTabs["kitty"]
+	t.Cleanup(func() { linuxCommandTabs["kitty"] = driver })
+	linuxCommandTabs["kitty"] = linuxKittyTab{kitty}
+
+	tabs, err := (linuxLauncher{}).ReadTabNames(context.Background(), "kitty")
+
+	want := []TerminalTab{tab("Manual title", "/dev/pts/2"), tab("Split tab", "/dev/pts/3", "", ""), tab("", "/dev/pts/4")}
+	if err != nil || !reflect.DeepEqual(tabs, want) {
+		t.Errorf("tabs = %+v, err = %v, want %+v", tabs, err, want)
+	}
+	if tableReads != 1 {
+		t.Errorf("process table read %d times, want one", tableReads)
+	}
+	if want := []string{prefix + "900 ls", prefix + "910 ls", prefix + "920 ls", prefix + "940 ls"}; !reflect.DeepEqual(commands.calls, want) {
+		t.Errorf("calls = %q, want %q", commands.calls, want)
+	}
+}
+
+func TestLinuxKitty_AStalledSocketLeavesTimeForTheNextInstance(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), tabNameReadTimeout)
+	defer cancel()
+	appDeadline, _ := ctx.Deadline()
+	var stalledDone <-chan struct{}
+	var calls []string
+	kitty := testKitty(&fakeCommands{}, "/tmp/kitty-900", "/tmp/kitty-910")
+	kitty.table = func() ([]ProcessInfo, error) {
+		return []ProcessInfo{
+			{PID: 900, PPID: 1, Command: "/usr/bin/kitty"},
+			{PID: 910, PPID: 1, Command: "/usr/bin/kitty"},
+			{PID: 911, PPID: 910, TTY: "/dev/pts/1", Command: "sh"},
+		}, nil
+	}
+	kitty.run = func(readCtx context.Context, _ string, args ...string) (string, error) {
+		socket := args[2]
+		calls = append(calls, socket)
+		deadline, bounded := readCtx.Deadline()
+		if socket == "unix:/tmp/kitty-900" {
+			stalledDone = readCtx.Done()
+			if !bounded || !deadline.Before(appDeadline) {
+				t.Error("the stalled socket can use the whole app deadline")
+				cancel()
+			}
+			return "", context.DeadlineExceeded
+		}
+		select {
+		case <-stalledDone:
+		default:
+			t.Error("the previous socket context was not canceled before starting this read")
+		}
+		if !bounded || !deadline.Equal(appDeadline) {
+			t.Errorf("last socket deadline = %v, want %v", deadline, appDeadline)
+		}
+		return `[{"tabs":[{"title":"Healthy tab","title_overridden":true,"windows":[{"id":1,"pid":911}]}]}]`, nil
+	}
+
+	tabs, err := (linuxKittyTab{kitty}).readTabNames(ctx)
+
+	if want := []TerminalTab{tab("Healthy tab", "/dev/pts/1")}; err != nil || !reflect.DeepEqual(tabs, want) {
+		t.Errorf("tabs = %+v, err = %v, want %+v", tabs, err, want)
+	}
+	if want := []string{"unix:/tmp/kitty-900", "unix:/tmp/kitty-910"}; !reflect.DeepEqual(calls, want) {
+		t.Errorf("sockets = %q, want %q", calls, want)
 	}
 }
 
@@ -105,6 +203,26 @@ func TestKitty_TitlesTypesAndOpensWithBackslashesKept(t *testing.T) {
 	}
 	if strings.Join(commands.calls, "\n---\n") != strings.Join(want, "\n---\n") {
 		t.Errorf("calls:\n%q\nwant:\n%q", commands.calls, want)
+	}
+}
+
+func TestKitty_TitlesATabWithUnusableReverseMetadata(t *testing.T) {
+	const to = "kitty @ --to unix:/tmp/kitty-900 "
+	commands := &fakeCommands{out: map[string]string{
+		to + "ls": `[{"tabs":[{"title":42,"title_overridden":"wrong type","windows":[{"id":3,"pid":921}]}]}]`,
+	}}
+	kitty := testKitty(commands)
+
+	ok, err := kitty.title(t.Context(), "/dev/ttys041", "Named from the list")
+
+	if !ok || err != nil {
+		t.Errorf("title: ok %v, err %v", ok, err)
+	}
+	if want := []string{to + "ls", to + "set-tab-title --match window_id:3 -- Named from the list"}; !reflect.DeepEqual(commands.calls, want) {
+		t.Errorf("calls = %q, want %q", commands.calls, want)
+	}
+	if tabs, err := (linuxKittyTab{kitty}).readTabNames(t.Context()); len(tabs) != 0 || !errors.Is(err, errNoTabCommand) {
+		t.Errorf("reverse read = %+v, err = %v, want malformed metadata rejected", tabs, err)
 	}
 }
 

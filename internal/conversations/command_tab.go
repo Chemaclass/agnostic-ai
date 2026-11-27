@@ -54,7 +54,7 @@ var commandTabs = map[string]commandTab{
 // bringing their windows forward.
 var linuxCommandTabs = map[string]commandTab{
 	"WezTerm": weztermTab{run: run, runInput: runInput, path: func() (string, error) { return commandOnPath("wezterm") }, noRaising: true},
-	"kitty":   kittyTab{run: run, path: func() (string, error) { return commandOnPath("kitty") }, table: SystemProcesses{}.Table, socket: ownSocket, noRaising: true},
+	"kitty":   linuxKittyTab{kittyTab{run: run, path: func() (string, error) { return commandOnPath("kitty") }, table: SystemProcesses{}.Table, socket: ownSocket, noRaising: true}},
 	"Konsole": konsoleTab{run: run, table: SystemProcesses{}.Table, environ: readEnvironments},
 }
 
