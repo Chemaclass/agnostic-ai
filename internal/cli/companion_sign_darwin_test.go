@@ -336,7 +336,7 @@ func TestCompanionUpdateApp_RefusesADifferentMacSignerBeforeReplacement(t *testi
 			return signedApp(staging, "/usr/bin/false"), nil
 		},
 		sameSigner: sameCompanionSigner,
-		runBuilt: func(context.Context, string, string) error {
+		runBuilt: func(context.Context, companionAppLayout, string) error {
 			t.Error("tried to run a candidate binary")
 			return nil
 		},

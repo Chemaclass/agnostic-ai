@@ -16,13 +16,19 @@ import (
 
 func TestCompanionLaunch_OpensTheMacAppInANewInstance(t *testing.T) {
 	t.Parallel()
-	bundle := filepath.Join(t.TempDir(), "companion", "agnostic-ai companion.app")
-	program := filepath.Join(bundle, "Contents", "MacOS", companionName)
+	for _, layout := range []struct{ bundle, executable string }{
+		{"agnostic-ai companion.app", "agnostic-ai-companion"},
+		{"agnostic companion.app", "agnostic-companion"},
+		{"My Companion.app", "agnostic-companion"},
+	} {
+		bundle := filepath.Join(t.TempDir(), "companion", layout.bundle)
+		program := filepath.Join(bundle, "Contents", "MacOS", layout.executable)
 
-	command, wait := companionLaunchCommand(program, "darwin")
-	want := []string{"/usr/bin/open", "-g", "-n", "-a", bundle}
-	if !wait || !slices.Equal(command.Args, want) {
-		t.Errorf("launch arguments = %q, wait = %t, want %q and wait", command.Args, wait, want)
+		command, wait := companionLaunchCommand(program, "darwin")
+		want := []string{"/usr/bin/open", "-g", "-n", "-a", bundle}
+		if !wait || !slices.Equal(command.Args, want) {
+			t.Errorf("launch arguments = %q, wait = %t, want %q and wait", command.Args, wait, want)
+		}
 	}
 }
 
@@ -33,6 +39,15 @@ func TestCompanionLaunch_KeepsStartingABareMacExecutableDirectly(t *testing.T) {
 	command, wait := companionLaunchCommand(program, "darwin")
 	if wait || !slices.Equal(command.Args, []string{program}) {
 		t.Errorf("launch arguments = %q, wait = %t, want %q and detach", command.Args, wait, []string{program})
+	}
+}
+
+func TestEndCompanion_NamesTheExecutableThatWouldNotQuit(t *testing.T) {
+	tools := builtTools(t)
+	tools.quit = func(context.Context, string) (bool, error) { return true, nil }
+	program := filepath.Join(t.TempDir(), "My Companion.app", "Contents", "MacOS", "agnostic-companion")
+	if _, err := endCompanion(context.Background(), tools, program); err == nil || !strings.Contains(err.Error(), "End the agnostic-companion process") {
+		t.Errorf("stop error = %v, want the installed executable name", err)
 	}
 }
 

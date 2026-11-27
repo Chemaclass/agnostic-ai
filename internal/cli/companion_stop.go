@@ -68,7 +68,7 @@ func endCompanion(ctx context.Context, tools companionTools, installed string) (
 		}
 		ran = true
 		if try == companionStopTries {
-			return true, fmt.Errorf("the companion was asked to stop and still runs. End the %s process yourself", companionName)
+			return true, fmt.Errorf("the companion was asked to stop and still runs. End the %s process yourself", filepath.Base(installed))
 		}
 		tools.pause(companionStopPause)
 	}
