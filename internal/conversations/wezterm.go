@@ -76,18 +76,57 @@ func (w weztermTab) reach(ctx context.Context, args ...string) (string, error) {
 	return out, err
 }
 
-// pane finds the pane whose terminal is tty; ok is false when none is.
-func (w weztermTab) pane(ctx context.Context, tty string) (pane uint64, ok bool, err error) {
+type weztermPane struct {
+	PaneID   uint64  `json:"pane_id"`
+	TTYName  string  `json:"tty_name"`
+	TabID    *uint64 `json:"tab_id"`
+	TabTitle *string `json:"tab_title"`
+}
+
+func (w weztermTab) list(ctx context.Context) ([]weztermPane, error) {
 	out, err := w.reach(ctx, weztermCLI("list", "--format", "json")...)
 	if err != nil {
-		return 0, false, err
+		return nil, err
 	}
-	var panes []struct {
-		PaneID  uint64 `json:"pane_id"`
-		TTYName string `json:"tty_name"`
-	}
+	var panes []weztermPane
 	if err := json.Unmarshal([]byte(out), &panes); err != nil {
-		return 0, false, fmt.Errorf("%w: %w", errNoTabCommand, err)
+		return nil, fmt.Errorf("%w: %w", errNoTabCommand, err)
+	}
+	return panes, nil
+}
+
+func (w weztermTab) readTabNames(ctx context.Context) ([]TerminalTab, error) {
+	panes, err := w.list(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var tabs []TerminalTab
+	byID := make(map[uint64]int)
+	for _, pane := range panes {
+		if pane.TabID == nil || pane.TabTitle == nil {
+			return nil, fmt.Errorf("%w: WezTerm pane %d has no tab ID or title field", errNoTabCommand, pane.PaneID)
+		}
+		id, name := *pane.TabID, *pane.TabTitle
+		index, ok := byID[id]
+		if !ok {
+			index = len(tabs)
+			byID[id] = index
+			tabs = append(tabs, TerminalTab{Name: name})
+		}
+		if tabs[index].Name != name {
+			return nil, fmt.Errorf("%w: conflicting titles for WezTerm tab %d", errNoTabCommand, id)
+		}
+		// A pane with no tty still makes this a split.
+		tabs[index].TTYs = append(tabs[index].TTYs, pane.TTYName)
+	}
+	return tabs, nil
+}
+
+// pane finds the pane whose terminal is tty; ok is false when none is.
+func (w weztermTab) pane(ctx context.Context, tty string) (pane uint64, ok bool, err error) {
+	panes, err := w.list(ctx)
+	if err != nil {
+		return 0, false, err
 	}
 	for _, listed := range panes {
 		if listed.TTYName != "" && shortTTY(listed.TTYName) == shortTTY(tty) {

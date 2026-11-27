@@ -107,8 +107,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   refused. The web interface shows the same name, and a search finds it.
   A running chat's Terminal, Ghostty, WezTerm, kitty or Konsole tab takes the name too, in place of
   the title the tool sets. In iTerm the name goes on the chat's pane.
-  Renaming a running chat's single-pane tab in Ghostty 1.4 or later on macOS renames the
-  chat too, on the next refresh or the one after.
+  On macOS, renaming a running chat's single-pane tab in Ghostty 1.4 or later or in WezTerm
+  renames the chat too, on the next refresh or the one after.
 - Right-click a top-level chat and choose **Pin to top** to keep it in the Pinned group.
   It stays there after it ends or you mark it complete. Choose **Unpin** from the
   same menu or click the pin beside its title. Pinning keeps its read mark and state.

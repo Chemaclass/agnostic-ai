@@ -260,7 +260,7 @@ Renames a conversation in its own tool first, then saves the name for every serv
 - The name stays after new messages. It leaves the seen, completed and hidden marks as they were.
 - Spaces and line breaks are joined into one line.
 - A running session's tab takes the name as its title: Terminal, Ghostty, WezTerm or kitty on macOS, and WezTerm, kitty or Konsole on Linux. The 204 response does not wait for the tab. A tab that cannot be named keeps its title. The name stays on the tab after the session ends, and names the whole tab when it holds split panes. iTerm names the pane.
-- The other way round, a name typed on a running chat's single-pane tab in Ghostty 1.4 or later on macOS renames the chat the same way, tool first. Each list request looks at the tabs after it replies, so the new name shows on a later request. See [Rename from the terminal tab](@/docs/cli-reference/companion-tab-rename.md).
+- The other way round, a name typed on a running chat's single-pane tab in Ghostty 1.4 or later or in WezTerm on macOS renames the chat the same way, tool first. Each list request looks at the tabs after it replies, so the new name shows on a later request. See [Rename from the terminal tab](@/docs/cli-reference/companion-tab-rename.md).
 
 | Status | Meaning |
 |--------|---------|
