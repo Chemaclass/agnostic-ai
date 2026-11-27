@@ -283,13 +283,15 @@ The companion reads no chat itself. It starts its own `agnostic-ai serve --scope
 
 `agnostic-ai upgrade` replaces an installed companion, and restarts it only if it was running. When the CLI is already current, as after a direct Homebrew or npm upgrade, it still replaces a companion built for another release.
 
-Terminal installs use the same menus and quiet automatic checks. On macOS, confirming **Update and restart** runs `agnostic-ai upgrade`. The CLI rechecks GitHub's offer, upgrades using its install method, and verifies the installed CLI version before replacing the companion. Homebrew and npm publish on their own schedules. Choose **Retry** if the release has yet to publish there. If the package manager serves a newer release, the updater keeps that CLI and installs its matching companion.
+Terminal installs use the same menus and quiet automatic checks. On macOS, confirming **Update and restart** runs `agnostic-ai upgrade`. The CLI rechecks GitHub's offer, upgrades using its install method, and verifies the installed CLI version before replacing the companion. Homebrew and npm publish on their own schedules. Try again later if the release has yet to publish there. If the package manager serves a newer release, the updater keeps that CLI and installs its matching companion.
 
-Older CLIs, unknown install methods, and other systems use **Copy command** for `agnostic-ai upgrade` and **Release page** for the GitHub release. Finder and login launches on macOS also search `/opt/homebrew/bin`, `/usr/local/bin`, `~/.local/bin` and `~/go/bin`. If npm lives elsewhere, such as under nvm, copy the command from the failure message and run it in a terminal with npm.
+Manual updates offer **Release page**. **Copy command** uses the verified npm CLI's absolute path, or `agnostic-ai upgrade` for older CLIs and other install methods. For an unverified npm prefix, use the original package manager, then run `companion install` with the updated CLI.
+
+If npm is missing from the app's PATH, use **Copy command** in a terminal where npm is available.
 
 {% <details summary="Details: what ran for updates"> %}
 - On macOS 27.2.1 (arm64), checksums, build provenance and signatures passed for v0.97.0 and v0.98.0. `companion update-app` upgraded between them. The restarted app and its CLI reported v0.98.0, and preferences survived.
-- The published npm CLI upgraded from v0.97.0 to v0.98.0 in a scratch prefix. A Finder-like `PATH` found Homebrew once the folders above were added. With npm absent, the update was offered and then failed. The CLI still reported v0.97.0.
+- The published npm CLI upgraded from v0.97.0 to v0.98.0 in a scratch prefix. A Finder-like `PATH` found Homebrew after adding the usual binary folders. With npm absent, the update was offered and then failed. The CLI still reported v0.97.0.
 - A quarantined v0.98.0 app copy passed signature verification. Gatekeeper rejected it. The policy check found a missing notarization ticket.
 - A macOS test uses two bundles signed with different certificates. The updater refuses the candidate before running its binary or quitting, replacing or restarting the installed app. Its files stay unchanged.
 - Browser tests covered both fallbacks. On Debian 13.7 arm64, v0.98.0 offered v0.99.0 in virtual X11 (Xvfb/Openbox) and Wayland (Sway) sessions with WebKit's sandbox active. **Copy command** copied `agnostic-ai upgrade` and **Release page** opened the exact release in Firefox ESR.

@@ -532,22 +532,67 @@ test('a companion that cannot update itself shows no update entry and no badge',
   await expect(settingsMenu(page).getByRole('switch', { name: 'Check for updates automatically' })).toHaveCount(0)
 })
 
-test('a terminal install that cannot update itself copies the command instead', async ({ page, context }) => {
-  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-copy' } })
+for (const [name, command, shell] of [
+  ['update-copy', 'agnostic-ai upgrade', 'a terminal'],
+  ['update-npm-copy', "'/tmp/npm prefix A/lib/node_modules/@agnostic-ai/darwin-arm64/agnostic-ai' upgrade", 'a terminal'],
+  ['update-npm-copy-windows', String.raw`& 'C:\npm prefix A\agnostic-ai.exe' upgrade`, 'PowerShell'],
+]) {
+  test(`a manual update copies the command from its offer (${name})`, async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    const reset = await page.request.post('/dev/fixture', { data: { name } })
+    expect(reset.ok()).toBe(true)
+    await page.goto('/panel.html')
+    const starts = sent(page, '/api/update/start')
+
+    await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+    await openUpdates(page)
+    await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+    const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
+    await expect(question).toContainText(command)
+    await expect(question).toContainText(`Run this in ${shell}`)
+    await question.getByRole('button', { name: 'Copy command' }).click()
+
+    await expect(page.locator('#toast')).toHaveText(`Copied ${command}. Paste it in ${shell}.`)
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(command)
+    expect(starts).toEqual([])
+  })
+}
+
+test('an open npm copy offer closes when its command is withdrawn for the same release', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-npm-copy' } })
   expect(reset.ok()).toBe(true)
   await page.goto('/panel.html')
-  const starts = sent(page, '/api/update/start')
 
   await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
   await openUpdates(page)
-  await page.getByRole('region', { name: 'Settings', exact: true }).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+  await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
   const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
-  await expect(question).toContainText('agnostic-ai upgrade')
-  await question.getByRole('button', { name: 'Copy command' }).click()
+  await expect(question.getByRole('button', { name: 'Copy command' })).toBeVisible()
 
-  await expect(page.locator('#toast')).toHaveText('Copied agnostic-ai upgrade. Paste it in a terminal.')
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('agnostic-ai upgrade')
+  const updated = await page.request.post('/dev/fixture', { data: { name: 'update-npm-manual' } })
+  expect(updated.ok()).toBe(true)
+  await expect(question).toBeHidden()
+})
+
+test('an npm install with unknown ownership offers the release page and package-manager guidance', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-npm-manual' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const starts = sent(page, '/api/update/start')
+  const opened = sent(page, '/api/update/release-page')
+
+  await page.getByRole('button', { name: 'Settings: update to v0.97.0 available', exact: true }).click()
+  await openUpdates(page)
+  await settingsMenu(page).getByRole('button', { name: 'Update to v0.97.0', exact: true }).click()
+  const question = page.getByRole('alertdialog', { name: 'Update to v0.97.0', exact: true })
+  await expect(question).toContainText('Use the package manager you installed agnostic-ai with.')
+  await expect(question.getByRole('button', { name: 'Copy command' })).toHaveCount(0)
+  await expect(question.getByRole('button', { name: 'Update and restart' })).toHaveCount(0)
+  await expect(page.locator('#update-command')).toBeHidden()
+  await question.getByRole('button', { name: 'Release page' }).click()
+
+  await expect(question).toBeHidden()
+  await expect.poll(() => opened).toEqual(['/api/update/release-page'])
   expect(starts).toEqual([])
 })
 
@@ -563,6 +608,27 @@ test('a failed terminal update offers Retry and the command to copy', async ({ p
   await status.getByRole('button', { name: 'Copy command' }).click()
 
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('agnostic-ai upgrade')
+})
+
+test('an npm update that may have moved its CLI offers a fresh check and the release page', async ({ page }) => {
+  const reset = await page.request.post('/dev/fixture', { data: { name: 'update-npm-check-again' } })
+  expect(reset.ok()).toBe(true)
+  await page.goto('/panel.html')
+  const status = page.getByRole('region', { name: 'Update' })
+  await expect(status.getByRole('status')).toContainText('Check for updates again')
+  await expect(status.getByRole('button', { name: 'Release page' })).toBeVisible()
+  await expect(status.getByRole('button', { name: 'Copy command' })).toHaveCount(0)
+  await expect(status.getByRole('button', { name: 'Retry' })).toHaveCount(0)
+  const starts = sent(page, '/api/update/start')
+  const checks = sent(page, '/api/update')
+
+  await openSettings(page)
+  await openUpdates(page)
+  await settingsMenu(page).getByRole('button', { name: 'Check for updates', exact: true }).click()
+
+  await expect.poll(() => checks).toEqual(['/api/update'])
+  expect(starts).toEqual([])
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
 })
 
 test('Check for updates automatically is on by default and turns off', async ({ page }) => {

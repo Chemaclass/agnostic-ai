@@ -107,6 +107,7 @@ const (
 	updateLatest         = "latest"
 	updateUnreachable    = "unreachable"
 	updateReleaseChanged = "release-changed"
+	updateCommandMissing = "command-missing"
 )
 
 // updateStatus is what the update entry shows; Version names the newer release.
@@ -119,9 +120,11 @@ type updateStatus struct {
 	Result  string `json:"result,omitempty"`
 	Reason  string `json:"reason,omitempty"`
 	Log     string `json:"log,omitempty"`
-	// Command is what to run in a terminal when the companion cannot update itself.
-	Command string `json:"command,omitempty"`
-	// Terminal says the companion was installed from the terminal and updates through agnostic-ai upgrade.
+	Manual  bool   `json:"manual,omitempty"`
+	// Command is the terminal fallback for a manual update or a failed automatic update.
+	Command      string `json:"command,omitempty"`
+	CommandShell string `json:"commandShell,omitempty"`
+	// Terminal says the companion was installed from the terminal.
 	Terminal bool `json:"terminal,omitempty"`
 	// OlderCLI is a separate agnostic-ai command older than the disk image app.
 	OlderCLI *olderCLI `json:"olderCLI,omitempty"`
@@ -139,11 +142,15 @@ type olderCLI struct {
 // upgradeCommand updates a terminal install, the CLI and the companion together.
 const upgradeCommand = "agnostic-ai upgrade"
 
-// release is a newer release to offer; Command is set when the companion
-// cannot run the update itself.
+// legacyNPMCommand comes from CLIs that did not identify the npm prefix.
+const legacyNPMCommand = "npm install -g agnostic-ai@latest"
+
+// release is a newer release to offer.
 type release struct {
-	Version string
-	Command string
+	Version      string
+	Manual       bool
+	Command      string
+	CommandShell string
 }
 
 // terminalCommand finds the agnostic-ai command of a companion installed
@@ -153,8 +160,7 @@ var terminalCommand = findBinary
 // separateCommands lists candidates for a standalone CLI.
 var separateCommands = standaloneCandidates
 
-// terminalOneClick says agnostic-ai upgrade can replace and restart the
-// companion here; elsewhere the panel shows the command to copy.
+// terminalOneClick says agnostic-ai upgrade can replace and restart the companion here.
 var terminalOneClick = runtime.GOOS == "darwin"
 
 // updateStep is the last step the update log names.
@@ -224,11 +230,17 @@ func updateLabel(base string, status updateStatus) string {
 	case updateChecking:
 		return "Checking for updates…"
 	case updateAvailable, updateFailed:
-		return "Update to v" + status.Version
+		if status.offersUpdate() {
+			return "Update to v" + status.Version
+		}
 	case updateUpdating:
 		return "Updating to v" + status.Version + "…"
 	}
 	return base
+}
+
+func (status updateStatus) offersUpdate() bool {
+	return status.State == updateAvailable || status.State == updateFailed && !status.Manual
 }
 
 func (status updateStatus) busy() bool {
@@ -279,9 +291,8 @@ func (s *shell) ownAppCommands() *appCommands {
 
 // cliRelease asks command for the latest stable release; the CLI keeps
 // its answer for a day unless refresh is set. The disk image app offers a
-// release only when it has a disk image for this Mac. A terminal install
-// updates in one click on macOS, where agnostic-ai upgrade also replaces
-// and restarts the companion.
+// release only when it has a disk image for this Mac. A terminal install can
+// update and restart on macOS when the selected CLI supports it.
 func cliRelease(ctx context.Context, command, current string, refresh, app bool) (release, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -303,6 +314,8 @@ func cliRelease(ctx context.Context, command, current string, refresh, app bool)
 	var status struct {
 		Installed       string `json:"installed"`
 		Latest          string `json:"latest"`
+		Method          string `json:"method"`
+		Command         string `json:"command"`
 		OneClick        bool   `json:"oneClick"`
 		ConfirmsRelease bool   `json:"confirmsRelease"`
 		Image           bool   `json:"image"`
@@ -324,7 +337,15 @@ func cliRelease(ctx context.Context, command, current string, refresh, app bool)
 		}
 		return next, nil
 	}
-	if _, stable := stableReleaseVersion(status.Installed); !stable || !status.OneClick || !status.ConfirmsRelease || !terminalOneClick {
+	_, stable := stableReleaseVersion(status.Installed)
+	next.Manual = !stable || !status.OneClick || !status.ConfirmsRelease || !terminalOneClick
+	if status.Method == "npm" && status.Command != legacyNPMCommand {
+		next.Command = status.Command
+		next.Manual = next.Manual || next.Command == ""
+		if next.Command != "" && runtime.GOOS == "windows" {
+			next.CommandShell = "PowerShell"
+		}
+	} else if next.Manual {
 		next.Command = upgradeCommand
 	}
 	return next, nil
@@ -344,10 +365,11 @@ func (s *shell) runUpdate() {
 	if s.appCommands == nil {
 		return
 	}
-	switch s.appCommands.status().State {
-	case updateAvailable, updateFailed:
+	status := s.appCommands.status()
+	switch {
+	case status.offersUpdate():
 		s.appCommands.ask()
-	case updateIdle:
+	case status.State == updateIdle || status.State == updateFailed:
 		if s.appCommands.begin(func() { s.appCommands.check(context.Background(), true) }) {
 			s.comeBackOpenedOn(eventPanelShown)
 		}
@@ -421,8 +443,16 @@ func (c *appCommands) start(expected string) error {
 		err = errors.New("no update is known; check for updates first")
 	case expected != "" && status.Version != expected:
 		err = errors.New("the offered release changed; check for updates again")
-	case status.State == updateAvailable && status.Command != "":
-		err = fmt.Errorf("the companion cannot update this install itself; run %s in a terminal", status.Command)
+	case status.Manual && status.State == updateFailed:
+		err = errors.New("check for updates again before retrying this update")
+	case status.Manual && status.Command != "":
+		shell := status.CommandShell
+		if shell == "" {
+			shell = "a terminal"
+		}
+		err = fmt.Errorf("update this install by running %s in %s", status.Command, shell)
+	case status.Manual:
+		err = errors.New("update agnostic-ai through the package manager you installed it with")
 	}
 	if err != nil {
 		c.busy.Unlock()
@@ -572,6 +602,9 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 	if err != nil {
 		if asked {
 			known.Result = updateUnreachable
+			if known.State == updateFailed && known.Manual && errors.Is(err, os.ErrNotExist) {
+				known.Result = updateCommandMissing
+			}
 		} else {
 			log.Print(err)
 		}
@@ -586,7 +619,9 @@ func (c *appCommands) check(ctx context.Context, asked bool) {
 		c.setStatus(found)
 		return
 	}
-	c.setStatus(updateStatus{State: updateAvailable, Version: next.Version, Command: next.Command})
+	c.setStatus(updateStatus{
+		State: updateAvailable, Version: next.Version, Manual: next.Manual, Command: next.Command, CommandShell: next.CommandShell,
+	})
 	if asked {
 		c.ask()
 	}
@@ -604,6 +639,7 @@ const (
 	restartingLine = "Restarting the companion."
 	replacedLine   = "Replaced the companion app."
 	terminalTarget = "Updating the terminal companion to "
+	npmTargetLine  = "Updating with a verified npm prefix."
 	shownLine      = "The companion showed this failure."
 )
 
@@ -656,7 +692,12 @@ func failedUpdateAfterRestart(path string, terminalInstall bool) updateStatus {
 	}
 	status := updateStatus{State: updateFailed, Version: next, Reason: updateFailureReason(text, updateRestarting), Log: path}
 	if terminal {
-		status.Command = upgradeCommand
+		first, rest, _ := strings.Cut(text, "\n")
+		marker, _, _ := strings.Cut(rest, "\n")
+		status.Manual = strings.HasPrefix(first, terminalTarget) && marker == npmTargetLine
+		if !status.Manual {
+			status.Command = upgradeCommand
+		}
 	}
 	return status
 }
@@ -671,8 +712,26 @@ func terminalConfirmationFailure(text string) string {
 	}
 }
 
+// Only the CLI's final result can show npm never started.
+func npmUpdateDidNotStart(log string) bool {
+	var outcome string
+	for line := range strings.Lines(log) {
+		if strings.HasPrefix(line, "Terminal update failed: ") {
+			outcome = strings.TrimSuffix(line, "\n")
+		}
+	}
+	return strings.HasPrefix(outcome, "Terminal update failed: upgrade: install in npm prefix ") &&
+		strings.HasSuffix(outcome, `: exec: "npm": executable file not found in $PATH`)
+}
+
 func (c *appCommands) update(next string) {
 	path := c.logPath()
+	offered := c.status()
+	fallback := offered.Command
+	targetedNPM := c.app == "" && fallback != "" && fallback != upgradeCommand
+	if c.app == "" && fallback == "" {
+		fallback = upgradeCommand
+	}
 	// agnostic-ai upgrade names no steps the panel follows.
 	step := ""
 	if c.app != "" {
@@ -680,13 +739,13 @@ func (c *appCommands) update(next string) {
 	}
 	c.setStatus(updateStatus{State: updateUpdating, Version: next, Step: step})
 	var file *os.File
-	failed := func(reason string) {
+	failed := func(reason string, checkAgain bool) {
 		if file != nil {
 			_, _ = fmt.Fprintln(file, shownLine)
 		}
-		status := updateStatus{State: updateFailed, Version: next, Reason: reason, Log: path}
-		if c.app == "" {
-			status.Command = upgradeCommand
+		status := updateStatus{State: updateFailed, Version: next, Reason: reason, Log: path, Manual: checkAgain}
+		if !checkAgain {
+			status.Command, status.CommandShell = fallback, offered.CommandShell
 		}
 		c.setStatus(status)
 	}
@@ -695,7 +754,7 @@ func (c *appCommands) update(next string) {
 	if err != nil {
 		file = nil
 		log.Print(err)
-		failed("the update log could not be written")
+		failed("the update log could not be written", false)
 		return
 	}
 	defer func() { _ = file.Close() }()
@@ -705,9 +764,13 @@ func (c *appCommands) update(next string) {
 	if c.app == "" {
 		command = exec.Command(c.command, "upgrade", "--companion-confirmed-release", next)
 		command.Env = append(os.Environ(), "PATH="+packageManagerPath(os.Getenv("PATH")), "AGNOSTIC_AI_COMPANION_UPDATE=1")
-		if _, err := fmt.Fprintf(file, "%s%s.\n", terminalTarget, next); err != nil {
+		header := terminalTarget + next + ".\n"
+		if targetedNPM {
+			header += npmTargetLine + "\n"
+		}
+		if _, err := file.WriteString(header); err != nil {
 			log.Print(err)
-			failed("the update log could not be written")
+			failed("the update log could not be written", false)
 			return
 		}
 	}
@@ -715,7 +778,7 @@ func (c *appCommands) update(next string) {
 	command.Stdout, command.Stderr = file, file
 	if err := command.Start(); err != nil {
 		log.Print(err)
-		failed("the update command could not start")
+		failed("the update command could not start", false)
 		return
 	}
 	done := make(chan error, 1)
@@ -726,17 +789,18 @@ func (c *appCommands) update(next string) {
 		select {
 		case err := <-done:
 			out, _ := os.ReadFile(path)
+			text := string(out)
 			if err != nil {
-				if reason := terminalConfirmationFailure(string(out)); reason != "" {
+				if reason := terminalConfirmationFailure(text); reason != "" {
 					_, _ = fmt.Fprintln(file, shownLine)
 					c.setStatus(updateStatus{State: updateIdle, Result: updateReleaseChanged, Reason: reason, Log: path})
 					return
 				}
-				failed(updateFailureReason(string(out), updateStep(string(out))))
+				failed(updateFailureReason(text, updateStep(text)), targetedNPM && !npmUpdateDidNotStart(text))
 				return
 			}
 			// The updater restarts the companion; one still running here was left out.
-			failed("the companion did not restart. Quit it and open it again")
+			failed("the companion did not restart. Quit it and open it again", targetedNPM)
 			return
 		case <-ticker.C:
 			if step == "" {

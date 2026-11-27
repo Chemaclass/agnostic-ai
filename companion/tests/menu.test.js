@@ -54,6 +54,7 @@ test('the update entry sits above Hide and Quit and follows the state', () => {
   const automatic = (checkForUpdates) => menuRowsOf(items, { preferences: { ...preferences, checkForUpdates }, appearance, update: { state: 'idle' } }).find((item) => item.id === 'checkForUpdates')
   assert.deepEqual([automatic(true).kind, automatic(true).value, automatic(false).value], ['switch', true, false])
   const row = (update) => menuRowsOf(items, { preferences, appearance, update }).find((item) => item.id === 'update')
+  assert.equal(row({ state: 'idle' }).hint, 'Checks for a newer release and shows its update options.')
   assert.deepEqual([row({ state: 'idle' }).label, row({ state: 'idle' }).disabled], ['Check for updates', false])
   assert.deepEqual([row({ state: 'checking' }).label, row({ state: 'checking' }).disabled], ['Checking for updates…', true])
   assert.deepEqual([row({ state: 'available', version: '0.97.0' }).label, row({ state: 'available', version: '0.97.0' }).disabled], ['Update to v0.97.0', false])
@@ -237,11 +238,54 @@ test('a terminal install that cannot update itself names the command to copy', (
   })
   assert.equal(updateConfirmOf({ state: 'failed', version: '0.97.0', command: 'agnostic-ai upgrade', terminal: true }).go, 'Update and restart')
   assert.match(updateConfirmOf({ state: 'available', version: '0.97.0', terminal: true }).body, /^Runs agnostic-ai upgrade/)
-  assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0', command: 'agnostic-ai upgrade' }), {
+  assert.deepEqual(updateConfirmOf({ state: 'available', version: '0.97.0', manual: true, command: 'agnostic-ai upgrade' }), {
     title: 'Update to v0.97.0',
     body: 'The companion cannot run this update itself. Run this in a terminal: it updates the command line tool and the companion together. The release page lists what changed.',
     go: 'Copy command',
     command: 'agnostic-ai upgrade',
     releasePage: true,
   })
+})
+
+test('an npm update with unknown ownership shows the release and package-manager guidance', () => {
+  const question = updateConfirmOf({ state: 'available', version: '0.97.0', terminal: true, manual: true })
+  assert.equal(question.title, 'Update to v0.97.0')
+  assert.match(question.body, /Use the package manager you installed agnostic-ai with/)
+  assert.equal(question.releasePage, true)
+  assert.equal(question.command, undefined)
+  assert.equal(question.go, undefined)
+})
+
+test('a verified npm command can be copied when an automatic update fails', () => {
+  const command = "'/tmp/npm prefix A/bin/agnostic-ai' upgrade"
+  const update = { state: 'available', version: '0.97.0', terminal: true, command }
+  assert.equal(updateConfirmOf(update).go, 'Update and restart')
+  assert.equal(updateConfirmOf({ ...update, manual: true }).command, command)
+  assert.equal(updateMessageOf({ ...update, state: 'failed' }).command, command)
+})
+
+test('a verified npm command for Windows names PowerShell', () => {
+  const command = String.raw`& 'C:\npm prefix A\agnostic-ai.exe' upgrade`
+  const update = { state: 'available', version: '0.97.0', terminal: true, manual: true, command, commandShell: 'PowerShell' }
+  const question = updateConfirmOf(update)
+  assert.match(question.body, /Run this in PowerShell/)
+  assert.equal(question.command, command)
+})
+
+test('an npm failure with no current command offers the release and a new check instead of retry', () => {
+  const update = { state: 'failed', version: '0.97.0', terminal: true, manual: true, reason: 'the CLI was upgraded, but the companion update failed', log: '/tmp/u.log' }
+  assert.equal(updateLabelOf('Check for updates', update), 'Check for updates')
+  assert.equal(updateBadgeOf(update), undefined)
+  const message = updateMessageOf(update)
+  assert.match(message.text, /Check for updates again/)
+  assert.equal(message.releasePage, true)
+  assert.equal(message.retry, undefined)
+  assert.equal(message.command, undefined)
+  assert.equal(message.log, '/tmp/u.log')
+
+  const missingCLI = updateMessageOf({ ...update, result: 'command-missing' })
+  assert.match(missingCLI.text, /Repair that installation or reopen the companion from it/)
+  assert.equal(missingCLI.releasePage, true)
+  assert.equal(missingCLI.retry, undefined)
+  assert.equal(missingCLI.command, undefined)
 })

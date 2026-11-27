@@ -518,7 +518,27 @@ export const FIXTURES = {
   'update-copy': {
     label: 'A newer release a terminal install updates with a command',
     conversations: mixed,
-    update: { state: 'available', version: '0.97.0', current: '0.96.0', command: 'agnostic-ai upgrade' },
+    update: { state: 'available', version: '0.97.0', current: '0.96.0', manual: true, command: 'agnostic-ai upgrade' },
+  },
+  'update-npm-copy': {
+    label: 'A newer release for an npm install with a known prefix',
+    conversations: mixed,
+    update: { state: 'available', version: '0.97.0', current: '0.96.0', terminal: true, manual: true, command: "'/tmp/npm prefix A/lib/node_modules/@agnostic-ai/darwin-arm64/agnostic-ai' upgrade" },
+  },
+  'update-npm-copy-windows': {
+    label: 'A verified npm install on Windows',
+    conversations: mixed,
+    update: { state: 'available', version: '0.97.0', current: '0.96.0', terminal: true, manual: true, command: String.raw`& 'C:\npm prefix A\agnostic-ai.exe' upgrade`, commandShell: 'PowerShell' },
+  },
+  'update-npm-manual': {
+    label: 'A newer release for an npm install with an unknown prefix',
+    conversations: mixed,
+    update: { state: 'available', version: '0.97.0', current: '0.96.0', terminal: true, manual: true },
+  },
+  'update-npm-check-again': {
+    label: 'An npm update that could have moved its CLI',
+    conversations: mixed,
+    update: { state: 'failed', version: '0.97.0', current: '0.96.0', terminal: true, manual: true, reason: 'the CLI was upgraded, but the companion update failed', log: '/Users/you/Library/Application Support/agnostic-ai/companion-update.log' },
   },
   'update-failed-terminal': {
     label: 'A terminal install whose package manager could not run',
