@@ -93,10 +93,7 @@ func canReadTabNames(app, goos string) bool {
 	if _, ok := tabNameReads[app]; ok {
 		return true
 	}
-	if goos != "darwin" {
-		return false
-	}
-	_, ok := macCommandTabNameReader(app)
+	_, ok := commandTabNameReader(app, goos)
 	return ok
 }
 

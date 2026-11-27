@@ -1049,7 +1049,7 @@ func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, 
 }
 
 func (macLauncher) ReadTabNames(ctx context.Context, app string) ([]TerminalTab, error) {
-	if driver, ok := macCommandTabNameReader(app); ok {
+	if driver, ok := commandTabNameReader(app, "darwin"); ok {
 		return driver.readTabNames(ctx)
 	}
 	args, ok := tabNameReadArgs(app)
@@ -1176,7 +1176,10 @@ func (linuxLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool
 	return false, errNotHere
 }
 
-func (linuxLauncher) ReadTabNames(context.Context, string) ([]TerminalTab, error) {
+func (linuxLauncher) ReadTabNames(ctx context.Context, app string) ([]TerminalTab, error) {
+	if driver, ok := commandTabNameReader(app, "linux"); ok {
+		return driver.readTabNames(ctx)
+	}
 	return nil, errNotHere
 }
 
