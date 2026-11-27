@@ -251,9 +251,10 @@ type Conversation struct {
 	// reply, until the person reads it. It counts not toward NeedsYou.
 	// An archived row is never unread.
 	Unread bool `json:"unread,omitempty"`
-	// SeenAt and CompletedAt are the person's marks, when set.
+	// SeenAt, CompletedAt and PinnedAt are the person's marks, when set.
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
+	PinnedAt    string `json:"pinnedAt,omitempty"`
 	// DeleteUnsupported says why an archived conversation cannot be
 	// deleted from here; set only on completed and dormant rows.
 	DeleteUnsupported string `json:"deleteUnsupported,omitempty"`

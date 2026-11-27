@@ -151,6 +151,21 @@ function viewOf(state, conversations, query, all = conversations) {
   return view
 }
 
+function weekViewOf(state, rows, before, now) {
+  const first = before === undefined
+  const onFirst = (row) => row.live || NEEDS_PERSON[row.state] || Boolean(row.pinnedAt)
+  const to = first ? now : Date.parse(before)
+  const week = 7 * DAY_MS
+  const older = rows.filter((row) => !onFirst(row) && (first || Date.parse(row.updatedAt) < to))
+  const newest = Math.max(...older.map((row) => Date.parse(row.updatedAt)))
+  const from = (newest < to - week && older.length ? newest : to) - week
+  const page = [...(first ? rows.filter(onFirst) : []), ...older.filter((row) => Date.parse(row.updatedAt) >= from)]
+  page.sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt))
+  const view = { ...viewOf(state, page, undefined, rows), from: new Date(from).toISOString(), to: new Date(to).toISOString() }
+  if (older.some((row) => Date.parse(row.updatedAt) < from)) view.next = view.from
+  return view
+}
+
 /** The longest search serve takes, in characters. */
 const MAX_QUERY = 200
 
@@ -270,7 +285,11 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     if (query && [...query].length > MAX_QUERY) return sendJSON(response, 400, { error: `the search is longer than ${MAX_QUERY} characters` })
     const note = state.fixture.note
     const version = state.version
-    if (!query) return sendJSON(response, 200, { view: viewOf(state, state.fixture.rereadMs ? state.polled : state.conversations), note, version })
+    if (!query) {
+      const rows = state.fixture.rereadMs ? state.polled : state.conversations
+      const view = state.fixture.weekPages ? weekViewOf(state, rows, before, timeOf()) : viewOf(state, rows)
+      return sendJSON(response, 200, { view, note, version })
+    }
     const words = query.toLowerCase().split(/\s+/).filter(Boolean)
     // Like the server: a slow search answers with the rows as they were when it was asked.
     const asked = state
@@ -302,6 +321,8 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
     // With marksIgnored the server keeps the mark, but the list it reads next shows the chat where it was.
     const marking = state.fixture.marksIgnored ? structuredClone(row) : row
     if (body.as === 'hidden') state.conversations = state.conversations.filter((other) => other !== marking)
+    else if (body.as === 'pinned' && !row.parent) marking.pinnedAt ??= new Date(timeOf()).toISOString()
+    else if (body.as === 'unpinned' && !row.parent) delete marking.pinnedAt
     else if (body.as === 'completed') {
       marking.completedAt = new Date(timeOf()).toISOString()
       delete marking.unread
@@ -313,8 +334,10 @@ export async function startPreview({ host = '127.0.0.1', port = DEFAULT_PORT, fi
         const active = marking.live || OPEN_UNTIL_ARCHIVED.has(marking.app) || timeOf() - Date.parse(marking.updatedAt) < DAY_MS
         marking.state = active && !knownClosed ? 'active' : 'dormant'
       }
-    } else if (body.as === 'seen' && NEEDS_PERSON[marking.state]) marking.state = 'active'
-    else if (body.as === 'seen' && marking.unread) delete marking.unread
+    } else if (body.as === 'seen' && (NEEDS_PERSON[marking.state] || marking.unread)) {
+      if (NEEDS_PERSON[marking.state]) marking.state = 'active'
+      delete marking.unread
+    }
     else return sendJSON(response, 400, { error: `unknown mark ${body.as}` })
     // Like the shell: a mark answers once the new list is read, after the event for it goes out.
     // A mark with read=later answers first and leaves the list to the next poll.

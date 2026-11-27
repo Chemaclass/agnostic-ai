@@ -5,6 +5,7 @@
  * holds what the person archived and what went quiet by itself.
  */
 export const GROUPS = [
+  { id: 'pinned', title: 'Pinned', startsFolded: false },
   { id: 'needs-you', title: 'Needs you', startsFolded: false },
   { id: 'working', title: 'Working', startsFolded: false },
   { id: 'active', title: 'Active', startsFolded: false },
@@ -60,6 +61,10 @@ const GROUP_OF_STATE = {
 
 function groupOf(conversation) {
   return needsPersonOf(conversation) ? 'needs-you' : GROUP_OF_STATE[conversation.state]
+}
+
+export function pinnedOf(conversation) {
+  return !conversation.parent && Boolean(conversation.pinnedAt)
 }
 
 const TOOL_LABELS = {
@@ -288,9 +293,16 @@ export function unsentNoticeOf(message) {
  * one in the same group comes right after it. `under` maps such a row's key to the row it sits under.
  */
 export function grouped(conversations) {
+  const topOf = conversations.some(pinnedOf) ? topsOf(firstRowsByKey(conversations)) : undefined
+  const byGroup = new Map(GROUPS.map(({ id }) => [id, []]))
+  for (const conversation of conversations) {
+    const top = topOf?.(conversation)
+    const id = top && top !== LOOP && pinnedOf(top) ? 'pinned' : groupOf(conversation)
+    byGroup.get(id)?.push(conversation)
+  }
   return GROUPS.map((group) => {
-    const rows = conversations.filter((conversation) => groupOf(conversation) === group.id)
-    const drawn = nested(rows)
+    const rows = byGroup.get(group.id)
+    const drawn = nested(group.id === 'pinned' ? oldestFirst(rows, pinnedAt) : rows)
     return { ...group, ...(group.id === 'needs-you' ? mostUrgentFirst(drawn) : drawn) }
   }).filter((group) => group.rows.length > 0)
 }
@@ -326,10 +338,10 @@ export function waitingOf(view) {
   return { blocked: waits.length, unread, icon }
 }
 
-/** The key of the first row under Needs you, where a click on the circle opens the list; undefined when none waits. */
+/** A circle click keeps the usual urgency order across pinned and other waiting chats. */
 export function firstWaitingOf(view) {
-  const needsYou = grouped(view?.conversations ?? []).find((group) => group.id === 'needs-you')
-  return needsYou ? keyOf(needsYou.rows[0]) : undefined
+  const { rows } = mostUrgentFirst(nested((view?.conversations ?? []).filter(needsPersonOf)))
+  return rows.length > 0 ? keyOf(rows[0]) : undefined
 }
 
 /** What the circle tells a screen reader, such as "Conversations: 2 waiting for you, 4 unread". */
@@ -384,12 +396,25 @@ function startedAt(conversation) {
   return Number.isNaN(time) ? -Infinity : time
 }
 
-/** Oldest start first, then by tool and id, so a new message moves no child. Each time is read once. */
-function byStart(family) {
-  return family
-    .map((conversation) => ({ conversation, time: startedAt(conversation), key: keyOf(conversation) }))
+function pinnedAt(conversation) {
+  // Pad the server's UTC timestamps so sorting keeps their nanoseconds.
+  return conversation.pinnedAt?.replace(/(?:\.(\d+))?Z$/, (_, fraction = '') => `.${fraction.padEnd(9, '0')}Z`) ?? '\uffff'
+}
+
+/** Oldest time first, then by tool and ID. Each time is read once. */
+function oldestFirst(rows, timeOf) {
+  return rows
+    .map((conversation) => ({ conversation, time: timeOf(conversation), key: keyOf(conversation) }))
     .sort((a, b) => (a.time !== b.time ? (a.time < b.time ? -1 : 1) : a.key === b.key ? 0 : a.key < b.key ? -1 : 1))
     .map((entry) => entry.conversation)
+}
+
+function firstRowsByKey(rows) {
+  const byKey = new Map()
+  for (const conversation of rows) {
+    if (!byKey.has(keyOf(conversation))) byKey.set(keyOf(conversation), conversation)
+  }
+  return byKey
 }
 
 /**
@@ -397,11 +422,7 @@ function byStart(family) {
  * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
  */
 function nested(rows) {
-  const byKey = new Map()
-  for (const conversation of rows) {
-    if (!byKey.has(keyOf(conversation))) byKey.set(keyOf(conversation), conversation)
-  }
-  const topOf = topsOf(byKey)
+  const topOf = topsOf(firstRowsByKey(rows))
   const under = new Map()
   const children = new Map()
   for (const conversation of rows) {
@@ -416,7 +437,7 @@ function nested(rows) {
   for (const conversation of rows) {
     if (under.has(keyOf(conversation))) continue
     drawn.push(conversation)
-    for (const child of byStart(children.get(conversation) ?? [])) drawn.push(child)
+    for (const child of oldestFirst(children.get(conversation) ?? [], startedAt)) drawn.push(child)
   }
   return { rows: drawn, under }
 }
@@ -688,6 +709,7 @@ export function rowActionOf(conversation) {
 export function rowMenuOf(conversation) {
   const offered = NEEDS_PERSON[conversation.state] || unreadMarkOf(conversation) ? ['read'] : []
   if (renames(conversation)) offered.push('rename')
+  if (!conversation.parent) offered.push(pinnedOf(conversation) ? 'unpin' : 'pin')
   offered.push('copy-session-id')
   if (conversation.tool === 'claude' && conversation.app === 'cloud' &&
     typeof conversation.cloudResumeCommand === 'string' && conversation.cloudResumeCommand.trim()) {

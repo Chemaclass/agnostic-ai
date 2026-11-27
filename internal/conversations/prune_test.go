@@ -350,9 +350,10 @@ func TestScan_AnUnreadableMissingTimeStartsTheThirtyDays(t *testing.T) {
 	p := newPruning(t)
 	p.markBothAndRemove(t)
 	for _, broken := range []string{"", "yesterday"} {
-		if err := p.scanner.changeMarks([]string{markKey(ToolClaude, goneID)}, func(entry *markEntry, _ string) {
-			entry.MissingSince, entry.LastMissAt = broken, stamp(p.now)
-		}); err != nil {
+		update := markUpdate{markKey(ToolClaude, goneID), func(entry *markEntry, now time.Time) {
+			entry.MissingSince, entry.LastMissAt = broken, stamp(now)
+		}}
+		if err := p.scanner.changeMarks([]markUpdate{update}); err != nil {
 			t.Fatal(err)
 		}
 		p.now = p.now.Add(time.Hour)
@@ -510,7 +511,7 @@ func TestScan_PruningKeepsFieldsItDoesNotKnow(t *testing.T) {
 		t.Fatal(err)
 	}
 	file["later"] = map[string]any{"kept": true}
-	file["marks"].(map[string]any)[markKey(ToolClaude, keptID)].(map[string]any)["pinnedAt"] = "2026-11-07T12:00:00Z"
+	file["marks"].(map[string]any)[markKey(ToolClaude, keptID)].(map[string]any)["futureAt"] = "2026-11-07T12:00:00Z"
 	raw, err = json.Marshal(file)
 	if err != nil {
 		t.Fatal(err)
@@ -525,7 +526,7 @@ func TestScan_PruningKeepsFieldsItDoesNotKnow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(raw), `"later"`) || !strings.Contains(string(raw), `"pinnedAt": "2026-11-07T12:00:00Z"`) {
+	if !strings.Contains(string(raw), `"later"`) || !strings.Contains(string(raw), `"futureAt": "2026-11-07T12:00:00Z"`) {
 		t.Errorf("unknown fields lost:\n%s", raw)
 	}
 }
@@ -717,7 +718,7 @@ func TestReadAll_AnEmptyCursorAgentChatsFolderProvesNothing(t *testing.T) {
 
 func TestMarksFile_KeepsUnknownFieldsThroughAReadAndWrite(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "conversation-marks.json")
-	write(t, path, `{"schemaVersion":"conversation-marks/v1","since":"2026-11-07T12:00:00Z","later":[1,2],"marks":{"claude:a":{"seenAt":"2026-11-07T12:00:00Z","pinnedAt":"x","nested":{"a":1}}}}`)
+	write(t, path, `{"schemaVersion":"conversation-marks/v1","since":"2026-11-07T12:00:00Z","later":[1,2],"marks":{"claude:a":{"seenAt":"2026-11-07T12:00:00Z","futureAt":"x","nested":{"a":1}}}}`)
 	file, _, err := readMarks(path, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -734,7 +735,7 @@ func TestMarksFile_KeepsUnknownFieldsThroughAReadAndWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 	entry := back["marks"].(map[string]any)["claude:a"].(map[string]any)
-	if back["later"] == nil || entry["pinnedAt"] != "x" || entry["nested"] == nil || entry["seenAt"] != "2026-11-07T12:00:00Z" {
+	if back["later"] == nil || entry["futureAt"] != "x" || entry["nested"] == nil || entry["seenAt"] != "2026-11-07T12:00:00Z" {
 		t.Errorf("round trip lost a field:\n%s", raw)
 	}
 }

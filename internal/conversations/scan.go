@@ -720,17 +720,18 @@ func joinNotes(first, second string) string {
 // weekPage picks one page from all: below to, from a week earlier, or
 // from a week before the newest conversation when that week is empty.
 // The first page also holds every open conversation, every one that
-// needs the person or is named in needsYou, whatever its age, so the
-// rows under Needs you are the ones View.NeedsYou counts. It takes rows dated after to, which a skewed
-// clock can write.
+// needs the person or is named in needsYou, and pinned families of any
+// age. It takes rows dated after to, which a skewed clock can write.
 func weekPage(all []Conversation, to time.Time, first bool, needsYou map[Ref]bool) (page []Conversation, from time.Time, more bool) {
 	var older []Conversation
+	pinned := pinnedFamilies(all)
 	for _, c := range all {
-		pinned := c.Live || needsPerson(c.State) || needsYou[Ref{Tool: c.Tool, ID: c.ID}]
+		ref := Ref{Tool: c.Tool, ID: c.ID}
+		onFirst := c.Live || needsPerson(c.State) || needsYou[ref] || pinned[ref]
 		switch {
-		case pinned && first:
+		case onFirst && first:
 			page = append(page, c)
-		case pinned:
+		case onFirst:
 			// The first page already showed it.
 		case first || lastWritten(c).Before(to):
 			older = append(older, c)
@@ -748,6 +749,33 @@ func weekPage(all []Conversation, to time.Time, first bool, needsYou map[Ref]boo
 		}
 	}
 	return page, from, more
+}
+
+func pinnedFamilies(all []Conversation) map[Ref]bool {
+	var queue []Ref
+	for _, c := range all {
+		if c.PinnedAt != "" {
+			queue = append(queue, Ref{Tool: c.Tool, ID: c.ID})
+		}
+	}
+	if len(queue) == 0 {
+		return nil
+	}
+	children := map[Ref][]Ref{}
+	for _, c := range all {
+		if c.Parent != nil {
+			children[*c.Parent] = append(children[*c.Parent], Ref{Tool: c.Tool, ID: c.ID})
+		}
+	}
+	pinned := make(map[Ref]bool, len(queue))
+	for i := 0; i < len(queue); i++ {
+		ref := queue[i]
+		if !pinned[ref] {
+			pinned[ref] = true
+			queue = append(queue, children[ref]...)
+		}
+	}
+	return pinned
 }
 
 // newestBefore is the latest last-written time among list before to, or

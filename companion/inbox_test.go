@@ -174,6 +174,30 @@ func TestInbox_AsksTheServerForASearch(t *testing.T) {
 	}
 }
 
+func TestInbox_ReadsAnOlderPageWithoutChangingTheHeldList(t *testing.T) {
+	const before = "2026-11-01T12:00:00Z"
+	fake := &fakeAgnosticAI{list: func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("before") == before && r.URL.Query().Get("q") == "" {
+			w.Header().Set("ETag", `"older"`)
+			_, _ = w.Write([]byte(`{"conversations":[{"id":"older"}]}`))
+			return
+		}
+		w.Header().Set("ETag", `"first"`)
+		_, _ = w.Write([]byte(`{"conversations":[{"id":"first"}]}`))
+	}}
+	in, _ := connected(t, fake)
+	in.read(context.Background())
+
+	status, older := getInbox(t, in, "?before="+before)
+	if status != http.StatusOK || !strings.Contains(older, `"id":"older"`) {
+		t.Errorf("older page = %d %s", status, older)
+	}
+	_, held := getInbox(t, in, "")
+	if in.version() != `"first"` || !strings.Contains(held, `"id":"first"`) {
+		t.Errorf("held first page = %s, version %q", held, in.version())
+	}
+}
+
 func TestInbox_SaysWhenItWasBuiltForAnotherRelease(t *testing.T) {
 	in, _ := connected(t, &fakeAgnosticAI{})
 	in.builtFor = "1.2.0"

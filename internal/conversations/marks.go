@@ -63,12 +63,15 @@ const (
 	// MarkHidden: the person is done with it and wants it out of every
 	// list and search, until something new is written or its tool says
 	// it is working. The tool's own store keeps the conversation.
-	MarkHidden Mark = "hidden"
+	MarkHidden   Mark = "hidden"
+	MarkPinned   Mark = "pinned"
+	MarkUnpinned Mark = "unpinned"
 )
 
 // KnownMark reports whether mark is one the store keeps.
 func KnownMark(mark Mark) bool {
-	return mark == MarkSeen || mark == MarkCompleted || mark == MarkOpen || mark == MarkHidden
+	_, ok := markChanges[mark]
+	return ok
 }
 
 const marksSchemaVersion = "conversation-marks/v1"
@@ -152,6 +155,7 @@ type markEntry struct {
 	SeenAt      string `json:"seenAt,omitempty"`
 	CompletedAt string `json:"completedAt,omitempty"`
 	HiddenAt    string `json:"hiddenAt,omitempty"`
+	PinnedAt    string `json:"pinnedAt,omitempty"`
 	// ClosedWrittenAt is the last write a scan read while the session was
 	// known closed and not seen. A manual resume does not make that write
 	// new again; a later one is.
@@ -400,6 +404,7 @@ func (s *Scanner) applyMarks(results []sourceResult, startedAt time.Time, scanFi
 			c.Unread = unreadMarker(c, unseen(c, entry, since))
 			c.SeenAt = entry.SeenAt
 			c.CompletedAt = entry.CompletedAt
+			c.PinnedAt = visiblePin(file, c, entry)
 			if c.State == StateCompleted || c.State == StateDormant {
 				c.DeleteUnsupported = s.deleteUnsupported(c)
 				if c.DeleteUnsupported == "" && deleteNeedsClosure(c, entry, since, now) {
@@ -481,6 +486,24 @@ func archiveStart(c Conversation, written time.Time) time.Time {
 	return c.appArchivedAt
 }
 
+func visiblePin(file marksFile, c Conversation, entry markEntry) string {
+	if c.Parent != nil {
+		return ""
+	}
+	pin := parseStamp(entry.PinnedAt)
+	if pin.IsZero() && c.Cloud != nil {
+		pin = parseStamp(file.Marks[markKey(c.Tool, c.Cloud.ID)].PinnedAt)
+	}
+	if pin.IsZero() {
+		return ""
+	}
+	return pin.UTC().Format(time.RFC3339Nano)
+}
+
+func validPinTime(value string) bool {
+	return value != "" && !parseStamp(value).IsZero()
+}
+
 // withTwinSeen gives a shared row the later seen mark of its own id and
 // its cloud id, so a mark on either counts for both.
 func withTwinSeen(file marksFile, c Conversation, entry markEntry) markEntry {
@@ -542,47 +565,64 @@ func lifted(markedAt string, written time.Time, working bool, readAt time.Time) 
 	return overtaken(markedAt, written) || working && parseStamp(markedAt).Before(readAt.Truncate(time.Second))
 }
 
+type markChange func(entry *markEntry, now time.Time)
+
+var markChanges = map[Mark]markChange{
+	MarkSeen: func(entry *markEntry, now time.Time) { entry.SeenAt = stamp(now) },
+	MarkCompleted: func(entry *markEntry, now time.Time) {
+		at := stamp(now)
+		entry.SeenAt, entry.CompletedAt = at, at
+	},
+	MarkOpen: func(entry *markEntry, _ time.Time) { entry.CompletedAt = "" },
+	MarkHidden: func(entry *markEntry, now time.Time) {
+		at := stamp(now)
+		entry.SeenAt, entry.HiddenAt, entry.PinnedAt = at, at, ""
+	},
+	MarkPinned: func(entry *markEntry, now time.Time) {
+		if !validPinTime(entry.PinnedAt) {
+			entry.PinnedAt = now.UTC().Format(time.RFC3339Nano)
+		}
+	},
+	MarkUnpinned: func(entry *markEntry, _ time.Time) { entry.PinnedAt = "" },
+}
+
 // Mark records what the person says about one conversation, as of now.
 // Completing or hiding one also marks it seen, so a later write brings
 // it back as unread.
 func (s *Scanner) Mark(tool Tool, id string, mark Mark) error {
-	changes := map[Mark]func(entry *markEntry, now string){
-		MarkSeen: func(entry *markEntry, now string) { entry.SeenAt = now },
-		MarkCompleted: func(entry *markEntry, now string) {
-			entry.SeenAt, entry.CompletedAt = now, now
-		},
-		MarkOpen: func(entry *markEntry, _ string) { entry.CompletedAt = "" },
-		MarkHidden: func(entry *markEntry, now string) {
-			entry.SeenAt, entry.HiddenAt = now, now
-		},
-	}
-	change, known := changes[mark]
+	change, known := markChanges[mark]
 	if !known {
 		return fmt.Errorf("unknown mark %q", mark)
 	}
-	return s.changeMark(tool, id, change, mark != MarkHidden)
+	twinChange := change
+	if mark == MarkHidden {
+		twinChange = markChanges[MarkUnpinned]
+	}
+	return s.changeMark(tool, id, change, twinChange)
 }
 
-// changeMark applies change to one conversation's marks and saves them.
-// With withCloud, a shared row's cloud id gets the same change, so its
-// cloud row says the same once the local session ends.
-func (s *Scanner) changeMark(tool Tool, id string, change func(entry *markEntry, now string), withCloud bool) error {
+type markUpdate struct {
+	key    string
+	change markChange
+}
+
+// changeMark saves a conversation's marks. A linked cloud change is saved in the same update.
+func (s *Scanner) changeMark(tool Tool, id string, change, twinChange markChange) error {
 	if s.MarksPath == "" {
 		return errors.New("this server keeps no conversation marks")
 	}
 	s.lock()
 	defer s.unlock()
-	keys := []string{markKey(tool, id)}
-	if cloud := s.sharedClouds[keys[0]]; withCloud && cloud != "" {
-		keys = append(keys, markKey(tool, cloud))
+	key := markKey(tool, id)
+	updates := []markUpdate{{key, change}}
+	if cloud := s.sharedClouds[key]; twinChange != nil && cloud != "" {
+		updates = append(updates, markUpdate{markKey(tool, cloud), twinChange})
 	}
-	return s.changeMarks(keys, change)
+	return s.changeMarks(updates)
 }
 
-// changeMarks applies change to the marks at keys and saves them. It
-// takes no scanner lock, so it never waits for a scan: the file's own
-// lock keeps its read and write whole.
-func (s *Scanner) changeMarks(keys []string, change func(entry *markEntry, now string)) error {
+// changeMarks applies and saves the updates under the marks file's lock.
+func (s *Scanner) changeMarks(updates []markUpdate) error {
 	// Another server may change the same file: the lock spans the read
 	// and the write, so neither discards the other's mark.
 	release, err := lockMarks(s.MarksPath)
@@ -595,11 +635,11 @@ func (s *Scanner) changeMarks(keys []string, change func(entry *markEntry, now s
 	if err != nil {
 		return err
 	}
-	for _, key := range keys {
-		entry := file.Marks[key]
-		change(&entry, stamp(now))
-		s.attributeMark(&file, key, &entry)
-		file.Marks[key] = entry
+	for _, update := range updates {
+		entry := file.Marks[update.key]
+		update.change(&entry, now)
+		s.attributeMark(&file, update.key, &entry)
+		file.Marks[update.key] = entry
 	}
 	return writeMarks(s.MarksPath, file)
 }
@@ -611,7 +651,7 @@ func (s *Scanner) Rename(tool Tool, id, title string) error {
 	if err != nil {
 		return err
 	}
-	return s.changeMark(tool, id, func(entry *markEntry, _ string) { entry.Title = title }, false)
+	return s.changeMark(tool, id, func(entry *markEntry, _ time.Time) { entry.Title = title }, nil)
 }
 
 // Reopen finds one conversation, opens it where it lives, marks it seen
@@ -756,15 +796,15 @@ func (s *Scanner) reopen(ctx context.Context, tool Tool, id, subagent string, op
 	// A shared row's cloud id gets the same marks, and so does the local
 	// row that holds a cloud row opened on its own, so each says the same
 	// once the other shows apart.
-	keys := []string{markKey(tool, id)}
+	reopened := func(entry *markEntry, now time.Time) { entry.SeenAt, entry.CompletedAt = stamp(now), "" }
+	updates := []markUpdate{{markKey(tool, id), reopened}}
 	if conversation.Cloud != nil && conversation.ID == id {
-		keys = append(keys, markKey(tool, conversation.Cloud.ID))
+		updates = append(updates, markUpdate{markKey(tool, conversation.Cloud.ID), reopened})
 	}
 	if conversation.heldBy != "" {
-		keys = append(keys, markKey(tool, conversation.heldBy))
+		updates = append(updates, markUpdate{markKey(tool, conversation.heldBy), reopened})
 	}
-	reopened := func(entry *markEntry, now string) { entry.SeenAt, entry.CompletedAt = now, "" }
-	if err := s.changeMarks(keys, reopened); err != nil {
+	if err := s.changeMarks(updates); err != nil {
 		out.unmarked = err.Error()
 	}
 	return out

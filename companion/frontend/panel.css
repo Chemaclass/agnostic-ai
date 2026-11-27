@@ -682,6 +682,16 @@ body {
   transform: rotate(90deg);
 }
 
+.group-title .pin-icon {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .group-title .count {
   font-weight: 500;
   letter-spacing: 0;
@@ -1005,6 +1015,10 @@ body {
   max-width: 100%;
 }
 
+.card:not(.is-picking, .is-mailbox-composing) .row.is-pinned .title {
+  max-width: calc(100% - 28px);
+}
+
 .card:not(.is-picking, .is-mailbox-composing) .row .title[data-tooltip]:hover {
   cursor: text;
   text-decoration: underline;
@@ -1186,6 +1200,46 @@ body {
 
 .action:hover svg {
   stroke: var(--ink);
+}
+
+.row.is-pinned .actions {
+  opacity: 1;
+  transform: none;
+}
+
+.row.is-pinned:not(:hover, .is-active, .is-completing) .actions:not(:focus-within) {
+  padding-left: 0;
+}
+
+.row.is-pinned:not(:hover, .is-active, .is-completing) .actions:not(:focus-within) .action:not(.pin-action) {
+  position: absolute;
+  inset-inline-end: 0;
+  opacity: 0;
+}
+
+.pin-action {
+  pointer-events: auto;
+  background: none;
+}
+
+.pin-action svg {
+  width: 16px;
+  height: 16px;
+  stroke: var(--paper-faint);
+  stroke-width: 1.25;
+}
+
+.row:is(:hover, .is-active) .pin-action svg,
+.pin-action:focus-visible svg {
+  stroke: var(--paper);
+}
+
+.pin-action:hover {
+  background: var(--hairline);
+}
+
+.row .pin-action:focus-visible {
+  outline-color: var(--paper-dim);
 }
 
 /* A chat just marked complete: its tick turns green, draws itself and lets one ring go.

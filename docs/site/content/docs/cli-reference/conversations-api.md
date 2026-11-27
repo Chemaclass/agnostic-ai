@@ -55,7 +55,7 @@ A search keeps the conversations of every age where each word appears in the tit
 
 The route lists Claude Code, Codex and Cursor conversations, and ChatGPT chats when its desktop app is installed, from each tool's own store. The newest come first, by the last message from the person or the agent.
 
-- Each page holds one week. The first page holds every open conversation, every blocked or unread one, and the past week, so, without a search or tool filter, it holds every conversation `needsYou` counts. A later page leaves those out.
+- Each page holds one week. The first page also holds pinned, open, blocked and unread conversations of any age. Without a search or tool filter, it holds every conversation `needsYou` counts. A later page leaves those out.
 - A page asked for with `before` holds the week before that time, and reaches past weeks with no conversation.
 - The page returns `from` and `to`, and `next`, the `before` value of the following page, absent when no older conversation remains.
 - A `before` that is not an RFC 3339 time is a 400.
@@ -140,7 +140,7 @@ The `activity` of a loaded local Codex thread is `working` during an unfinished 
 
 Marks:
 
-- `seenAt` and `completedAt` are your marks, when set.
+- `seenAt`, `completedAt` and `pinnedAt` are your marks, when set.
 - `needsYou` counts the blocked and unread conversations of every age and tool the server lists, whatever the page or the search. With the mailbox, it also counts each session in an active path conflict once, and the first page holds those sessions.
 - The marks live in `conversation-marks.json` in the `agnostic-ai` folder of your user configuration folder. The file holds tool names, ids, times, the names you chose, the folder of each store and where each conversation's own file sits, never conversation text. A Claude Code project folder's name spells the folder the session ran in, and a Codex rollout outside `CODEX_HOME` is kept as a full path.
 - When a scan creates the marks file, it uses the start of that scan as the initial history cutoff. For Claude chats, local Cowork tasks, remote Cowork tasks and ChatGPT chats, the first successful read of each source can move its own cutoff later. This uses the read of the app's local list before the server filters its rows. For example, a project scan reads the Claude app's list and can set its cutoffs. A project scan skips the ChatGPT query, so it leaves that cutoff unset if it did not already exist.
@@ -233,7 +233,9 @@ Body: `{tool, id, as}` with `Content-Type: application/json`, from the server's 
 | `seen` | Read up to now. |
 | `completed` | Done until something new is written or it starts working. Also marks it seen. |
 | `open` | Takes a completion back. |
-| `hidden` | Left out of every list, search and count until something new is written or it starts working. The tool's own store keeps it. Also marks it seen. |
+| `pinned` | Keeps a top-level conversation in the first page. Leaves its read and completed marks alone. |
+| `unpinned` | Clears the pin. |
+| `hidden` | Left out of every list, search and count until something new is written or it starts working. The tool's own store keeps it. Also marks it seen and clears its pin. |
 
 {% <details summary="Mark status codes"> %}
 
@@ -241,6 +243,7 @@ Body: `{tool, id, as}` with `Content-Type: application/json`, from the server's 
 |--------|---------|
 | 204 | Marked. |
 | 404 | A conversation outside the list. |
+| 409 | The conversation is nested under another and cannot be pinned. |
 | 400 | Another `as`, or any other field. |
 {% </details> %}
 

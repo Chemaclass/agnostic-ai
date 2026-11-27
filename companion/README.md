@@ -109,6 +109,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   the title the tool sets. In iTerm the name goes on the chat's pane.
   Renaming a running chat's single-pane tab in Ghostty 1.4 or later on macOS renames the
   chat too, on the next refresh or the one after.
+- Right-click a top-level chat and choose **Pin to top** to keep it in the Pinned group.
+  It stays there after it ends or you mark it complete. Choose **Unpin** from the
+  same menu or click the pin beside its title. Pinning keeps its read mark and state.
 - Right-click a chat and choose **Copy session ID** to copy its exact ID.
   A cloud chat gives you its cloud ID. Use the tool that owns the chat to
   decide how to open it. Copying keeps the chat state and marks.
@@ -135,9 +138,9 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
 - On macOS, **Stop chat…** asks before ending a live Claude Code terminal
   session. The transcript stays, so you can resume the chat later. Separate
   shell processes may keep running.
-- **Mark all as read** beside Needs you does the same for every chat that
-  group shows, after the search and the All, Local or Cloud choice. It shows
-  only while the group is unfolded. A chat
+- **Mark all as read** covers visible chats that need you in Needs you and
+  Pinned, after search and the All, Local or Cloud choice. Folded groups are
+  skipped. A chat
   that got a new message since the list was drawn keeps its place. If a mark
   fails, the run stops there, those rows stay, and the list says why. The
   list holds every unread or waiting chat of any age, so with All chosen and
@@ -308,6 +311,7 @@ Each conversation is in the first group whose rule holds.
 
 | Group | Rule |
 | --- | --- |
+| Pinned | Chats you pinned, in the order you pinned them. Search and the All, Local or Cloud choice still apply. |
 | Needs you | Something was written after you last saw it. Or it is open, its tool says it waits for you, and you have not looked at it since it asked. |
 | Working | Open, and its tool says the agent is busy. |
 | Active | Open, or written in the last 24 hours. |
@@ -385,7 +389,7 @@ Both are in the `agnostic-ai` folder of your user configuration folder
 (`~/Library/Application Support` on macOS, `%AppData%` on Windows,
 `~/.config` on Linux):
 
-- `conversation-marks.json`: what you saw, what you archived and the names
+- `conversation-marks.json`: what you saw, pinned or archived, and the names
   you gave chats, shared with `agnostic-ai serve`. Tool names, ids, times
   and those names only, never chat text.
 - `companion.json`: where you left the circle, your shortcuts, whether it

@@ -460,6 +460,338 @@ test('a refused rename keeps the typed name in focus and says why', async ({ pag
 
 const completeButton = (target: Locator) => target.getByRole('button', { name: /^Mark complete,/ })
 const groupTitle = (page: Page, name: string) => page.locator('.group-title').filter({ hasText: name })
+const pinItem = (page: Page) => page.getByRole('menuitem', { name: 'Pin to top', exact: true })
+const pinnedRows = (page: Page) => page.locator('#list .row.is-pinned')
+
+test('pins an unread chat through the keyboard menu and unpins it from the title line', async ({ page }) => {
+  await openPanel(page)
+  const target = row(page, 'Draft the release notes')
+  const marks = markBodies(page)
+  await target.focus()
+  await page.keyboard.press('Shift+F10')
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(pinItem(page)).toBeFocused()
+  await page.keyboard.press('Escape')
+  expect(marks).toEqual([])
+
+  await target.focus()
+  await page.keyboard.press('ContextMenu')
+  await pinItem(page).press('Enter')
+  await expect(page.locator('#toast[role=status]')).toHaveText('Pinned.')
+  await expect(page.locator('#list .group-title').first()).toHaveAttribute('data-group', 'pinned')
+  await expect(target).toHaveCount(1)
+  await expect(target).toHaveClass(/is-pinned/)
+  await expect(target).toHaveClass(/needs-you/)
+  await expect(target).toHaveAttribute('aria-description', /^Pinned\b/)
+  await expect(target).toHaveAttribute('aria-selected', 'true')
+  await expect(target).toBeFocused()
+  await expect(target.locator('.needs-reason')).toHaveText('New reply')
+  expect(marks).toEqual([{ tool: 'codex', id: 'reply-1', as: 'pinned' }])
+
+  await target.click({ button: 'right' })
+  await expect(page.getByRole('menuitem', { name: 'Unpin', exact: true })).toBeVisible()
+  await expect(pinItem(page)).toBeHidden()
+  await page.keyboard.press('Escape')
+  await target.focus()
+  await page.keyboard.press('Tab')
+  await expect(completeButton(target)).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(target.getByRole('button', { name: 'Unpin: Draft the release notes' })).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(target).toBeFocused()
+  await expect(target).toHaveClass(/needs-you/)
+  await expect(groupTitle(page, 'Pinned')).toHaveCount(0)
+  expect(marks).toEqual([{ tool: 'codex', id: 'reply-1', as: 'pinned' }, { tool: 'codex', id: 'reply-1', as: 'unpinned' }])
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('first-page pins include old chats, keep their child rows, and respect filters', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const old = row(page, 'Cut the 1.0 release')
+  await expect(old).toHaveClass(/is-quiet/)
+  await expect(pinnedRows(page).locator('.title')).toHaveText(['Cut the 1.0 release', 'Review the hosted rollout', 'Fix the Windows smoke job'])
+  const actions = row(page, 'Review the hosted rollout').locator('.actions')
+  await expect(actions.locator('.action')).toHaveCount(2)
+  await expect(actions).toHaveCSS('width', '24px')
+  expect(await actions.evaluate((element) => getComputedStyle(element, '::before').display)).toBe('none')
+  await expect(row(page, 'Check the release notes')).toHaveClass(/is-nested/)
+  await row(page, 'Check the release notes').click({ button: 'right' })
+  await expect(pinItem(page)).toBeHidden()
+  await page.keyboard.press('Escape')
+  await expect(row(page, 'Read the old archive')).toHaveCount(0)
+  const first = (await (await page.request.get('/api/inbox')).json()).view
+  expect(first.conversations.map(({ id }: { id: string }) => id)).toContain('pin-release')
+  expect(first.next).toBeTruthy()
+  const later = (await (await page.request.get('/api/inbox', { params: { before: first.next } })).json()).view
+  expect(later.conversations.map(({ id }: { id: string }) => id)).toEqual(['pin-later-page'])
+
+  await page.getByRole('button', { name: 'Cloud', exact: true }).click()
+  await expect(pinnedRows(page).locator('.title')).toHaveText(['Review the hosted rollout'])
+  await page.getByRole('button', { name: 'Local', exact: true }).click()
+  await expect(pinnedRows(page).locator('.title')).toHaveText(['Cut the 1.0 release', 'Fix the Windows smoke job'])
+  await page.getByLabel('Search every conversation').fill('draft the next release')
+  await expect(row(page, 'Draft the next release')).toBeVisible()
+  await expect(groupTitle(page, 'Pinned')).toHaveCount(0)
+})
+
+test('pins keep order through a new reply and completion, and an old unpin returns to Archived', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const target = row(page, 'Draft the next release')
+  const old = row(page, 'Cut the 1.0 release')
+  await target.click({ button: 'right' })
+  await pinItem(page).click()
+  const order = ['Cut the 1.0 release', 'Review the hosted rollout', 'Fix the Windows smoke job', 'Draft the next release']
+  await expect(pinnedRows(page).locator('.title')).toHaveText(order)
+  expect((await page.request.post('/dev/write', { data: { tool: 'claude', id: 'pin-new' } })).ok()).toBe(true)
+  await expect(target).toHaveClass(/needs-you/)
+  await expect(pinnedRows(page).locator('.title')).toHaveText(order)
+  await target.hover()
+  await completeButton(target).click()
+  await expect(target).toHaveClass(/is-quiet/)
+  await expect(pinnedRows(page).locator('.title')).toHaveText(order)
+
+  await old.getByRole('button', { name: 'Unpin: Cut the 1.0 release' }).click()
+  await expect(groupTitle(page, 'Archived')).toHaveAttribute('aria-expanded', 'true')
+  await expect(old).toBeFocused()
+  await expect(old).not.toHaveClass(/is-pinned/)
+  const current = (await (await page.request.get('/api/inbox')).json()).view
+  expect(current.conversations.map(({ id }: { id: string }) => id)).not.toContain('pin-release')
+  await page.reload()
+  await expect(row(page, 'Draft the next release')).toHaveClass(/is-pinned.*is-quiet|is-quiet.*is-pinned/)
+  await expect(old).toHaveCount(0)
+})
+
+async function holdUnpinReply(page: Page, withVersion: boolean) {
+  let saved!: () => void
+  const saving = new Promise<void>((done) => { saved = done })
+  let release!: (version?: string) => void
+  const held = new Promise<string | undefined>((done) => { release = done })
+  await page.route('**/api/mark', async (route) => {
+    if (route.request().postDataJSON().as !== 'unpinned') return route.continue()
+    const response = await route.fetch()
+    const headers = response.headers()
+    if (!withVersion) delete headers['list-version']
+    saved()
+    const version = await held
+    if (version) headers['list-version'] = version
+    await route.fulfill({ response, headers })
+  })
+  return { saving, release }
+}
+
+for (const withVersion of [true, false]) {
+  test(`a late old unpin cannot restore a chat hidden on a newer list (${withVersion ? 'with' : 'without'} version)`, async ({ page }) => {
+    await openPanel(page, 'pins')
+    const old = row(page, 'Cut the 1.0 release')
+    const unpin = await holdUnpinReply(page, withVersion)
+    await old.getByRole('button', { name: 'Unpin: Cut the 1.0 release' }).click()
+    await unpin.saving
+    const hidden = await page.request.post('/api/mark', { data: { tool: 'claude', id: 'pin-release', as: 'hidden' } })
+    expect(hidden.ok()).toBe(true)
+    unpin.release()
+    await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+    await expect(old).toHaveCount(0)
+  })
+}
+
+test('an unpin reply whose version already includes a hide cannot restore the old pin', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const old = row(page, 'Cut the 1.0 release')
+  const unpin = await holdUnpinReply(page, true)
+  await old.getByRole('button', { name: 'Unpin: Cut the 1.0 release' }).click()
+  await unpin.saving
+  const hidden = await page.request.post('/api/mark', { data: { tool: 'claude', id: 'pin-release', as: 'hidden' } })
+  expect(hidden.ok()).toBe(true)
+  const version = hidden.headers()['list-version']
+  expect(version).toBeTruthy()
+  unpin.release(version)
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(old).toHaveCount(0)
+})
+
+test('a late old unpin without a list version waits for the next updated list', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const old = row(page, 'Cut the 1.0 release')
+  const before = await (await page.request.get('/api/inbox')).json()
+  let holdList = true
+  await page.route('**/api/inbox', (route) => holdList ? route.fulfill({ json: before }) : route.continue())
+  const unpin = await holdUnpinReply(page, false)
+  await old.getByRole('button', { name: 'Unpin: Cut the 1.0 release' }).click()
+  await unpin.saving
+  unpin.release()
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(old).toHaveClass(/is-pinned/)
+  const olderPages: string[] = []
+  page.on('request', (request) => {
+    const url = new URL(request.url())
+    const before = url.searchParams.get('before')
+    if (url.pathname === '/api/inbox' && before) olderPages.push(before)
+  })
+  holdList = false
+  expect((await page.request.post('/dev/write', { data: { tool: 'claude', id: 'pin-new' } })).ok()).toBe(true)
+  await expect(old).not.toHaveClass(/is-pinned/)
+  await expect(old).toBeFocused()
+  const lastWritten = before.view.conversations.find(({ id }: { id: string }) => id === 'pin-release').updatedAt
+  expect(olderPages).toEqual([new Date(Date.parse(lastWritten) + 1).toISOString()])
+})
+
+test('hiding a chat during a versionless unpin drops the pending row move', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const old = row(page, 'Cut the 1.0 release')
+  const before = await (await page.request.get('/api/inbox')).json()
+  let holdList = true
+  await page.route('**/api/inbox', (route) => holdList ? route.fulfill({ json: before }) : route.continue())
+  const unpin = await holdUnpinReply(page, false)
+  await old.getByRole('button', { name: 'Unpin: Cut the 1.0 release' }).click()
+  await unpin.saving
+  await old.click({ button: 'right' })
+  const hidden = page.waitForResponse((reply) => reply.url().endsWith('/api/mark') && reply.request().postDataJSON().as === 'hidden')
+  await page.getByRole('menuitem', { name: 'Hide from agnostic-ai', exact: true }).click()
+  expect((await hidden).ok()).toBe(true)
+  holdList = false
+  unpin.release()
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(old).toHaveCount(0)
+})
+
+test('a delayed unpin does not move focus after the place changes', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const waits = row(page, 'Fix the Windows smoke job')
+  const unpin = await holdUnpinReply(page, true)
+  await waits.getByRole('button', { name: 'Unpin: Fix the Windows smoke job' }).click()
+  await unpin.saving
+  const local = page.getByRole('button', { name: 'Local', exact: true })
+  await local.click()
+  await expect(local).toHaveAttribute('aria-pressed', 'true')
+  const search = page.getByLabel('Search every conversation')
+  await search.focus()
+  unpin.release()
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(waits).not.toHaveClass(/is-pinned/)
+  await expect(search).toBeFocused()
+})
+
+test('a delayed unpin leaves a newer keyboard selection in place', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const old = row(page, 'Cut the 1.0 release')
+  const unpin = await holdUnpinReply(page, true)
+  await old.getByRole('button', { name: 'Unpin: Cut the 1.0 release' }).click()
+  await unpin.saving
+  const search = page.getByLabel('Search every conversation')
+  await search.focus()
+  await search.press('ArrowDown')
+  const next = selected(page)
+  const nextTitle = await next.locator('.title').textContent()
+  expect(nextTitle).not.toBe('Cut the 1.0 release')
+  unpin.release()
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(next.locator('.title')).toHaveText(nextTitle!)
+  await expect(search).toBeFocused()
+})
+
+test('a delayed unpin leaves the name field active when another row is renamed', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const waits = row(page, 'Fix the Windows smoke job')
+  const unpin = await holdUnpinReply(page, true)
+  await waits.getByRole('button', { name: 'Unpin: Fix the Windows smoke job' }).click()
+  await unpin.saving
+  const field = page.getByLabel('New name')
+  await row(page, 'Draft the next release').press('F2')
+  await expect(field).toBeFocused()
+  await field.fill('Draft the upcoming release')
+  unpin.release()
+  await expect(page.locator('#toast[role=status]')).toHaveText('Unpinned.')
+  await expect(field).toBeFocused()
+  await expect(field).toHaveValue('Draft the upcoming release')
+  await field.press('Escape')
+  await expect(waits).not.toHaveClass(/is-pinned/)
+})
+
+test('a refused pin leaves the chat in place and reports the error', async ({ page }) => {
+  await openPanel(page, 'mark-failure')
+  const target = row(page, 'Draft the release notes')
+  await target.click({ button: 'right' })
+  await pinItem(page).click()
+  await expect(page.locator('#toast[role=alert]')).toContainText('the marks file is read-only')
+  await expect(target).toHaveClass(/needs-you/)
+  await expect(groupTitle(page, 'Pinned')).toHaveCount(0)
+  expect(await calledPaths(page)).not.toContain('/api/open')
+})
+
+test('the circle unfolds a pinned wait and Mark all as read keeps its pin', async ({ page }) => {
+  await openPanel(page, 'pins')
+  const target = row(page, 'Fix the Windows smoke job')
+  const marks = markBodies(page)
+  const header = groupTitle(page, 'Pinned')
+  await header.click()
+  await expect(header).toHaveAttribute('aria-expanded', 'false')
+  await expect(header.locator('.unread-count')).toHaveText('1 unread')
+  expect((await page.request.post('/api/panel/toggle', { data: { jump: true } })).ok()).toBe(true)
+  await expect(header).toHaveAttribute('aria-expanded', 'true')
+  await expect(target).toHaveAttribute('aria-selected', 'true')
+  await expect(header.locator('..')).toContainText('Mark all as read')
+  await markAllRead(page).click()
+  await expect(target).not.toHaveClass(/needs-you/)
+  await expect(target).toHaveClass(/is-pinned/)
+  expect(marks).toEqual([seen('codex', 'pin-waits')])
+})
+
+test('the paste picker shows live pins and leaves quiet pins out', async ({ page }) => {
+  await openPanel(page, 'pins')
+  await pressSendShortcut(page)
+  await expect(pickBanner(page)).toBeVisible()
+  await expect(groupTitle(page, 'Pinned')).toBeVisible()
+  await expect(row(page, 'Fix the Windows smoke job')).toHaveClass(/is-pinned/)
+  await expect(row(page, 'Cut the 1.0 release')).toHaveCount(0)
+})
+
+test('pinned mailbox rows can send and receive a handoff drag', async ({ page }) => {
+  await openPanel(page, 'mailbox')
+  const sender = row(page, 'Review the parser')
+  const receiver = row(page, 'Draft the tests')
+  for (const pin of [sender, receiver]) {
+    await pin.click({ button: 'right' })
+    await pinItem(page).click()
+    await expect(pin).toHaveClass(/is-pinned/)
+  }
+  await dragRow(page, sender.locator('.meta'), receiver)
+  await expect(mailboxTo(page)).toHaveValue(`codex:${mailboxTarget}`)
+  await expect(page.locator('#mailbox-from')).toHaveText('Review the parser · Claude Code')
+  await expect(mailboxType(page)).toHaveValue('handoff')
+  expect((await calledPaths(page)).filter((path) => path === '/api/open' || path === '/api/mailbox/send')).toEqual([])
+})
+
+for (const [reducedMotion, animate] of [['no-preference', true], ['reduce', true], ['no-preference', false]] as const) {
+  test(`pin movement respects the motion settings (${reducedMotion}, animate=${animate})`, async ({ page }) => {
+    await page.emulateMedia({ reducedMotion })
+    await page.addInitScript(() => {
+      const animate = Element.prototype.animate
+      Element.prototype.animate = function (this: Element, frames, options) {
+        if (this instanceof HTMLElement && this.matches('.row')) {
+          this.dataset.rowMove = String(typeof options === 'number' ? options : options?.duration)
+        }
+        return animate.call(this, frames, options)
+      }
+    })
+    await openPanel(page)
+    expect((await page.request.post('/dev/appearance', { data: { animate } })).ok()).toBe(true)
+    await expect(page.locator('html')).toHaveAttribute('data-motion', animate ? 'on' : 'off')
+    const target = row(page, 'Draft the release notes')
+    await target.click({ button: 'right' })
+    await pinItem(page).click()
+    await expect(page.locator('#toast[role=status]')).toHaveText('Pinned.')
+    const moved = page.locator('#list .row[data-row-move]')
+    if (animate && reducedMotion === 'no-preference') {
+      await expect(moved).toHaveCount(1)
+      await expect(target).toHaveAttribute('data-row-move', '180')
+    } else {
+      await expect(moved).toHaveCount(0)
+    }
+  })
+}
 
 test('marking one chat complete shows a green tick, then archives it', async ({ page }) => {
   await openPanel(page)
@@ -1118,7 +1450,7 @@ test('chooses a mailbox target from a row without opening it and keeps the messa
   await page.keyboard.press('ArrowDown')
   await expect(selected(page)).toContainText('Review the parser')
   await page.keyboard.press('Shift+F10')
-  for (let step = 0; step < 3; step += 1) await page.keyboard.press('ArrowDown')
+  for (let step = 0; step < 4; step += 1) await page.keyboard.press('ArrowDown')
   await expect(page.getByRole('menuitem', { name: 'Message another session…' })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(row(page, 'Draft the tests')).toHaveClass(/is-mailbox-receivable/)
@@ -2587,7 +2919,7 @@ test('only Needs you offers mark all as read, and its rows do not repeat the hea
   await openPanel(page)
   await expect(markAllRead(page)).toHaveCount(1)
   await expect(groupTitle(page, 'Needs you').locator('..')).toContainText('Mark all as read')
-  await expect(markAllRead(page)).toHaveAttribute('title', 'Mark each chat shown here as read without opening it. A chat that waits on something else, such as a permission or a path conflict, stays here.')
+  await expect(markAllRead(page)).toHaveAttribute('title', 'Mark each shown chat that needs you as read without opening it. A chat that waits on a permission or a path conflict still needs you.')
   await expect(groupTitle(page, 'Active').locator('..')).toContainText('Mark all complete')
   await expect(groupTitle(page, 'Active').locator('..')).not.toContainText('Mark all as read')
 
@@ -3983,7 +4315,7 @@ test('the arrow keys move through the row menu in the order it shows', async ({ 
   await openArchived(page, 'archived-shared')
   await row(page, 'Ship the retry queue').click({ button: 'right' })
   await expect(page.getByRole('menuitem', { name: 'Rename…' })).toBeFocused()
-  for (const name of ['Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai', 'Message another session…', 'Note files this chat is working on…', 'Copy session ID']) {
+  for (const name of ['Pin to top', 'Undo complete', 'Hide from agnostic-ai', 'Open on claude.ai', 'Message another session…', 'Note files this chat is working on…', 'Copy session ID']) {
     await page.keyboard.press('ArrowDown')
     await expect(page.getByRole('menuitem', { name })).toBeFocused()
   }
@@ -4002,7 +4334,7 @@ test('the arrow keys move through the row menu and wrap around', async ({ page }
   const copy = page.getByRole('menuitem', { name: 'Copy session ID' })
   const mailbox = page.getByRole('menuitem', { name: 'Message another session…' })
   const claim = page.getByRole('menuitem', { name: 'Note files this chat is working on…' })
-  for (const item of [rename, complete, mailbox, claim, copy, stop, read]) {
+  for (const item of [rename, pinItem(page), complete, mailbox, claim, copy, stop, read]) {
     await page.keyboard.press('ArrowDown')
     await expect(item).toBeFocused()
   }

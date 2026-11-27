@@ -132,6 +132,9 @@ func listed(view View, id string) bool {
 
 func TestDelete_RemovesAnArchivedClaudeSessionItsSideFilesAndItsMarks(t *testing.T) {
 	scanner, stores, target, other := deleteScanner(t, fakeProcesses{})
+	if err := scanner.Mark(ToolClaude, idSafari, Mark("pinned")); err != nil {
+		t.Fatal(err)
+	}
 	tabs := filepath.Join(filepath.Dir(scanner.MarksPath), "conversation-tabs.json")
 	write(t, tabs, `{"version":1,"tabs":{"claude:`+idSafari+`":{"host":{"app":"Terminal","tty":"/dev/ttys004"},"at":"2026-11-07T11:00:00Z"},"claude:`+idCache+`":{"host":{"app":"Terminal","tty":"/dev/ttys005"},"at":"2026-11-07T11:00:00Z"}}}`)
 	marksBefore := storedMarks(t, scanner.MarksPath)
