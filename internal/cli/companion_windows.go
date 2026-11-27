@@ -57,10 +57,7 @@ func readLegacyRunValue(root registry.Key, path, approvalPath string) (companion
 	if err != nil {
 		return companionLegacyRunValue{}, fmt.Errorf("read the earlier start at login value: %w", err)
 	}
-	enabled, known, err := legacyRunApproved(root, approvalPath)
-	if err != nil {
-		return companionLegacyRunValue{}, err
-	}
+	enabled, known, approvalErr := legacyRunApproved(root, approvalPath)
 	command := value
 	if valueType == registry.EXPAND_SZ {
 		if expanded, err := registry.ExpandString(value); err == nil {
@@ -70,7 +67,8 @@ func readLegacyRunValue(root registry.Key, path, approvalPath string) (companion
 	return companionLegacyRunValue{
 		program:         windowsCommandProgram(command),
 		enabled:         enabled,
-		unknownApproval: !known,
+		unknownApproval: !known && approvalErr == nil,
+		approvalErr:     approvalErr,
 		remove: func() error {
 			key, current, currentType, err := read(registry.SET_VALUE)
 			if key != 0 {

@@ -256,6 +256,8 @@ type companionLegacyRunValue struct {
 	program         string
 	enabled         bool
 	unknownApproval bool
+	// approvalErr waits until the value is known to start the managed companion.
+	approvalErr error
 }
 
 func readRenamedCompanionLogin(tools companionTools, dir, goos string, paths []string) (companionRenameLogin, error) {
@@ -265,6 +267,9 @@ func readRenamedCompanionLogin(tools companionTools, dir, goos string, paths []s
 		value, err := tools.legacyRunValue()
 		if err != nil || value.remove == nil || !sameCompanionProgram(value.program, oldBare, goos) {
 			return login, err
+		}
+		if value.approvalErr != nil {
+			return login, value.approvalErr
 		}
 		return companionRenameLogin{runValue: value, enabled: value.enabled}, nil
 	}
@@ -346,8 +351,8 @@ func desktopEntryProgram(content string) string {
 		if strings.HasPrefix(line, "[") {
 			inDesktop = line == "[Desktop Entry]"
 		}
-		value, ok := strings.CutPrefix(line, "Exec=")
-		if !inDesktop || !ok {
+		key, value, ok := strings.Cut(line, "=")
+		if !inDesktop || !ok || strings.TrimSpace(key) != "Exec" {
 			continue
 		}
 		value = strings.TrimSpace(value)

@@ -490,6 +490,29 @@ func TestInstallCompanion_PreservesAnUnmanagedLegacyLoginEntry(t *testing.T) {
 	}
 }
 
+func TestInstallCompanion_IgnoresAnUnreadableApprovalForAnUnmanagedRunValue(t *testing.T) {
+	dir := t.TempDir()
+	tools := builtTools(t)
+	denied := errors.New("approval key access denied")
+	tools.legacyRunValue = func() (companionLegacyRunValue, error) {
+		return companionLegacyRunValue{program: filepath.Join(t.TempDir(), "other.exe"), approvalErr: denied, remove: func() error {
+			t.Error("the unrelated Run value was removed")
+			return nil
+		}}, nil
+	}
+	build := companionBuild{goos: "windows", version: "1.2.3", revision: "abc123"}
+	if err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, dir, build, nil); err != nil {
+		t.Errorf("install failed on another build's approval: %v", err)
+	}
+	old := oldManagedCompanion(t, dir, "windows")
+	tools.legacyRunValue = func() (companionLegacyRunValue, error) {
+		return companionLegacyRunValue{program: old, approvalErr: denied, remove: func() error { return nil }}, nil
+	}
+	if err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, dir, build, nil); !errors.Is(err, denied) {
+		t.Errorf("install error = %v, want the approval error", err)
+	}
+}
+
 func TestInstallCompanion_RestoresTheEarlierRunValueWhenLoginFails(t *testing.T) {
 	dir := t.TempDir()
 	old := oldManagedCompanion(t, dir, "windows")
@@ -547,6 +570,7 @@ func TestLoginEntryPrograms(t *testing.T) {
 		"[Desktop Entry]\nExec=\"/path with spaces/foo\" --flag\n":   "/path with spaces/foo",
 		"[Desktop Entry]\nExec=\"/path/with \\\"quote/foo\"\n":       "/path/with \"quote/foo",
 		"[Desktop Action x]\nExec=/other\n[Desktop Entry]\nName=x\n": "",
+		"[Desktop Entry]\nExec = /spaced/foo\n":                      "/spaced/foo",
 		"login entry with no Exec line":                              "",
 	} {
 		if got := desktopEntryProgram(content); got != want {
