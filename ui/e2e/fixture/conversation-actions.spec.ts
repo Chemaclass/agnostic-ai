@@ -32,7 +32,7 @@ async function setup(page: Page, initial: Conversation[]) {
   return state
 }
 
-test('pins by keyboard, keeps the read mark on refresh, and unpins into the state group', async ({ page }) => {
+test('pins by keyboard, keeps the unread state on refresh, and unpins into the state group', async ({ page }) => {
   const state = await setup(page, [
     base({ state: 'unread' }),
     base({ id: 'old', title: 'Previous release', state: 'completed', pinnedAt: '2026-11-07T12:00:00Z' }),
@@ -60,6 +60,27 @@ test('pins by keyboard, keeps the read mark on refresh, and unpins into the stat
   expect(state.posts.map(({ body }) => body)).toEqual([{ tool: 'claude', id: 'internal', as: 'pinned' }, { tool: 'claude', id: 'internal', as: 'unpinned' }])
   await page.goto('/?place=cloud')
   await expect(pinned).toHaveCount(0)
+})
+
+test('keeps the original state and actions on pinned chats', async ({ page }) => {
+  const pinnedAt = '2026-11-07T12:00:00Z'
+  await setup(page, [
+    base({ id: 'building', title: 'Build the package', state: 'working', live: true, activity: 'working', pinnedAt }),
+    base({ id: 'reviewed', title: 'Review the release', state: 'completed', completedAt: '2026-11-06T12:00:00Z', pinnedAt }),
+    base({ id: 'read', title: 'Read the report', state: 'active', seenAt: '2026-11-06T12:00:00Z', pinnedAt }),
+    base({ id: 'child', title: 'Check build inputs', state: undefined, live: true, activity: 'waiting', parent: { tool: 'claude', id: 'building' } }),
+  ])
+  await page.goto('/')
+  const pinned = page.getByRole('region', { name: /^Pinned/ })
+  await expect(pinned.getByRole('heading', { level: 3 })).toHaveCount(4)
+  await expect(row(page, 'Build the package').getByText('Working', { exact: true })).toBeVisible()
+  await expect(row(page, 'Review the release').getByText('Archived', { exact: true })).toBeVisible()
+  await expect(row(page, 'Read the report').locator('.conversation-state [aria-hidden="true"]')).toHaveText('Active')
+  await expect(row(page, 'Check build inputs').getByText('Waiting for you', { exact: true })).toBeVisible()
+  await expect(row(page, 'Check build inputs').getByText('Active', { exact: true })).toHaveCount(0)
+  await expect((await menu(page, 'Review the release')).getByRole('menuitem', { name: 'Undo complete' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect((await menu(page, 'Read the report')).getByRole('menuitem', { name: 'Mark as read' })).toHaveCount(0)
 })
 
 test('row menu keyboard marks, regroups, undoes and hides using the protected internal ID', async ({ page }) => {

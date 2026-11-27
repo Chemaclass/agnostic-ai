@@ -368,17 +368,17 @@ const RESUMED_UNREAD: StateBadge = { label: 'Unread', tone: 'approval', descript
 
 interface StateBadge {
   label: string
-  /** Amber for a reply that waits to be read, neutral for a finished chat. */
-  tone: 'approval' | 'neutral'
-  /** The full sentence, for the title and screen readers. */
+  tone: 'approval' | 'neutral' | 'permitted'
   description: string
 }
 
-/** The chip for the person's own marks: a reply not yet read, a chat resumed with one, or a chat marked as done. Waiting and working already have the live chip, and any other active or dormant chat needs none. */
-export function stateBadge(state: ConversationState | undefined, unread?: boolean): StateBadge | undefined {
+export function stateBadge(state: ConversationState | undefined, unread?: boolean, group?: StateGroupId): StateBadge | undefined {
   if (state === 'unread' || state === 'completed') return STATE_BADGES[state]
   if (state === 'active' && unread) return RESUMED_UNREAD
-  return undefined
+  if (group === undefined) return undefined
+  if (group === 'working') return ACTIVITY_BADGES.working
+  const label = GROUP_LABELS[group]
+  return { label, tone: group === 'needs-you' ? 'approval' : 'neutral', description: label }
 }
 
 /** "just now", "12 min ago", "3 h ago", "2 days ago", then the date. */
