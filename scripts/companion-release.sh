@@ -6,6 +6,12 @@
 # companion archives that `agnostic-ai companion install` downloads.
 # Requires macOS with the Xcode Command Line Tools.
 
+companion_binary_name=agnostic-companion
+companion_app_name="Agnostic Companion"
+# Keep the old disk image layout for installed apps until #4060.
+legacy_companion_binary_name=agnostic-ai-companion
+legacy_companion_app_name="agnostic-ai companion"
+
 # macOS can report a disk image is busy while creating or verifying it.
 hdiutil_retrying() {
   local attempts=6 delay=5 attempt=1 output status
@@ -128,6 +134,63 @@ download_modules() {
   done
 }
 
+package_companion() {
+  local arch="$1"
+  local archive="$outdir/${companion_binary_name}_darwin_${arch}.tar.gz"
+  # Without this, macOS tar adds ._ files that hold extended attributes.
+  COPYFILE_DISABLE=1 tar -czf "$archive" -C "$work/$arch" "$companion_binary_name"
+  echo "$archive"
+  package_companion_image "$arch" "$companion_binary_name" "$companion_app_name"
+  package_companion_image "$arch" "$legacy_companion_binary_name" "$legacy_companion_app_name"
+}
+
+package_companion_image() {
+  local arch="$1" name="$2" app_name="$3"
+  local directory="$work/$arch"
+  local image_dir="$directory/$name-image"
+  local app="$image_dir/$app_name.app"
+  local contents="$app/Contents"
+  local image="$outdir/${name}_darwin_${arch}.dmg"
+  local staged="$directory/${name}_darwin_${arch}.dmg"
+  mkdir -p "$contents/MacOS" "$contents/Resources"
+  cp "$directory/$companion_binary_name" "$contents/MacOS/$name"
+  cp "$directory/agnostic-ai" "$contents/Resources/agnostic-ai"
+  cp "$work/companion.icns" "$contents/Resources/companion.icns"
+  cat > "$contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>dev.agnostic-ai.companion</string>
+  <key>CFBundleName</key><string>$companion_app_name</string>
+  <key>CFBundleDisplayName</key><string>$companion_app_name</string>
+  <key>CFBundleExecutable</key><string>$name</string>
+  <key>CFBundleIconFile</key><string>companion</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$version</string>
+  <key>CFBundleVersion</key><string>$version</string>
+  <key>LSUIElement</key><true/>
+  <key>LSMinimumSystemVersion</key><string>$min_macos</string>
+  <key>NSHighResolutionCapable</key><true/>
+  <key>NSAppleEventsUsageDescription</key><string>Clicking a session switches to the terminal tab that runs it.</string>
+</dict>
+</plist>
+PLIST
+  plutil -lint "$contents/Info.plist"
+  codesign --force --sign - "$contents/Resources/agnostic-ai"
+  codesign --force --sign - "$app"
+  codesign --verify --deep --strict "$app"
+  ln -s /Applications "$image_dir/Applications"
+  hdiutil_retrying create -ov -format UDZO -volname "$app_name" -srcfolder "$image_dir" "$staged"
+  release_image "$staged"
+  if ! hdiutil_retrying verify "$staged"; then
+    image_diagnostics "$staged"
+    return 1
+  fi
+  mv -f "$staged" "$image"
+  echo "$image"
+}
+
 if [[ "${BASH_SOURCE[0]}" != "$0" ]]; then
   return 0
 fi
@@ -137,8 +200,6 @@ set -Eeuo pipefail
 version="${1:?usage: $0 <version> <outdir>}"
 outdir="${2:?usage: $0 <version> <outdir>}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
-name=agnostic-ai-companion
-app_name="agnostic-ai companion"
 if [[ ! "$version" =~ ^[0-9][A-Za-z0-9.+-]*$ ]]; then
   echo "invalid release version: $version" >&2
   exit 1
@@ -176,88 +237,44 @@ for arch in arm64 amd64; do
     CGO_ENABLED=1 GOOS=darwin GOARCH="$arch" go build \
       -tags "production private_mac_apis" -trimpath \
       -ldflags "-s -w -X main.version=$version" \
-      -o "$work/$arch/$name" .
+      -o "$work/$arch/$companion_binary_name" .
   )
   want="$arch"
   [ "$arch" = amd64 ] && want=x86_64
-  got="$(lipo -archs "$work/$arch/$name")"
+  got="$(lipo -archs "$work/$arch/$companion_binary_name")"
   if [ "$got" != "$want" ]; then
-    echo "$name for $arch is built for $got" >&2
+    echo "$companion_binary_name for $arch is built for $got" >&2
     exit 1
   fi
-  minos="$(otool -l "$work/$arch/$name" | awk '$1 == "minos" { print $2; exit }')"
+  minos="$(otool -l "$work/$arch/$companion_binary_name" | awk '$1 == "minos" { print $2; exit }')"
   if [ "$minos" != "$min_macos" ]; then
-    echo "$name for $arch needs macOS ${minos:-<unknown>}, not $min_macos" >&2
+    echo "$companion_binary_name for $arch needs macOS ${minos:-<unknown>}, not $min_macos" >&2
     exit 1
   fi
   if [ "$(uname -m)" = "$arch" ] || { [ "$arch" = amd64 ] && [ "$(uname -m)" = x86_64 ]; }; then
-    said="$("$work/$arch/$name" --version)"
+    said="$("$work/$arch/$companion_binary_name" --version)"
     if [ "$said" != "$version" ]; then
-      echo "$name for $arch says it is $said, not $version" >&2
+      echo "$companion_binary_name for $arch says it is $said, not $version" >&2
       exit 1
     fi
   fi
-  # Without this, macOS tar adds ._ files that hold extended attributes.
-  COPYFILE_DISABLE=1 tar -czf "$outdir/${name}_darwin_${arch}.tar.gz" -C "$work/$arch" "$name"
-  echo "$outdir/${name}_darwin_${arch}.tar.gz"
-
-  app="$work/$arch/image/$app_name.app"
-  contents="$app/Contents"
-  mkdir -p "$contents/MacOS" "$contents/Resources"
-  cp "$work/$arch/$name" "$contents/MacOS/$name"
-  cp "$work/companion.icns" "$contents/Resources/companion.icns"
   (
     cd "$root"
     CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build -trimpath \
       -ldflags "-s -w -X main.version=$version" \
-      -o "$contents/Resources/agnostic-ai" ./cmd/agnostic-ai
+      -o "$work/$arch/agnostic-ai" ./cmd/agnostic-ai
   )
-  got="$(lipo -archs "$contents/Resources/agnostic-ai")"
+  got="$(lipo -archs "$work/$arch/agnostic-ai")"
   if [ "$got" != "$want" ]; then
     echo "bundled agnostic-ai for $arch is built for $got" >&2
     exit 1
   fi
   if [ "$(uname -m)" = "$arch" ] || { [ "$arch" = amd64 ] && [ "$(uname -m)" = x86_64 ]; }; then
-    said="$("$contents/Resources/agnostic-ai" --version)"
+    said="$("$work/$arch/agnostic-ai" --version)"
     if [ "$said" != "agnostic-ai version $version" ]; then
       echo "bundled agnostic-ai for $arch says $said, expected version $version" >&2
       exit 1
     fi
   fi
-  cat > "$contents/Info.plist" <<PLIST
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleIdentifier</key><string>dev.agnostic-ai.companion</string>
-  <key>CFBundleName</key><string>$app_name</string>
-  <key>CFBundleDisplayName</key><string>$app_name</string>
-  <key>CFBundleExecutable</key><string>$name</string>
-  <key>CFBundleIconFile</key><string>companion</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>$version</string>
-  <key>CFBundleVersion</key><string>$version</string>
-  <key>LSUIElement</key><true/>
-  <key>LSMinimumSystemVersion</key><string>$min_macos</string>
-  <key>NSHighResolutionCapable</key><true/>
-  <key>NSAppleEventsUsageDescription</key><string>Clicking a session switches to the terminal tab that runs it.</string>
-</dict>
-</plist>
-PLIST
-  plutil -lint "$contents/Info.plist"
-  codesign --force --sign - "$contents/Resources/agnostic-ai"
-  codesign --force --sign - "$app"
-  codesign --verify --deep --strict "$app"
-  ln -s /Applications "$work/$arch/image/Applications"
-  image="$outdir/${name}_darwin_${arch}.dmg"
-  staged="$work/$arch/${name}_darwin_${arch}.dmg"
-  hdiutil_retrying create -ov -format UDZO -volname "$app_name" \
-    -srcfolder "$work/$arch/image" "$staged"
-  release_image "$staged"
-  if ! hdiutil_retrying verify "$staged"; then
-    image_diagnostics "$staged"
-    exit 1
-  fi
-  mv -f "$staged" "$image"
-  echo "$image"
+  package_companion "$arch"
 done

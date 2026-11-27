@@ -35,11 +35,11 @@ endif
 # private_mac_apis lets the macOS web view draw without a background,
 # which has no public API; other systems ignore the tag.
 companion:
-	cd companion && go build -tags "production private_mac_apis" -trimpath -ldflags="-s -w" -o ../bin/agnostic-ai-companion .
+	cd companion && go build -tags "production private_mac_apis" -trimpath -ldflags="-s -w" -o ../bin/agnostic-companion .
 
 # The companion asks the agnostic-ai built from this checkout.
 companion-run: companion build
-	AGNOSTIC_AI_BIN="$(CURDIR)/$(BIN)" ./bin/agnostic-ai-companion
+	AGNOSTIC_AI_BIN="$(CURDIR)/$(BIN)" ./bin/agnostic-companion
 
 companion-test:
 	cd companion && go vet . && go test . && node --test tests/*.test.js

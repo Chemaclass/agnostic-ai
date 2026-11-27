@@ -71,9 +71,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: companion-built-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
-            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.dmg
+          path: ${{ runner.temp }}/companion-dist/
           if-no-files-found: error
           retention-days: 1
 
@@ -117,9 +115,8 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: companion-dist-${{ github.run_attempt }}
-          path: |
-            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.tar.gz
-            ${{ runner.temp }}/companion-dist/agnostic-ai-companion_darwin_*.dmg
+          # Pass the whole directory so staging can reject any unexpected files.
+          path: ${{ runner.temp }}/companion-dist/
           if-no-files-found: error
           retention-days: 1
 

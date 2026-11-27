@@ -236,7 +236,9 @@ func TestCompanionUpdateCache_KeepsVerifiedImageAfterNewReleaseManifestFails(t *
 }
 
 func TestCompanionUpdateStatus_DistinguishesMissingAndMalformedImageChecksums(t *testing.T) {
-	const asset = "agnostic-ai-companion_darwin_arm64.dmg"
+	const asset = "agnostic-companion_darwin_arm64.dmg"
+	const legacy = "agnostic-ai-companion_darwin_arm64.dmg"
+	checksum := strings.Repeat("a", 64) + "  "
 	for _, tc := range []struct {
 		name, line      string
 		listed, invalid bool
@@ -245,10 +247,13 @@ func TestCompanionUpdateStatus_DistinguishesMissingAndMalformedImageChecksums(t 
 		{"invalid checksum", "invalid " + asset, false, true},
 		{"missing checksum", asset, false, true},
 		{"malformed row", "invalid extra " + asset, false, true},
-		{"valid checksum", strings.Repeat("a", 64) + "  " + asset, true, false},
+		{"valid checksum", checksum + asset, true, false},
+		{"legacy image", checksum + legacy, true, false},
+		{"new image with an invalid legacy row", "invalid " + legacy + "\n" + checksum + asset, true, false},
+		{"invalid new image with a legacy image", checksum + legacy + "\ninvalid " + asset, false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			listed, err := companionImageInChecksums([]byte(tc.line), asset)
+			listed, err := companionImageInChecksums([]byte(tc.line), "arm64")
 			if listed != tc.listed || (err != nil) != tc.invalid {
 				t.Errorf("listed = %t, error = %v; want %t, invalid %t", listed, err, tc.listed, tc.invalid)
 			}

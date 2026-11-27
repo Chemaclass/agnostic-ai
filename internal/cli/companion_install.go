@@ -146,6 +146,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 		return err
 	}
 	target := companionFile(dir, build.goos)
+	artifact := built
 	place := func() error { return tools.rename(built, target) }
 	var restore func() error
 	// earlier is where the swap moves an earlier app, the one restore puts back.
@@ -156,6 +157,7 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 			return err
 		}
 		target = companionBundle(dir)
+		artifact = app
 		place = func() error { return replaceCompanionApp(tools.rename, app, target, staging) }
 		restore = func() error { return restoreCompanionApp(tools.rename, app, target, staging) }
 		earlier = filepath.Join(staging, companionAsideName)
@@ -168,6 +170,24 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	ctx = context.WithoutCancel(ctx)
 	installed, found, err := companionInstalled(dir, build.goos)
 	if err != nil {
+		return err
+	}
+	legacy, err := installedLegacyCompanions(dir, build.goos)
+	if err != nil {
+		return err
+	}
+	login, err := readRenamedCompanionLogin(tools, dir, build.goos, loginEntries)
+	if err != nil {
+		return err
+	}
+	if login.runValue.unknownApproval {
+		_, _ = fmt.Fprintln(out, "! Windows reports a startup approval this install does not recognize for the earlier companion, so start at login stays off. Turn it on again in the companion if you want it.")
+	}
+	if len(legacy) > 0 || len(login.entries) > 0 || login.runValue.remove != nil {
+		if !found {
+			installed = ""
+		}
+		keepStaging, err = migrateRenamedCompanion(ctx, out, tools, dir, build, installed, artifact, target, staging, legacy, login)
 		return err
 	}
 	if !found {

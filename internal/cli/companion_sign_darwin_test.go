@@ -4,6 +4,7 @@ package cli
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"io"
 	"io/fs"
@@ -42,12 +43,19 @@ func TestSignCompanion_KeepsOneRequirementThatAnotherSignerFails(t *testing.T) {
 	if requirements[0] != requirements[1] {
 		t.Errorf("the requirement changed between builds:\n%s\n%s", requirements[0], requirements[1])
 	}
-	if !strings.Contains(requirements[0], `certificate leaf = H"`) {
-		t.Errorf("the requirement does not pin the certificate:\n%s", requirements[0])
+	if !strings.Contains(requirements[0], `identifier "dev.agnostic-ai.companion" and certificate leaf = H"`) {
+		t.Errorf("the requirement does not pin the bundle identifier and certificate:\n%s", requirements[0])
 	}
 	der, err := os.ReadFile(filepath.Join(folder, companionSignerCert))
 	if err != nil {
 		t.Fatal(err)
+	}
+	cert, err := x509.ParseCertificate(der)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cert.Subject.CommonName != "agnostic-ai companion (this Mac)" {
+		t.Errorf("signing certificate common name = %q", cert.Subject.CommonName)
 	}
 	pinned := "-R=" + companionRequirement(certHash(der))
 	if out, err := exec.Command("codesign", "--verify", pinned, app).CombinedOutput(); err != nil {

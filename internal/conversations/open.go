@@ -433,7 +433,7 @@ var editorTerminals = map[string]string{
 }
 
 func allowControl(verb, app, then string) string {
-	return fmt.Sprintf("macOS blocked %s %s. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control %s in System Settings › Privacy & Security › Automation, %s.", verb, app, app, then)
+	return fmt.Sprintf("macOS blocked %s %s. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control %s in System Settings › Privacy & Security › Automation, %s.", verb, app, app, then)
 }
 
 // resumeTerminal resumes an ended session in a new tab of the app it

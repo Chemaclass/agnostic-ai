@@ -142,7 +142,7 @@ func TestBubbleMenu_FollowsTheSharedList(t *testing.T) {
 	}
 	want := []string{"Appearance", "[x] Animate companion", "[x] Dim when idle", "[x] Small companion", "Shortcuts",
 		shortcutLabel("Open from anywhere", "Ctrl+Alt+Space", runtime.GOOS == "darwin"),
-		shortcutLabel("Send copied text", "Ctrl+Alt+V", runtime.GOOS == "darwin"), "App", "[x] Start at login", "Hide Agnostic AI companion", "Quit Agnostic AI companion"}
+		shortcutLabel("Send copied text", "Ctrl+Alt+V", runtime.GOOS == "darwin"), "App", "[x] Start at login", "Hide Agnostic Companion", "Quit Agnostic Companion"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("menu = %q\nwant %q", got, want)
 	}
@@ -372,11 +372,11 @@ func TestHideLabel_NamesTheCommandOnlyWithoutAWorkingShortcut(t *testing.T) {
 		prefs preferences
 		want  string
 	}{
-		{"working shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, "Hide Agnostic AI companion"},
-		{"no working shortcut", preferences{Shortcut: "Ctrl+Alt+Space", ShortcutProblem: "Ctrl+Alt+Space is not active: taken"}, "Hide Agnostic AI companion (agnostic-ai companion brings it back)"},
+		{"working shortcut", preferences{Shortcut: "Ctrl+Alt+Space"}, "Hide Agnostic Companion"},
+		{"no working shortcut", preferences{Shortcut: "Ctrl+Alt+Space", ShortcutProblem: "Ctrl+Alt+Space is not active: taken"}, "Hide Agnostic Companion (agnostic-ai companion brings it back)"},
 	}
 	for _, tc := range cases {
-		if got := hideLabel("Hide Agnostic AI companion", tc.prefs); got != tc.want {
+		if got := hideLabel("Hide Agnostic Companion", tc.prefs); got != tc.want {
 			t.Errorf("%s: hideLabel = %q; want %q", tc.name, got, tc.want)
 		}
 	}
@@ -387,7 +387,7 @@ func TestHideItem_FollowsTheShortcut(t *testing.T) {
 	routes := s.routes(&inbox{}, fstest.MapFS{})
 
 	routes.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPost, "/api/preferences/shortcut", strings.NewReader(`{"shortcut":"Cmd+Shift+K"}`)))
-	if got, want := s.native["hide"].Label(), "Hide Agnostic AI companion"; got != want {
+	if got, want := s.native["hide"].Label(), "Hide Agnostic Companion"; got != want {
 		t.Errorf("label = %q; want %q", got, want)
 	}
 

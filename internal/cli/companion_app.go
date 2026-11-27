@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -49,7 +48,7 @@ func (a companionAppLayout) programAt(app string) string {
 }
 
 func knownCompanionExecutable(name string) bool {
-	return name == "agnostic-ai-companion" || name == "agnostic-companion"
+	return name == companionName || name == legacyCompanionName
 }
 
 func downloadableCompanionApp(app string) (companionAppLayout, error) {
@@ -322,36 +321,14 @@ func restartEarlierCompanion(out io.Writer, app string, start func(string) error
 	return nil
 }
 
-func downloadVerifiedCompanionAsset(ctx context.Context, out io.Writer, client *http.Client, baseURL, version, asset string, verify provenanceCheck) ([]byte, error) {
-	checksums, err := downloadReleaseAssetContext(ctx, client, releaseAssetURL(baseURL, version, "checksums.txt"), maxChecksumsFile)
-	if err != nil {
-		return nil, fmt.Errorf("checksums.txt: %w", err)
-	}
-	want, err := releaseChecksum(checksums, asset)
-	if err != nil {
-		return nil, err
-	}
-	data, err := downloadReleaseAssetContext(ctx, client, releaseAssetURL(baseURL, version, asset), 128<<20)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", asset, err)
-	}
-	if sha256.Sum256(data) != want {
-		return nil, fmt.Errorf("%s: checksum mismatch", asset)
-	}
-	if err := checkReleaseProvenance(out, data, asset, version, verify); err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
 func prepareCompanionApp(ctx context.Context, out io.Writer, version, staging string) (string, error) {
-	asset := fmt.Sprintf("%s_darwin_%s.dmg", companionName, machineArch())
-	data, err := downloadVerifiedCompanionAsset(ctx, out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, asset, ghProvenance)
+	arch := machineArch()
+	program, data, err := downloadVerifiedCompanionAsset(ctx, out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, arch, "dmg", ghProvenance)
 	if err != nil {
 		return "", err
 	}
 	_, _ = fmt.Fprintln(out, "Checking the downloaded app.")
-	image := filepath.Join(staging, asset)
+	image := filepath.Join(staging, companionAsset(program, arch, "dmg"))
 	if err := os.WriteFile(image, data, 0600); err != nil {
 		return "", fmt.Errorf("%s: %w", image, err)
 	}
@@ -367,8 +344,12 @@ func prepareCompanionApp(ctx context.Context, out io.Writer, version, staging st
 		defer cancel()
 		_ = runCompanionAppTool(cleanup, "hdiutil", "detach", mount)
 	}()
-	app := filepath.Join(staging, companionAppName+".app")
-	if err := runCompanionAppTool(ctx, "ditto", filepath.Join(mount, companionAppName+".app"), app); err != nil {
+	name := companionAppName
+	if program == legacyCompanionName {
+		name = legacyCompanionAppName
+	}
+	app := filepath.Join(staging, name+".app")
+	if err := runCompanionAppTool(ctx, "ditto", filepath.Join(mount, name+".app"), app); err != nil {
 		return "", err
 	}
 	if err := runCompanionAppTool(ctx, "codesign", "--verify", "--deep", "--strict", app); err != nil {
@@ -401,7 +382,7 @@ func runCompanionAppTool(ctx context.Context, name string, args ...string) error
 
 func companionAppCommands(tools companionTools) []*cobra.Command {
 	var installApp, updateApp, version string
-	install := &cobra.Command{Use: "install-command", Short: "Link the app's bundled command into PATH.", Example: `  agnostic-ai companion install-command --app "/Applications/agnostic-ai companion.app"`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	install := &cobra.Command{Use: "install-command", Short: "Link the app's bundled command into PATH.", Example: `  agnostic-ai companion install-command --app "/Applications/Agnostic Companion.app"`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		if runtime.GOOS != "darwin" {
 			return fmt.Errorf("install command from %s: supported on macOS only", installApp)
 		}
@@ -424,7 +405,7 @@ func companionAppCommands(tools companionTools) []*cobra.Command {
 
 The release is checked before anything changes. Then update-app quits the running companion,
 replaces the app, and starts it again.`,
-		Example: `  agnostic-ai companion update-app --app "/Applications/agnostic-ai companion.app" --version 1.4.0`,
+		Example: `  agnostic-ai companion update-app --app "/Applications/Agnostic Companion.app" --version 1.4.0`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if runtime.GOOS != "darwin" {

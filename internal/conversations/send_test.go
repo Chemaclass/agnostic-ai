@@ -200,7 +200,7 @@ func TestSend_TypesOnlyIntoALiveSessionInATabApp(t *testing.T) {
 			text:         "hello",
 			processes:    inFront,
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        SendReply{Message: "macOS blocked typing into Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, then send again."},
+			reply:        SendReply{Message: "macOS blocked typing into Ghostty. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, then send again."},
 			calls:        "type Ghostty /dev/ttys004 hello",
 		},
 		"Automation prompt unanswered": {
@@ -216,7 +216,7 @@ func TestSend_TypesOnlyIntoALiveSessionInATabApp(t *testing.T) {
 			text:         "hello",
 			processes:    holding("S+", "/dev/ttys018"),
 			launcher:     fakeLauncher{err: errAccessibilityDenied},
-			reply:        SendReply{Message: "macOS blocked pasting into Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again. The text is on the clipboard: paste it with Cmd+V."},
+			reply:        SendReply{Message: "macOS blocked pasting into Terminal. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again. The text is on the clipboard: paste it with Cmd+V."},
 			calls:        "type Terminal /dev/ttys018 hello",
 		},
 		"Terminal stayed behind": {
@@ -400,14 +400,14 @@ func TestSendMarkdown_SaysTheMarkdownWentInAndWhereTheClipboardHoldsIt(t *testin
 			conversation: at("Terminal", "/dev/ttys018"),
 			processes:    holding("/dev/ttys018"),
 			launcher:     fakeLauncher{err: errAccessibilityDenied},
-			reply:        SendReply{Message: "macOS blocked pasting into Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again. The clipboard now holds the Markdown: paste it with Cmd+V."},
+			reply:        SendReply{Message: "macOS blocked pasting into Terminal. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again. The clipboard now holds the Markdown: paste it with Cmd+V."},
 			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
 		},
 		"Automation refused, maybe after the clipboard was set": {
 			conversation: at("Terminal", "/dev/ttys018"),
 			processes:    holding("/dev/ttys018"),
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        SendReply{Message: "macOS blocked typing into Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, then send again. The clipboard may now hold the Markdown."},
+			reply:        SendReply{Message: "macOS blocked typing into Terminal. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, then send again. The clipboard may now hold the Markdown."},
 			calls:        "type and set the clipboard Terminal /dev/ttys018 # Notes\n\n- one",
 		},
 		"prompt unanswered, maybe after the clipboard was set": {

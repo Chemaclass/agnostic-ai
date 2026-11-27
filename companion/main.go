@@ -1,4 +1,4 @@
-// The agnostic-ai companion: a small circle that floats over every app and
+// Agnostic Companion: a small circle that floats over every app and
 // counts the AI conversations that need the person, with a searchable
 // list beside it that opens each one where it lives. It is a window on
 // `agnostic-ai serve`: the server reads, opens and marks the
@@ -39,7 +39,8 @@ const (
 	askLoginOff = "--disable-start-at-login"
 	// askLoginOn puts the companion in what starts at login. An install
 	// uses it to keep start at login on when the program moves.
-	askLoginOn = "--enable-start-at-login"
+	askLoginOn     = "--enable-start-at-login"
+	askLoginStatus = "--start-at-login-status"
 )
 
 // notRunningExit is how a companion started with askQuit ends when no
@@ -52,6 +53,10 @@ const notRunningExit = 3
 func asked(args []string) string {
 	if len(args) < 2 {
 		return ""
+	}
+	// Earlier companions exit from --version even with the extra argument.
+	if len(args) == 3 && args[1] == askVersion && args[2] == askLoginStatus {
+		return askLoginStatus
 	}
 	switch args[1] {
 	case askVersion, askQuit, askLoginOff, askLoginOn:
@@ -69,6 +74,8 @@ const (
 	panelWidth  = 432
 	panelHeight = 624
 )
+
+const appName = "Agnostic Companion"
 
 // instanceID names the companion to the system, so a second start finds the first.
 const instanceID = "dev.agnostic-ai.companion"
@@ -819,8 +826,18 @@ func floating(options application.WebviewWindowOptions) application.WebviewWindo
 
 func main() {
 	ask := asked(os.Args)
-	if ask == askVersion {
+	switch ask {
+	case askVersion:
 		fmt.Println(version)
+		return
+	case askLoginStatus:
+		app := application.New(application.Options{Name: appName})
+		enabled, err := app.Autostart.IsEnabled()
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		fmt.Println(enabled)
 		return
 	}
 	path, err := settingsPath()
@@ -870,12 +887,14 @@ func main() {
 		})
 	}
 	s.app = application.New(application.Options{
-		Name:        "agnostic-ai companion",
+		Name:        appName,
 		Description: "The AI conversations that need you, floating over every app.",
 		Mac: application.MacOptions{
 			// No Dock icon and no menu bar of its own.
 			ActivationPolicy: application.ActivationPolicyAccessory,
 		},
+		// Existing Sway rules match this ID.
+		Linux:   application.LinuxOptions{ApplicationID: "org.wails.agnostic-ai_companion"},
 		Windows: application.WindowsOptions{WebviewUserDataPath: webviewDataPath(path)},
 		Assets:  application.AssetOptions{Handler: s.routes(in, pages)},
 		// One companion at a time. Starting it again brings back the one
@@ -927,7 +946,7 @@ func main() {
 	}
 	s.bubble = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "bubble",
-		Title:  "agnostic-ai",
+		Title:  appName,
 		Width:  saved.bubbleSide(),
 		Height: saved.bubbleSide(),
 		// The bubble is index.html: Wails serves pages only from a folder that has one.
@@ -939,7 +958,7 @@ func main() {
 	}
 	s.panel = s.app.Window.NewWithOptions(floating(application.WebviewWindowOptions{
 		Name:   "panel",
-		Title:  "agnostic-ai conversations",
+		Title:  appName + " conversations",
 		Width:  panelWidth,
 		Height: panelHeight,
 		URL:    panelURL,

@@ -24,7 +24,7 @@ func TestPermissionAllowReply(t *testing.T) {
 }
 
 func TestPermissionDenyReply(t *testing.T) {
-	want := `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied in the agnostic-ai companion"}}}`
+	want := `{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied in Agnostic Companion"}}}`
 	for _, target := range []string{"claude", "codex"} {
 		reply, ok := PermissionDenyReply(target)
 		if !ok || string(reply) != want || !json.Valid(reply) {

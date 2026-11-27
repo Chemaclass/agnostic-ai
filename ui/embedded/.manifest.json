@@ -1,7 +1,7 @@
 {
   "version": 1,
   "inputs": {
-    "../companion/frontend/menu.json": "e7401f2fed8ccb6ffecdf9ce12bd761a43815f93315b1f70922738a219e10124",
+    "../companion/frontend/menu.json": "6584eb92d289e256690883ba8aea3b1d627b5a364e5a0051f2ae026d507206fc",
     "index.html": "3b3569dcd7291e7f2713e587a24ca800fabee2dddc9e5a475a5633f1ff5fd0fe",
     "package-lock.json": "b18e5964278b25e3ab9ffa0db4ab15940fc58526914fc2579b3b1b6e4265c83d",
     "package.json": "5b050eb1705e0cb7b443e672db0c1ebbd49ee75605192f8caeda63e027ba9ef8",
@@ -206,11 +206,11 @@
     "assets/fraunces-500-BRG80hqk.woff2": "c4b121e21d4498429d652c5596eab6ee60b4a1b7f81690b3c9735b5a35d08e9a",
     "assets/fraunces-600-E8DYUzaB.woff2": "ca2d49b857fdc9d672315404239ec6442f487f98d742ad73cb89922aa5f802b7",
     "assets/index-CMQkELpD.css": "adfb403508caf1019487014552c8c56a45f632b78babfe6c44798d1e8ca3b1e5",
-    "assets/index-CWoWXTLk.js": "90108c4b63ef51c5bfba0237b95c04a59de31b4143d6fc107b3af662fa727956",
+    "assets/index-CgcRMpGw.js": "c0521456a79bf30e3452875d4732fe70365fc1baf0f9c86c1952c4998e7db21a",
     "assets/openhands-D4PBtzl3.svg": "bd25a937147d458634203f802bb3d92a361696b3e62d9e77dd23a3682c048b02",
     "assets/overview.mock-Blujiy6f.js": "4aa28bcedc4668c3fcb25c93fa05e6fe19663eec6e9ac07e47c29a94734e690e",
     "assets/qoder-Dbj-V8Oc.svg": "fa9e0ebf4c8ca0628e5383a85fa14fe0fc47c20af76ed11be0505be64a6191a3",
-    "index.html": "5c45c6333929cf38b48c177e38c6f551844cd294bb82ead4fca96b14a306339f",
+    "index.html": "6352f0361bd6afc18dd1fdb899858376ec9877cf9ebfb247842da9ad51a54562",
     "third-party-notices.txt": "53536b1c45ee962b1274daeeac604aeb3d8ee36c4152568281d52762bad2afd3"
   }
 }

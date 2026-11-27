@@ -44,9 +44,9 @@ func bareCompanion(t *testing.T, dir string) string {
 
 func TestCompanionFile_IsInsideTheAppOnMacOS(t *testing.T) {
 	for goos, want := range map[string]string{
-		"darwin":  filepath.Join("/cfg", "companion", "agnostic-ai companion.app", "Contents", "MacOS", "agnostic-ai-companion"),
-		"linux":   filepath.Join("/cfg", "companion", "agnostic-ai-companion"),
-		"windows": filepath.Join("/cfg", "companion", "agnostic-ai-companion.exe"),
+		"darwin":  filepath.Join("/cfg", "companion", "Agnostic Companion.app", "Contents", "MacOS", "agnostic-companion"),
+		"linux":   filepath.Join("/cfg", "companion", "agnostic-companion"),
+		"windows": filepath.Join("/cfg", "companion", "agnostic-companion.exe"),
 	} {
 		if got := companionFile("/cfg", goos); got != want {
 			t.Errorf("%s: %q, want %q", goos, got, want)
@@ -109,14 +109,16 @@ func TestInstallCompanion_BuildsASignedAppOnMacOS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	app := filepath.Join(dir, "companion", "agnostic-ai companion.app")
+	app := filepath.Join(dir, "companion", "Agnostic Companion.app")
 	if raw, _ := os.ReadFile(companionFile(dir, "darwin")); string(raw) != "built from github.com/chemaclass/agnostic-ai/companion@abc123" {
 		t.Errorf("installed program = %q", raw)
 	}
 	plist, _ := os.ReadFile(filepath.Join(app, "Contents", "Info.plist"))
 	for _, want := range []string{
 		"<key>CFBundleIdentifier</key>\n\t<string>dev.agnostic-ai.companion</string>",
-		"<key>CFBundleExecutable</key>\n\t<string>agnostic-ai-companion</string>",
+		"<key>CFBundleName</key>\n\t<string>Agnostic Companion</string>",
+		"<key>CFBundleDisplayName</key>\n\t<string>Agnostic Companion</string>",
+		"<key>CFBundleExecutable</key>\n\t<string>agnostic-companion</string>",
 		"<key>CFBundleIconFile</key>\n\t<string>companion</string>",
 		"<key>CFBundleShortVersionString</key>\n\t<string>1.2.3</string>",
 		"<key>LSUIElement</key>\n\t<true/>",
@@ -129,7 +131,7 @@ func TestInstallCompanion_BuildsASignedAppOnMacOS(t *testing.T) {
 	if icns, _ := os.ReadFile(filepath.Join(app, "Contents", "Resources", "companion.icns")); !bytes.Equal(icns, companionICNS(companionIconPNG)) {
 		t.Error("the app does not hold the agnostic-ai icon")
 	}
-	if len(signed) != 1 || filepath.Base(signed[0]) != "agnostic-ai companion.app" {
+	if len(signed) != 1 || filepath.Base(signed[0]) != "Agnostic Companion.app" {
 		t.Errorf("signed %v, want the app once", signed)
 	}
 	if !strings.HasSuffix(out.String(), "✓ Installed "+app+"\nStart it with: agnostic-ai companion\n") {
@@ -274,7 +276,7 @@ func TestInstallCompanion_MovesABareCompanionAndItsStartAtLoginIntoTheApp(t *tes
 			t.Errorf("%s is still there (%v)", gone, err)
 		}
 	}
-	app := filepath.Join(dir, "companion", "agnostic-ai companion.app")
+	app := filepath.Join(dir, "companion", "Agnostic Companion.app")
 	wantOut := "✓ Stopped the running companion\n" +
 		"✓ Installed " + app + "\n" +
 		"✓ Removed the earlier companion at " + bare + "\n" +

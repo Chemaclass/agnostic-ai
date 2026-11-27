@@ -13,3 +13,7 @@ func companionSysProcAttr() *syscall.SysProcAttr {
 // removeCompanionRunValue does nothing here: only Windows keeps start at
 // login in the registry.
 func removeCompanionRunValue() (bool, error) { return false, nil }
+
+func readLegacyCompanionRunValue() (companionLegacyRunValue, error) {
+	return companionLegacyRunValue{}, nil
+}

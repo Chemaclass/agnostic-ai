@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { detectOS, init, initHeroInstaller, initInstallPicker, initOutputSwitch, initSourceTree, nextTabIndex } = require("./landing.js");
+const { detectOS, init, initCompanionDownloads, initHeroInstaller, initInstallPicker, initOutputSwitch, initSourceTree, nextTabIndex } = require("./landing.js");
 
 test("detects supported desktop operating systems", function () {
   assert.equal(detectOS("macOS", "", 0), "macos");
@@ -107,6 +107,54 @@ function scope(nodes) {
     }
   };
 }
+
+test("companion downloads use the available stable layout", async function () {
+  const releases = "https://github.com/Chemaclass/agnostic-ai/releases";
+  const fallback = releases + "/latest";
+  const api = "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest";
+  const current = "agnostic-companion_darwin_arm64.dmg";
+  const legacy = "agnostic-ai-companion_darwin_arm64.dmg";
+  const button = makeElement({ href: fallback, "data-companion-asset": current });
+  const downloads = makeElement({
+    "data-companion-release-root": releases,
+    "data-companion-release-api": api
+  });
+  Object.assign(downloads, scope([button]));
+  const document = scope([downloads]);
+  const browser = {
+    fetch: async function (url, options) {
+      assert.equal(url, api);
+      assert.equal(options.credentials, "omit");
+      return { ok: true, json: async function () { return release; } };
+    }
+  };
+  let release = { tag_name: "v0.99.0", assets: [{ name: legacy, state: "uploaded" }] };
+
+  await initCompanionDownloads(document, browser);
+  assert.equal(button.getAttribute("href"), releases + "/download/v0.99.0/" + legacy);
+  release = { tag_name: "v0.100.0", assets: [
+    { name: legacy, state: "uploaded" },
+    { name: current, state: "uploaded" }
+  ] };
+  await initCompanionDownloads(document, browser);
+  assert.equal(button.getAttribute("href"), releases + "/download/v0.100.0/" + current);
+});
+
+test("companion downloads keep the release page when assets are unavailable", async function () {
+  const releases = "https://github.com/Chemaclass/agnostic-ai/releases";
+  const button = makeElement({
+    href: releases + "/latest",
+    "data-companion-asset": "agnostic-companion_darwin_amd64.dmg"
+  });
+  const downloads = makeElement({
+    "data-companion-release-root": releases,
+    "data-companion-release-api": "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest"
+  });
+  Object.assign(downloads, scope([button]));
+
+  await initCompanionDownloads(scope([downloads]), { fetch: async function () { throw new Error("offline"); } });
+  assert.equal(button.getAttribute("href"), releases + "/latest");
+});
 
 // The generated files as the template renders them: the first tab selected,
 // the rest hidden, and the whole list inert until a script proves it can do

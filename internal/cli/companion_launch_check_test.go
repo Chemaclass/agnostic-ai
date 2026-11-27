@@ -49,7 +49,7 @@ func TestCompanionStaysUp_WaitsUntilTheNewCompanionStaysInTheProcessList(t *test
 			pauses := 0
 			tools.pause = func(time.Duration) { pauses++ }
 
-			err := companionStaysUp(context.Background(), io.Discard, tools, "/apps/agnostic-ai-companion")
+			err := companionStaysUp(context.Background(), io.Discard, tools, "/apps/agnostic-companion")
 
 			if tc.want == "" && err != nil || tc.want != "" && (err == nil || !strings.Contains(err.Error(), tc.want)) {
 				t.Errorf("err = %v; want %q", err, tc.want)
@@ -67,7 +67,7 @@ func TestCompanionStaysUp_KeepsTheNewCompanionWhenTheProcessListCannotBeRead(t *
 	tools.running = func(context.Context, string) (bool, error) { return false, errors.New("ps missing") }
 	var out bytes.Buffer
 
-	err := companionStaysUp(context.Background(), &out, tools, "/apps/agnostic-ai-companion")
+	err := companionStaysUp(context.Background(), &out, tools, "/apps/agnostic-companion")
 
 	if err != nil || !strings.Contains(out.String(), "ps missing") {
 		t.Errorf("err = %v, output %q; want a warning and no rollback", err, &out)
@@ -95,7 +95,7 @@ func TestProgramListed_MatchesTheAppAndTheProgramInsideIt(t *testing.T) {
 			t.Errorf("programListed(%q) = %t; want %t", tc.list, got, tc.want)
 		}
 	}
-	if !programListed("agnostic-ai-companion\n/opt/c/agnostic-ai-companion\n", "/home/me/c/agnostic-ai-companion") {
+	if !programListed("agnostic-companion\n/opt/c/agnostic-companion\n", "/home/me/c/agnostic-companion") {
 		t.Error("a program outside an app was not found by its name")
 	}
 }
@@ -208,8 +208,8 @@ func TestInstallCompanion_RestoresTheEarlierAppWhenTheRecordFailsAndTheNewOneDoe
 }
 
 func TestCompanionUpdateApp_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts(t *testing.T) {
-	app := testDownloadableApp(t, t.TempDir())
-	oldProgram := filepath.Join(app, "Contents", "MacOS", companionName)
+	app := testDownloadableAppLayout(t, t.TempDir(), "agnostic-ai companion.app", "agnostic-ai-companion")
+	oldProgram := filepath.Join(app, "Contents", "MacOS", "agnostic-ai-companion")
 	newProgram := filepath.Join(app, "Contents", "MacOS", "agnostic-companion")
 	tools := builtTools(t)
 	var quits []string
@@ -233,7 +233,7 @@ func TestCompanionUpdateApp_RestoresTheEarlierAppWhenTheNewOneQuitsWhileItStarts
 	var out bytes.Buffer
 	deps := companionAppDeps{
 		prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
-			built := testDownloadableAppLayout(t, staging, "agnostic companion.app", "agnostic-companion")
+			built := testDownloadableAppLayout(t, staging, "Agnostic Companion.app", "agnostic-companion")
 			if err := os.WriteFile(filepath.Join(built, "Contents", "Resources", binaryName), []byte("new cli"), 0o700); err != nil {
 				t.Fatal(err)
 			}

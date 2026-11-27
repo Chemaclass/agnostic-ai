@@ -12,8 +12,9 @@ group = "Reference"
 On macOS, rename a running chat's tab in Ghostty 1.4 or later or in WezTerm 20230408 or later, and the chat takes that name on the next refresh or the one after. Only the companion and a user-level `serve` do this. A `serve` limited to one project cannot see a chat outside it that may share the tab, so it leaves tab names alone. The name goes through the same steps as a rename in the list: the tool first, then the marks file. So the row, a search and the mailbox show it, and it stays after the session ends.
 
 - Companion reads Ghostty's `name override` or WezTerm's `tab_title`. Titles set by the shell or the tool leave the saved chat name alone.
-- WezTerm has no built-in rename command. Run `wezterm cli set-tab-title "name"` in the tab, or bind a key that calls `tab:set_title()`.
-- A `wezterm.lua` that sets tab titles itself, for example to the git branch, writes the same `tab_title`. Companion then renames the chat on each change, and can replace a name set with F2.
+- From another WezTerm tab, use `wezterm cli list` to find the running chat's `TABID`, then run `wezterm cli set-tab-title --tab-id <tab-id> "name"`. [Command reference](https://wezterm.org/cli/cli/set-tab-title.html)
+- A shortcut can call `tab:set_title()`. The example's `initial_value` field requires a nightly build. [Shortcut example](https://wezterm.org/config/lua/keyassignment/PromptInputLine.html)
+- If `wezterm.lua` calls `tab:set_title()` for automatic titles, Companion follows those changes too. An automatic title can replace a name you set in Companion.
 - The tab must hold one pane, and only one running chat. A split tab, or a tab Companion cannot match to one chat for sure, changes nothing.
 - Clearing the tab's name leaves the saved chat name alone.
 - The first time Companion sees a tab that already has a name, it takes that name only when the chat has none of its own, and the name is not one an earlier chat in that tab had. A chat resumed in a new process counts as a first look too.

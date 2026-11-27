@@ -862,7 +862,7 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		"Automation refused": {
 			conversation: at(ghostty),
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        OpenReply{Message: "macOS blocked switching to Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, then click again."},
+			reply:        OpenReply{Message: "macOS blocked switching to Ghostty. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, then click again."},
 			calls:        "focus Ghostty /dev/ttys004",
 		},
 		"Automation prompt unanswered": {
@@ -892,7 +892,7 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		"ended since the scan, Automation refused": {
 			conversation: Conversation{Tool: ToolClaude, Open: Route{Kind: RouteFocus, Command: "claude --resume x"}, process: &liveProcess{PID: 43}},
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
+			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
 			calls:        "terminal claude --resume x",
 		},
 		"two Codex clients could hold it": {
@@ -979,7 +979,7 @@ func TestOpen_EndedSessionOpensANewTabInTheAppItRanIn(t *testing.T) {
 		},
 		"Automation refused": {
 			conversation: ended, processes: shell, launcher: fakeLauncher{err: errAutomationDenied},
-			reply: OpenReply{Message: "macOS blocked opening Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
+			reply: OpenReply{Message: "macOS blocked opening Ghostty. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "claude --resume x"},
 			calls: "new tab Ghostty claude --resume x",
 		},
 		"Automation prompt unanswered": {

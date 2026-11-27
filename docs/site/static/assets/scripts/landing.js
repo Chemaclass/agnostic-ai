@@ -68,6 +68,42 @@
     return true;
   }
 
+  async function initCompanionDownloads(document, browser) {
+    var group = document.querySelector("[data-companion-release-api]");
+    if (!group || typeof browser.fetch !== "function") {
+      return;
+    }
+    try {
+      var response = await browser.fetch(group.getAttribute("data-companion-release-api"), { credentials: "omit" });
+      if (!response.ok) {
+        return;
+      }
+      var release = await response.json();
+      if (!release || !/^v[0-9]+\.[0-9]+\.[0-9]+(?:\+[0-9A-Za-z.-]+)?$/.test(release.tag_name) || !Array.isArray(release.assets)) {
+        return;
+      }
+      var assets = new Set(release.assets.filter(function (asset) {
+        return asset && asset.state === "uploaded";
+      }).map(function (asset) {
+        return asset.name;
+      }));
+      var prefix = group.getAttribute("data-companion-release-root") + "/download/" + encodeURIComponent(release.tag_name) + "/";
+      group.querySelectorAll("[data-companion-asset]").forEach(function (link) {
+        var name = link.getAttribute("data-companion-asset");
+        if (!assets.has(name)) {
+          // #4060: Keep downloads working before the first renamed release.
+          name = name.replace(/^agnostic-companion_/, "agnostic-ai-companion_");
+        }
+        if (assets.has(name)) {
+          link.setAttribute("href", prefix + name);
+          link.setAttribute("download", "");
+        }
+      });
+    } catch {
+      // The release page link works when GitHub cannot list its assets.
+    }
+  }
+
   // Arrow keys wrap, Home and End jump to the ends. Returns the index the
   // key moves to, or -1 when the key is not one this list handles.
   function nextTabIndex(key, current, total) {
@@ -223,11 +259,13 @@
     guard(browser, function () {
       return initInstallPicker(document, browser);
     });
+    initCompanionDownloads(document, browser);
   }
 
   return {
     detectOS: detectOS,
     init: init,
+    initCompanionDownloads: initCompanionDownloads,
     initHeroInstaller: initHeroInstaller,
     initInstallPicker: initInstallPicker,
     initOutputSwitch: initOutputSwitch,

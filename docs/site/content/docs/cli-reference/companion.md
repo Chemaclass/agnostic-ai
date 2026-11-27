@@ -14,7 +14,7 @@ delete-an-archived-chat = "@/docs/cli-reference/companion-list.md"
 
 # Companion
 
-The companion floats over your apps and counts Claude Code, Codex and Cursor chats that need you. Click the circle to [search and open chats](@/docs/cli-reference/companion-list.md). Use a row's menu to [stop a forgotten Claude Code shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
+Agnostic Companion floats over your apps and counts Claude Code, Codex and Cursor chats that need you. Click the circle to [search and open chats](@/docs/cli-reference/companion-list.md). Use a row's menu to [stop a forgotten Claude Code shell](@/docs/cli-reference/companion-list.md#stop-a-forgotten-shell).
 
 <span id="companion" hidden></span>
 
@@ -23,8 +23,8 @@ The companion floats over your apps and counts Claude Code, Codex and Cursor cha
 The disk image needs macOS 13 Ventura or later. It holds the companion, the matching CLI and the web dashboard, so it works without a separate agnostic-ai install.
 
 1. Open **Apple menu > About This Mac**. An Apple chip uses the **Apple silicon** (`arm64`) download. An Intel processor uses **Intel** (`amd64`).
-2. Open the [latest stable release](https://github.com/Chemaclass/agnostic-ai/releases/latest) and download the matching `.dmg`. If the release has no disk image for your Mac, [install from the terminal](#install-from-terminal).
-3. Open the disk image, drag **agnostic-ai companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder. If macOS says Apple could not verify it, click **Done**, then **Open Anyway** under **System Settings > Privacy & Security**.
+2. Download `agnostic-companion_darwin_<arch>.dmg` from the [latest stable release](https://github.com/Chemaclass/agnostic-ai/releases/latest). Earlier releases use the old name. If your Mac has no image, [install from the terminal](#install-from-terminal).
+3. Open the disk image, drag **Agnostic Companion** into **Applications**, and eject the disk image. Open the app from **Applications** in Finder. If macOS says Apple could not verify it, click **Done**, then **Open Anyway** under **System Settings > Privacy & Security**.
 4. Click the floating circle to see your conversations. Use **Open the dashboard** in the list header to open the full web interface in your browser.
 
 To skip that alert, [install from the terminal](#install-from-terminal) instead. macOS checks apps downloaded in a browser, not the one the CLI installs.
@@ -36,7 +36,7 @@ The app is signed without an Apple Developer ID and is not notarized, so the fir
 
 1. Click **Done** in the alert.
 2. Open **System Settings > Privacy & Security** and scroll to **Security**.
-3. Click **Open Anyway** next to "agnostic-ai companion". It shows for about an hour after the blocked launch.
+3. Click **Open Anyway** next to "Agnostic Companion". It shows for about an hour after the blocked launch.
 4. Confirm with **Open** and your password. Later launches open normally.
 
 On macOS 15 and later, right-click **Open** no longer skips the alert. See [Apple's guide to macOS alerts](https://support.apple.com/en-us/102445).
@@ -55,7 +55,9 @@ The bundled CLI checks for a release on start and every 24 hours. A good answer 
 
 Choose **Update to vX.Y.Z**, then **Update and restart**. The app and its bundled CLI update together, and the list shows download, verification and restart progress. The download gets the CLI installer's checksum and provenance checks. It works without `gh`: the new app must match the installed app's project certificate before it runs or replaces it. After a certificate change, install the next disk image by hand once. An app still on the disk image, or in a read-only folder, must move to Applications before it can update.
 
-The updater keeps the earlier app until the new one has stayed open for a few seconds. If macOS refuses to open the new app, or it quits or never appears, the updater restores and opens the earlier one. If that fails, it saves the earlier app and logs its path. The list shows the failure and offers **Retry**, also after a restart, and says whether the new app could not take its place or could not start. A second install, update or uninstall of the same app waits for the first to end. The log is `~/Library/Application Support/agnostic-ai/companion-update.log`.
+The updater preserves the app's path and filename so shortcuts and CLI links still work. It keeps the earlier app until the new one stays open. If launch fails, it restores and opens the earlier app or logs the backup path. The list says whether replacement or launch failed and offers **Retry** after restart. Installs, updates and uninstalls of the same app run one at a time. The log is `~/Library/Application Support/agnostic-ai/companion-update.log`.
+
+Earlier disk-image installs can update through v1.0.0 and for at least 30 days after the first renamed release, whichever is later. After that window, download the current disk image and replace the app by hand if it no longer offers an update. Keep its path if you use the bundled CLI link.
 
 `agnostic-ai upgrade` run through the bundled CLI link points you to the app menu. The app also looks for a separate CLI, such as a Homebrew or npm install. If that one is older, the list shows both versions and a command to run in your terminal.
 {% </details> %}
@@ -83,15 +85,15 @@ Use an existing CLI to install and start the companion:
 - When neither the new app nor the old one can take its place, the old one stays in the build folder, and the error names both paths.
 - It builds instead of downloading for a release that ships no built companion, for an `agnostic-ai` built from any commit but a release tag (such as `make build` on `main`), and with `--source`. A build uses the same commit as the `agnostic-ai` you run, and prints each step.
 - Build needs: Go everywhere, plus the Xcode Command Line Tools on macOS. Linux also needs a C compiler, `pkg-config`, and the GTK 4, WebKitGTK 6.0 and X11 development packages.
-- When something is missing, the command names all of it at once, with how to get it, and builds nothing. On Linux that is one install line for `apt`, `dnf` or `pacman`, whichever the machine has. Without `pkg-config` it names that first, since the other packages are checked with it.
+- The CLI lists missing build tools before building. On Linux it prints an install command for `apt`, `dnf` or `pacman`. Install `pkg-config` first if it is missing, then rerun the check.
 - A failed build leaves the installed companion as it was.
 - A running companion is stopped for the install and started again after it.
-- On macOS it installs an app, `agnostic-ai companion.app`, with the agnostic-ai icon. The app stays out of the Dock.
+- On macOS it installs an app, `Agnostic Companion.app`, with the agnostic-ai icon. The app stays out of the Dock.
 - The terminal installer signs the app on your machine with `codesign`, without a developer identity. It makes a certificate for this Mac on the first install and keeps it in the companion folder, so each later install keeps the app's Accessibility access. Uninstalling removes the certificate.
 - The disk image carries an app signed during the release build with the project's own certificate, so updating from one disk image to the next keeps Accessibility access too.
 - Switching between the disk image and the terminal installer changes the certificate, and so does the first install with this signing. Grant Accessibility access once more after either.
 - Start at login registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
-- An install over a companion that an earlier release built as a bare program removes that program and its launch agent. When it started at login, the app does now.
+- An install replaces the old app or program, keeps its settings and transfers enabled login entries. On Linux the new entry is `agnostic-companion.desktop`. Entries for another build stay.
 {% </details> %}
 
 ### What ran on Linux {#linux-runs}
@@ -111,7 +113,7 @@ Every run below used containers on an Apple silicon Mac (Docker Desktop, `linux/
 | The list opens beside the circle | Xvfb with Openbox | Pass |
 | `companion stop`, and `stop` when nothing runs | X11 and Wayland | Pass |
 | `companion install` over a running companion | X11 and Wayland | Pass: new file, new process |
-| **Start at login** writes `~/.config/autostart/agnostic-ai-companion.desktop` | X11 and Wayland | Pass |
+| Before the rename, **Start at login** wrote an entry under `~/.config/autostart/` | X11 and Wayland | Pass |
 | `companion uninstall` leaves no process, autostart entry or program | X11 and Wayland | Pass |
 | `stop` and `uninstall` with no session bus | X11 and Wayland | Pass: as described under [Commands](#commands) |
 | A Claude Code chat lists | X11 and Wayland, one session file | Pass |
@@ -164,8 +166,8 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 | `companion` | Starts it, or brings back a hidden one and opens its list. |
 | `companion stop` | Ends the companion and its server. Start at login stays as set. |
 | `companion uninstall` | Ends it, turns off start at login, deletes what install made. |
-| `companion install-command --app /Applications/agnostic-ai\ companion.app` | Links the app's bundled CLI into a command folder on macOS. |
-| `companion update-app --app /Applications/agnostic-ai\ companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
+| `companion install-command --app /Applications/Agnostic\ Companion.app` | Links the app's bundled CLI into a command folder on macOS. |
+| `companion update-app --app /Applications/Agnostic\ Companion.app --version X.Y.Z` | Downloads the named stable release, replaces that app and its bundled CLI, then restarts it. |
 | `companion update-status --json` | Prints what the companion needs to offer an update: installed and latest release, install method and upgrade command. `--refresh` asks GitHub now. |
 
 {% <details summary="Details: update-status fields"> %}
@@ -177,13 +179,13 @@ Every run below used a GitHub Actions `windows-latest` runner: Windows Server 20
 
 {% <details summary="Details: stop and uninstall"> %}
 - `stop` with nothing running succeeds and says so.
-- **Quit Agnostic AI companion** in the menus does the same as `stop`, after asking.
+- **Quit Agnostic Companion** in the menus does the same as `stop`, after asking.
 - `uninstall` deletes the built program, `companion.json` (its place, shortcuts, animation and dim choices) with its lock, `companion-state.json`, `companion-command` (where the CLI is) and `companion-revision` (the commit of the CLI that installed it).
 - When the companion cannot run, such as one built for another processor, `uninstall` warns and still deletes it. A companion that runs but does not stop or turn off start at login keeps `uninstall` from deleting anything.
 - `uninstall` keeps `conversation-marks.json`, which `serve` uses too.
 - `stop` and `uninstall` manage the terminal-installed companion. For the disk-image app, quit from its menu, turn off **Start at login**, remove any CLI link you installed, then move the app from Applications to Trash.
-- It also removes a login entry that a deleted program left behind: a file on macOS and Linux, the `agnostic-ai-companion` value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run` on Windows.
-- On Windows the companion keeps its browser data in the `companion` folder, which `uninstall` deletes. It also deletes the `agnostic-ai-companion.exe` folder older companions left in `%AppData%`.
+- It removes leftover login entries for both program names. macOS and Linux use files. Windows uses a value under `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+- On Windows the companion keeps its browser data in the `companion` folder, which `uninstall` deletes. It also deletes the browser data folder older companions left next to `agnostic-ai` in `%AppData%`.
 - On Linux the CLI reaches the companion over the D-Bus session bus. In a shell without one, such as an SSH login, `stop` says so and stops nothing, and `uninstall` warns and still deletes the files.
 {% </details> %}
 
@@ -202,8 +204,8 @@ Right-click the circle, or open the list's ⋯ menu. The menus group settings un
 | **Send copied text** | Shows and changes the send shortcut. See [Send copied text](@/docs/cli-reference/companion-list.md#send-copied-text). |
 | **Start at login** | Starts it when you log in. |
 | **Updates** | Check for a release now, install an available release, or change automatic checks. For install and update details, see [Upgrade the companion](#upgrade-the-companion). |
-| **Hide Agnostic AI companion** | Takes the circle and the list off the screen. It keeps running. |
-| **Quit Agnostic AI companion** | Asks first, then ends it and its server. |
+| **Hide Agnostic Companion** | Takes the circle and the list off the screen. It keeps running. |
+| **Quit Agnostic Companion** | Asks first, then ends it and its server. |
 
 {% <details summary="Details: count, animation, dim, small, shortcuts"> %}
 - The circle shows a solid orange count with a lock and a halo for chats waiting for you (a terminal when all wait on a shell). Unread replies alone keep the softer count. A screen reader hears both numbers, such as "2 waiting for you, 4 unread". A request the [approvals](#approvals) hook approved never counts.

@@ -156,17 +156,17 @@ outputs = [
 [companion]
 eyebrow = "macOS app"
 title = "Your chats, one click away."
-muted_title = "The companion."
+muted_title = "Agnostic Companion."
 body = "A small circle floats over every app and counts the Claude Code, Codex and Cursor chats that wait for you. Click it to answer a question or open the chat. The download includes the CLI and the web dashboard, so it works on its own."
 requirements = "macOS 13 or later. The app is not notarized, so macOS may warn on first launch."
 requirements_link = "What to expect"
 terminal = "Already have the CLI? Run `agnostic-ai companion install` instead. It skips the macOS alert, and builds on Windows and Linux (experimental)."
 terminal_link = "Install from the terminal"
 docs_label = "Read the companion guide"
-release_base = "https://github.com/Chemaclass/agnostic-ai/releases/latest/download/"
+release_api = "https://api.github.com/repos/Chemaclass/agnostic-ai/releases/latest"
 downloads = [
-  { label = "Download for Apple silicon", hint = "M1 and newer", asset = "agnostic-ai-companion_darwin_arm64.dmg", primary = true },
-  { label = "Download for Intel", hint = "Older Macs", asset = "agnostic-ai-companion_darwin_amd64.dmg" },
+  { label = "Download for Apple silicon", hint = "M1 and newer", asset = "agnostic-companion_darwin_arm64.dmg", primary = true },
+  { label = "Download for Intel", hint = "Older Macs", asset = "agnostic-companion_darwin_amd64.dmg" },
 ]
 preview_group = "Needs you"
 preview_rows = [

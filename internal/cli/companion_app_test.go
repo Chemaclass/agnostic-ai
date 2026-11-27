@@ -114,8 +114,8 @@ func TestCompanionUpdateApp_VerifiesBeforeStoppingAndReplacesTogether(t *testing
 }
 
 func TestCompanionUpdateApp_UsesEachBundlesExecutable(t *testing.T) {
-	app := testDownloadableAppLayout(t, t.TempDir(), "My Companion.app", companionName)
-	oldProgram := filepath.Join(app, "Contents", "MacOS", companionName)
+	app := testDownloadableAppLayout(t, t.TempDir(), "My Companion.app", legacyCompanionName)
+	oldProgram := filepath.Join(app, "Contents", "MacOS", legacyCompanionName)
 	newProgram := filepath.Join(app, "Contents", "MacOS", "agnostic-companion")
 	tools := builtTools(t)
 	var quits []string
@@ -132,7 +132,7 @@ func TestCompanionUpdateApp_UsesEachBundlesExecutable(t *testing.T) {
 	}
 	deps := companionAppDeps{
 		prepare: func(_ context.Context, _ io.Writer, _ string, staging string) (string, error) {
-			return testDownloadableAppLayout(t, staging, "agnostic companion.app", "agnostic-companion"), nil
+			return testDownloadableAppLayout(t, staging, "Agnostic Companion.app", "agnostic-companion"), nil
 		},
 		sameSigner: acceptSigner,
 		runBuilt:   acceptBuilt,
@@ -162,10 +162,10 @@ func TestRunBuiltCompanionApp_UsesItsDeclaredExecutable(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("the app executables in this test are shell scripts")
 	}
-	app := testDownloadableAppLayout(t, t.TempDir(), "agnostic companion.app", "agnostic-companion")
+	app := testDownloadableAppLayout(t, t.TempDir(), "Agnostic Companion.app", "agnostic-companion")
 	for path, script := range map[string]string{
 		filepath.Join(app, "Contents", "MacOS", "agnostic-companion"): "#!/bin/sh\necho 2.0.0\n",
-		filepath.Join(app, "Contents", "MacOS", companionName):        "#!/bin/sh\necho 1.0.0\n",
+		filepath.Join(app, "Contents", "MacOS", legacyCompanionName):  "#!/bin/sh\necho 1.0.0\n",
 		filepath.Join(app, "Contents", "Resources", binaryName):       "#!/bin/sh\necho 'agnostic-ai version 2.0.0'\n",
 	} {
 		if err := os.WriteFile(path, []byte(script), 0o700); err != nil {
@@ -185,7 +185,7 @@ func TestDownloadableCompanionApp_RequiresKnownBundleMetadata(t *testing.T) {
 	for _, edit := range []struct{ name, from, to string }{
 		{"different bundle", "<string>" + companionBundleID + "</string>", "<string>dev.example.companion</string>"},
 		{"arbitrary executable", "<string>" + companionName + "</string>", "<string>../unexpected</string>"},
-		{"missing declared executable", "<string>" + companionName + "</string>", "<string>agnostic-companion</string>"},
+		{"missing declared executable", "<string>" + companionName + "</string>", "<string>" + legacyCompanionName + "</string>"},
 		{"dangling property", "</dict>", "<key>MissingValue</key></dict>"},
 	} {
 		t.Run(edit.name, func(t *testing.T) {
@@ -415,8 +415,8 @@ func TestPinnedRequirement_ReadsOnlyARequirementThatPinsACertificate(t *testing.
 		name, output, want string
 		ok                 bool
 	}{
-		{"pinned", "Executable=/A.app/Contents/MacOS/agnostic-ai-companion\ndesignated => " + pinned + "\n", pinned, true},
-		{"ad hoc", "Executable=/A.app/Contents/MacOS/agnostic-ai-companion\n# designated => cdhash H\"8b8f\"\n", "", false},
+		{"pinned", "Executable=/A.app/Contents/MacOS/agnostic-companion\ndesignated => " + pinned + "\n", pinned, true},
+		{"ad hoc", "Executable=/A.app/Contents/MacOS/agnostic-companion\n# designated => cdhash H\"8b8f\"\n", "", false},
 		{"identifier only", "designated => identifier \"dev.agnostic-ai.companion\"\n", "", false},
 		{"empty", "", "", false},
 	} {

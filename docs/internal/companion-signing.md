@@ -52,7 +52,7 @@ If macOS leaves a newly built image attached in CI, the build detaches its devic
 4. Mounts each written disk image and checks its app against the pinned requirement again, so an image signed ad hoc or with another certificate stops the release.
 5. Deletes the temporary keychain on exit, which also removes it from the search list.
 
-A stable release needs both disk images and both archives, so a failed build or signing stops it before anything is published. A prerelease ships without them. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
+A stable release needs the new disk image, new archive and old-layout disk image for each of Apple silicon and Intel during the [rename transition](decisions.md#030-name-the-app-agnostic-companion). A failed build or signing stops publication. A prerelease ships without them. CI runs the same script on every pull request that touches the companion, with a throwaway certificate passed through `COMPANION_SIGNING_SHA1`.
 
 ## Make the release certificate
 
@@ -111,11 +111,11 @@ The app's own update (`agnostic-ai companion update-app`) accepts only an app th
 ## Check a released app
 
 ```bash
-hdiutil attach agnostic-ai-companion_darwin_arm64.dmg
-codesign -d -r- "/Volumes/agnostic-ai companion/agnostic-ai companion.app"
+hdiutil attach agnostic-companion_darwin_arm64.dmg
+codesign -d -r- "/Volumes/Agnostic Companion/Agnostic Companion.app"
 # designated => identifier "dev.agnostic-ai.companion" and certificate leaf = H"<sha1>"
-codesign --verify --deep --strict "/Volumes/agnostic-ai companion/agnostic-ai companion.app"
-hdiutil detach "/Volumes/agnostic-ai companion"
+codesign --verify --deep --strict "/Volumes/Agnostic Companion/Agnostic Companion.app"
+hdiutil detach "/Volumes/Agnostic Companion"
 ```
 
 The hash must match `cert.sha1`. To check that the grant survives, grant Accessibility to one version, install the next one over it, and check that **System Settings > Privacy & Security > Accessibility** still lists the app as allowed.
@@ -154,9 +154,11 @@ go test ./internal/cli -run '^TestCompanionUpdateApp_RefusesADifferentMacSignerB
 
 The test signs two temporary app bundles with separate certificates and verifies each with macOS `codesign`. It supplies the local candidate directly to the updater in place of a release download. The updater must report a signer refusal before it runs a candidate binary, quits the installed app, moves a bundle, or starts an app. The test compares every file in the installed bundle before and after. A manual install from Finder and its new Accessibility grant are separate desktop checks.
 
+The published v0.99.0 arm64 disk image matched its SHA-256 and the release workflow's attestation for tag `v0.99.0`. The app and its bundled command both reported 0.99.0. Strict signature verification matched the fingerprint in the [v0.99.0 signing job](https://github.com/Chemaclass/agnostic-ai/actions/runs/45364187429/job/138343590816). On macOS 27.2.1, a test using the updater from the v0.99.0 source tag refused a valid candidate signed by a disposable second certificate. It used a copy of the published app and supplied the candidate locally. The refusal came before execution, quit, replacement or restart, and the published copy's files matched byte for byte after the test.
+
 ### Update between executable names
 
-`TestCompanionUpdateApp_UsesEachBundlesExecutable` and `TestCompanionUpdateApp_RestoresAndRelaunchesOldAppWhenOpenFails` exercise an old installed executable and a candidate with the name planned in #4048. The updater uses the installed app's path for the swap and verifies that the candidate's executable starts there. The rollback test checks that it restores the original bundle when the candidate fails to start.
+`TestCompanionUpdateApp_UsesEachBundlesExecutable` and `TestCompanionUpdateApp_RestoresAndRelaunchesOldAppWhenOpenFails` exercise an old installed executable and a candidate with the new executable name. The updater uses the installed app's path for the swap and verifies that the candidate's executable starts there. The rollback test checks that it restores the original bundle when the candidate fails to start.
 
 ## Troubleshooting
 

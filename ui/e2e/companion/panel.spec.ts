@@ -2398,7 +2398,7 @@ async function offerHandoff(page: Page) {
   await chooseMailboxTarget(page)
   await claimedFilesDetails(page).click()
   const composer = page.getByRole('form', { name: 'Message another session' })
-  await composer.getByLabel('Worktree', { exact: true }).fill(handoffWorktree)
+  await expect(composer.getByLabel('Worktree', { exact: true })).toHaveValue(handoffWorktree)
   await composer.getByLabel('Paths, one per line').fill(handoffPath)
   await page.getByLabel('Note (optional)', { exact: true }).fill('Please finish the handoff implementation.')
   await page.getByRole('button', { name: 'Claim these paths' }).click()
@@ -2461,6 +2461,40 @@ test('an explicit mailbox handoff worktree wins over a pending lookup', async ({
   await claimedFilesDetails(page).click()
   await expect(worktree).toHaveValue('/chosen-worktree')
   await expect(composer.getByRole('button', { name: 'Claim these paths' })).toBeEnabled()
+})
+
+test('typing a handoff worktree replaces a suggestion that arrived after focus', async ({ page }) => {
+  let release!: () => void
+  const held = new Promise<void>((resolve) => { release = resolve })
+  await page.route(`**/api/mailbox/claims?tool=claude&id=${mailboxSource}`, async (route) => {
+    await held
+    await route.continue()
+  })
+  await openPanel(page, 'mailbox-handoff')
+  await composeMailbox(page)
+  await chooseMailboxTarget(page)
+  const composer = page.getByRole('form', { name: 'Message another session' })
+  const worktree = composer.getByLabel('Worktree', { exact: true })
+  try {
+    await claimedFilesDetails(page).click()
+    await worktree.focus()
+    await expect(worktree).toBeFocused()
+    await expect(worktree).toHaveValue('')
+  } finally {
+    release()
+  }
+  await expect(worktree).toHaveValue(handoffWorktree)
+  const files = { worktree: '/chosen-worktree', paths: [handoffPath] }
+  await page.keyboard.insertText(files.worktree)
+  await composer.getByLabel('Paths, one per line').fill(handoffPath)
+
+  const claim = page.waitForRequest('**/api/mailbox/claim')
+  await composer.getByRole('button', { name: 'Claim these paths' }).click()
+  expect((await claim).postDataJSON()).toMatchObject(files)
+  const sent = page.waitForRequest('**/api/mailbox/send')
+  await mailboxSend(page).click()
+  expect((await sent).postDataJSON()).toMatchObject({ type: 'handoff', gives: files })
+  await expect(mailboxSummary(page)).toContainText('Handoff')
 })
 
 test('a mailbox handoff moves no claim until the receiver accepts', async ({ page }) => {
@@ -2539,7 +2573,24 @@ test('the global mailbox claims card releases a stale owner with no conversation
   const gone = fileClaims(page).getByRole('region', { name: 'Session gone' })
   await expect(gone).toContainText(handoffPath)
   await expect(gone.getByRole('button', { name: 'Release all' })).toHaveCount(0)
-  await gone.getByRole('button', { name: 'Release', exact: true }).press('Enter')
+  let finishReads!: () => void
+  const heldReads = new Promise<void>((resolve) => { finishReads = resolve })
+  const claimsURL = '**/api/mailbox/claims'
+  await page.route(claimsURL, async (route) => {
+    await heldReads
+    await route.continue()
+  })
+  try {
+    const reading = page.waitForRequest(claimsURL)
+    const superseded = page.waitForEvent('requestfailed', async (request) => request === (await reading))
+    await gone.getByRole('button', { name: 'Release', exact: true }).press('Enter')
+    await reading
+    // A new inbox version aborts the post-release read before either read can render.
+    expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+    await superseded
+  } finally {
+    finishReads()
+  }
   await expect(fileClaims(page)).toContainText('No claims left.')
   await expect(fileClaims(page).getByRole('button', { name: 'Dismiss file claims' })).toBeFocused()
   await expect(claimsButton(page)).toBeHidden()
