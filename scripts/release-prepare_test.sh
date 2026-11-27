@@ -144,6 +144,17 @@ function test_a_rerun_changes_nothing() {
   assert_file_not_exists "$dir/docs/site/content/updates/2026-12-02-v1.11.0.md"
 }
 
+function test_a_rerun_keeps_a_signal_date_cleared_in_review() {
+  prepare v1.11.0 2026-12-01 >/dev/null
+  printf '# signal-id\tfirst-seen\tlast-seen\tdisposition\tissues\tvendor-date\tfirst-source\tshipped-date\tnote\n' > "$dir/scripts/target-audit/signals.tsv"
+  printf 'cap-a\t2026-09-16\t2026-09-23\twatch\t10\t\t\t\t\n' >> "$dir/scripts/target-audit/signals.tsv"
+  printf '\n' >> "$dir/scripts/target-audit/signals.tsv"
+  local out
+  out="$(prepare v1.11.0)"
+  assert_contains "signals: already set, skipped" "$out"
+  assert_not_contains "2026-12-01" "$(cat "$dir/scripts/target-audit/signals.tsv")"
+}
+
 function test_resumes_after_the_rollover() {
   prepare v1.11.0 2026-12-01 >/dev/null
   rm "$dir/docs/site/content/updates/2026-12-01-v1.11.0.md"
@@ -257,7 +268,7 @@ function test_check_reports_an_empty_heading_and_a_missing_briefing() {
   local out
   out="$(prepare --check v1.11.0 2>&1)"
   assert_general_error "$?"
-  assert_contains "empty heading: ### General" "$out"
+  assert_equals 1 "$(printf '%s\n' "$out" | grep -c 'empty heading: ### General')"
   assert_not_contains "empty heading: ### By tool" "$out"
   assert_contains "no briefing" "$out"
 }

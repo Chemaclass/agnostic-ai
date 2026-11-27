@@ -57,6 +57,18 @@ $(git -C "$root" status --porcelain --untracked-files=all)
 EOF
 }
 
+# release_unchanged succeeds when PATH matches HEAD and fails when it differs.
+# It stops the run when Git cannot tell.
+release_unchanged() {
+  local code=0
+  git -C "$1" diff --quiet HEAD -- "$2" 2>/dev/null || code=$?
+  case "$code" in
+    0) return 0 ;;
+    1) return 1 ;;
+    *) release_die "git cannot compare $2 with HEAD in $1" ;;
+  esac
+}
+
 # release_section_date prints the date of the "## vX.Y.Z - DATE" heading.
 release_section_date() {
   awk -v h="## $2 - " 'index($0, h) == 1 { print substr($0, length(h) + 1, 10); exit }' "$1"
@@ -223,14 +235,16 @@ release_previous() {
 }
 
 release_briefing() {
-  local file="$1" ver="$2" date="$3" prev="$4" slug offset
+  local file="$1" ver="$2" date="$3" prev="$4" slug offset time=00:00:00
   slug="$date-$ver"
   offset=$(release_offset "$date")
+  # Two releases on one day sort by time, so today's briefing takes the clock.
+  [ "$date" != "$(date +%Y-%m-%d)" ] || time=$(date +%H:%M:%S)
   cat > "$file" <<EOF
 +++
 title = "agnostic-ai $ver: TODO what you can now do"
 description = "TODO one sentence naming the main capabilities."
-date = ${date}T00:00:00$offset
+date = ${date}T$time$offset
 slug = "$slug"
 aliases = ["updates/$slug.html"]
 
@@ -287,7 +301,7 @@ release_check_section() {
       if (hline != "" && !hasentry) printf "empty heading: %s\n", hline
     }
     function close_parent() {
-      if (h3line != "" && !h3entry) printf "empty heading: %s\n", h3line
+      if (h3line != "" && hline != h3line && !h3entry) printf "empty heading: %s\n", h3line
     }
     /^### / {
       close_heading(); close_parent()
@@ -385,20 +399,25 @@ release_prepare() {
     release_step "changelog: ## $ver - $date already there, skipped"
   fi
 
-  if [ $((min % 10)) -eq 1 ] && [ "$min" -gt 10 ]; then
+  if [ $((min % 10)) -eq 1 ]; then
     release_archive "$changelog" "$root/docs/CHANGELOG-archive.md" "$maj" $((min - 1))
   fi
 
   release_bump "$root" "$num"
 
-  if git -C "$root" diff --quiet HEAD -- scripts/binary-size-budget 2>/dev/null; then
+  if release_unchanged "$root" scripts/binary-size-budget; then
     make -C "$root" size-budget
   else
     release_step "size budget: already set, skipped"
   fi
 
-  if [ -f "$root/scripts/target-audit/signals.tsv" ]; then
+  # A rerun leaves signals.tsv alone so dates cleared in review stay cleared.
+  if [ ! -f "$root/scripts/target-audit/signals.tsv" ]; then
+    :
+  elif release_unchanged "$root" scripts/target-audit/signals.tsv; then
     "$RELEASE_SCRIPTS/signals-shipped.sh" "$changelog" "$root/scripts/target-audit/signals.tsv"
+  else
+    release_step "signals: already set, skipped"
   fi
 
   briefing=$(release_find_briefing "$root" "$ver")
