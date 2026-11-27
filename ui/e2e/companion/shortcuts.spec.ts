@@ -230,6 +230,7 @@ test('a short window scrolls the help rows and keeps Close visible', async ({ pa
   await page.keyboard.press('PageDown')
   await expect.poll(() => content.evaluate((node) => node.scrollTop)).toBeGreaterThan(start)
   await page.keyboard.press('End')
+  await expect.poll(() => content.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop)).toBeLessThanOrEqual(1)
   await expect(sheet(page).locator('#shortcut-help-panel > div').last()).toBeInViewport()
   const end = await content.evaluate((node) => node.scrollTop)
   await page.keyboard.press('ArrowUp')
