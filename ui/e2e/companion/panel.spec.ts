@@ -2424,8 +2424,11 @@ test('a mailbox handoff uses the Git root when the sending session is in a subdi
   await expect(composer.getByLabel('Worktree', { exact: true })).toHaveValue(handoffWorktree)
   await composer.getByLabel('Paths, one per line').fill(handoffPath)
   const sent = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/claim'))
-  await composer.getByRole('button', { name: 'Claim these paths' }).click()
+  const claim = composer.getByRole('button', { name: 'Claim these paths' })
+  await claim.click()
   expect((await sent).postDataJSON()).toMatchObject({ worktree: handoffWorktree, paths: [handoffPath] })
+  await expect(page.locator('#toast')).toHaveText('Paths claimed.')
+  await expect(claim).toBeEnabled()
 })
 
 test('an explicit mailbox handoff worktree wins over a pending lookup', async ({ page }) => {
