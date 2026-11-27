@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"maps"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,7 +14,7 @@ import (
 )
 
 // TerminalTab is one tab of a terminal app: the name the person gave
-// it, empty when none, and the ttys of its panes.
+// it, empty when none, and one tty per pane, empty when unavailable.
 type TerminalTab struct {
 	Name string
 	TTYs []string
@@ -57,7 +58,6 @@ var tabNameReads = map[string][]string{
 var noTabNameRead = map[string]string{
 	"Terminal": "a manual rename and a title the shell sets are not yet told apart on a real host",
 	"iTerm":    "which of the tab title and the session name a manual rename changes is not yet checked on a real host",
-	"WezTerm":  "the tab_title field of wezterm cli list is not yet checked on a real host",
 	"kitty":    "the title_overridden field of kitty @ ls is not yet checked on a real host",
 	"Konsole":  "a manual rename cannot yet be told apart from the tab title format",
 }
@@ -88,6 +88,17 @@ const tabNameReadTimeout = 3 * time.Second
 
 // tabNameReadPause keeps a failed read from running on every refresh.
 const tabNameReadPause = 5 * time.Minute
+
+func canReadTabNames(app, goos string) bool {
+	if _, ok := tabNameReads[app]; ok {
+		return true
+	}
+	if goos != "darwin" {
+		return false
+	}
+	_, ok := macCommandTabNameReader(app)
+	return ok
+}
 
 func tabNameReadArgs(app string) ([]string, bool) {
 	read, ok := tabNameReads[app]
@@ -129,7 +140,7 @@ func uniqueTabChats(results []sourceResult) []tabChat {
 					onTTY[c.placed.host.TTY]++
 				}
 				host, ok := tabOf(c)
-				if index == 0 && ok && !RenameReachesCloud(c) && len(tabNameReads[host.App]) > 0 {
+				if index == 0 && ok && !RenameReachesCloud(c) && canReadTabNames(host.App, runtime.GOOS) {
 					chats = append(chats, tabChat{c: c, host: host})
 				}
 			}
@@ -298,7 +309,7 @@ func (s *Scanner) resetTabNameObservation(c Conversation, host terminalHost) {
 }
 
 // noteTabName records an observation only if the chat's saved title still
-// matches the snapshot taken before reading Ghostty.
+// matches the snapshot taken before reading the terminal.
 func (s *Scanner) noteTabName(chat tabChat, name, saved string) (changed, first bool, sameTab []string) {
 	key, host, session := markKey(chat.c.Tool, chat.c.ID), chat.host, tabSessionOf(chat.c)
 	path := s.tabsPath()

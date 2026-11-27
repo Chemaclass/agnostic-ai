@@ -3,6 +3,7 @@ package conversations
 import (
 	"context"
 	"errors"
+	"runtime"
 )
 
 // RenameInTool writes a name into the tool that keeps a conversation.
@@ -54,7 +55,7 @@ func (s *Scanner) RenameChat(ctx context.Context, r ChatRename) (Conversation, e
 	}
 	if host, ok := tabOf(c); ok && r.TabLauncher != nil {
 		tabCtx := context.WithoutCancel(ctx)
-		if len(tabNameReads[host.App]) == 0 {
+		if !canReadTabNames(host.App, runtime.GOOS) {
 			go func() { _ = TitleTab(tabCtx, c, s.Processes, r.TabLauncher, r.Title) }()
 		} else {
 			// A tab read must not copy the old name back while this write is pending.

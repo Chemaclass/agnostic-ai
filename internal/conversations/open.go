@@ -1049,6 +1049,9 @@ func (macLauncher) TitleTab(ctx context.Context, app, tty, title string) (bool, 
 }
 
 func (macLauncher) ReadTabNames(ctx context.Context, app string) ([]TerminalTab, error) {
+	if driver, ok := macCommandTabNameReader(app); ok {
+		return driver.readTabNames(ctx)
+	}
 	args, ok := tabNameReadArgs(app)
 	if !ok {
 		return nil, errNotHere

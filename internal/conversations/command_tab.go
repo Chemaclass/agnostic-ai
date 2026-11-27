@@ -29,6 +29,15 @@ type commandTab interface {
 	newTab(ctx context.Context, command string) error
 }
 
+type tabNameReader interface {
+	readTabNames(context.Context) ([]TerminalTab, error)
+}
+
+func macCommandTabNameReader(app string) (tabNameReader, bool) {
+	driver, ok := commandTabs[app].(tabNameReader)
+	return driver, ok
+}
+
 var commandTabs = map[string]commandTab{
 	"WezTerm": weztermTab{run: run, runInput: runInput, path: func() (string, error) { return bundledCommand("WezTerm.app", "wezterm") }},
 	"kitty":   kittyTab{run: run, path: func() (string, error) { return bundledCommand("kitty.app", "kitty") }, table: SystemProcesses{}.Table, socket: ownSocket},
