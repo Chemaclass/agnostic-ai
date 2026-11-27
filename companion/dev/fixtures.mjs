@@ -21,12 +21,13 @@ function openOf(tool, app, id, folder, live) {
   return live ? { kind: 'focus', label: 'Open in Terminal', command } : { kind: 'terminal', label: 'Resume in Terminal', command }
 }
 
-function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, cloudResumeCommand, shared, live = LIVE_STATES.has(state) || shared !== undefined } = {}) {
+function conversation(now, tool, id, title, state, { folder = '/Users/you/Code/agnostic-ai', app = 'cli', minutesAgo = 5, branch = 'main', deleteUnsupported, reply, parent, pinnedAt, cloudResumeCommand, shared, live = LIVE_STATES.has(state) || shared !== undefined } = {}) {
   const cloud = app === 'cloud'
   return {
     ...(deleteUnsupported ? { deleteUnsupported } : {}),
     ...(reply ? { reply } : {}),
     ...(parent ? { parent } : {}),
+    ...(pinnedAt ? { pinnedAt } : {}),
     ...(live ? { live: true } : {}),
     ...(state === 'completed' ? { completedAt: new Date(now).toISOString() } : {}),
     // Like the server: a live Claude Code session in a terminal can be stopped.
@@ -607,6 +608,18 @@ export const FIXTURES = {
     label: 'Mark all as read failure',
     conversations: needsYou,
     markProblem: 'agnostic-ai could not save the mark: the marks file is read-only.',
+  },
+  pins: {
+    label: 'Pinned local and cloud chats, including one from an older page',
+    weekPages: true,
+    conversations: (now) => [
+      { ...conversation(now, 'codex', 'pin-waits', 'Fix the Windows smoke job', 'unread', { pinnedAt: new Date(now - MINUTE).toISOString() }), unread: true },
+      conversation(now, 'claude', 'pin-child', 'Check the release notes', 'active', { parent: { tool: 'claude', id: 'pin-release' } }),
+      conversation(now, 'claude', 'pin-new', 'Draft the next release', 'active'),
+      conversation(now, 'claude', 'pin-online', 'Review the hosted rollout', 'active', { app: 'cloud', pinnedAt: new Date(now - 2 * MINUTE).toISOString() }),
+      conversation(now, 'claude', 'pin-release', 'Cut the 1.0 release', 'dormant', { minutesAgo: 35 * 24 * 60, pinnedAt: new Date(now - 3 * MINUTE).toISOString() }),
+      conversation(now, 'claude', 'pin-later-page', 'Read the old archive', 'dormant', { minutesAgo: 21 * 24 * 60 }),
+    ],
   },
   'mark-failure': {
     label: 'Archive and hide failure',

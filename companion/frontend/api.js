@@ -50,11 +50,10 @@ function change(path, body) {
  * something the companion itself has to say, such as a version mismatch.
  */
 export function readInbox(query, before, signal) {
-  if (!query) return call('/api/inbox')
-  const asked = new URLSearchParams({ q: query })
-  // A search comes one week at a time; `before` is the `next` of the page already read.
+  if (!query && !before) return call('/api/inbox')
+  const asked = new URLSearchParams()
+  if (query) asked.set('q', query)
   if (before) asked.set('before', before)
-  // `signal` lets the caller give up a search that newer typing replaced.
   return call('/api/inbox?' + asked, { signal })
 }
 
@@ -79,7 +78,7 @@ export const readLateOpenNotice = () => call('/api/open/late')
 export const dismissLateOpenNotice = (id) => post('/api/open/late/dismiss', { id })
 
 /**
- * mark is `seen`, `completed`, `open` or `hidden`; answers {version}. With `later`, such as each mark of a run but the
+ * mark is `seen`, `completed`, `open`, `hidden`, `pinned` or `unpinned`; answers {version}. With `later`, such as each mark of a run but the
  * last, the companion answers at once, with no version, and reads the list soon after.
  */
 export function markConversation(conversation, mark, { later = false } = {}) {

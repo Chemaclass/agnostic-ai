@@ -17,6 +17,7 @@ Click the companion circle, or press its shortcut, to open the list. Type to sea
 
 | Group | What it holds |
 |-------|---------------|
+| Pinned | Chats you pinned, oldest pin first. Each chat keeps its state and actions. |
 | Needs you | Chats waiting for a permission, then an answer or a path conflict, then unread replies. Newest first. |
 | Working | The agent is busy. |
 | Active | Open chats, and app or cloud chats until you archive them. |
@@ -104,6 +105,14 @@ Only one chat can take text? It goes straight there. Change the shortcut under *
 
 Right-click a chat to **Copy session ID**. This copies its exact ID, including cloud IDs, and keeps its state and marks.
 
+## Pin a chat {#pin-a-chat}
+
+Right-click a top-level chat and choose **Pin to top**. The chat moves to the Pinned group without opening it or marking it read. With the row selected, Shift+F10 opens the same menu.
+
+Pinning keeps a chat at the top after it goes quiet, ends, or you mark it complete. Click the pin beside its title or choose **Unpin** to move it back to its state group. Hiding or deleting the chat also clears its pin.
+
+Search and the All, Local or Cloud choice still filter the list. Pinned chats are available as soon as the list opens, even when their last message is older than the first page.
+
 ## Message another session {#message-another-session}
 
 Right-click a local Claude Code or Codex chat and choose **Message another session…**. [New threads](@/docs/mailbox.md#hand-a-session-over) start on **Handoff**, replies on **Question**. The line under the chat says what happens next.
@@ -149,7 +158,7 @@ Renaming a running chat's tab in Ghostty 1.4 or later renames the chat too. See 
 
 Right-click a row to reach what its buttons do, and a little more:
 
-- **Mark complete** moves an unmarked chat from Active or Needs you to Archived. A chat waiting only on a forgotten shell stays in Needs you until the shell stops or you [keep it running](#stop-a-forgotten-shell).
+- **Mark complete** completes an unmarked chat in Active or Needs you. A pinned chat stays in Pinned with its completed mark. An unpinned chat moves to Archived. A chat waiting only on a forgotten shell keeps waiting until the shell stops or you [keep it running](#stop-a-forgotten-shell).
 - **Undo complete** clears the mark you set. The [usual rules for Archived](@/docs/cli-reference/conversations-api.md#get-api-views-conversations) still apply.
 - **Hide from agnostic-ai** takes any archived chat out of list and search results. The tool keeps the chat.
 - **Stop chat…** in the macOS companion asks before ending a live Claude Code terminal session. You can resume from its transcript. Separate shell processes may keep running. The [Stop chat API](@/docs/cli-reference/conversations-shell-api.md#post-api-conversations-stop-session) is available on macOS and Linux.
@@ -161,9 +170,9 @@ A new message, or the tool starting work, brings a completed or hidden chat back
 Clear a chat that needs you without opening it.
 
 - **Mark as read**: right-click the chat.
-- **Mark all as read**: the button beside Needs you, while the group is unfolded. It marks each chat the group shows, after the search and the All, Local or Cloud choice.
+- **Mark all as read** covers the chats that need you in unfolded Needs you and Pinned groups. It follows the current search and the All, Local or Cloud choice.
 
-The chat leaves Needs you in the companion and the web interface, and moves where an opened one would: Active, or Archived when closed.
+An unpinned chat moves from Needs you to Active, or to Archived when closed. A pinned chat stays in Pinned and its read mark updates.
 
 {% <details summary="Details: same mark as opening, failures, the circle count and click"> %}
 - The mark is the seen mark that opening a chat saves, stored through the server.
@@ -175,8 +184,8 @@ The chat leaves Needs you in the companion and the web interface, and moves wher
 - The first failed save stops the run and says why.
 - The list holds every blocked and unread chat of any age.
 - The circle's count ignores the search and the place. With **All** chosen and no search, it shows zero after the run until something new is written.
-- The circle's number is the rows of the kind its icon names that the list shows under Needs you with **All** chosen and no search: waiting chats when one waits, else unread replies.
-- While a chat needs you, a click on the circle opens the list on the first row under Needs you, selected and in view. It clears the search, switches to **All** when no chat in the chosen place needs you, and unfolds Needs you.
+- The circle counts waiting chats when at least one waits, and unread replies otherwise. Both Pinned and Needs you count.
+- A click on the circle selects the most urgent chat that needs you and unfolds its group. It clears search and switches to **All** when no chat in the chosen place needs you.
 {% </details> %}
 
 ## Rows and order {#rows}

@@ -4,6 +4,7 @@ import { CallError, GivenUp, askApprovals, checkForUpdates, deleteConversation, 
 import { currentShellOf, finishedKeepsOf, firstWaitingOf, keepOf, keptShellNoteOf, keptShellsOfRow, keptViewOf, needsReasonOf, shellCommandOf, shellLabelsOf, shellsLeadOf, shellWarningOf, stateIconOf, stopShellDetailsOf, stopShellWarningOf, stoppedShellOf, stuckShellsOf, missingToolsNoteOf } from '/model.js'
 import { CLOUD_PAGE_LABEL, GROUPS, NOTHING_TO_SEND, NOTICES, lateOpenNoticeOf, PLACES, SHARED_TITLE, afterPage, companionApprovalsNeedSetup, approvalOf, approvalReasonOf, approvalsHeaderOf, approvedCallsOf, approvedToggleOf, ago, chipTextOf, cloudPageOf, confirmsCandidate, deleteConfirmOf, deletedOf, detailsOf, escapeTarget, folderNamesOf, grouped, helperDetailsOf, helperOpenOf, helperReplyOf, helperRowsOf, helperTitleOf, helperTooltipOf, helpersToggleOf, keyOf, lateNoticeReplaces, subtreeToggleOf, keycapsOf, menuRowsOf, neighbour, openFailureOf, pickKeyOf, pickTitleOf, pickViewOf, pickableClip, quietNoteOf, renameOf, renames, replyOf, rowActionOf, refusedShortcutOf, rowMenuOf, rowTooltipOf, roleOfTone, sendingTitleOf, shortcutOf, startedFromOf, startsRename, startsShortcutHelp, shortcutHelpRowsOf, stillActive, stillWaits, straightSendOf, openNoticeOf, unreadLabelOf, unreadMarkOf, summaryOf, takesText, titleOf, togglesPick, typableRows, unreadableClipOf, unsentNoticeOf, updateBadgeOf, updateConfirmOf, updateFeed, updateMessageOf, viewIn, workingHelpersOf, stopSessionConfirmOf, stoppedSessionOf } from '/model.js'
 import { handoffReceiverOf, handsOff, isDrag } from '/model.js'
+import { pinnedOf } from '/model.js'
 import { decideApproval } from '/api.js'
 import { PENDING_CHANGED, pendingOf } from '/model.js'
 import { CLAIM_HELP, claimChipOf, helpOf, needsPersonOf } from '/model.js'
@@ -79,6 +80,8 @@ const state = {
   folded: new Map(GROUPS.map((group) => [group.id, group.startsFolded])),
   /** The row the arrow keys are on. */
   activeKey: undefined,
+  /** One old chat just unpinned, kept visible for the list version that saved the change. */
+  recentUnpin: undefined,
   /** What was drawn last, so an unchanged list is not drawn again. */
   drawn: '',
   /** The row whose name is being typed: {key, draft, problem?, saving?}; undefined otherwise. */
@@ -139,12 +142,15 @@ function shownPlace() {
 /** The list as the place switch narrows it, and pick mode to the rows it offers; undefined before the first one arrived. */
 function shownView() {
   if (state.view === undefined) return undefined
-  const view = viewIn(keptViewOf(state.view, state.keptShells, Date.now()), shownPlace())
+  const source = state.recentUnpin && state.query === ''
+    ? { ...state.view, conversations: [...state.view.conversations, state.recentUnpin.row] } : state.view
+  const view = viewIn(keptViewOf(source, state.keptShells, Date.now()), shownPlace())
   return state.pick ? pickViewOf(view) : view
 }
 
 function choosePlace(place) {
   state.place = place
+  cancelPinMove()
   try {
     localStorage.setItem(PLACE_KEY, place)
   } catch {
@@ -172,6 +178,7 @@ function drawPlaces() {
 const ICONS = {
   chevron: 'M2.5 1.5L5.5 4L2.5 6.5',
   complete: 'M3 8.5l3 3 7-7.5',
+  pin: 'M5 2.5h6l-1.5 1.8v3.3l2.1 2.1v1.1H4.4V9.7l2.1-2.1V4.3L5 2.5ZM8 10.8v3',
   web: 'M9.5 2.5h4v4M13.5 2.5L8 8M11.5 9.5v4h-9v-9h4',
   agents: 'M8 2.5a2 2 0 1 0 0 4a2 2 0 0 0 0-4M4 13v-1a4 4 0 0 1 8 0v1M3 4a1.5 1.5 0 1 0 0 3M13 4a1.5 1.5 0 1 1 0 3M1 12v-1a3 3 0 0 1 2-2.8M15 12v-1a3 3 0 0 0-2-2.8',
   key: 'M2.5 10.8a2.7 2.7 0 1 0 5.4 0a2.7 2.7 0 1 0-5.4 0M7.2 8.8L13 3M11 5l1.6 1.6M9.6 6.4l1.2 1.2',
@@ -311,6 +318,7 @@ function claimChip(conversation, text) {
 function rowOf(conversation, order, folderNames, under) {
   const key = keyOf(conversation)
   const needsYou = needsPersonOf(conversation)
+  const pinned = pinnedOf(conversation)
   const canRename = renames(conversation)
   const quiet = conversation.state === 'completed' || conversation.state === 'dormant'
   const row = element('div', 'row')
@@ -318,6 +326,7 @@ function rowOf(conversation, order, folderNames, under) {
   row.classList.toggle('is-quiet', quiet)
   row.classList.toggle('is-active', key === state.activeKey)
   row.classList.toggle('is-nested', under !== undefined)
+  row.classList.toggle('is-pinned', pinned)
   row.classList.toggle('has-workers', conversation.workingSubagents > 0)
   row.dataset.key = key
   row.id = rowId(key)
@@ -329,7 +338,7 @@ function rowOf(conversation, order, folderNames, under) {
   const now = Date.now()
   const tip = rowTooltipOf(conversation, now)
   row.dataset.tooltip = tip
-  const described = [under && startedFromOf(under), tip !== conversation.open.label && tip, conversation.cloud && SHARED_TITLE].filter(Boolean)
+  const described = [pinned && 'Pinned', under && startedFromOf(under), tip !== conversation.open.label && tip, conversation.cloud && SHARED_TITLE].filter(Boolean)
   if (described.length > 0) row.setAttribute('aria-description', described.join('\n'))
 
   const text = element('div', 'text')
@@ -392,6 +401,12 @@ function rowOf(conversation, order, folderNames, under) {
   }
   const page = cloudPageOf(conversation)
   if (page) actions.prepend(actionButton('web', CLOUD_PAGE_LABEL, () => openRow(page)))
+  if (pinned) {
+    const unpin = actionButton('pin', `Unpin: ${titleOf(conversation)}`, () => changePin(conversation, 'unpinned'))
+    unpin.classList.add('pin-action')
+    unpin.title = 'Unpin'
+    actions.append(unpin)
+  }
 
   // The buttons sit on the title line, where the name field would be under them.
   if (actions.childElementCount > 0 && !renaming) text.append(actions)
@@ -803,17 +818,24 @@ function renameField(conversation, renaming) {
   return input
 }
 
-function groupHead(group) {
+function groupHead(group, toRead) {
   const folded = isFolded(group)
   const title = element('button', 'group-title')
   title.type = 'button'
   title.classList.toggle('is-urgent', group.id === 'needs-you')
   title.classList.toggle('is-working', group.id === 'working')
   title.setAttribute('aria-expanded', String(!folded))
-  title.append(icon('chevron', '0 0 8 8'), group.title, element('span', 'count', String(group.rows.length)))
+  const chevron = icon('chevron', '0 0 8 8')
+  chevron.classList.add('chevron')
+  title.append(chevron)
+  if (group.id === 'pinned') {
+    const pin = icon('pin', '0 0 16 16')
+    pin.classList.add('pin-icon')
+    title.append(pin)
+  }
+  title.append(group.title, element('span', 'count', String(group.rows.length)))
   const unread = unreadLabelOf(group.rows)
-  if (unread) title.append(element('span', 'unread-count', unread))
-  title.firstChild.classList.add('chevron')
+  if (unread && (group.id !== 'pinned' || folded)) title.append(element('span', 'unread-count', unread))
   title.dataset.group = group.id
   title.addEventListener('click', () => {
     const focused = document.activeElement === title
@@ -823,11 +845,11 @@ function groupHead(group) {
   })
   const head = element('div', 'group-head')
   head.append(title)
-  if (group.id === 'needs-you' && !folded) {
+  if (toRead?.length) {
     const all = element('button', 'group-action', 'Mark all as read')
     all.type = 'button'
-    all.title = 'Mark each chat shown here as read without opening it. A chat that waits on something else, such as a permission or a path conflict, stays here.'
-    all.addEventListener('click', () => markAll(group.rows, 'seen', (conversation) => stillWaits(state.view, conversation)))
+    all.title = 'Mark each shown chat that needs you as read without opening it. A chat that waits on a permission or a path conflict still needs you.'
+    all.addEventListener('click', () => markAll(toRead, 'seen', (conversation) => stillWaits(state.view, conversation)))
     head.append(all)
   }
   if (group.id === 'active') {
@@ -897,6 +919,7 @@ function draw({ force } = { force: false }) {
   if (state.renaming && !force) return
   // A new list would redraw a row in the middle of its green tick; it waits until the tick is over.
   if (state.completing.size > 0 && !force) return
+  if (changingPin && !force) return
   const view = shownView()
   // What could not be read comes first, then what the companion and the server have to say.
   // A cloud that is missing is not a problem with the list: it gets a quiet line under the rows.
@@ -951,9 +974,12 @@ function draw({ force } = { force: false }) {
     return
   }
   const folderNames = folderNamesOf(view.conversations.map((conversation) => conversation.folder))
+  const waiting = groups.find((group) => group.id === 'needs-you' && !isFolded(group))
+  const pinned = groups.find((group) => group.id === 'pinned' && !isFolded(group))
+  const toRead = [...(waiting?.rows ?? []), ...(pinned?.rows.filter(needsPersonOf) ?? [])]
   let order = 0
   for (const group of groups) {
-    list.append(groupHead(group))
+    list.append(groupHead(group, group === (waiting ?? pinned) ? toRead : undefined))
     if (isFolded(group)) continue
     for (const conversation of group.rows) {
       list.append(rowOf(conversation, order, folderNames, group.under.get(keyOf(conversation))))
@@ -1237,6 +1263,7 @@ function holdWorkPhase(root) {
 
 function setActive(key) {
   if (key === state.activeKey) return
+  if (pendingPinMove) pendingPinMove.focus = undefined
   state.activeKey = key
   for (const row of list.querySelectorAll('.row')) {
     const active = row.dataset.key === key
@@ -1368,6 +1395,7 @@ async function readList(asked, search) {
   state.readingOlder = undefined
   landed = { query: asked, version: reply?.version }
   show(reply, problem)
+  finishPinMove()
   if (search?.stale && listShown && !(search.staleFor && search.staleFor === reply?.version)) await refresh()
 }
 
@@ -1375,6 +1403,7 @@ function show(reply, problem) {
   state.searching = false
   state.problem = problem
   state.view = reply?.view
+  if (state.recentUnpin && (!state.view || state.query !== '' || reply.version !== state.recentUnpin.version)) state.recentUnpin = undefined
   state.note = reply?.note
   // A stop's line stays for the list it made, or the first list after it when the answer named none.
   for (const [shell, stop] of state.shellStops) {
@@ -1521,6 +1550,7 @@ function chooseRow(conversation) {
 
 function showPick(clip) {
   const entering = !state.pick
+  if (entering) cancelPinMove()
   state.pick = clip
   pickTitle.textContent = pickTitleOf(clip)
   pickPreview.textContent = clip.preview
@@ -1762,6 +1792,7 @@ async function afterChange(version) {
 }
 
 async function markRow(conversation, mark) {
+  if (mark === 'hidden') cancelPinMove(keyOf(conversation))
   let version
   try {
     ({ version } = await markConversation(conversation, mark))
@@ -1770,6 +1801,93 @@ async function markRow(conversation, mark) {
     return
   }
   await afterChange(version)
+}
+
+let changingPin = false
+let pendingPinMove
+
+document.addEventListener('focusin', ({ target }) => {
+  const focus = pendingPinMove?.focus
+  if (focus && target !== focus && !(focus.matches('.row') && target.id === focus.id)) pendingPinMove.focus = undefined
+})
+
+function cancelPinMove(key) {
+  if (key === undefined || pendingPinMove?.key === key) pendingPinMove = undefined
+  if (key === undefined || state.recentUnpin?.key === key) state.recentUnpin = undefined
+}
+
+async function changePin(conversation, mark) {
+  if (changingPin) return
+  const key = keyOf(conversation)
+  const from = document.getElementById(rowId(key))?.getBoundingClientRect().top
+  const move = { key, conversation, mark, from, before: landed?.version, place: state.place, focus: document.activeElement }
+  pendingPinMove = move
+  changingPin = true
+  try {
+    ({ version: move.version } = await markConversation(conversation, mark))
+    await afterChange(move.version)
+    say(mark === 'pinned' ? 'Pinned.' : 'Unpinned.')
+  } catch (error) {
+    if (pendingPinMove === move) pendingPinMove = undefined
+    sayFailure(error)
+  } finally {
+    changingPin = false
+    draw()
+    finishPinMove()
+  }
+}
+
+function finishPinMove() {
+  const move = pendingPinMove
+  const view = state.view
+  const version = landed?.version
+  if (!move || changingPin || !view || !version || version === move.before) return
+  const current = view.conversations.find((row) => keyOf(row) === move.key)
+  const pinned = move.mark === 'pinned'
+  // A mark can answer before the rescan changes the list.
+  if (!move.version && current && pinnedOf(current) !== pinned) return
+  if (!current && !pinned && state.query === '' && (!move.version || move.version === version) &&
+    Date.parse(move.conversation.updatedAt) < Date.parse(view.from)) {
+    if (!move.checkingOlder) {
+      move.checkingOlder = true
+      confirmOldUnpin(move, version)
+    }
+  } else if (current && pinnedOf(current) === pinned) finishPinFocus(move)
+  else pendingPinMove = undefined
+}
+
+async function confirmOldUnpin(move, version) {
+  const before = new Date(Date.parse(move.conversation.updatedAt) + 1).toISOString()
+  let older
+  try {
+    older = await readInbox(undefined, before)
+  } catch (error) {
+    if (!(error instanceof CallError)) throw error
+  }
+  if (pendingPinMove !== move) return
+  const row = older?.version === version && landed?.version === version && state.place === move.place
+    ? viewIn(older.view, move.place).conversations.find((item) => keyOf(item) === move.key && !pinnedOf(item))
+    : undefined
+  if (row) finishPinFocus(move, row, version)
+  else pendingPinMove = undefined
+}
+
+function finishPinFocus(move, retained, version) {
+  pendingPinMove = undefined
+  if (retained) {
+    state.recentUnpin = { key: move.key, row: retained, version }
+    draw()
+  }
+  if (!move.focus || state.renaming) return
+  const row = revealRow(move.key)
+  if (!row) return
+  row.focus({ preventScroll: true })
+  const offset = move.from === undefined ? 0 : move.from - row.getBoundingClientRect().top
+  if (offset !== 0 && moves()) {
+    row.animate([{ transform: `translateY(${offset}px)` }, { transform: 'translateY(0)' }], {
+      duration: 180, easing: getComputedStyle(row).getPropertyValue('--ease-out').trim(),
+    })
+  }
 }
 
 /**
@@ -1810,6 +1928,8 @@ const renameItem = document.getElementById('rename')
 const menuItems = {
   read: document.getElementById('mark-read'),
   rename: renameItem,
+  pin: document.getElementById('pin-session'),
+  unpin: document.getElementById('unpin-session'),
   'copy-session-id': document.getElementById('copy-session-id'),
   'copy-cloud-resume': document.getElementById('copy-cloud-resume'),
   'send-to': document.getElementById('send-to'),
@@ -1987,6 +2107,14 @@ menuItems.read.addEventListener('click', () => {
   // Seen is the mark opening a chat sets, so the chat stays closed and a later write brings it back.
   markRow(conversation, 'seen')
 })
+for (const [item, mark] of [['pin', 'pinned'], ['unpin', 'unpinned']]) {
+  menuItems[item].addEventListener('click', () => {
+    const conversation = rowMenuTarget(item)
+    closeRowMenu()
+    queryInput.focus()
+    if (conversation) changePin(conversation, mark)
+  })
+}
 menuItems.complete.addEventListener('click', () => {
   const conversation = rowMenuTarget('complete')
   closeRowMenu()
@@ -2121,6 +2249,7 @@ deleteGo.addEventListener('click', async () => {
   const conversation = deleteFor
   if (!conversation) return
   deleteGo.disabled = true
+  cancelPinMove(keyOf(conversation))
   let reply
   let version
   try {
@@ -2377,6 +2506,7 @@ function searchSoon() {
   const typed = queryInput.value.trim()
   clearButton.hidden = queryInput.value === ''
   if (typed === state.query) return
+  cancelPinMove()
   state.query = typed
   // The server is asked once the typing pauses, not on every key.
   state.searching = typed !== ''
@@ -3000,6 +3130,7 @@ function opened(data) {
   // A click on the circle while a row waits sends {from, jump}; every other showing sends the corner alone.
   const { from, jump } = typeof data === 'object' && data !== null ? data : { from: data, jump: false }
   listShown = true
+  cancelPinMove()
   hideTip()
   card.dataset.from = from
   card.classList.remove('is-opening')
@@ -3043,8 +3174,7 @@ function opened(data) {
 }
 
 /**
- * Selects the first row under Needs you and brings it into view: the place switches to All when none waits in the
- * chosen place, and a folded Needs you unfolds.
+ * Selects the most urgent waiting row. The place switches to All when none waits in the chosen place.
  */
 function jumpToWaiting() {
   if (state.query !== '' || state.pick) return
@@ -3054,10 +3184,21 @@ function jumpToWaiting() {
     if (key === undefined) return
     choosePlace('all')
   }
-  state.folded.set('needs-you', false)
-  state.activeKey = key
-  draw({ force: true })
-  document.getElementById(rowId(key))?.scrollIntoView({ block: 'nearest' })
+  revealRow(key)
+}
+
+function revealRow(key) {
+  let row = document.getElementById(rowId(key))
+  if (!row) {
+    const group = grouped(shownView()?.conversations ?? []).find(({ rows }) => rows.some((item) => keyOf(item) === key))
+    if (!group) return undefined
+    state.folded.set(group.id, false)
+    draw({ force: true })
+    row = document.getElementById(rowId(key))
+  }
+  setActive(key)
+  row?.scrollIntoView({ block: 'nearest' })
+  return row
 }
 
 card.addEventListener('animationend', (event) => {
@@ -3090,6 +3231,7 @@ Events.On('inbox', (event) => {
 Events.On('panel-shown', (event) => opened(event.data))
 Events.On('panel-hidden', () => {
   listShown = false
+  cancelPinMove()
   approvalsRows.closed()
   hideTip()
 })

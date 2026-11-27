@@ -260,15 +260,18 @@ func (in *inbox) listReply(ctx context.Context, view json.RawMessage, version st
 	return reply
 }
 
-// list answers GET /api/inbox?q=<words>&before=<time>. Without q it
-// returns the latest polled list; with q it asks the server, which
-// searches every conversation one week at a time, and before is the
-// next value of the page already read.
+// list returns the held first page when no filters are given. Searches and
+// reads of older weeks go to the server without replacing that page.
 func (in *inbox) list(w http.ResponseWriter, r *http.Request) {
-	if query := r.URL.Query().Get("q"); query != "" {
+	filters := r.URL.Query()
+	query, before := filters.Get("q"), filters.Get("before")
+	if query != "" || before != "" {
 		version := in.version()
-		asked := url.Values{"q": {query}}
-		if before := r.URL.Query().Get("before"); before != "" {
+		asked := url.Values{}
+		if query != "" {
+			asked.Set("q", query)
+		}
+		if before != "" {
 			asked.Set("before", before)
 		}
 		answer, err := in.server.get(r.Context(), serverListPath+"?"+asked.Encode(), "")

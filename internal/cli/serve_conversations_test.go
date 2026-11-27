@@ -657,6 +657,83 @@ func TestConversationsHandler_MarksAConversationCompletedThenOpenAgain(t *testin
 	}
 }
 
+func TestConversationsHandler_PinsAndUnpinsThroughTheMarkRoute(t *testing.T) {
+	h, launcher, _ := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	get := func(tag string) *httptest.ResponseRecorder {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:4310"+conversationsViewPath, nil)
+		req.Header.Set("If-None-Match", tag)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, req)
+		return rec
+	}
+	check := func(rec *httptest.ResponseRecorder, wantPin *string) {
+		t.Helper()
+		if rec.Code != http.StatusOK {
+			t.Fatalf("list = %d %s", rec.Code, rec.Body)
+		}
+		var list struct {
+			Conversations []struct {
+				ID          string
+				State       conversations.State
+				SeenAt      string
+				CompletedAt string
+				PinnedAt    *string
+			}
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
+			t.Fatal(err)
+		}
+		for _, row := range list.Conversations {
+			if row.ID != inProject {
+				continue
+			}
+			if row.State != conversations.StateActive || row.SeenAt != "" || row.CompletedAt != "" {
+				t.Errorf("a pin changed state, seenAt or completedAt: %+v", row)
+			}
+			if wantPin == nil && row.PinnedAt != nil || wantPin != nil && (row.PinnedAt == nil || *row.PinnedAt != *wantPin) {
+				t.Errorf("list has pinnedAt = %v, want %v: %s", row.PinnedAt, wantPin, rec.Body)
+			}
+			return
+		}
+		t.Errorf("list lost the pinned conversation: %s", rec.Body)
+	}
+
+	get("")
+	base := get("")
+	check(base, nil)
+	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"pinned"}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("mark pinned = %d %s", rec.Code, rec.Body)
+	}
+	pinned := get(base.Header().Get("ETag"))
+	want := h.scanner.Now().Format(time.RFC3339Nano)
+	check(pinned, &want)
+	if rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+inProject+`","as":"unpinned"}`, nil); rec.Code != http.StatusNoContent {
+		t.Fatalf("mark unpinned = %d %s", rec.Code, rec.Body)
+	}
+	check(get(pinned.Header().Get("ETag")), nil)
+	if len(launcher.calls) != 0 {
+		t.Errorf("pinning or unpinning opened a terminal: %v", launcher.calls)
+	}
+}
+
+func TestConversationsHandler_RefusesAPinOnANestedConversation(t *testing.T) {
+	h, _, root := conversationsFixture(t, false)
+	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
+	const child = "44444444-4444-4444-8444-444444444444"
+	writeClaudeSession(t, h.scanner.Stores.ClaudeDir, child, root, "Continues claude:"+inProject+"\n\nComplete the release notes")
+	if row := stateOfListed(t, h, child); row.Parent == nil || row.Parent.ID != inProject {
+		t.Fatalf("fixture must be nested: %+v", row.Parent)
+	}
+
+	rec := postEdit(t, h, conversationMarkPath, `{"tool":"claude","id":"`+child+`","as":"pinned"}`, nil)
+
+	if rec.Code != http.StatusConflict || strings.TrimSpace(rec.Body.String()) != `{"error":"Only top-level conversations can be pinned."}` {
+		t.Errorf("pin nested conversation = %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestConversationsHandler_OpeningAConversationMarksItSeen(t *testing.T) {
 	h, _, _ := conversationsFixture(t, false)
 	h.scanner.MarksPath = filepath.Join(t.TempDir(), "conversation-marks.json")
@@ -682,8 +759,8 @@ func TestConversationsHandler_RefusesAMarkItCannotKeep(t *testing.T) {
 	}{
 		"outside the project": {`{"tool":"claude","id":"` + elsewhere + `","as":"seen"}`, http.StatusNotFound, `{"error":"That conversation is not in this list any more. Refresh the page."}`},
 		"unknown tool":        {`{"tool":"gemini","id":"` + inProject + `","as":"seen"}`, http.StatusBadRequest, `{"error":"tool must be claude, codex, cursor or chatgpt"}`},
-		"unknown mark":        {`{"tool":"claude","id":"` + inProject + `","as":"deleted"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open or hidden"}`},
-		"no mark":             {`{"tool":"claude","id":"` + inProject + `"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open or hidden"}`},
+		"unknown mark":        {`{"tool":"claude","id":"` + inProject + `","as":"deleted"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open, hidden, pinned or unpinned"}`},
+		"no mark":             {`{"tool":"claude","id":"` + inProject + `"}`, http.StatusBadRequest, `{"error":"as must be seen, completed, open, hidden, pinned or unpinned"}`},
 		"an extra field":      {`{"tool":"claude","id":"` + inProject + `","as":"seen","at":"2030-01-01T00:00:00Z"}`, http.StatusBadRequest, `{"error":"send {tool, id, as}"}`},
 	} {
 		t.Run(name, func(t *testing.T) {

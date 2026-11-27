@@ -453,8 +453,7 @@ func (req conversationSendRequest) sendable() (string, bool) {
 	return req.Text, false
 }
 
-// mark records that the person saw a conversation, completed it, took
-// a completion back, or hid it.
+// mark records a change to a conversation's read, completed, hidden or pinned marks.
 func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 	if status, message := editRequestGuard(r); status != 0 {
 		writeEditJSON(w, status, editError{Error: message})
@@ -465,13 +464,18 @@ func (h *conversationsHandler) mark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !conversations.KnownMark(req.As) {
-		writeEditJSON(w, http.StatusBadRequest, editError{Error: "as must be seen, completed, open or hidden"})
+		writeEditJSON(w, http.StatusBadRequest, editError{Error: "as must be seen, completed, open, hidden, pinned or unpinned"})
 		return
 	}
 	// Only a conversation the server lists gets a mark, so the file
 	// never holds an id a request made up.
-	if _, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions("")); !ok {
+	conversation, ok := h.scanner.Find(r.Context(), req.Tool, req.ID, h.scanOptions(""))
+	if !ok {
 		writeConversationGone(w)
+		return
+	}
+	if req.As == conversations.MarkPinned && conversation.Parent != nil {
+		writeEditJSON(w, http.StatusConflict, editError{Error: "Only top-level conversations can be pinned."})
 		return
 	}
 	if err := h.scanner.Mark(req.Tool, req.ID, req.As); err != nil {

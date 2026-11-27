@@ -4,7 +4,7 @@ import { HELPERS_SHOWN, NOTHING_TO_SEND, NOTICES, PLACES, SWITCHED_TO_PASTE, ago
 
 import { missingToolsNoteOf } from '../frontend/model.js'
 
-import { arrivalOf, handoffReceiverOf, handoffSentOf, handsOff, messageLabelOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
+import { arrivalOf, firstWaitingOf, handoffReceiverOf, handoffSentOf, handsOff, messageLabelOf, receiversOf, sessionLabelOf, typeHelpOf, typedReceiverOf } from '../frontend/model.js'
 
 import { currentShellOf, shellCommandOf, shellWarningOf, stopSessionConfirmOf, stopShellDetailsOf, stoppedSessionOf, stoppedShellOf } from '../frontend/model.js'
 
@@ -57,6 +57,59 @@ test('the circle\'s label names each count, and leaves out a count of zero', () 
 
 const child = (id, state, parent, extra = {}) => row(id, state, { parent: { tool: 'claude', id: parent }, ...extra })
 const drawn = (groups) => groups.map((group) => [group.id, group.rows.map((r) => [r.id, group.under.get(keyOf(r))?.id ?? null])])
+
+test('pins stay above state groups in pin order, and their children stay together across states', () => {
+  const first = '2026-11-09T10:00:00Z'
+  const later = '2026-11-09T11:00:00Z'
+  const rows = [
+    row('new', 'unread', { pinnedAt: later }),
+    row('codex-tie', 'working', { tool: 'codex', pinnedAt: first }),
+    row('regular', 'blocked'),
+    child('grandchild', 'working', 'kid', { startedAt: '2026-11-09T11:30:00Z' }),
+    child('kid', 'active', 'a', { startedAt: '2026-11-09T11:00:00Z' }),
+    row('b', 'dormant', { pinnedAt: first }),
+    row('a', 'completed', { pinnedAt: first }),
+  ]
+  const order = [
+    ['pinned', [['a', null], ['kid', 'a'], ['grandchild', 'a'], ['b', null], ['codex-tie', null], ['new', null]]],
+    ['needs-you', [['regular', null]]],
+  ]
+  assert.deepEqual(drawn(grouped(rows)), order)
+  assert.deepEqual(drawn(grouped(rows.map((item) => item.id === 'a'
+    ? { ...item, title: 'Edited', state: 'blocked', updatedAt: '2026-12-01T12:00:00Z' } : item))), order)
+  assert.equal(grouped(rows)[0].startsFolded, false)
+})
+
+test('a filtered parent leaves its child in a state group and a child cannot offer a pin', () => {
+  const pinnedAt = '2026-11-09T10:00:00Z'
+  const kid = child('kid', 'unread', 'parent', { pinnedAt })
+  const view = { conversations: [row('parent', 'working', { app: 'cloud', pinnedAt }), kid] }
+  assert.deepEqual(drawn(grouped(viewIn(view, 'local').conversations)), [['needs-you', [['kid', null]]]])
+  assert.ok(!rowMenuOf(kid).includes('pin') && !rowMenuOf(kid).includes('unpin'))
+})
+
+test('pin order keeps the sub-millisecond time before breaking exact ties by key', () => {
+  const instant = '2026-11-09T10:00:00'
+  const rows = [
+    row('a-newest', 'active', { pinnedAt: instant + '.000000007Z' }),
+    row('c-tied', 'active', { pinnedAt: instant + '.000000004Z' }),
+    row('b-earlier', 'active', { pinnedAt: instant + '.000000004Z' }),
+    row('d-oldest', 'active', { pinnedAt: instant + 'Z' }),
+  ]
+  assert.deepEqual(grouped(rows)[0].rows.map(({ id }) => id), ['d-oldest', 'b-earlier', 'c-tied', 'a-newest'])
+})
+
+test('pinned waits are still counted and keep circle focus in urgency order', () => {
+  const pinned = row('pinned', 'unread', { pinnedAt: '2026-11-09T10:00:00Z' })
+  const ordinary = row('ordinary', 'blocked', { waiting: { for: 'permission' } })
+  const view = { conversations: [pinned, ordinary] }
+  assert.equal(firstWaitingOf(view), 'claude:ordinary')
+  assert.equal(firstWaitingOf({ conversations: [pinned] }), 'claude:pinned')
+  assert.deepEqual(waitingOf(view), { blocked: 1, unread: 1, icon: 'lock' })
+  assert.equal(rowActionOf(pinned), 'archive')
+  assert.deepEqual(rowMenuOf(pinned).slice(0, 3), ['read', 'rename', 'unpin'])
+  assert.ok(rowMenuOf({ ...pinned, state: 'completed' }).includes('hide'))
+})
 
 test('draws a child under its parent in the same group, whatever its tool, and keeps the group\'s count', () => {
   const groups = grouped([row('other', 'active'), child('kid', 'active', 'parent', { tool: 'codex' }), row('parent', 'active')])
@@ -123,7 +176,7 @@ test('says which conversation a nested row was started from', () => {
 test('offers Mark as read only on a row that needs the person, and Rename and Copy session ID on every row', () => {
   assert.deepEqual(
     ['blocked', 'unread', 'working', 'active', 'completed', 'dormant'].map((state) => rowMenuOf(row('a', state))),
-    [['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['rename', 'copy-session-id', 'send-to', 'claim-files'], ['rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'], ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete']],
+    [['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files'], ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'], ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'], ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete']],
   )
 })
 
@@ -182,16 +235,16 @@ test('labels message states and offers approve, reject and queue only where they
 })
 
 test('offers Delete only on a chat under Archived that no process holds', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide'])
-  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed')), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { live: true })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant')), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { live: true })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'hide'])
+  assert.deepEqual(rowMenuOf(row('a', 'active')), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
 })
 
 test('an archived chat has no read state: no Mark as read, and Delete without reading it first', () => {
-  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
-  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'dormant', { unread: true })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('a', 'completed', { unread: true, cloud: { id: 'cse_1' } })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete', 'web'])
   assert.equal(rowActionOf(row('a', 'dormant', { unread: true })), undefined)
   assert.equal(unreadMarkOf(row('a', 'dormant', { unread: true })), false)
   assert.equal(unreadMarkOf(row('a', 'active', { unread: true })), true)
@@ -680,9 +733,9 @@ test('a shared row shows under Local and under Cloud, and counts once in each', 
 })
 
 test('offers Open on claude.ai only on a shared row, and names its cloud session', () => {
-  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'web'])
-  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'web'])
-  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename', 'copy-session-id', 'complete'])
+  assert.deepEqual(rowMenuOf(shared('a', 'active')), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(shared('a', 'blocked')), ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'web'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { app: 'cloud' })), ['rename', 'pin', 'copy-session-id', 'complete'])
   const sharedRow = shared('a', 'active')
   assert.deepEqual(cloudPageOf(sharedRow), { tool: 'claude', id: 'cse_a1', title: sharedRow.title })
   assert.equal(cloudPageOf(row('a', 'active')), undefined)
@@ -841,7 +894,7 @@ test('a group header names the unread chats it holds, and an archived one adds n
 
 test('a resumed chat with an unread marker offers Mark as read, and its tooltip says so', () => {
   const open = { kind: 'focus', label: 'Switch to Ghostty' }
-  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
+  assert.deepEqual(rowMenuOf(row('a', 'active', { unread: true, live: true, open })), ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
   assert.equal(rowTooltipOf(row('a', 'active', { unread: true, open }), Date.parse('2026-11-09T12:00:00Z')), 'Switch to Ghostty\nResumed with a reply from before that you have not read')
 })
 
@@ -950,17 +1003,17 @@ const shellNow = Date.parse('2026-11-09T12:00:00Z')
 
 test('a saved completion offers Undo complete, and an archived row can still be hidden', () => {
   const completedAt = '2026-11-09T13:00:00Z'
-  assert.deepEqual(rowMenuOf(row('app-archive', 'dormant', { completedAt })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
+  assert.deepEqual(rowMenuOf(row('app-archive', 'dormant', { completedAt })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'hide', 'delete'])
   const waiting = row('shell-wait', 'blocked', { completedAt, live: true, waiting: { for: 'shell' }, stuckShells: [shell] })
-  assert.deepEqual(rowMenuOf(waiting), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'stop-shell'])
+  assert.deepEqual(rowMenuOf(waiting), ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'reopen', 'stop-shell'])
   assert.equal(rowActionOf(waiting), undefined)
 })
 
 test('offers Stop chat only on a live chat the server can stop, and says how it ended', () => {
   const stoppable = { pid: 42, procStart: 'chat-start' }
-  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable })), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'stop-session'])
-  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable })), ['rename', 'copy-session-id', 'send-to', 'claim-files'])
-  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename', 'copy-session-id', 'send-to', 'claim-files'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true, stoppable })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'stop-session'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { stoppable })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files'])
+  assert.deepEqual(rowMenuOf(row('a', 'working', { live: true })), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files'])
   assert.deepEqual(stopSessionConfirmOf(row('a', 'working', { title: 'Fix the build' })).title, 'Stop "Fix the build"?')
   assert.match(stopSessionConfirmOf(row('a', 'working')).body, /transcript stays/)
   assert.deepEqual(stoppedSessionOf({}), { message: 'Stopped.' })
@@ -978,10 +1031,10 @@ test('offers Stop chat only on a live chat the server can stop, and says how it 
 
 test('warns about each shell with its age, command and owner when known', () => {
   const conversation = row('a', 'blocked', { live: true, stuckShells: [shell, { ...shell, pid: 45, command: 'npm run watch', helperName: 'Faramir' }] })
-  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'stop-shell'])
-  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
-  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
-  assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'copy-session-id', 'send-to', 'claim-files', 'stop-shell'])
+  assert.deepEqual(rowMenuOf(conversation), ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete', 'stop-shell'])
+  assert.deepEqual(rowMenuOf({ ...conversation, live: false }), ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
+  assert.deepEqual(rowMenuOf({ ...conversation, stuckShells: [] }), ['read', 'rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'complete'])
+  assert.deepEqual(rowMenuOf({ ...conversation, state: 'working' }), ['rename', 'pin', 'copy-session-id', 'send-to', 'claim-files', 'stop-shell'])
   assert.deepEqual(conversation.stuckShells.map((entry) => shellWarningOf(entry, shellNow)), [
     'Shell running for 1h: npm run dev',
     'Faramir left a shell running for 1h: npm run watch',
