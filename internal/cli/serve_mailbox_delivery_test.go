@@ -208,6 +208,9 @@ func TestMailboxDeliverySetup_ConfinesProjectInputs(t *testing.T) {
 				case "oversized settings":
 					writeFile(t, settings, nativeClaudeMailboxHook+strings.Repeat(" ", mailboxDeliveryFileLimit))
 				case "special settings":
+					if runtime.GOOS == "windows" {
+						t.Skip("POSIX filesystem FIFOs are unavailable on Windows")
+					}
 					mkfifo, err := exec.LookPath("mkfifo")
 					if err != nil {
 						t.Skip("mkfifo unavailable")
