@@ -22,12 +22,12 @@ type kittyTab struct {
 	path   func() (string, error)
 	table  func() ([]ProcessInfo, error)
 	socket func(path string) bool
+
+	unwrapLogin bool
 	// noRaising is set on Linux, where agnostic-ai does not bring kitty's
 	// window forward: Wayland lets no program raise another's window.
 	noRaising bool
 }
-
-type linuxKittyTab struct{ kittyTab }
 
 // raise brings kitty's window forward, or says it may stay behind.
 func (k kittyTab) raise(ctx context.Context) error {
@@ -119,7 +119,7 @@ func (k kittyTab) list(ctx context.Context, to string, into any) error {
 	return nil
 }
 
-func (k linuxKittyTab) readTabNames(ctx context.Context) ([]TerminalTab, error) {
+func (k kittyTab) readTabNames(ctx context.Context) ([]TerminalTab, error) {
 	table, err := k.table()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errNoTabCommand, err)
@@ -163,7 +163,7 @@ func kittySocketReadContext(ctx context.Context, untried int) (context.Context, 
 	return context.WithCancel(ctx)
 }
 
-func (k linuxKittyTab) instanceTabNames(ctx context.Context, pid int, byPID map[int]ProcessInfo) ([]TerminalTab, error) {
+func (k kittyTab) instanceTabNames(ctx context.Context, pid int, byPID map[int]ProcessInfo) ([]TerminalTab, error) {
 	var windows []struct {
 		Tabs []struct {
 			Title           *string     `json:"title"`
@@ -186,14 +186,30 @@ func (k linuxKittyTab) instanceTabNames(ctx context.Context, pid int, byPID map[
 				name.Name = *tab.Title
 			}
 			for i, pane := range tab.Windows {
-				if child, ok := byPID[pane.PID]; ok && child.PPID == pid && strings.HasPrefix(child.TTY, "/dev/") {
-					name.TTYs[i] = child.TTY
-				}
+				name.TTYs[i] = k.paneTTY(byPID, pid, pane.PID)
 			}
 			tabs = append(tabs, name)
 		}
 	}
 	return tabs, nil
+}
+
+func (k kittyTab) paneTTY(byPID map[int]ProcessInfo, kittyPID, panePID int) string {
+	child := byPID[panePID]
+	if !strings.HasPrefix(child.TTY, "/dev/") {
+		return ""
+	}
+	if child.PPID == kittyPID {
+		return child.TTY
+	}
+	// Recent macOS kitty versions report the shell PID under the login wrapper.
+	if k.unwrapLogin {
+		login := byPID[child.PPID]
+		if login.Command == "/usr/bin/login" && login.PPID == kittyPID && login.TTY == child.TTY {
+			return child.TTY
+		}
+	}
+	return ""
 }
 
 // window finds the kitty window whose first process runs on tty; ok is
