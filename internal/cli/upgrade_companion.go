@@ -88,7 +88,10 @@ func refreshUpgradedCompanion(out io.Writer, info upgradeInfo, version string, d
 			}
 		}
 	}
-	candidates = append(candidates, info.LinkPath, info.Path)
+	candidates = append(candidates, info.updatedCLIPath())
+	if info.NPMPrefix == "" {
+		candidates = append(candidates, info.Path)
+	}
 	seen := map[string]bool{}
 	var problems []error
 	// stillOld says a candidate reported the version this upgrade started from.

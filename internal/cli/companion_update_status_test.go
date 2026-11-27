@@ -41,6 +41,52 @@ func TestCompanionUpdateStatus_OffersNoOneClickForAnUnknownInstall(t *testing.T)
 	}
 }
 
+func TestCompanionUpdateStatus_UsesTheVerifiedNPMExecutable(t *testing.T) {
+	info := upgradeInfo{
+		Method: installNPM, Version: "0.96.0", Latest: "0.97.0",
+		Command: upgradeCommandFor(installNPM),
+	}
+	status, err := companionUpdateStatusOf(info, companionImage{})
+	if err != nil || status.OneClick || status.Command != "" {
+		t.Errorf("unverified npm install: status = %+v, err = %v", status, err)
+	}
+
+	info.NPMPrefix = "/owner's prefix"
+	info.Path = "/owner's prefix/lib/node_modules/agnostic-ai/node_modules/@agnostic-ai/darwin-arm64/agnostic-ai"
+	want := `'/owner'\''s prefix/lib/node_modules/agnostic-ai/node_modules/@agnostic-ai/darwin-arm64/agnostic-ai' upgrade`
+	if runtime.GOOS == "windows" {
+		info.NPMPrefix = `C:\owner's prefix`
+		info.Path = `C:\owner's prefix\node_modules\agnostic-ai\node_modules\@agnostic-ai\win32-x64\agnostic-ai.exe`
+		want = `& 'C:\owner''s prefix\node_modules\agnostic-ai\node_modules\@agnostic-ai\win32-x64\agnostic-ai.exe' upgrade`
+	}
+	var out bytes.Buffer
+	if err := writeCompanionUpdateStatus(&out, info, companionImage{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(out.Bytes(), &status); err != nil {
+		t.Fatal(err)
+	}
+	if !status.OneClick || status.Command != want {
+		t.Errorf("verified npm install: status = %+v, want command %q", status, want)
+	}
+}
+
+func TestCompanionUpdateStatus_ExplainsUnverifiedNPMOwnership(t *testing.T) {
+	info := upgradeInfo{Method: installNPM, Version: "0.96.0", Latest: "0.97.0"}
+	cmd := companionUpdateStatusCommand(func(string, bool) (upgradeInfo, companionImage, error) {
+		return info, companionImage{}, nil
+	})
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.String(); !strings.Contains(got, "Update it with the package manager that installed it.") || strings.Contains(got, "agnostic-ai upgrade") {
+		t.Errorf("unverified npm guidance = %q", got)
+	}
+}
+
 func TestCompanionUpdateStatus_FailsWhenTheLatestReleaseIsUnknown(t *testing.T) {
 	var out bytes.Buffer
 	err := writeCompanionUpdateStatus(&out, upgradeInfo{Method: installNPM, Version: "0.96.0", LatestError: errors.New("offline")}, companionImage{})

@@ -5,8 +5,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -121,6 +123,52 @@ func TestUpgradeCompanion_UsesHomebrewStablePath(t *testing.T) {
 	}
 	if want := []string{filepath.FromSlash("/brew/bin/agnostic-ai"), filepath.FromSlash("/brew/bin/agnostic-ai")}; !reflect.DeepEqual(paths, want) {
 		t.Errorf("paths = %v, want %v", paths, want)
+	}
+}
+
+func npmPlatformMove(t *testing.T, current, latest string) (upgradeInfo, string) {
+	t.Helper()
+	prefix := t.TempDir()
+	modules := filepath.Join(prefix, "lib", "node_modules")
+	npmOS, npmArch := runtime.GOOS, runtime.GOARCH
+	name := binaryName
+	if runtime.GOOS == "windows" {
+		modules = filepath.Join(prefix, "node_modules")
+		npmOS, name = "win32", name+".exe"
+	}
+	if npmArch == "amd64" {
+		npmArch = "x64"
+	}
+	platformBinary := filepath.Join("@agnostic-ai", npmOS+"-"+npmArch, name)
+	oldPath := filepath.Join(modules, platformBinary)
+	newPath := filepath.Join(modules, repoName, "node_modules", platformBinary)
+	for path, version := range map[string]string{oldPath: current, newPath: latest} {
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("agnostic-ai version "+version), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return upgradeInfo{Path: oldPath, LinkPath: oldPath, Method: installNPM, NPMPrefix: prefix, Version: current, Latest: latest}, newPath
+}
+
+func TestUpgradeCompanion_FollowsNPMWhenThePlatformBinaryMoves(t *testing.T) {
+	info, newPath := npmPlatformMove(t, "1.0.0", "2.0.0")
+	var installedWith string
+	deps := upgradeCompanionDeps{run: func(path, _ string, args []string, _ io.Writer) (string, error) {
+		if args[0] == "--version" {
+			data, err := os.ReadFile(path)
+			return string(data), err
+		}
+		installedWith = path
+		return "", nil
+	}}
+	if err := refreshUpgradedCompanion(io.Discard, info, info.Latest, deps); err != nil {
+		t.Fatal(err)
+	}
+	if installedWith != newPath {
+		t.Errorf("installed with %q, want %q", installedWith, newPath)
 	}
 }
 

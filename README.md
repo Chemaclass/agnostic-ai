@@ -48,7 +48,7 @@ agnostic-ai sync --check
 
 If you selected Claude Code and Codex, `AGENTS.md` contains your note and `CLAUDE.md` points to it. Edit `.agnostic-ai/AGNOSTIC_AI.md` and sync again to update both. Sync replaces generated files and saves hand edits in `.bak` files. Use `agnostic-ai revert` to restore them.
 
-See the [installation guide](https://agnostic-ai.org/docs/installation/) for Homebrew, the install script, Windows, and Go.
+Run `agnostic-ai upgrade` to update a global npm install in the prefix where it lives. See the [installation guide](https://agnostic-ai.org/docs/installation/) for Homebrew, the install script, Windows, and Go.
 
 ## Set up with a coding agent
 

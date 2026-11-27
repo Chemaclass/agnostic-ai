@@ -99,14 +99,18 @@ The config needs one root setting per line and a single-line `requires`. Before 
 | `$GOBIN` or `$GOPATH/bin` (defaults to `$HOME/go/bin`) | `go install github.com/chemaclass/agnostic-ai/cmd/agnostic-ai@latest` |
 | `*\scoop\apps\*`, `*\scoop\shims\*` | `scoop update agnostic-ai` |
 | `*\Microsoft\WinGet\*` | `winget upgrade Chemaclass.agnostic-ai` |
-| `*/node_modules/*` | `npm install -g agnostic-ai@latest` |
+| Verified global npm package | `npm install -g --prefix "<prefix>" agnostic-ai@latest`, using the prefix that contains the running CLI |
 | Standalone binary on macOS or Linux | `upgrade` downloads the release, checks its checksum and its [build provenance](@/docs/verify-a-release.md#build-provenance), and replaces the binary. |
 | Standalone binary on Windows | Use the [PowerShell install script](@/docs/installation.md). Windows cannot replace a running program. |
 {% </details> %}
 
 {% <details summary="PATH copies and companion upgrades"> %}
 
-The Scoop, WinGet, and `node_modules` paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.
+The Scoop and WinGet paths match in any letter case. `upgrade` also reports other copies on `PATH` that would run instead of the one it found.
+
+`upgrade --check` shows the verified npm prefix. For a project npm install, an npx cache, or an install whose global prefix cannot be verified, update the package with the tool that installed it.
+
+`companion update-status --json` reports a `command` for a verified global npm install. It runs `upgrade` through the CLI's absolute path. The field is omitted when the npm prefix cannot be verified.
 
 An installed companion is rebuilt through the updated CLI and restarted if it was running. If that update fails, the CLI stays upgraded and the error gives a retry command. See [companion upgrades](@/docs/cli-reference/companion.md#upgrade-the-companion).
 

@@ -50,7 +50,15 @@ func companionUpdateStatusOf(info upgradeInfo, image companionImage) (companionU
 		return companionUpdateStatus{}, fmt.Errorf("check latest release: %q is not a stable release", info.Latest)
 	}
 	oneClick := info.Method != installUnknown && (info.Method != installBinary || standalonePlatformError(runtime.GOOS) == nil)
-	status := companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: info.Command, OneClick: oneClick, ConfirmsRelease: true, Image: image.Listed}
+	command := info.Command
+	if info.Method == installNPM {
+		oneClick = info.NPMPrefix != ""
+		command = ""
+		if oneClick {
+			command = npmUpgradeStatusCommand(info.Path)
+		}
+	}
+	status := companionUpdateStatus{Installed: info.Version, Latest: latest, Method: info.Method.String(), Command: command, OneClick: oneClick, ConfirmsRelease: true, Image: image.Listed}
 	if image.Err != nil {
 		status.ImageError = image.Err.Error()
 	}
@@ -136,7 +144,14 @@ check keeps the last one; --refresh asks GitHub now.`,
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Installed: %s\nLatest: %s\nInstalled with: %s\nUpgrade with: agnostic-ai upgrade\n", status.Installed, status.Latest, status.Method)
+			guidance := "Upgrade with: agnostic-ai upgrade"
+			if info.Method == installNPM {
+				guidance = npmUpgradeGuidance
+				if status.Command != "" {
+					guidance = "Upgrade with: " + status.Command
+				}
+			}
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Installed: %s\nLatest: %s\nInstalled with: %s\n%s\n", status.Installed, status.Latest, status.Method, guidance)
 			return err
 		},
 	}
