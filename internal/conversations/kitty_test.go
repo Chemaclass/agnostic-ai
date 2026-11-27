@@ -25,7 +25,7 @@ const kittyLs = `[
 func kittyTable() []ProcessInfo {
 	return []ProcessInfo{
 		{PID: 900, PPID: 1, Command: "/Applications/kitty.app/Contents/MacOS/kitty"},
-		{PID: 920, PPID: 900, TTY: "/dev/ttys041", Command: "/usr/bin/login -f -l -p you /bin/zsh"},
+		{PID: 920, PPID: 900, TTY: "/dev/ttys041", Command: "/usr/bin/login"},
 		{PID: 921, PPID: 920, TTY: "/dev/ttys041", Command: "-zsh"},
 		{PID: 922, PPID: 921, TTY: "/dev/ttys041", Command: "claude"},
 		{PID: 911, PPID: 900, TTY: "/dev/ttys042", Command: "-zsh"},
@@ -41,9 +41,68 @@ func testKitty(commands *fakeCommands, sockets ...string) kittyTab {
 	}
 }
 
+func TestMacLauncher_ReadsKittyTabNamesWithVerifiedLoginParents(t *testing.T) {
+	const to = "kitty @ --to unix:/tmp/kitty-900 "
+	commands := &fakeCommands{out: map[string]string{
+		to + "ls": `[{"tabs":[
+			{"title":"Shell reported through login","title_overridden":true,"windows":[{"pid":921}]},
+			{"title":"Raw login PID","title_overridden":true,"windows":[{"pid":912}]},
+			{"title":"Direct child","title_overridden":true,"windows":[{"pid":911}]},
+			{"title":"Split tab","title_overridden":true,"windows":[{"pid":932},{"pid":931}]},
+			{"title":"Foreign login","title_overridden":true,"windows":[{"pid":941}]},
+			{"title":"Lookalike login","title_overridden":true,"windows":[{"pid":951}]},
+			{"title":"Pane title","title_overridden":false,"windows":[{"pid":952}]}
+		]}]`,
+	}}
+	driver := commandTabs["kitty"]
+	kitty := driver.(kittyTab)
+	kitty.run = commands.run
+	kitty.path = func() (string, error) { return "kitty", nil }
+	kitty.socket = func(path string) bool { return path == "/tmp/kitty-900" }
+	kitty.table = func() ([]ProcessInfo, error) {
+		return append(kittyTable(), []ProcessInfo{
+			{PID: 901, PPID: 1, Command: "/Applications/kitty.app/Contents/MacOS/kitty"},
+			{PID: 912, PPID: 900, TTY: "/dev/ttys043", Command: "/usr/bin/login"},
+			{PID: 930, PPID: 900, TTY: "/dev/ttys044", Command: "/usr/bin/login"},
+			{PID: 931, PPID: 930, TTY: "/dev/ttys045", Command: "-zsh"},
+			{PID: 932, PPID: 900, TTY: "/dev/ttys046", Command: "-zsh"},
+			{PID: 940, PPID: 901, TTY: "/dev/ttys047", Command: "/usr/bin/login"},
+			{PID: 941, PPID: 940, TTY: "/dev/ttys047", Command: "-zsh"},
+			{PID: 950, PPID: 900, TTY: "/dev/ttys048", Command: "/opt/bin/login"},
+			{PID: 951, PPID: 950, TTY: "/dev/ttys048", Command: "-zsh"},
+			{PID: 952, PPID: 900, TTY: "/dev/ttys049", Command: "-zsh"},
+		}...), nil
+	}
+	commandTabs["kitty"] = kitty
+	t.Cleanup(func() { commandTabs["kitty"] = driver })
+
+	tabs, err := (macLauncher{}).ReadTabNames(t.Context(), "kitty")
+
+	want := []TerminalTab{
+		tab("Shell reported through login", "/dev/ttys041"),
+		tab("Raw login PID", "/dev/ttys043"),
+		tab("Direct child", "/dev/ttys042"),
+		tab("Split tab", "/dev/ttys046", ""),
+		tab("Foreign login", ""),
+		tab("Lookalike login", ""),
+		tab("", "/dev/ttys049"),
+	}
+	if err != nil || !reflect.DeepEqual(tabs, want) {
+		t.Errorf("tabs = %+v, err = %v, want %+v", tabs, err, want)
+	}
+	if want := []string{to + "ls"}; !reflect.DeepEqual(commands.calls, want) {
+		t.Errorf("calls = %q, want %q", commands.calls, want)
+	}
+
+	commands.out[to+"ls"] = kittyLs
+	if tabs, err := (macLauncher{}).ReadTabNames(t.Context(), "kitty"); len(tabs) != 0 || !errors.Is(err, errNoTabCommand) {
+		t.Errorf("reverse read = %+v, err = %v, want missing override metadata rejected", tabs, err)
+	}
+}
+
 func TestLinuxLauncher_ReadsKittyTabNamesFromEachOwnedInstance(t *testing.T) {
-	if !canReadTabNames("kitty", "linux") || canReadTabNames("kitty", "darwin") || canReadTabNames("kitty", "windows") {
-		t.Error("kitty tab name reads should be supported only on Linux")
+	if !canReadTabNames("kitty", "linux") || !canReadTabNames("kitty", "darwin") || canReadTabNames("kitty", "windows") {
+		t.Error("kitty tab name reads should be supported on Linux and macOS")
 	}
 	const prefix = "kitty @ --to unix:/tmp/kitty-"
 	commands := &fakeCommands{
@@ -52,7 +111,7 @@ func TestLinuxLauncher_ReadsKittyTabNamesFromEachOwnedInstance(t *testing.T) {
 			prefix + "910 ls": `[{"tabs":[{"id":1,"title":"Old shell title","windows":[{"id":1,"pid":911}]}]}]`,
 			prefix + "920 ls": `[{"tabs":[
 			  {"id":1,"title":"Manual title","title_overridden":true,"windows":[{"id":1,"pid":921}]},
-			  {"id":2,"title":"Split tab","title_overridden":true,"windows":[{"id":2,"pid":922},{"id":3,"pid":941},{"id":4,"pid":999}]}
+			  {"id":2,"title":"Split tab","title_overridden":true,"windows":[{"id":2,"pid":922},{"id":3,"pid":941},{"id":4,"pid":999},{"id":5,"pid":924}]}
 			]}]`,
 			prefix + "940 ls": `[{"tabs":[{"id":1,"title":"Shell title","title_overridden":false,"windows":[{"id":1,"pid":941}]}]}]`,
 		},
@@ -68,6 +127,8 @@ func TestLinuxLauncher_ReadsKittyTabNamesFromEachOwnedInstance(t *testing.T) {
 			{PID: 920, PPID: 1, Command: "/usr/bin/kitty"},
 			{PID: 921, PPID: 920, TTY: "/dev/pts/2", Command: "sh"},
 			{PID: 922, PPID: 920, TTY: "/dev/pts/3", Command: "sh"},
+			{PID: 923, PPID: 920, TTY: "/dev/pts/5", Command: "/usr/bin/login"},
+			{PID: 924, PPID: 923, TTY: "/dev/pts/5", Command: "sh"},
 			{PID: 940, PPID: 1, Command: "/usr/bin/kitty"},
 			{PID: 941, PPID: 940, TTY: "/dev/pts/4", Command: "sh"},
 			{PID: 950, PPID: 1, Command: "/usr/bin/kitty"},
@@ -75,11 +136,11 @@ func TestLinuxLauncher_ReadsKittyTabNamesFromEachOwnedInstance(t *testing.T) {
 	}
 	driver := linuxCommandTabs["kitty"]
 	t.Cleanup(func() { linuxCommandTabs["kitty"] = driver })
-	linuxCommandTabs["kitty"] = linuxKittyTab{kitty}
+	linuxCommandTabs["kitty"] = kitty
 
 	tabs, err := (linuxLauncher{}).ReadTabNames(context.Background(), "kitty")
 
-	want := []TerminalTab{tab("Manual title", "/dev/pts/2"), tab("Split tab", "/dev/pts/3", "", ""), tab("", "/dev/pts/4")}
+	want := []TerminalTab{tab("Manual title", "/dev/pts/2"), tab("Split tab", "/dev/pts/3", "", "", ""), tab("", "/dev/pts/4")}
 	if err != nil || !reflect.DeepEqual(tabs, want) {
 		t.Errorf("tabs = %+v, err = %v, want %+v", tabs, err, want)
 	}
@@ -128,7 +189,7 @@ func TestLinuxKitty_AStalledSocketLeavesTimeForTheNextInstance(t *testing.T) {
 		return `[{"tabs":[{"title":"Healthy tab","title_overridden":true,"windows":[{"id":1,"pid":911}]}]}]`, nil
 	}
 
-	tabs, err := (linuxKittyTab{kitty}).readTabNames(ctx)
+	tabs, err := kitty.readTabNames(ctx)
 
 	if want := []TerminalTab{tab("Healthy tab", "/dev/pts/1")}; err != nil || !reflect.DeepEqual(tabs, want) {
 		t.Errorf("tabs = %+v, err = %v, want %+v", tabs, err, want)
@@ -221,7 +282,7 @@ func TestKitty_TitlesATabWithUnusableReverseMetadata(t *testing.T) {
 	if want := []string{to + "ls", to + "set-tab-title --match window_id:3 -- Named from the list"}; !reflect.DeepEqual(commands.calls, want) {
 		t.Errorf("calls = %q, want %q", commands.calls, want)
 	}
-	if tabs, err := (linuxKittyTab{kitty}).readTabNames(t.Context()); len(tabs) != 0 || !errors.Is(err, errNoTabCommand) {
+	if tabs, err := kitty.readTabNames(t.Context()); len(tabs) != 0 || !errors.Is(err, errNoTabCommand) {
 		t.Errorf("reverse read = %+v, err = %v, want malformed metadata rejected", tabs, err)
 	}
 }
