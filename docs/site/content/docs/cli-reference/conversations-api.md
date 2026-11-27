@@ -74,7 +74,7 @@ Returns `tools` and `conversations`:
 - Each of `conversations` is `{tool, app, id, title, folder?, branch?, startedAt?, updatedAt, opening?, prompt?, reply?, withheld?, live?, activity?, waiting?, quietSince?, workingSubagents?, helpers?, stuckShells?, stoppable?, deleteUnsupported?, parent?, cloud?, cloudResumeCommand?, approvals?, threads?, claimCount?, claimedPaths?, claimConflicts?, open}`.
 - With the [mailbox](@/docs/mailbox.md#hand-off-files), a row that holds file claims has `claimCount` and `claimedPaths`, a row in an active path conflict has `claimConflicts`, each with an `id` for the dismiss route, and the view has `mailboxClaims: {paths, stale, conflicts}` while any claim or conflict exists.
 - `approvalsMode` is the loosest active mode for the project or user list, `review` or `yolo`. It is omitted when inactive.
-- A thread with a waiting message can include `waitingMessage: {from, to, n, type, setup}` for its oldest waiting message. The receiver setup is `auto`, `off`, `trust`, `disabled` or `unknown`.
+- A thread with a waiting message can include `waitingMessage: {from, to, n, type, setup, recipientLive}` for its oldest waiting message. The receiver setup is `auto`, `off`, `trust`, `disabled` or `unknown`. The `recipientLive` flag says whether the list found a running receiver.
 - [Mailbox routes](@/docs/mailbox.md#mailbox-api).
 
 Conversation fields:

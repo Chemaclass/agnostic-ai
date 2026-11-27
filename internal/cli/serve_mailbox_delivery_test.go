@@ -78,6 +78,9 @@ func TestMailboxHTTP_WaitingSetupTracksAnOffPageReceiver(t *testing.T) {
 		if thread.Waiting != 1 || thread.WaitingMessage == nil || *thread.WaitingMessage != expected {
 			t.Errorf("thread = %#v, waiting message = %+v, want %+v", thread, thread.WaitingMessage, expected)
 		}
+		if !strings.Contains(rec.Body.String(), `"recipientLive":false`) {
+			t.Error("waiting message did not identify the stopped off-page receiver")
+		}
 	}
 
 	const senderQuery = "?q=Fix+the+parser"

@@ -215,28 +215,31 @@ test('says who acts next and keeps thread actions available by state', async () 
 })
 
 test('names the next step for each waiting delivery setup', async () => {
-  const { threadNextOf, waitingPasteOf } = await import('../frontend/model.js')
+  const { threadNextOf, waitingDeliveryOf } = await import('../frontend/model.js')
   const thread = { status: 'open', waiting: 1, held: 0 }
   const recipient = 'Draft the tests'
-  for (const [setup, next, paste] of [
+  for (const [setup, next, how] of [
     ['auto', 'Automatic delivery is configured. Type a prompt in Draft the tests.', undefined],
-    ['off', 'Automatic delivery is off. Paste into Draft the tests and press Enter.', 2],
+    ['off', 'Automatic delivery is off. Paste into Draft the tests and press Enter.', 'type'],
     ['trust', 'Open /hooks in Codex and trust the mailbox hooks, then type a prompt in Draft the tests.', undefined],
     ['disabled', 'Open /hooks in Codex and enable the mailbox hooks, then type a prompt in Draft the tests.', undefined],
-    ['unknown', 'Still waiting. Automatic delivery could not be checked. Paste into Draft the tests and press Enter.', 2],
+    ['unknown', 'Still waiting. Automatic delivery could not be checked. Paste into Draft the tests and press Enter.', 'type'],
   ]) {
     assert.equal(threadNextOf(thread, { recipient, setup }), next)
     if (setup === 'disabled') {
       assert.equal(threadNextOf(thread, { recipient, recipientTool: 'claude', setup }), 'Enable hooks in Claude Code, then type a prompt in Draft the tests.')
     }
-    assert.equal(waitingPasteOf({ ...thread, waitingMessage: { n: 2, setup } }), paste)
+    assert.deepEqual(waitingDeliveryOf({ ...thread, waitingMessage: { n: 2, setup } }), how && { n: 2, how })
   }
   const off = { ...thread, waitingMessage: { n: 2, setup: 'off' } }
-  assert.equal(waitingPasteOf({ ...off, status: 'paused' }), undefined)
-  assert.equal(waitingPasteOf({ ...off, status: 'closed' }), undefined)
-  assert.equal(waitingPasteOf({ ...off, held: 1 }), undefined)
-  assert.equal(waitingPasteOf({ ...off, waiting: 2 }), undefined)
-  assert.equal(waitingPasteOf(thread), undefined)
+  const stopped = { ...off, waitingMessage: { ...off.waitingMessage, recipientLive: false } }
+  assert.deepEqual(waitingDeliveryOf(stopped), { n: 2, how: 'copy' })
+  assert.equal(threadNextOf(thread, { recipient, setup: 'auto', recipientLive: false }), 'Automatic delivery is configured. Resume Draft the tests and type a prompt.')
+  assert.equal(waitingDeliveryOf({ ...off, status: 'paused' }), undefined)
+  assert.equal(waitingDeliveryOf({ ...off, status: 'closed' }), undefined)
+  assert.equal(waitingDeliveryOf({ ...off, held: 1 }), undefined)
+  assert.equal(waitingDeliveryOf({ ...off, waiting: 2 }), undefined)
+  assert.equal(waitingDeliveryOf(thread), undefined)
 })
 
 test('labels message states and offers approve, reject and queue only where they apply', async () => {
@@ -249,6 +252,7 @@ test('labels message states and offers approve, reject and queue only where they
   assert.deepEqual(messageActionsOf({ state: 'held' }, open), ['approve', 'reject'])
   assert.deepEqual(messageActionsOf({ state: 'held' }, { status: 'paused' }), ['approve', 'reject'])
   assert.deepEqual(messageActionsOf({ state: 'waiting' }, open), ['type', 'copy'])
+  assert.deepEqual(messageActionsOf({ state: 'waiting' }, { ...open, recipientLive: false }), ['copy'])
   assert.deepEqual(messageActionsOf({ state: 'waiting' }, { status: 'paused' }), [])
   assert.deepEqual(messageActionsOf({ state: 'staged' }, open), ['queue'])
   assert.deepEqual(messageActionsOf({ state: 'staged' }, { status: 'closed' }), [])

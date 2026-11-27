@@ -1360,13 +1360,13 @@ test('sends a question to a pasted session ID and shows the thread under both se
   expect((await calledPaths(page)).filter((path) => ['/api/open', '/api/mark', '/api/panel/hide', '/api/mailbox/stage'].includes(path))).toEqual([])
 })
 
-async function waitingDeliverySetup(page: Page, setup: string) {
+async function waitingDeliverySetup(page: Page, setup: string, recipientLive?: boolean) {
   await page.route('**/api/inbox', async (route) => {
     const response = await route.fetch()
     const data = await response.json()
     for (const conversation of data.view.conversations) {
       for (const thread of conversation.threads ?? []) {
-        if (thread.waitingMessage) thread.waitingMessage.setup = setup
+        if (thread.waitingMessage) Object.assign(thread.waitingMessage, { setup, recipientLive })
       }
     }
     await route.fulfill({ response, json: data })
@@ -1427,6 +1427,81 @@ test('a row pastes the waiting message without opening its thread', async ({ pag
   await expect(mailboxThread(page)).toBeHidden()
   expect((await calledPaths(page)).filter((path) => ['/api/open', '/api/panel/hide', '/api/mailbox/stage'].includes(path)))
     .toEqual(['/api/mailbox/stage', '/api/panel/hide'])
+})
+
+test('a stopped receiver offers Copy message from either row and the thread', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await waitingDeliverySetup(page, 'off', false)
+  await openPanel(page, 'mailbox')
+  await askMailbox(page, 'Run the CSV tests after resuming.')
+
+  const sender = mailboxSummary(page)
+  const receiver = page.getByRole('button', { name: 'Open thread with Review the parser', exact: true })
+  for (const summary of [sender, receiver]) {
+    await expect(summary).toContainText('Copy the message to paste after you resume Draft the tests.')
+    await expect(summary.locator('..').getByRole('button', { name: 'Copy message', exact: true })).toBeVisible()
+    await expect(summary.locator('..').getByRole('button', { name: 'Paste into chat', exact: true })).toHaveCount(0)
+  }
+  await sender.press('Enter')
+  const thread = mailboxThread(page)
+  await expect(thread.locator('#mailbox-details-meta')).toContainText('Copy the message to paste after you resume Draft the tests.')
+  await expect(thread.getByRole('button', { name: 'Copy message', exact: true })).toBeVisible()
+  await expect(thread.locator('[data-mailbox-control^="type-"]')).toHaveCount(0)
+  await thread.getByRole('button', { name: 'Hide thread card' }).click()
+
+  const copy = sender.locator('..').getByRole('button', { name: 'Copy message', exact: true })
+  await copy.press('Enter')
+  await expect(copy).toHaveCount(0)
+  await expect(sender).toBeFocused()
+  await expect(page.locator('#toast')).toContainText('copied')
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('Run the CSV tests after resuming.')
+  expect((await calledPaths(page)).filter((path) => ['/api/open', '/api/panel/hide'].includes(path))).toEqual([])
+})
+
+test('thread delivery controls use each message receiver when messages go both ways', async ({ page }) => {
+  await waitingDeliverySetup(page, 'off', true)
+  await page.route('**/api/mailbox/threads?*', async (route) => {
+    const response = await route.fetch()
+    const data = await response.json()
+    for (const thread of data.threads) {
+      const [message] = thread.messages
+      thread.messages.push({ ...message, n: 2, from: { ...message.to, by: 'human' }, to: message.from })
+    }
+    await route.fulfill({ response, json: data })
+  })
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  await mailboxSummary(page).click()
+
+  const thread = mailboxThread(page)
+  await expect(thread.locator('#mailbox-thread-actions > .mailbox-send')).toHaveAttribute('data-mailbox-control', 'type-1')
+  await expect(await threadControl(thread, 'copy-2')).toBeVisible()
+  await expect(thread.locator('[data-mailbox-control="type-2"]')).toHaveCount(0)
+})
+
+test('delayed row Copy preserves focus on another thread control', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await waitingDeliverySetup(page, 'off', false)
+  let allowConfirm = () => {}
+  const blocked = new Promise<void>((resolve) => { allowConfirm = resolve })
+  await page.route('**/api/mailbox/stage', async (route) => {
+    if (route.request().postDataJSON().confirm) await blocked
+    await route.continue()
+  })
+  await openPanel(page, 'mailbox')
+  await askMailbox(page)
+  const copy = mailboxSummary(page).locator('..').getByRole('button', { name: 'Copy message', exact: true })
+  const other = page.getByRole('button', { name: 'Open thread with Review the parser', exact: true })
+  const confirming = page.waitForRequest((request) => request.url().endsWith('/api/mailbox/stage') && request.postDataJSON().confirm === true)
+  try {
+    await copy.press('Enter')
+    await confirming
+    await other.focus()
+  } finally {
+    allowConfirm()
+  }
+  await expect(copy).toHaveCount(0)
+  await expect(other).toBeFocused()
 })
 
 test('the thread describes and pastes the first queued message after another is queued again', async ({ page }) => {

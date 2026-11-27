@@ -474,6 +474,7 @@ func (h *conversationsHandler) addMailboxSummaries(mail mailboxSnapshot, view *c
 					receiver = view.Conversations[at]
 				}
 				waiting.Setup = checks.setup(receiver)
+				waiting.RecipientLive = receiver.Live
 			}
 		}
 	}

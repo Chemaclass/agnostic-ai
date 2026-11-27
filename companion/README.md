@@ -119,7 +119,8 @@ After upgrading directly through Homebrew or npm, run `agnostic-ai companion ins
   a [mailbox thread](https://agnostic-ai.org/docs/mailbox/). Pick a receiver and send the default **Handoff** to hand a session over.
   Or drag the chat onto the receiver's row: the same form opens with both chats and **Handoff** chosen, and nothing is sent until **Send**.
   A waiting thread appears under both chats, names the other session and shows what needs to happen next.
-  When automatic delivery is off or unknown, you can paste a single waiting message straight from the row.
+  When automatic delivery is off or unknown, you can paste a single waiting message straight from the row if its receiver is running.
+  If it has stopped, choose **Copy message** and paste after you resume the receiving chat.
   Choose **Review request** to share exact Git commits and changed paths after checking the base and preview.
   A message an agent sends shows as **Held for you** until you choose **Approve message** or **More → Reject message**.
   **More → Queue for delivery** hands a message you copied or pasted back to the

@@ -363,11 +363,12 @@ type ThreadSummary struct {
 }
 
 type MailboxWaitingMessage struct {
-	From  Ref    `json:"from"`
-	To    Ref    `json:"to"`
-	N     int    `json:"n"`
-	Type  string `json:"type"`
-	Setup string `json:"setup"`
+	From          Ref    `json:"from"`
+	To            Ref    `json:"to"`
+	N             int    `json:"n"`
+	Type          string `json:"type"`
+	Setup         string `json:"setup"`
+	RecipientLive bool   `json:"recipientLive"`
 }
 
 // MailboxClaims counts claimed paths, the claims whose owner is gone,
