@@ -675,6 +675,11 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       control.disabled = Boolean(current.pending)
     }
     if (focusedRelease && !current.pending) claimsDismiss.focus()
+    // A list refresh can replace the read a change waits on, so whichever render enables the card restores the focus.
+    if (!current.pending && current.restore) {
+      if (document.activeElement === document.body && claimsCard.contains(current.restore)) current.restore.focus()
+      current.restore = undefined
+    }
     if (!current.reply || current.problem) {
       claimsList.append(element('p', 'mailbox-muted', current.problem || 'Reading file claims…'))
       return
@@ -759,7 +764,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   async function mutateClaim(current, change, message) {
     if (claimsFor !== current || current.pending) return
     const focused = document.activeElement
-    const restore = claimsList.contains(focused) ? claimsDismiss : focused
+    current.restore = claimsList.contains(focused) ? claimsDismiss : focused
     current.pending = true
     renderClaims(current)
     try {
@@ -773,7 +778,6 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     } finally {
       current.pending = false
       await loadClaims(current)
-      if (claimsFor === current && document.activeElement === document.body && claimsCard.contains(restore)) restore.focus()
     }
   }
 
