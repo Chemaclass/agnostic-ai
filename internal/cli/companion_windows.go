@@ -57,12 +57,20 @@ func readLegacyRunValue(root registry.Key, path, approvalPath string) (companion
 	if err != nil {
 		return companionLegacyRunValue{}, fmt.Errorf("read the earlier start at login value: %w", err)
 	}
-	enabled, err := legacyRunApproved(root, approvalPath)
+	enabled, known, err := legacyRunApproved(root, approvalPath)
 	if err != nil {
 		return companionLegacyRunValue{}, err
 	}
+	command := value
+	if valueType == registry.EXPAND_SZ {
+		if expanded, err := registry.ExpandString(value); err == nil {
+			command = expanded
+		}
+	}
 	return companionLegacyRunValue{
-		enabled: enabled,
+		program:         windowsCommandProgram(command),
+		enabled:         enabled,
+		unknownApproval: !known,
 		remove: func() error {
 			key, current, currentType, err := read(registry.SET_VALUE)
 			if key != 0 {
@@ -74,7 +82,7 @@ func readLegacyRunValue(root registry.Key, path, approvalPath string) (companion
 			if current != value || currentType != valueType {
 				return errors.New("the earlier start at login value changed during install")
 			}
-			approved, err := legacyRunApproved(root, approvalPath)
+			approved, _, err := legacyRunApproved(root, approvalPath)
 			if err != nil {
 				return err
 			}
@@ -100,32 +108,34 @@ func readLegacyRunValue(root registry.Key, path, approvalPath string) (companion
 	}, nil
 }
 
-func legacyRunApproved(root registry.Key, path string) (bool, error) {
+// legacyRunApproved reports an unrecognized approval state as disabled and
+// not known, so the install never turns on what the user may have turned off.
+func legacyRunApproved(root registry.Key, path string) (enabled, known bool, err error) {
 	key, err := registry.OpenKey(root, path, registry.QUERY_VALUE)
 	if errors.Is(err, registry.ErrNotExist) {
-		return true, nil
+		return true, true, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read Windows startup approval under %s: %w", path, err)
+		return false, false, fmt.Errorf("read Windows startup approval under %s: %w", path, err)
 	}
 	defer func() { _ = key.Close() }()
 	data, _, err := key.GetBinaryValue(legacyCompanionName)
 	if errors.Is(err, registry.ErrNotExist) {
-		return true, nil
+		return true, true, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("read Windows startup approval for %s: %w", legacyCompanionName, err)
+		return false, false, fmt.Errorf("read Windows startup approval for %s: %w", legacyCompanionName, err)
 	}
 	// Explorer stores the approval state and an eight-byte timestamp.
 	if len(data) == 12 {
 		switch binary.LittleEndian.Uint32(data) {
 		case 0, 2:
-			return true, nil
+			return true, true, nil
 		case 3:
-			return false, nil
+			return false, true, nil
 		}
 	}
-	return false, fmt.Errorf("unrecognized Windows startup approval for %s", legacyCompanionName)
+	return false, false, nil
 }
 
 func removeRunValue(root registry.Key, path, name string) (bool, error) { //nolint:unparam // the registry hive stays explicit beside the key path it opens

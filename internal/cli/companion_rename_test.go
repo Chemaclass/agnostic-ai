@@ -215,7 +215,7 @@ func TestInstallCompanion_PreservesAnEarlierDesktopEntryChangedDuringInstall(t *
 	dir := t.TempDir()
 	old := oldManagedCompanion(t, dir, "linux")
 	entry := filepath.Join(t.TempDir(), "agnostic-ai-companion.desktop")
-	writeCompanionFixture(t, entry, "[Desktop Entry]\nExec=/old\n")
+	writeCompanionFixture(t, entry, "[Desktop Entry]\nExec="+old+"\n")
 	const updated = "[Desktop Entry]\nExec=/new\n"
 	tools := builtTools(t)
 	tools.rename = func(from, to string) error {
@@ -247,7 +247,7 @@ func TestInstallCompanion_PreservesADesktopEntryRecreatedDuringRollback(t *testi
 	dir := t.TempDir()
 	old := oldManagedCompanion(t, dir, "linux")
 	entry := filepath.Join(t.TempDir(), "agnostic-ai-companion.desktop")
-	writeCompanionFixture(t, entry, "[Desktop Entry]\nExec=/old\n")
+	writeCompanionFixture(t, entry, "[Desktop Entry]\nExec="+old+"\n")
 	const replacement = "[Desktop Entry]\nExec=/recreated\nHidden=true\n"
 	refused := errors.New("the new login entry was refused")
 	tools := builtTools(t)
@@ -289,12 +289,12 @@ func TestInstallCompanion_MovesAStaleLoginEntryFromAnEarlierInstall(t *testing.T
 				paths = []string{agent}
 			case "linux":
 				entry := filepath.Join(t.TempDir(), "agnostic-ai-companion.desktop")
-				writeCompanionFixture(t, entry, "login entry with missing executable")
+				writeCompanionFixture(t, entry, "[Desktop Entry]\nExec="+legacyBareCompanionFile(dir, goos)+"\n")
 				paths = []string{entry}
 			case "windows":
 				earlierEntry = true
 				tools.legacyRunValue = func() (companionLegacyRunValue, error) {
-					return companionLegacyRunValue{enabled: true, remove: func() error { earlierEntry = false; return nil }}, nil
+					return companionLegacyRunValue{program: legacyBareCompanionFile(dir, goos), enabled: true, remove: func() error { earlierEntry = false; return nil }}, nil
 				}
 			}
 			var enabled string
@@ -339,11 +339,11 @@ fi
 
 func TestInstallCompanion_DoesNotReplaceARunValueDisabledByWindows(t *testing.T) {
 	dir := t.TempDir()
-	oldManagedCompanion(t, dir, "windows")
+	old := oldManagedCompanion(t, dir, "windows")
 	tools := builtTools(t)
 	removed := false
 	tools.legacyRunValue = func() (companionLegacyRunValue, error) {
-		return companionLegacyRunValue{remove: func() error { removed = true; return nil }}, nil
+		return companionLegacyRunValue{program: old, remove: func() error { removed = true; return nil }}, nil
 	}
 	tools.loginOn = func(context.Context, string) error {
 		t.Error("the new name was set to start at login despite Windows' approval state")
@@ -449,5 +449,117 @@ func TestInstallCompanion_UsesAnEarlierSourceCheckoutWithoutLoginMigration(t *te
 	}
 	if _, err := os.Lstat(old); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("the earlier program remains: %v", err)
+	}
+}
+
+func TestInstallCompanion_PreservesAnUnmanagedLegacyLoginEntry(t *testing.T) {
+	external := filepath.Join(t.TempDir(), "agnostic-ai-companion")
+	for _, goos := range []string{"linux", "windows"} {
+		t.Run(goos, func(t *testing.T) {
+			dir := t.TempDir()
+			tools := builtTools(t)
+			var paths []string
+			const entryBody = "[Desktop Entry]\nExec="
+			entry := filepath.Join(t.TempDir(), "agnostic-ai-companion.desktop")
+			switch goos {
+			case "linux":
+				writeCompanionFixture(t, entry, entryBody+external+" --hidden\n")
+				paths = []string{entry}
+			case "windows":
+				tools.legacyRunValue = func() (companionLegacyRunValue, error) {
+					return companionLegacyRunValue{program: external + ".exe", enabled: true, remove: func() error {
+						t.Error("the unrelated Run value was removed")
+						return nil
+					}}, nil
+				}
+			}
+			tools.loginOn = func(context.Context, string) error {
+				t.Error("the new companion was registered at login")
+				return nil
+			}
+			build := companionBuild{goos: goos, version: "1.2.3", revision: "abc123"}
+			if err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, dir, build, paths); err != nil {
+				t.Fatal(err)
+			}
+			if goos == "linux" {
+				if data, err := os.ReadFile(entry); err != nil || string(data) != entryBody+external+" --hidden\n" {
+					t.Errorf("unmanaged desktop entry = %q, %v", data, err)
+				}
+			}
+		})
+	}
+}
+
+func TestInstallCompanion_RestoresTheEarlierRunValueWhenLoginFails(t *testing.T) {
+	dir := t.TempDir()
+	old := oldManagedCompanion(t, dir, "windows")
+	tools := builtTools(t)
+	removed, restored := 0, 0
+	tools.legacyRunValue = func() (companionLegacyRunValue, error) {
+		return companionLegacyRunValue{
+			program: old,
+			enabled: true,
+			remove:  func() error { removed++; return nil },
+			restore: func() error { restored++; return nil },
+		}, nil
+	}
+	refused := errors.New("the new Run value was refused")
+	tools.loginOn = func(context.Context, string) error { return refused }
+	build := companionBuild{goos: "windows", version: "1.2.3", revision: "abc123"}
+	err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, dir, build, nil)
+	if !errors.Is(err, refused) {
+		t.Errorf("install error = %v, want the refusal", err)
+	}
+	if removed != 1 || restored != 1 {
+		t.Errorf("Run value removed %d times and restored %d times, want once each", removed, restored)
+	}
+	if data, err := os.ReadFile(old); err != nil || string(data) != "old companion" {
+		t.Errorf("restored program = %q, %v", data, err)
+	}
+}
+
+func TestInstallCompanion_KeepsStartAtLoginOffForAnUnknownWindowsApproval(t *testing.T) {
+	dir := t.TempDir()
+	old := oldManagedCompanion(t, dir, "windows")
+	tools := builtTools(t)
+	removed := false
+	tools.legacyRunValue = func() (companionLegacyRunValue, error) {
+		return companionLegacyRunValue{program: old, unknownApproval: true, remove: func() error { removed = true; return nil }}, nil
+	}
+	tools.loginOn = func(context.Context, string) error {
+		t.Error("start at login was turned on despite an unknown approval")
+		return nil
+	}
+	var out bytes.Buffer
+	build := companionBuild{goos: "windows", version: "1.2.3", revision: "abc123"}
+	if err := installCompanion(context.Background(), &out, false, tools, dir, build, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !removed || !strings.Contains(out.String(), "start at login stays off") {
+		t.Errorf("removed = %t, output = %q", removed, out.String())
+	}
+}
+
+func TestLoginEntryPrograms(t *testing.T) {
+	for content, want := range map[string]string{
+		"[Desktop Entry]\nExec=/usr/bin/foo\n":                       "/usr/bin/foo",
+		"[Desktop Entry]\nExec=/usr/bin/foo\t--flag\n":               "/usr/bin/foo",
+		"[Desktop Entry]\nExec=\"/path with spaces/foo\" --flag\n":   "/path with spaces/foo",
+		"[Desktop Entry]\nExec=\"/path/with \\\"quote/foo\"\n":       "/path/with \"quote/foo",
+		"[Desktop Action x]\nExec=/other\n[Desktop Entry]\nName=x\n": "",
+		"login entry with no Exec line":                              "",
+	} {
+		if got := desktopEntryProgram(content); got != want {
+			t.Errorf("desktopEntryProgram(%q) = %q, want %q", content, got, want)
+		}
+	}
+	for command, want := range map[string]string{
+		`C:\old\agnostic-ai-companion.exe`:            `C:\old\agnostic-ai-companion.exe`,
+		`"C:\Program Files\x\companion.exe" --hidden`: `C:\Program Files\x\companion.exe`,
+		`"C:\unterminated`:                            "",
+	} {
+		if got := windowsCommandProgram(command); got != want {
+			t.Errorf("windowsCommandProgram(%q) = %q, want %q", command, got, want)
+		}
 	}
 }

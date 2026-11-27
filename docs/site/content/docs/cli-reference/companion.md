@@ -93,7 +93,7 @@ Use an existing CLI to install and start the companion:
 - The disk image carries an app signed during the release build with the project's own certificate, so updating from one disk image to the next keeps Accessibility access too.
 - Switching between the disk image and the terminal installer changes the certificate, and so does the first install with this signing. Grant Accessibility access once more after either.
 - Start at login registers the app with the system. It shows under System Settings > General > Login Items, in Open at Login, with the app's name and icon.
-- An install replaces the old app or program, keeps its settings and transfers enabled login entries. On Linux the new entry is `agnostic-companion.desktop`.
+- An install replaces the old app or program, keeps its settings and transfers enabled login entries. On Linux the new entry is `agnostic-companion.desktop`. Entries for another build stay.
 {% </details> %}
 
 ### What ran on Linux {#linux-runs}

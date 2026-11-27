@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -68,6 +70,9 @@ func TestReadLegacyRunValue_CanRestoreTheEarlierCommandAndType(t *testing.T) {
 	if err != nil || value.remove == nil || value.restore == nil {
 		t.Fatalf("no earlier value: %v", err)
 	}
+	if want := filepath.Join(os.Getenv("APPDATA"), "agnostic-ai", "companion", "agnostic-ai-companion.exe"); !strings.EqualFold(value.program, want) {
+		t.Errorf("program = %q, want %q", value.program, want)
+	}
 	if err := value.remove(); err != nil {
 		t.Fatal(err)
 	}
@@ -108,11 +113,11 @@ func TestReadLegacyRunValue_KeepsWindowsStartupApprovalUntouched(t *testing.T) {
 		name    string
 		data    []byte
 		enabled bool
-		invalid bool
+		unknown bool
 	}{
 		{name: "enabled", data: []byte{2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}, enabled: true},
 		{name: "disabled", data: []byte{3, 0, 0, 0, 12, 34, 56, 78, 90, 0, 0, 0}},
-		{name: "unrecognized", data: []byte{1}, invalid: true},
+		{name: "unrecognized", data: []byte{1}, unknown: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if err := key.SetStringValue(legacyCompanionName, `C:\old\agnostic-ai-companion.exe`); err != nil {
@@ -122,13 +127,7 @@ func TestReadLegacyRunValue_KeepsWindowsStartupApprovalUntouched(t *testing.T) {
 				t.Fatal(err)
 			}
 			value, err := readLegacyRunValue(registry.CURRENT_USER, path, approvalPath)
-			if tc.invalid {
-				if err == nil || value.remove != nil {
-					t.Errorf("unrecognized approval was used: %v", err)
-				}
-				return
-			}
-			if err != nil || value.remove == nil || value.enabled != tc.enabled {
+			if err != nil || value.remove == nil || value.enabled != tc.enabled || value.unknownApproval != tc.unknown {
 				t.Fatalf("enabled = %t, %v, want %t", value.enabled, err, tc.enabled)
 			}
 			if err := value.remove(); err != nil {

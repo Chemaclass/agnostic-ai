@@ -180,6 +180,9 @@ func installCompanion(ctx context.Context, out io.Writer, live bool, tools compa
 	if err != nil {
 		return err
 	}
+	if login.runValue.unknownApproval {
+		_, _ = fmt.Fprintln(out, "! Windows reports a startup approval this install does not recognize for the earlier companion, so start at login stays off. Turn it on again in the companion if you want it.")
+	}
 	if len(legacy) > 0 || len(login.entries) > 0 || login.runValue.remove != nil {
 		if !found {
 			installed = ""

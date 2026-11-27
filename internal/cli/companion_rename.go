@@ -253,16 +253,21 @@ type companionLoginFile struct {
 
 type companionLegacyRunValue struct {
 	remove, restore func() error
+	program         string
 	enabled         bool
+	unknownApproval bool
 }
 
 func readRenamedCompanionLogin(tools companionTools, dir, goos string, paths []string) (companionRenameLogin, error) {
 	var login companionRenameLogin
+	oldBare := legacyBareCompanionFile(dir, goos)
 	if goos == "windows" {
 		value, err := tools.legacyRunValue()
-		return companionRenameLogin{runValue: value, enabled: value.enabled}, err
+		if err != nil || value.remove == nil || !sameCompanionProgram(value.program, oldBare, goos) {
+			return login, err
+		}
+		return companionRenameLogin{runValue: value, enabled: value.enabled}, nil
 	}
-	oldBare := legacyBareCompanionFile(dir, goos)
 	oldBundle := legacyCompanionBundle(dir)
 	for _, path := range paths {
 		name := filepath.Base(path)
@@ -282,6 +287,9 @@ func readRenamedCompanionLogin(tools companionTools, dir, goos string, paths []s
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return login, fmt.Errorf("%s: %w", path, err)
+		}
+		if goos == "linux" && !sameCompanionProgram(desktopEntryProgram(string(content)), oldBare, goos) {
+			continue
 		}
 		entry := companionLoginFile{path: path, content: content, info: info}
 		if goos == "darwin" {
@@ -315,6 +323,67 @@ func earlierLaunchAgentProgram(data []byte, oldBundle, oldBare string) string {
 	}
 	if bundle, ok := companionAppForProgram(program); ok && bundle == resolvedPath(oldBundle) && knownCompanionExecutable(filepath.Base(program)) {
 		return program
+	}
+	return ""
+}
+
+func sameCompanionProgram(program, managed, goos string) bool {
+	if program == "" {
+		return false
+	}
+	program, managed = resolvedPath(program), resolvedPath(managed)
+	if goos == "windows" {
+		return strings.EqualFold(program, managed)
+	}
+	return program == managed
+}
+
+// desktopEntryProgram reads the program from the Exec line the way Wails writes it.
+func desktopEntryProgram(content string) string {
+	inDesktop := false
+	for line := range strings.Lines(content) {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "[") {
+			inDesktop = line == "[Desktop Entry]"
+		}
+		value, ok := strings.CutPrefix(line, "Exec=")
+		if !inDesktop || !ok {
+			continue
+		}
+		value = strings.TrimSpace(value)
+		if quoted, ok := strings.CutPrefix(value, `"`); ok {
+			var program strings.Builder
+			for i := 0; i < len(quoted); i++ {
+				switch {
+				case quoted[i] == '"':
+					return program.String()
+				case quoted[i] == '\\' && i+1 < len(quoted):
+					i++
+				}
+				program.WriteByte(quoted[i])
+			}
+			return ""
+		}
+		if fields := strings.Fields(value); len(fields) > 0 {
+			return fields[0]
+		}
+		return ""
+	}
+	return ""
+}
+
+// windowsCommandProgram reads the program from a Run value, quoted when its path has spaces.
+func windowsCommandProgram(command string) string {
+	command = strings.TrimSpace(command)
+	if quoted, ok := strings.CutPrefix(command, `"`); ok {
+		program, _, found := strings.Cut(quoted, `"`)
+		if !found {
+			return ""
+		}
+		return program
+	}
+	if fields := strings.Fields(command); len(fields) > 0 {
+		return fields[0]
 	}
 	return ""
 }
