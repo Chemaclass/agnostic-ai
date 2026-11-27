@@ -45,9 +45,9 @@ Use this workflow when the user asks to publish a new version. A request to prep
    A path, flag, or case it drops must already be on the docs page or in the
    PR; if it is not, add it to the docs, not back to the bullet.
 
-   Review `git diff -- scripts/target-audit/signals.tsv`. A line that only
-   mentions the issue, without delivering support, does not ship the signal,
-   so clear only the date newly set for that row.
+   Review `git diff -- scripts/target-audit/signals.tsv`. The dates were set
+   before curation, so clear a newly set date when its issue left the section
+   or a line only mentions the issue without delivering support.
 5. Write the briefing prose and replace every `TODO`. Read and
    follow [references/release-briefing.md](references/release-briefing.md):
    a short title that names the user value, Highlights first, required
@@ -107,7 +107,7 @@ Use this workflow when the user asks to publish a new version. A request to prep
 
 ## Conventions
 
-- `scripts/release-notes.sh vX.Y.Z` selects that version's dated section from `CHANGELOG.md` or its archive. Preview its output after step 3; a missing section fails the release workflow.
+- `scripts/release-notes.sh vX.Y.Z` selects that version's dated section from `CHANGELOG.md` or its archive. Preview its output after step 4; a missing section fails the release workflow.
 - A release briefing is release material, not a follow-up docs change. It is
   written after the changelog is finalized and included in the tagged
   release commit.

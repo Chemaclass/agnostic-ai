@@ -5,18 +5,21 @@
 # Usage:
 #   scripts/release-prepare.sh [--skip-git-check] vX.Y.Z [YYYY-MM-DD]
 #   scripts/release-prepare.sh --check vX.Y.Z
+#   scripts/release-prepare.sh --check-changelog vX.Y.Z
 #
 # The first form folds changes/*.md into CHANGELOG.md, moves [Unreleased] into
 # a dated section, archives the previous group of ten minor versions on an
 # X.Y1.0 release, bumps the version pins, sets the size budget and signal
 # dates, and writes the briefing skeleton. A rerun skips the steps already
 # done, so it resumes after a failure and never rolls the changelog over twice.
-# It refuses a branch other than main and edits outside the files it owns;
-# --skip-git-check drops both checks.
+# It refuses a branch other than main and, before the dated section exists, any
+# uncommitted change; a resumed run allows edits to the files it owns.
+# --skip-git-check drops these checks.
 #
 # --check validates the curated dated section and the briefing: bullets at
 # most 160 characters, at most five bullets per section and per tool, no
-# empty heading, and no TODO left in the briefing.
+# empty heading, and no TODO left in the briefing. --check-changelog skips
+# the briefing.
 #
 # RELEASE_ROOT points it at another checkout. Portable: bash 3.2, BSD awk/sed.
 
@@ -37,14 +40,17 @@ release_owned() {
   return 1
 }
 
+# release_git_check requires main and a clean tree. On a resumed run
+# (resume=1) it allows edits to the release files.
 release_git_check() {
-  local root="$1" branch line path
+  local root="$1" resume="$2" branch line path
   branch=$(git -C "$root" rev-parse --abbrev-ref HEAD)
   [ "$branch" = main ] || release_die "on branch $branch; a release runs on main (--skip-git-check overrides)"
   while IFS= read -r line; do
     [ -n "$line" ] || continue
     path=${line:3}
     path=${path#*" -> "}
+    [ "$resume" = 0 ] && release_die "uncommitted change before the release started: $path"
     release_owned "$path" || release_die "uncommitted change outside the release files: $path"
   done <<EOF
 $(git -C "$root" status --porcelain --untracked-files=all)
@@ -161,7 +167,8 @@ release_archive() {
 release_set_before() {
   local file="$1" ver="$2" tmp
   tmp=$(mktemp)
-  sed -E "/^Releases before v/s/v[0-9]+\.[0-9]+\.[0-9]+/$ver/g" "$file" > "$tmp"
+  sed -E -e "s/^(Releases before )v[0-9]+\.[0-9]+\.[0-9]+/\1$ver/" \
+    -e "/^Releases before /s/(Everything from )v[0-9]+\.[0-9]+\.[0-9]+( on)/\1$ver\2/" "$file" > "$tmp"
   cat "$tmp" > "$file"
   rm -f "$tmp"
 }
@@ -304,11 +311,15 @@ release_check_section() {
   ' "$changelog"
 }
 
+# release_check checks the dated section and, unless only_changelog is 1,
+# the briefing.
 release_check() {
-  local root="$1" ver="$2" problems briefing
+  local root="$1" ver="$2" only_changelog="$3" problems briefing
   problems=$(release_check_section "$root/CHANGELOG.md" "$ver")
   briefing=$(release_find_briefing "$root" "$ver")
-  if [ -z "$briefing" ]; then
+  if [ "$only_changelog" = 1 ]; then
+    :
+  elif [ -z "$briefing" ]; then
     problems="${problems:+$problems
 }no briefing docs/site/content/updates/*-$ver.md"
   elif grep -q 'TODO' "$briefing"; then
@@ -319,14 +330,19 @@ release_check() {
     printf '%s\n' "$problems" >&2
     return 1
   fi
-  release_step "release check: $ver section and briefing pass"
+  if [ "$only_changelog" = 1 ]; then
+    release_step "release check: $ver section passes"
+  else
+    release_step "release check: $ver section and briefing pass"
+  fi
 }
 
 release_prepare() {
-  local check=0 git_check=1 root ver date num maj min existing briefing prev pending
+  local check=0 only_changelog=0 git_check=1 root ver date num maj min existing briefing prev pending
   while [ $# -gt 0 ]; do
     case "$1" in
       --check) check=1; shift ;;
+      --check-changelog) check=1; only_changelog=1; shift ;;
       --skip-git-check) git_check=0; shift ;;
       -*) release_die "unknown flag $1" ;;
       *) break ;;
@@ -336,13 +352,12 @@ release_prepare() {
   date="${2:-$(date +%Y-%m-%d)}"
   root="${RELEASE_ROOT:-$(CDPATH='' cd -- "$RELEASE_SCRIPTS/.." && pwd)}"
   printf '%s\n' "$ver" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' ||
-    release_die "usage: release-prepare.sh [--check|--skip-git-check] vX.Y.Z [YYYY-MM-DD]"
+    release_die "usage: release-prepare.sh [--check|--check-changelog|--skip-git-check] vX.Y.Z [YYYY-MM-DD]"
   printf '%s\n' "$date" | grep -Eq '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' || release_die "date $date is not YYYY-MM-DD"
   if [ "$check" = 1 ]; then
-    release_check "$root" "$ver"
+    release_check "$root" "$ver" "$only_changelog"
     return
   fi
-  [ "$git_check" = 0 ] || release_git_check "$root"
 
   num=${ver#v}
   maj=${num%%.*}
@@ -350,6 +365,9 @@ release_prepare() {
   local changelog="$root/CHANGELOG.md"
 
   existing=$(release_section_date "$changelog" "$ver")
+  if [ "$git_check" = 1 ]; then
+    if [ -z "$existing" ]; then release_git_check "$root" 0; else release_git_check "$root" 1; fi
+  fi
   if [ -z "$existing" ]; then
     "$RELEASE_SCRIPTS/changelog-assemble.sh" "$changelog" "$root/changes"
     release_rollover "$changelog" "$ver" "$date"

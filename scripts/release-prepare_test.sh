@@ -46,7 +46,7 @@ EOF
   cat > "$dir/docs/CHANGELOG-archive.md" <<'EOF'
 # Changelog archive
 
-Releases before v1.0.0. Everything from v1.0.0 on lives in [CHANGELOG.md](../CHANGELOG.md).
+Releases before v1.0.0. Everything from v1.0.0 on lives in [CHANGELOG.md](../CHANGELOG.md). Releases up to v0.72.0 group entries as Added, Changed, Fixed, and Removed.
 
 ## v0.9.0 - 2025-12-01
 
@@ -122,7 +122,7 @@ function test_archives_the_previous_group_on_an_x1_release() {
   assert_not_contains "## v1.0.0" "$changelog"
   assert_contains "Releases before v1.10.0 are in" "$changelog"
   assert_contains $'Releases before v1.10.0. Everything from v1.10.0 on lives' "$archive"
-  assert_contains $'lives in [CHANGELOG.md](../CHANGELOG.md).\n\n## v1.9.0 - 2026-10-01\n\n- Nine (#8).\n\n## v1.0.0 - 2026-01-01\n\n- One (#1).\n\n## v0.9.0 - 2025-12-01' "$archive"
+  assert_contains $'Releases up to v0.72.0 group entries as Added, Changed, Fixed, and Removed.\n\n## v1.9.0 - 2026-10-01\n\n- Nine (#8).\n\n## v1.0.0 - 2026-01-01\n\n- One (#1).\n\n## v0.9.0 - 2025-12-01' "$archive"
 }
 
 function test_keeps_the_group_on_other_releases() {
@@ -182,7 +182,17 @@ function test_refuses_another_branch() {
   assert_file_exists "$dir/changes/codex.md"
 }
 
-function test_refuses_an_edit_outside_the_release_files() {
+function test_refuses_an_uncommitted_change_before_the_release_starts() {
+  printf '\n' >> "$dir/CHANGELOG.md"
+  local out
+  out="$(prepare v1.11.0 2>&1)"
+  assert_general_error "$?"
+  assert_contains "uncommitted change before the release started: CHANGELOG.md" "$out"
+  assert_file_exists "$dir/changes/codex.md"
+}
+
+function test_refuses_an_edit_outside_the_release_files_on_resume() {
+  prepare v1.11.0 2026-12-01 >/dev/null
   printf 'x\n' > "$dir/notes.txt"
   local out
   out="$(prepare v1.11.0 2>&1)"
@@ -250,6 +260,15 @@ function test_check_reports_an_empty_heading_and_a_missing_briefing() {
   assert_contains "empty heading: ### General" "$out"
   assert_not_contains "empty heading: ### By tool" "$out"
   assert_contains "no briefing" "$out"
+}
+
+function test_check_changelog_skips_the_briefing() {
+  write_released $'### General\n\n- One (#1).'
+  printf 'TODO\n' >> "$dir/docs/site/content/updates/2026-12-01-v1.11.0.md"
+  local out
+  out="$(prepare --check-changelog v1.11.0)"
+  assert_successful_code "$?"
+  assert_contains "v1.11.0 section passes" "$out"
 }
 
 function test_check_reports_a_missing_section() {

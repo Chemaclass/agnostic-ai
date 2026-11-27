@@ -70,7 +70,7 @@ scripts/changelog-assemble.sh --check
 
 Any output is a failure to fix. At release, after `make release-prepare` has
 moved Unreleased into a dated section, curate that section and run
-`make release-check VERSION=vX.Y.Z`. Use the focused documentation checks in
+`make release-check-changelog VERSION=vX.Y.Z`. Use the focused documentation checks in
 `docs/internal/contributing.md#choose-checks-for-your-change`; do not run a
 runtime gate only for changelog prose. Return the baseline, changes made,
 validation result, and unresolved docs gaps. Use the caller's report path for a

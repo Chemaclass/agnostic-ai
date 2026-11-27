@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog release-prepare release-check release-verify bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools tools-lefthook doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog release-prepare release-check release-check-changelog release-verify bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools tools-lefthook doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -92,6 +92,9 @@ release-prepare:
 
 release-check:
 	scripts/release-prepare.sh --check $(VERSION)
+
+release-check-changelog:
+	scripts/release-prepare.sh --check-changelog $(VERSION)
 
 release-verify:
 	scripts/release-verify.sh $(VERSION)
