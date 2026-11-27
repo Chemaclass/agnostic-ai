@@ -6,6 +6,68 @@ Releases before v0.90.0 are in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archiv
 
 ## [Unreleased]
 
+## v0.100.0 - 2026-11-28
+
+### Highlights
+
+- **Breaking:** the Companion is now Agnostic Companion: `make companion` builds `agnostic-companion` and macOS downloads use that name (#4048, #4061).
+- `builtins: [autosync]` and `install-hook` keep generated tool files current after a clone, pull, rebase or branch switch (#4029).
+- Cloud agents get their setup from Git, with `doctor environment` to check it and install steps for Claude Code and Copilot (#4003, #4005, #4006, #4027).
+- Rename a chat by renaming its Ghostty, WezTerm or kitty tab, pin chats, and drag one chat onto another to start a handoff (#4037, #4041, #4054).
+- Web Conversations groups chats by attention, filters by place and tool, and offers the Companion's row actions and pins (#4013, #4016, #4042, #4056).
+
+### General
+
+- `builtins: [autosync]` syncs tool files on session start, and `install-hook` also covers rebases and prints lines for lefthook, husky or pre-commit (#4029).
+- `gitignore.commit: [cloud]` keeps cloud setup files in Git; `doctor`, `init` and `lint` (LINT067) warn on ignored outputs or no memory index (#4027, #4028).
+- `doctor environment` lists cloud setup files, Git status and `.gitignore` fixes, plus the variable, secret and domain names specs declare (#4006, #4007).
+- `upgrade` updates the npm install holding the running CLI, and the Companion copies that command or links the release page (#4072, #4073).
+- `sync --scope user` removes skills and agents it wrote for tools dropped from the home config's `targets`.
+
+### By tool
+
+#### Web Conversations
+
+- Chats that need you come first, then working, active and archived ones, which start collapsed; the place filter is saved in the page address (#4013, #4016).
+- Rows offer the Companion's actions and pins, and group actions mark loaded chats that match your filters read or complete (#4042, #4056).
+
+#### Companion
+
+- **Breaking:** the app is now `Agnostic Companion.app`; `agnostic-ai companion` keeps your settings and the installed app path (#4048, #4053, #4061).
+- A chat in a single-pane Ghostty, WezTerm or kitty tab follows a tab rename; the tab rename guide lists versions (#4043, #4063, #4066, #4067, #4070).
+- Pin chats to the top, and drag one chat onto another to open the handoff form; it keeps focus and typed worktrees on refresh (#4041, #4054, #4061).
+- Waiting mailbox threads say what delivery needs and offer Copy message; Needs you skips old history and closed terminal chats (#3988, #4049, #4059).
+- Settings match the web, with Updates, shortcuts and simpler archiving; search has more room, Enter opens a chat (#3987, #4009, #4010, #4012, #4015, #4017).
+
+#### Claude Code
+
+- Cloud handoff launches from the exact pushed commit in a temporary single-branch clone (#4019).
+- `sync` turns an environment's `install` commands into a Claude Code cloud session hook (#4003).
+- LINT043 skips facts already in personal memory in either worktree when both use checkout mode (#4051).
+- On Windows, Conversations offers the resume command without a terminal when a file blocks the session data folder (#4014).
+
+#### Codex
+
+- `cloud-handoff` reads the environment id from `git config agnostic-ai.codex-cloud-env`, offers to save it, and refuses invalid ids (#4022, #4025).
+- `sync` and `validate` accept an `exec-policies-file` inside `.agnostic-ai/` again; 0.99.0 refused it with AAI-102 (#4036).
+- The Codex and Gemini CLI protected paths hook finds the project root from where sync writes it; Codex also runs it below the Git root (#4026).
+- Switching to a guessed Codex tab keeps the conversation list closed and shows the notice when you reopen it (#4008).
+
+#### GitHub Copilot
+
+- `x-copilot.setup-steps` generates a GitHub Actions setup workflow from your environment's `install` commands (#4005).
+- `cloud-handoff` can send a task to the Copilot coding agent with `gh agent-task create` (preview) and get a pull request back (#4022).
+- `sync` keeps `# vX` comments on pinned setup actions, and lint rejects a version comment with a line break (#4023, #4025).
+
+#### Cursor
+
+- Environment spec domains become Cursor's `egressAllowlist` (#4007).
+
+### Site
+
+- The Companion tab rename guide records tested Ghostty, WezTerm, kitty, Konsole and tmux versions (#4058, #4064).
+- A fresh-clone walkthrough checks the setup Claude Code and Codex Cloud receive for a small Python project (#4034).
+
 ## v0.99.0 - 2026-11-24
 
 ### Highlights

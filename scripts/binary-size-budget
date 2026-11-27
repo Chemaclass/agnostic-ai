@@ -2,4 +2,4 @@
 # `make size-check` on pushes to main and at release. Pull requests are
 # checked by growth instead (scripts/binary-size-growth). Only a release
 # raises this number, with `make size-budget`.
-31195296
+31633568
