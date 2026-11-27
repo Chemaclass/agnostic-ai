@@ -41,13 +41,14 @@ type workflowJob struct {
 // workflowStep is the slice of a workflow step these tests read. `with`
 // holds ints as well as strings (`fetch-depth: 0`), hence `any`.
 type workflowStep struct {
-	Name string            `yaml:"name"`
-	ID   string            `yaml:"id"`
-	If   string            `yaml:"if"`
-	Uses string            `yaml:"uses"`
-	Run  string            `yaml:"run"`
-	With map[string]any    `yaml:"with"`
-	Env  map[string]string `yaml:"env"`
+	Name            string            `yaml:"name"`
+	ID              string            `yaml:"id"`
+	If              string            `yaml:"if"`
+	Uses            string            `yaml:"uses"`
+	Run             string            `yaml:"run"`
+	With            map[string]any    `yaml:"with"`
+	Env             map[string]string `yaml:"env"`
+	ContinueOnError string            `yaml:"continue-on-error"`
 }
 
 // workflowJobs parses a GitHub Actions workflow and returns its jobs.
@@ -641,11 +642,6 @@ func TestInstallWorkflow_PublishedJobInstallsFromTheRegistry(t *testing.T) {
 	}
 }
 
-// companionArchive is the macOS companion archive `agnostic-ai companion
-// install` downloads for Apple silicon; the Intel one differs in the
-// architecture only.
-const companionArchive = "agnostic-ai-companion_darwin_arm64.tar.gz"
-
 // TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights guards
 // the job that builds the companion archives: it runs the dependencies of
 // a C build, so it gets no token beyond read access and no secret.
@@ -691,11 +687,18 @@ func TestReleaseWorkflow_BuildsTheCompanionOnAMacWithoutPublishRights(t *testing
 	if secrets := strings.Count(data[signStart:end], "secrets."); secrets != 1 || !strings.Contains(data[signStart:end], "secrets.COMPANION_SIGNING_P12") {
 		t.Errorf("the companion-sign job reads %d secrets, want only COMPANION_SIGNING_P12", secrets)
 	}
-	if signRun := workflowRun(t, releaseWorkflowPath, "companion-sign", "Sign the disk images"); !strings.Contains(signRun, "scripts/companion-sign.sh") {
-		t.Errorf("the companion-sign job does not sign with scripts/companion-sign.sh:\n%s", signRun)
+	signing, _ := workflowStepAt(t, releaseWorkflowPath, "companion-sign", "Sign the disk images")
+	if signing.Run != `scripts/companion-sign.sh "$RUNNER_TEMP/companion-dist"` {
+		t.Errorf("the companion signing step runs %q", signing.Run)
 	}
-	if build := workflowRun(t, releaseWorkflowPath, "companion", "Build the companion archives"); !strings.Contains(build, "scripts/companion-release.sh") {
-		t.Errorf("the companion job does not build with scripts/companion-release.sh:\n%s", build)
+	build, _ := workflowStepAt(t, releaseWorkflowPath, "companion", "Build the companion archives")
+	if build.Run != `scripts/companion-release.sh "${GITHUB_REF_NAME#v}" "$RUNNER_TEMP/companion-dist"` {
+		t.Errorf("the companion build step runs %q", build.Run)
+	}
+	for _, step := range []workflowStep{build, signing} {
+		if step.ContinueOnError != "${{ contains(github.ref_name, '-') }}" {
+			t.Errorf("%s must tolerate errors only on prereleases, got %q", step.Name, step.ContinueOnError)
+		}
 	}
 
 	goreleaser := jobs["goreleaser"]
@@ -782,55 +785,41 @@ func TestReleaseWorkflow_RecoveryUsesTheOriginalTagAndSelectedChannel(t *testing
 }
 
 // TestGoreleaser_PublishesAndChecksumsTheCompanionArchives keeps the
-// companion archives on the release and in checksums.txt, which the CLI
-// verifies them against and the provenance step signs.
+// companion archives in the release, checksums.txt and build provenance.
 func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
+	type extraFile struct {
+		Glob string `yaml:"glob"`
+	}
 	var doc struct {
 		Checksum struct {
-			ExtraFiles []struct {
-				Glob string `yaml:"glob"`
-			} `yaml:"extra_files"`
+			ExtraFiles []extraFile `yaml:"extra_files"`
 		} `yaml:"checksum"`
 		Release struct {
-			ExtraFiles []struct {
-				Glob string `yaml:"glob"`
-			} `yaml:"extra_files"`
+			ExtraFiles []extraFile `yaml:"extra_files"`
 		} `yaml:"release"`
 	}
 	if err := yaml.Unmarshal([]byte(readRepoFile(t, ".goreleaser.yml")), &doc); err != nil {
 		t.Fatal(err)
 	}
-	if len(doc.Checksum.ExtraFiles) != 2 || len(doc.Release.ExtraFiles) != 2 {
-		t.Fatalf("want archive and disk image globs in checksum and release, got %+v %+v", doc.Checksum.ExtraFiles, doc.Release.ExtraFiles)
+	const distribution = `{{ envOrDefault "COMPANION_DIST" "companion-dist" }}/`
+	want := []extraFile{
+		{Glob: distribution + "agnostic-companion_darwin_*.tar.gz"},
+		{Glob: distribution + "agnostic-companion_darwin_*.dmg"},
+		{Glob: distribution + "agnostic-ai-companion_darwin_*.dmg"},
 	}
-	glob := doc.Checksum.ExtraFiles[0].Glob
-	if doc.Release.ExtraFiles[0].Glob != glob {
-		t.Errorf("release attaches %q but checksums.txt lists %q", doc.Release.ExtraFiles[0].Glob, glob)
+	if !slices.Equal(doc.Checksum.ExtraFiles, want) || !slices.Equal(doc.Release.ExtraFiles, want) {
+		t.Errorf("want exactly the new Companion tarballs and both disk image layouts in checksums and release, got %+v %+v", doc.Checksum.ExtraFiles, doc.Release.ExtraFiles)
 	}
-	if matched, err := filepath.Match(filepath.Base(glob), companionArchive); err != nil || !matched {
-		t.Errorf("the glob %q does not match %s", glob, companionArchive)
-	}
-	if !strings.Contains(glob, `envOrDefault "COMPANION_DIST"`) {
-		t.Errorf("the glob %q does not read the folder the workflow downloads to", glob)
-	}
-	imageGlob := doc.Checksum.ExtraFiles[1].Glob
-	if doc.Release.ExtraFiles[1].Glob != imageGlob {
-		t.Errorf("release and checksums list different disk images: %q, %q", doc.Release.ExtraFiles[1].Glob, imageGlob)
-	}
-	for _, arch := range []string{"arm64", "amd64"} {
-		image := "agnostic-ai-companion_darwin_" + arch + ".dmg"
-		if matched, err := filepath.Match(filepath.Base(imageGlob), image); err != nil || !matched {
-			t.Errorf("the glob %q does not match %s", imageGlob, image)
-		}
-	}
-	for _, job := range []struct{ name, step string }{
-		{"companion", "Hand the archives to the signing job"},
-		{"companion-sign", "Hand the archives to GoReleaser"},
+	for _, job := range []struct{ name, step, condition string }{
+		{"companion", "Hand the archives to the signing job", "steps.package.outcome == 'success'"},
+		{"companion-sign", "Hand the archives to GoReleaser", "steps.sign.outcome == 'success'"},
 	} {
 		upload, _ := workflowStepAt(t, releaseWorkflowPath, job.name, job.step)
-		paths, ok := upload.With["path"].(string)
-		if !ok || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.dmg") || !strings.Contains(paths, "agnostic-ai-companion_darwin_*.tar.gz") {
-			t.Errorf("the %s job does not upload the archives and disk images: %v", job.name, upload.With["path"])
+		if upload.If != job.condition {
+			t.Errorf("the %s job uploads Companion assets when %q, want %q", job.name, upload.If, job.condition)
+		}
+		if upload.With["path"] != "${{ runner.temp }}/companion-dist/" {
+			t.Errorf("the %s job must pass the entire Companion output directory for inventory validation, got %q", job.name, upload.With["path"])
 		}
 	}
 	guard := workflowRun(t, releaseWorkflowPath, "goreleaser", "Stage and validate the release inventory")
@@ -838,7 +827,7 @@ func TestGoreleaser_PublishesAndChecksumsTheCompanionArchives(t *testing.T) {
 		t.Error("the candidate build does not validate the release inventory")
 	}
 	script := readRepoFile(t, "scripts/companion-release.sh")
-	for _, want := range []string{"name=agnostic-ai-companion", `"$outdir/${name}_darwin_${arch}.tar.gz"`, "for arch in arm64 amd64"} {
+	for _, want := range []string{`"$outdir/${companion_binary_name}_darwin_${arch}.tar.gz"`, "for arch in arm64 amd64"} {
 		if !strings.Contains(script, want) {
 			t.Errorf("scripts/companion-release.sh no longer has %q; the archives must keep the names the CLI downloads", want)
 		}

@@ -400,6 +400,8 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
       const { worktree } = await readClaims(current.from, reading.signal)
       if (draft !== current || current.reading !== reading) return
       handoffWorktree.value = worktree ?? ''
+      // Typing in the focused field replaces a suggestion that just arrived.
+      if (document.activeElement === handoffWorktree) handoffWorktree.select()
       handoffStatus.textContent = worktree ? '' : 'Enter the Git worktree root.'
     } catch (error) {
       if (error instanceof GivenUp || draft !== current || current.reading !== reading) return
@@ -669,12 +671,15 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   }
 
   function renderClaims(current) {
-    const focusedRelease = claimsList.contains(document.activeElement)
+    const restore = claimsList.contains(document.activeElement) ? claimsDismiss : current.restoreFocus
     claimsList.replaceChildren()
     for (const control of claimsCard.querySelectorAll('button, input, textarea')) {
       control.disabled = Boolean(current.pending)
     }
-    if (focusedRelease && !current.pending) claimsDismiss.focus()
+    if (!current.pending) {
+      current.restoreFocus = undefined
+      if (restore && document.activeElement === document.body) restore.focus()
+    }
     if (!current.reply || current.problem) {
       claimsList.append(element('p', 'mailbox-muted', current.problem || 'Reading file claims…'))
       return
@@ -759,7 +764,7 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
   async function mutateClaim(current, change, message) {
     if (claimsFor !== current || current.pending) return
     const focused = document.activeElement
-    const restore = claimsList.contains(focused) ? claimsDismiss : focused
+    if (claimsCard.contains(focused)) current.restoreFocus = claimsList.contains(focused) ? claimsDismiss : focused
     current.pending = true
     renderClaims(current)
     try {
@@ -773,7 +778,6 @@ export function mailboxPanel({ rows, shownRows, focusRows, afterChange, say, hid
     } finally {
       current.pending = false
       await loadClaims(current)
-      if (claimsFor === current && document.activeElement === document.body && claimsCard.contains(restore)) restore.focus()
     }
   }
 

@@ -44,8 +44,8 @@ download_links() {
 format_release_downloads() {
   local assets="$1" url="$2" companion macos linux windows verification
   companion="$(download_links "$assets" "$url" \
-    'Apple silicon' agnostic-ai-companion_darwin_arm64.dmg \
-    Intel agnostic-ai-companion_darwin_amd64.dmg)"
+    'Apple silicon' agnostic-companion_darwin_arm64.dmg \
+    Intel agnostic-companion_darwin_amd64.dmg)"
   macos="$(download_links "$assets" "$url" \
     'Apple silicon' agnostic-ai_darwin_arm64.tar.gz Intel agnostic-ai_darwin_amd64.tar.gz)"
   linux="$(download_links "$assets" "$url" \

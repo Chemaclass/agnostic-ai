@@ -303,7 +303,7 @@ func TestOpen_ClaudeBackgroundSession(t *testing.T) {
 		"switching to the attached tab refused by macOS": {
 			processes: fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable(terminalAttach("/dev/ttys012", 99268, "Mon Nov 16 16:43:20 2026")...), args: attachIn(99268, bgShortID)},
 			launcher:  fakeLauncher{err: errAutomationDenied},
-			reply:     OpenReply{Message: "macOS blocked switching to Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, then click again.", Command: "cd '/tmp/app' && claude attach e3469759"},
+			reply:     OpenReply{Message: "macOS blocked switching to Terminal. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, then click again.", Command: "cd '/tmp/app' && claude attach e3469759"},
 			calls:     "focus Terminal /dev/ttys012",
 		},
 		"attached in Cursor's terminal in another project": {
@@ -336,7 +336,7 @@ func TestOpen_ClaudeBackgroundSession(t *testing.T) {
 			conversation: ranInGhostty,
 			processes:    fakeProcesses{alive: alive, jobs: []ClaudeJob{bgJob}, table: claudeDaemonTable()},
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        OpenReply{Message: "macOS blocked opening Ghostty. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "cd '/tmp/app' && claude attach e3469759"},
+			reply:        OpenReply{Message: "macOS blocked opening Ghostty. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Ghostty in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "cd '/tmp/app' && claude attach e3469759"},
 			calls:        "new tab Ghostty cd '/tmp/app' && claude attach e3469759",
 		},
 		"claude agents does not list it": {

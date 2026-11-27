@@ -616,7 +616,7 @@ func TestOpen_FollowsEachRoute(t *testing.T) {
 		"Automation not allowed": {
 			conversation: Conversation{Open: Route{Kind: RouteTerminal, Command: "codex resume x"}},
 			launcher:     fakeLauncher{err: errAutomationDenied},
-			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "codex resume x"},
+			reply:        OpenReply{Message: "macOS blocked opening Terminal. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, to control Terminal in System Settings › Privacy & Security › Automation, or run this command yourself.", Command: "codex resume x"},
 			calls:        "terminal codex resume x",
 		},
 		"no terminal on this system": {

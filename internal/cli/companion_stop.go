@@ -15,9 +15,11 @@ import (
 // instead, and the launch agent is what a bare program left; inside the
 // app, before macOS 13, it is named after the app.
 const (
-	companionLaunchAgent  = "wails.autostart.agnostic-ai-companion.plist"
-	companionDesktopEntry = "agnostic-ai-companion.desktop"
-	companionRunValue     = `agnostic-ai-companion value under HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+	companionLaunchAgent        = "wails.autostart." + companionName + ".plist"
+	legacyCompanionLaunchAgent  = "wails.autostart." + legacyCompanionName + ".plist"
+	companionDesktopEntry       = companionName + ".desktop"
+	legacyCompanionDesktopEntry = legacyCompanionName + ".desktop"
+	companionRunValue           = `Companion values under HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
 )
 
 // companionLoginEntries are the files that start the companion at
@@ -29,9 +31,9 @@ func companionLoginEntries(goos, home, config string) []string {
 	switch goos {
 	case "darwin":
 		agents := filepath.Join(home, "Library", "LaunchAgents")
-		return []string{filepath.Join(agents, companionLaunchAgent), filepath.Join(agents, companionBundleID+".plist")}
+		return []string{filepath.Join(agents, companionLaunchAgent), filepath.Join(agents, companionBundleID+".plist"), filepath.Join(agents, legacyCompanionLaunchAgent)}
 	case "linux":
-		return []string{filepath.Join(config, "autostart", companionDesktopEntry)}
+		return []string{filepath.Join(config, "autostart", companionDesktopEntry), filepath.Join(config, "autostart", legacyCompanionDesktopEntry)}
 	default:
 		return nil
 	}
@@ -78,16 +80,27 @@ func endCompanion(ctx context.Context, tools companionTools, installed string) (
 // where. On macOS that is the app, or the bare program an install
 // before the app left.
 func companionInstalled(dir, goos string) (string, bool, error) {
-	installed := companionFile(dir, goos)
-	found, err := companionExists(installed)
-	if err != nil || found || goos != "darwin" {
-		return installed, found, err
+	for _, program := range managedCompanionPrograms(dir, goos) {
+		if found, err := companionExists(program); err != nil || found {
+			return program, found, err
+		}
 	}
-	bare := bareCompanionFile(dir)
-	if found, err := companionExists(bare); err != nil || found {
-		return bare, found, err
+	return companionFile(dir, goos), false, nil
+}
+
+func managedCompanionPrograms(dir, goos string) []string {
+	current := companionFile(dir, goos)
+	oldBare := legacyBareCompanionFile(dir, goos)
+	if goos != "darwin" {
+		return []string{current, oldBare}
 	}
-	return installed, false, nil
+	oldBundle := filepath.Join(legacyCompanionBundle(dir), "Contents", "MacOS")
+	return []string{current,
+		filepath.Join(filepath.Dir(current), legacyCompanionName),
+		filepath.Join(oldBundle, legacyCompanionName),
+		filepath.Join(oldBundle, companionName),
+		bareCompanionFile(dir), oldBare,
+	}
 }
 
 func companionExists(path string) (bool, error) {
@@ -110,7 +123,7 @@ func stopCompanionCommand(ctx context.Context, out io.Writer, tools companionToo
 	}
 	ran, err := endCompanion(ctx, tools, installed)
 	if errors.Is(err, errNoSessionBus) {
-		return fmt.Errorf("%w. Run this command in your desktop session, or end the %s process", err, companionName)
+		return fmt.Errorf("%w. Run this command in your desktop session, or end the %s process", err, filepath.Base(installed))
 	}
 	if err != nil {
 		return err

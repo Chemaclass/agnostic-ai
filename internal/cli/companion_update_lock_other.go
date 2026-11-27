@@ -1,8 +1,8 @@
-//go:build !darwin && !linux
+//go:build !darwin && !linux && !windows
 
 package cli
 
-// lockCompanionFolder takes no lock: no lock is taken off macOS and Linux.
+// lockCompanionFolder takes no lock on systems without a companion build.
 func lockCompanionFolder(string) (func(), error) {
 	return func() {}, nil
 }

@@ -7,6 +7,23 @@ import (
 	"time"
 )
 
+func TestSettings_KeepsTheExistingConfigurationPath(t *testing.T) {
+	config, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path, err := settingsPath()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := filepath.Join(config, "agnostic-ai", "companion.json"); path != want {
+		t.Errorf("settings path = %q, want %q", path, want)
+	}
+	if got, want := webviewDataPath(path), filepath.Join(config, "agnostic-ai", "companion", "webview"); got != want {
+		t.Errorf("web view data path = %q, want %q", got, want)
+	}
+}
+
 func TestSettings_AnimateIsOnWhenTheFileHasNoKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "companion.json")
 	if err := os.WriteFile(path, []byte(`{"shortcut":"Cmd+Shift+K"}`), 0o600); err != nil {

@@ -174,7 +174,7 @@ func TestOlderCLI_IgnoresAnAppsBundledCommandOnThePath(t *testing.T) {
 		t.Errorf("older CLI = %+v; want none for the app's own command", got)
 	}
 
-	another := filepath.Join(t.TempDir(), "Downloads", "agnostic-ai companion.app", "Contents", "Resources", binaryName)
+	another := filepath.Join(t.TempDir(), "Downloads", "Agnostic Companion.app", "Contents", "Resources", binaryName)
 	fakeSeparateCommand(t, another, "0.96.0")
 	s.appCommands.noteOlderCLI(context.Background())
 	if got := s.appCommands.olderCLI; got != nil {

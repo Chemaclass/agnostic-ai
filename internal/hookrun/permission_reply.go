@@ -23,7 +23,7 @@ func PermissionAllowReply(target string) (reply []byte, ok bool) {
 
 // CompanionDenyMessage is what the agent reads when the person denies a
 // request in the companion.
-const CompanionDenyMessage = "Denied in the agnostic-ai companion"
+const CompanionDenyMessage = "Denied in Agnostic Companion"
 
 // permissionDenyReplies block one call with CompanionDenyMessage. Only
 // the tools whose deny was measured have one (decision 022).

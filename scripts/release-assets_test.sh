@@ -24,7 +24,7 @@ function tear_down() {
 
 function add_companion() {
   local name
-  for name in agnostic-ai-companion_darwin_{amd64,arm64}.{tar.gz,dmg}; do
+  for name in agnostic-companion_darwin_{amd64,arm64}.{tar.gz,dmg} agnostic-ai-companion_darwin_{amd64,arm64}.dmg; do
     printf 'companion %s\n' "$name" > "$work/companion/$name"
   done
   update_checksums
@@ -38,54 +38,107 @@ function update_checksums() {
   if compgen -G "$work/companion/*" > /dev/null; then
     (
       cd "$work/companion" || exit 1
-      shasum -a 256 agnostic-ai-companion_*
+      shopt -s nullglob
+      shasum -a 256 agnostic-companion_* agnostic-ai-companion_*
     ) >> "$work/dist/checksums.txt"
   fi
 }
 
+function release_assets() {
+  python3 "$asset_script" "$@"
+}
+
 function stage_candidate() {
   local status=0 output
-  output="$(python3 "$asset_script" stage "$1" "$work/dist" "$work/companion" "$work/candidate" 2>&1)" || status=$?
+  output="$(release_assets stage "$1" "$work/dist" "$work/companion" "$work/candidate" 2>&1)" || status=$?
   printf '%s\n' "$output"
   return "$status"
 }
 
-function test_stable_candidate_includes_all_downloads_and_manifests() {
+function test_stable_candidates_include_six_companion_assets_and_manifests() {
   add_companion
-  assert_successful_code "$(stage_candidate v1.2.3)"
-  assert_file_exists "$work/candidate/assets/agnostic-ai-companion_darwin_arm64.dmg"
+  local tag name
+  for tag in v0.99.2 v1.0.0 v1.1.0; do
+    assert_successful_code "$(stage_candidate "$tag")"
+    for name in agnostic-companion_darwin_{amd64,arm64}.{tar.gz,dmg} agnostic-ai-companion_darwin_{amd64,arm64}.dmg; do
+      assert_file_exists "$work/candidate/assets/$name"
+    done
+    mv "$work/candidate" "$work/$tag"
+  done
+  mv "$work/v1.1.0" "$work/candidate"
   assert_file_exists "$work/candidate/assets/agnostic-ai_windows_amd64.zip.sbom.json"
   assert_file_exists "$work/candidate/channels/Chemaclass.agnostic-ai.installer.yaml"
   local subjects
-  subjects="$(python3 "$asset_script" subjects v1.2.3 "$work/candidate")"
+  subjects="$(release_assets subjects v1.1.0 "$work/candidate")"
   assert_contains "  checksums.txt" "$subjects"
   assert_contains "  agnostic-ai.rb" "$subjects"
   assert_contains "  agnostic-ai-companion_darwin_arm64.dmg" "$subjects"
+  assert_contains "  agnostic-companion_darwin_amd64.tar.gz" "$subjects"
 }
 
-function test_stable_candidate_with_one_missing_image_fails() {
+function test_stable_candidate_rejects_a_missing_legacy_image() {
   add_companion
   rm "$work/companion/agnostic-ai-companion_darwin_amd64.dmg"
   update_checksums
   local output status=0
   output="$(stage_candidate v1.2.3)" || status=$?
   assert_same 1 "$status"
-  assert_contains "missing agnostic-ai-companion_darwin_amd64.dmg" "$output"
+  assert_contains 'missing agnostic-ai-companion_darwin_amd64.dmg' "$output"
 }
 
-function test_prerelease_can_include_all_some_or_no_companion_files() {
-  assert_successful_code "$(stage_candidate v1.2.3-rc.1)"
-  assert_file_not_exists "$work/candidate/assets/agnostic-ai-companion_darwin_arm64.dmg"
-  mv "$work/candidate" "$work/without-companion"
+function test_staging_rejects_any_extra_companion_output_even_without_a_checksum() {
+  local name output status
+  for name in agnostic-ai-companion_darwin_amd64.tar.gz agnostic-companion_darwin_other.dmg notes.txt; do
+    add_companion
+    printf 'unexpected asset\n' > "$work/companion/$name"
+    status=0
+    output="$(stage_candidate v1.2.3)" || status=$?
+    assert_same 1 "$status"
+    assert_contains "unexpected $name" "$output"
+    rm "$work/companion/$name"
+    mv "$work/candidate" "$work/failed-$name"
+  done
+}
+
+function test_stable_candidate_rejects_a_missing_renamed_archive() {
   add_companion
-  rm "$work/companion/agnostic-ai-companion_darwin_amd64.dmg"
+  rm "$work/companion/agnostic-companion_darwin_amd64.tar.gz"
   update_checksums
-  assert_successful_code "$(stage_candidate v1.2.3-rc.2)"
-  assert_file_exists "$work/candidate/assets/agnostic-ai-companion_darwin_arm64.dmg"
-  mv "$work/candidate" "$work/partial-companion"
+  local output status=0
+  output="$(stage_candidate v1.2.4)" || status=$?
+  assert_same 1 "$status"
+  assert_contains 'missing agnostic-companion_darwin_amd64.tar.gz' "$output"
+}
+
+function test_prerelease_can_include_all_or_no_companion_files() {
+  rmdir "$work/companion"
+  assert_successful_code "$(stage_candidate v1.2.3-rc.1)"
+  assert_file_not_exists "$work/candidate/assets/agnostic-companion_darwin_arm64.dmg"
+  mv "$work/candidate" "$work/without-companion"
+  mkdir "$work/companion"
   add_companion
-  assert_successful_code "$(stage_candidate v1.2.3-rc.3)"
+  assert_successful_code "$(stage_candidate v1.2.3-rc.2)"
   assert_file_exists "$work/candidate/assets/agnostic-ai-companion_darwin_amd64.dmg"
+}
+
+function test_prerelease_cannot_include_a_partial_companion_set() {
+  add_companion
+  rm "$work/companion/agnostic-ai-companion_darwin_arm64.dmg"
+  update_checksums
+  local output status=0
+  output="$(stage_candidate v1.2.3-rc.1)" || status=$?
+  assert_same 1 "$status"
+  assert_contains 'missing agnostic-ai-companion_darwin_arm64.dmg' "$output"
+}
+
+function test_subjects_rejects_an_extra_asset_added_after_staging() {
+  add_companion
+  assert_successful_code "$(stage_candidate v1.2.3)"
+  printf 'extra asset\n' > "$work/candidate/assets/agnostic-ai-companion_darwin_arm64.tar.gz"
+  local output status=0
+  output="$(release_assets subjects v1.2.3 "$work/candidate" 2>&1)" || status=$?
+  assert_same 1 "$status"
+  assert_contains 'unexpected agnostic-ai-companion_darwin_arm64.tar.gz' "$output"
 }
 
 function test_subjects_rejects_an_archive_changed_after_staging() {
@@ -93,22 +146,23 @@ function test_subjects_rejects_an_archive_changed_after_staging() {
   assert_successful_code "$(stage_candidate v1.2.3)"
   printf 'changed bytes\n' >> "$work/candidate/assets/agnostic-ai_linux_amd64.tar.gz"
   local output status=0
-  output="$(python3 "$asset_script" subjects v1.2.3 "$work/candidate" 2>&1)" || status=$?
+  output="$(release_assets subjects v1.2.3 "$work/candidate" 2>&1)" || status=$?
   assert_same 1 "$status"
   assert_contains 'checksum mismatch for agnostic-ai_linux_amd64.tar.gz' "$output"
 }
 
 function test_staging_rejects_a_missing_or_duplicate_checksum() {
   add_companion
-  grep -v 'darwin_arm64.dmg' "$work/dist/checksums.txt" > "$work/checksums"
+  grep -v 'agnostic-companion_darwin_arm64.dmg' "$work/dist/checksums.txt" > "$work/checksums"
   mv "$work/checksums" "$work/dist/checksums.txt"
-  local output status=0
+  local output checksum status=0
   output="$(stage_candidate v1.2.3)" || status=$?
   assert_same 1 "$status"
-  assert_contains 'checksums.txt: missing agnostic-ai-companion_darwin_arm64.dmg' "$output"
+  assert_contains 'checksums.txt: missing agnostic-companion_darwin_arm64.dmg' "$output"
   mv "$work/candidate" "$work/failed"
   update_checksums
-  head -n 1 "$work/dist/checksums.txt" >> "$work/dist/checksums.txt"
+  read -r checksum < "$work/dist/checksums.txt"
+  printf '%s\n' "$checksum" >> "$work/dist/checksums.txt"
   output="$(stage_candidate v1.2.3)" || status=$?
   assert_same 1 "$status"
   assert_contains 'duplicate checksum' "$output"
@@ -116,9 +170,6 @@ function test_staging_rejects_a_missing_or_duplicate_checksum() {
 
 function start_release_fixture() {
   add_companion
-  stage_candidate v1.2.3 || return 1
-  printf 'portable bundle fixture\n' > "$work/candidate/assets/agnostic-ai.intoto.jsonl"
-  printf 'release notes\n' > "$work/notes.md"
   mkdir "$work/bin"
   cat > "$work/bin/gh" <<'PY'
 #!/usr/bin/env python3
@@ -140,6 +191,7 @@ if command == "attestation verify":
     if (directory / "bad-attestation").exists():
         sys.exit("invalid signature")
 elif args[0] == "api" and "/commits/" in args[1]:
+    assert args[1] == "repos/owner/repo/commits/v1.2.3"
     print("other-commit" if (directory / "wrong-tag-commit").exists() else "tested-commit")
 elif args[0] == "api" and "/actions/runs/" in args[1]:
     print((directory / "artifacts").read_text())
@@ -149,6 +201,7 @@ elif command == "run list":
         {"databaseId": 2, "headBranch": "v1.2.3", "headSha": "tested-commit"},
     ]))
 elif command == "release view":
+    assert args[2] == "v1.2.3"
     if not state.exists():
         sys.exit("release not found")
     print(state.read_text())
@@ -175,11 +228,34 @@ else:
     sys.exit(f"unexpected call {args!r}")
 PY
   chmod +x "$work/bin/gh"
+  stage_candidate v1.2.3 || return 1
+  printf 'portable bundle fixture\n' > "$work/candidate/assets/agnostic-ai.intoto.jsonl"
+  printf 'release notes\n' > "$work/notes.md"
 }
 
 function publish_fixture() {
-  RELEASE_FIXTURE="$work" PATH="$work/bin:$PATH" python3 "$asset_script" publish v1.2.3 \
+  RELEASE_FIXTURE="$work" PATH="$work/bin:$PATH" release_assets publish v1.2.3 \
     "$work/candidate" owner/repo tested-commit "$work/notes.md"
+}
+
+function test_recovery_requires_the_legacy_images_to_have_an_upload_digest() {
+  start_release_fixture
+  assert_successful_code "$(publish_fixture)"
+  local output status=0
+  python3 - "$work/remote" <<'PY'
+import json
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+release = json.loads(path.read_text())
+asset = next(asset for asset in release["assets"] if asset["name"] == "agnostic-ai-companion_darwin_arm64.dmg")
+asset["digest"] = None
+path.write_text(json.dumps(release))
+PY
+  output="$(recover_fixture npm 2>&1)" || status=$?
+  assert_same 1 "$status"
+  assert_contains 'agnostic-ai-companion_darwin_arm64.dmg on v1.2.3 has no verified upload digest' "$output"
 }
 
 function test_verified_candidate_publishes_once_and_retry_leaves_it_intact() {
@@ -212,7 +288,7 @@ function test_corrupt_remote_asset_stays_a_draft() {
 }
 
 function recover_fixture() {
-  RELEASE_FIXTURE="$work" PATH="$work/bin:$PATH" python3 "$asset_script" recover v1.2.3 owner/repo tested-commit "$1"
+  RELEASE_FIXTURE="$work" PATH="$work/bin:$PATH" release_assets recover v1.2.3 owner/repo tested-commit "$1"
 }
 
 function test_recovery_selects_the_original_candidate_by_published_bundle_digest() {

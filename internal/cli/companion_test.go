@@ -14,11 +14,26 @@ import (
 	"time"
 )
 
+func TestCompanionInstallFolder_KeepsTheExistingConfigurationPath(t *testing.T) {
+	config, err := os.UserConfigDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir, err := companionDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := filepath.Join(config, "agnostic-ai", "companion")
+	if got := companionFolder(dir); got != want {
+		t.Errorf("companion install folder = %q, want %q", got, want)
+	}
+}
+
 func TestCompanionLaunch_OpensTheMacAppInANewInstance(t *testing.T) {
 	t.Parallel()
 	for _, layout := range []struct{ bundle, executable string }{
 		{"agnostic-ai companion.app", "agnostic-ai-companion"},
-		{"agnostic companion.app", "agnostic-companion"},
+		{"Agnostic Companion.app", "agnostic-companion"},
 		{"My Companion.app", "agnostic-companion"},
 	} {
 		bundle := filepath.Join(t.TempDir(), "companion", layout.bundle)
@@ -69,19 +84,21 @@ func builtTools(t *testing.T, lines ...string) companionTools {
 			}
 			return errors.New("no GOBIN in the environment")
 		},
-		start:    func(string, []string) error { return nil },
-		builtFor: func(context.Context, string) (string, error) { return "1.2.3", nil },
-		quit:     func(context.Context, string) (bool, error) { return false, nil },
-		running:  func(context.Context, string) (bool, error) { return true, nil },
-		loginOff: func(context.Context, string) error { return nil },
-		loginOn:  func(context.Context, string) error { return nil },
+		start:       func(string, []string) error { return nil },
+		builtFor:    func(context.Context, string) (string, error) { return "1.2.3", nil },
+		quit:        func(context.Context, string) (bool, error) { return false, nil },
+		running:     func(context.Context, string) (bool, error) { return true, nil },
+		loginOff:    func(context.Context, string) error { return nil },
+		loginOn:     func(context.Context, string) error { return nil },
+		loginStatus: func(context.Context, string) (bool, error) { return false, nil },
 		runValueOff: func() (bool, error) {
 			return false, nil
 		},
-		noSessionBus: func() bool { return false },
-		sign:         func(context.Context, string, string) error { return nil },
-		rename:       os.Rename,
-		pause:        func(time.Duration) {},
+		legacyRunValue: func() (companionLegacyRunValue, error) { return companionLegacyRunValue{}, nil },
+		noSessionBus:   func() bool { return false },
+		sign:           func(context.Context, string, string) error { return nil },
+		rename:         os.Rename,
+		pause:          func(time.Duration) {},
 	}
 }
 
@@ -121,7 +138,7 @@ func TestInstallCompanion_BuildsTheCommitThisBinaryCameFromAndSaysHowFarItIs(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	installed := filepath.Join(dir, "companion", "agnostic-ai-companion")
+	installed := filepath.Join(dir, "companion", "agnostic-companion")
 	if raw, _ := os.ReadFile(installed); string(raw) != "built from github.com/chemaclass/agnostic-ai/companion@abc123" {
 		t.Errorf("installed program = %q", raw)
 	}
@@ -226,7 +243,7 @@ func TestInstallCompanion_WithoutPkgConfigNamesOnlyPkgConfig(t *testing.T) {
 
 func TestInstallCompanion_KeepsTheInstalledCompanionWhenTheBuildFails(t *testing.T) {
 	dir := t.TempDir()
-	installed := filepath.Join(dir, "companion", "agnostic-ai-companion")
+	installed := filepath.Join(dir, "companion", "agnostic-companion")
 	if err := os.MkdirAll(filepath.Dir(installed), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -265,7 +282,7 @@ func TestCompanionBuild_BuildsFromACheckoutInThatFolder(t *testing.T) {
 
 	args, dir := build.goArgs()
 
-	want := "build -v -tags production private_mac_apis -trimpath -ldflags -s -w -X main.version=1.2.3 -H windowsgui -o " + filepath.Join("/staging/companion", "agnostic-ai-companion.exe") + " ."
+	want := "build -v -tags production private_mac_apis -trimpath -ldflags -s -w -X main.version=1.2.3 -H windowsgui -o " + filepath.Join("/staging/companion", "agnostic-companion.exe") + " ."
 	if strings.Join(args, " ") != want || dir != "/code/agnostic-ai/companion" {
 		t.Errorf("args = %q in %q", strings.Join(args, " "), dir)
 	}
@@ -290,7 +307,7 @@ func TestRunCompanion_SaysHowToInstallAMissingCompanion(t *testing.T) {
 
 func TestRunCompanion_StartsItAndSaysWhenItWasBuiltForAnotherRelease(t *testing.T) {
 	dir := t.TempDir()
-	installed := filepath.Join(dir, "companion", "agnostic-ai-companion")
+	installed := filepath.Join(dir, "companion", "agnostic-companion")
 	if err := os.MkdirAll(filepath.Dir(installed), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +507,7 @@ func TestStopCompanion_FailsWhenTheCompanionNeverEnds(t *testing.T) {
 
 	err := stopCompanionCommand(context.Background(), &bytes.Buffer{}, tools, dir, "linux")
 
-	want := "the companion was asked to stop and still runs. End the agnostic-ai-companion process yourself"
+	want := "the companion was asked to stop and still runs. End the agnostic-companion process yourself"
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v", err)
 	}
@@ -607,8 +624,8 @@ func TestUninstallCompanion_RemovesACompanionThatCannotRun(t *testing.T) {
 			t.Errorf("%s is still there (%v)", gone, err)
 		}
 	}
-	want := "! Could not stop the companion (ask the companion to stop: exec format error). If it still runs, end the agnostic-ai-companion process.\n" +
-		"! Could not turn off start at login (exec format error). Remove agnostic-ai companion from the items that open at login.\n" +
+	want := "! Could not stop the companion (ask the companion to stop: exec format error). If it still runs, end the agnostic-companion process.\n" +
+		"! Could not turn off start at login (exec format error). Remove Agnostic Companion from the items that open at login.\n" +
 		"✓ Removed " + filepath.Join(dir, "companion") + "\n" +
 		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
 	if out.String() != want {
@@ -691,7 +708,7 @@ func TestUninstallCompanion_DeletesTheWindowsLoginValueOfAProgramThatCannotRun(t
 
 	err := uninstallCompanion(context.Background(), &out, tools, dir, "windows", nil)
 
-	want := "! Could not stop the companion (ask the companion to stop: bad exe format). If it still runs, end the agnostic-ai-companion process.\n" +
+	want := "! Could not stop the companion (ask the companion to stop: bad exe format). If it still runs, end the agnostic-companion.exe process.\n" +
 		"✓ Start at login is off\n" +
 		"✓ Removed " + companionFolder(dir) + "\n" +
 		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
@@ -706,7 +723,7 @@ func TestUninstallCompanion_FailsWhenTheWindowsLoginValueStays(t *testing.T) {
 
 	err := uninstallCompanion(context.Background(), &bytes.Buffer{}, tools, t.TempDir(), "windows", nil)
 
-	want := `turn off start at login: delete the agnostic-ai-companion value under HKCU\Software\Microsoft\Windows\CurrentVersion\Run: access is denied`
+	want := `turn off start at login: delete the Companion values under HKCU\Software\Microsoft\Windows\CurrentVersion\Run: access is denied`
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v", err)
 	}
@@ -762,7 +779,7 @@ func TestUninstallCompanion_RemovesTheFilesWithoutASessionBus(t *testing.T) {
 			t.Errorf("%s is still there (%v)", gone, err)
 		}
 	}
-	want := "! this shell has no D-Bus session bus, so it cannot reach a companion. If a companion runs in another session, end the agnostic-ai-companion process.\n" +
+	want := "! this shell has no D-Bus session bus, so it cannot reach a companion. If a companion runs in another session, end the agnostic-companion process.\n" +
 		"✓ Start at login is off\n" +
 		"✓ Removed " + companionFolder(dir) + "\n" +
 		"Your read and archive marks stay: agnostic-ai serve uses them too.\n"
@@ -782,7 +799,7 @@ func TestStopCompanion_SaysWhenThereIsNoSessionBus(t *testing.T) {
 
 	err := stopCompanionCommand(context.Background(), &bytes.Buffer{}, tools, dir, "linux")
 
-	want := "this shell has no D-Bus session bus, so it cannot reach a companion. Run this command in your desktop session, or end the agnostic-ai-companion process"
+	want := "this shell has no D-Bus session bus, so it cannot reach a companion. Run this command in your desktop session, or end the agnostic-companion process"
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v", err)
 	}
@@ -815,8 +832,8 @@ func TestSessionBusMissing_LooksWhereTheDBusLibraryLooks(t *testing.T) {
 func TestCompanionLoginEntries_AreWhereEachSystemKeepsThem(t *testing.T) {
 	agents := filepath.Join("/home/ada", "Library", "LaunchAgents")
 	for goos, want := range map[string][]string{
-		"darwin":  {filepath.Join(agents, "wails.autostart.agnostic-ai-companion.plist"), filepath.Join(agents, "dev.agnostic-ai.companion.plist")},
-		"linux":   {filepath.Join("/home/ada/.config", "autostart", "agnostic-ai-companion.desktop")},
+		"darwin":  {filepath.Join(agents, "wails.autostart.agnostic-companion.plist"), filepath.Join(agents, "dev.agnostic-ai.companion.plist"), filepath.Join(agents, "wails.autostart.agnostic-ai-companion.plist")},
+		"linux":   {filepath.Join("/home/ada/.config", "autostart", "agnostic-companion.desktop"), filepath.Join("/home/ada/.config", "autostart", "agnostic-ai-companion.desktop")},
 		"windows": nil,
 	} {
 		if got := companionLoginEntries(goos, "/home/ada", "/home/ada/.config"); !slices.Equal(got, want) {
@@ -842,7 +859,7 @@ func TestQuitCompanion_ReadsHowTheCompanionEnded(t *testing.T) {
 		"it got another argument":      {`[ "$1" = "--quit" ] || exit 9; exit 3`, false, ""},
 	} {
 		t.Run(name, func(t *testing.T) {
-			stub := filepath.Join(t.TempDir(), "agnostic-ai-companion")
+			stub := filepath.Join(t.TempDir(), "agnostic-companion")
 			if err := os.WriteFile(stub, []byte("#!/bin/sh\n"+tc.script+"\n"), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -872,7 +889,7 @@ func TestInstallCompanion_LeavesACompanionThatWillNotEndAlone(t *testing.T) {
 
 	err := installCompanion(context.Background(), &bytes.Buffer{}, false, tools, dir, companionBuild{goos: "linux", version: "1.2.3", revision: "abc123"}, nil)
 
-	want := "the companion was asked to stop and still runs. End the agnostic-ai-companion process yourself"
+	want := "the companion was asked to stop and still runs. End the agnostic-companion process yourself"
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v", err)
 	}
@@ -918,7 +935,7 @@ func TestUninstallCompanion_RemovesWhatAnInterruptedInstallLeft(t *testing.T) {
 	if err := os.MkdirAll(left, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(left, "agnostic-ai-companion"), []byte("half built"), 0o700); err != nil {
+	if err := os.WriteFile(filepath.Join(left, "agnostic-companion"), []byte("half built"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 

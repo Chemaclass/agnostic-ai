@@ -74,11 +74,11 @@ func companionImageListed(version string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("checksums.txt: %w", err)
 	}
-	return companionImageInChecksums(checksums, fmt.Sprintf("%s_darwin_%s.dmg", companionName, machineArch()))
+	return companionImageInChecksums(checksums, machineArch())
 }
 
-func companionImageInChecksums(checksums []byte, asset string) (bool, error) {
-	_, err := releaseChecksum(checksums, asset)
+func companionImageInChecksums(checksums []byte, goarch string) (bool, error) {
+	_, _, err := companionReleaseChecksum(checksums, goarch, "dmg")
 	if _, missing := errors.AsType[releaseAssetMissing](err); missing {
 		return false, nil
 	}

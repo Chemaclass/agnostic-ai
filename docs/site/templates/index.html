@@ -164,8 +164,8 @@
         <p class="companion-eyebrow">{{ companion.eyebrow }}</p>
         <h2 class="section-title">{{ companion.title }}<br><span>{{ companion.muted_title }}</span></h2>
         <p class="companion-lead">{{ companion.body }}</p>
-        <div class="companion-downloads">
-          {% for download in companion.downloads %}<a class="button {% if download.primary %}button-primary{% else %}button-secondary{% endif %} companion-download" href="{{ companion.release_base }}{{ download.asset }}" download><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 19.5h14"/></svg><span>{{ download.label }}<small>{{ download.hint }}</small></span></a>{% endfor %}
+        <div class="companion-downloads" data-companion-release-api="{{ companion.release_api }}" data-companion-release-root="{{ config.extra.repository_url }}/releases">
+          {% for download in companion.downloads %}<a class="button {% if download.primary %}button-primary{% else %}button-secondary{% endif %} companion-download" href="{{ config.extra.repository_url }}/releases/latest" data-companion-asset="{{ download.asset }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="M7 10.5l5 5 5-5"/><path d="M5 19.5h14"/></svg><span>{{ download.label }}<small>{{ download.hint }}</small></span></a>{% endfor %}
         </div>
         <p class="companion-note">{{ companion.requirements }} <a href="{{ get_url(path='@/docs/cli-reference/companion.md') }}#install">{{ companion.requirements_link }}</a></p>
         <p class="companion-note">{{ companion.terminal | markdown(inline=true) | safe }} <a href="{{ get_url(path='@/docs/cli-reference/companion.md') }}#install-from-terminal">{{ companion.terminal_link }}</a></p>

@@ -20,6 +20,12 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
+func TestCompanion_KeepsTheSingleInstanceID(t *testing.T) {
+	if instanceID != "dev.agnostic-ai.companion" {
+		t.Errorf("single-instance ID = %q", instanceID)
+	}
+}
+
 func TestFindBinary_UsesBundledCommandBeforeOtherLocations(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -58,7 +64,7 @@ func TestFindBinary_UsesBundledCommandBeforeOtherLocations(t *testing.T) {
 
 func fakeBundledCommand(t *testing.T) string {
 	t.Helper()
-	app := filepath.Join(t.TempDir(), "Applications", "agnostic-ai companion.app")
+	app := filepath.Join(t.TempDir(), "Applications", "Agnostic Companion.app")
 	command := filepath.Join(app, "Contents", "Resources", binaryName)
 	if err := os.MkdirAll(filepath.Dir(command), 0o700); err != nil {
 		t.Fatal(err)
@@ -66,7 +72,7 @@ func fakeBundledCommand(t *testing.T) string {
 	if err := os.WriteFile(command, []byte("command"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	executable := filepath.Join(app, "Contents", "MacOS", "agnostic-ai-companion")
+	executable := filepath.Join(app, "Contents", "MacOS", "agnostic-companion")
 	if err := os.MkdirAll(filepath.Dir(executable), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +81,7 @@ func fakeBundledCommand(t *testing.T) string {
 	}
 	previousExecutable := companionExecutable
 	t.Cleanup(func() { companionExecutable = previousExecutable })
-	companionExecutable = func() (string, error) { return filepath.Join(app, "Contents", "MacOS", "agnostic-ai-companion"), nil }
+	companionExecutable = func() (string, error) { return filepath.Join(app, "Contents", "MacOS", "agnostic-companion"), nil }
 	command, err := filepath.EvalSymlinks(command)
 	if err != nil {
 		t.Fatal(err)
@@ -103,7 +109,7 @@ func TestAppMenu_OffersUpdatesAndInstallAboveHideAndQuit(t *testing.T) {
 		t.Fatalf("app controls = %+v; want bundled command %s", s.appCommands, command)
 	}
 	got := strings.Join(menuLabels(menu)[7:], "|")
-	want := "App|Start at login|Updates|Install command line tool|Hide Agnostic AI companion|Quit Agnostic AI companion"
+	want := "App|Start at login|Updates|Install command line tool|Hide Agnostic Companion|Quit Agnostic Companion"
 	if got != want {
 		t.Errorf("menu ends with %q; want %q", got, want)
 	}
@@ -467,14 +473,14 @@ func TestStartUpdate_FollowsTheStepsAndNamesTheFailure(t *testing.T) {
 
 func TestUpdateFailureReason_NamesTheCheckInPlainWords(t *testing.T) {
 	for _, tc := range []struct{ log, step, want string }{
-		{"prepare /A.app: agnostic-ai-companion_darwin_arm64.dmg: checksum mismatch", updateDownloading, "the download did not match its checksum"},
+		{"prepare /A.app: agnostic-companion_darwin_arm64.dmg: checksum mismatch", updateDownloading, "the download did not match its checksum"},
 		{"x.dmg: build provenance did not verify: gh said no", updateDownloading, "the download's build provenance did not verify"},
 		{"codesign: exit status 1", updateVerifying, "the downloaded app failed its signature check"},
 		{`/A.app: companion version "0.96.0", expected 0.97.0`, updateVerifying, "the download is not the version it should be"},
 		{`checksums.txt: Get "https://github.com/x/checksums.txt": dial tcp: lookup github.com: no such host`, updateDownloading, "the release could not be downloaded. Check your connection"},
 		{"x.dmg: download: 404 Not Found", updateDownloading, "the release could not be downloaded. Check your connection"},
-		{"/Volumes/agnostic-ai/agnostic-ai companion.app cannot be updated where it is (read-only file system). Move the app to Applications, open it from there, then update", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
-		{"/A/.companion-update-1/agnostic-ai companion.app is not signed by this project: codesign: exit status 3", updateVerifying, "the download is not signed by this project"},
+		{"/Volumes/Agnostic Companion/Agnostic Companion.app cannot be updated where it is (read-only file system). Move the app to Applications, open it from there, then update", updateDownloading, "the app is not in a folder that can be updated. Move it to Applications, open it from there, then update"},
+		{"/A/.companion-update-1/Agnostic Companion.app is not signed by this project: codesign: exit status 3", updateVerifying, "the download is not signed by this project"},
 		{"/A.app: the app that runs is not signed with a project certificate. Download the new disk image by hand once", updateVerifying, "the app that runs is not signed by this project. Download the new disk image by hand once"},
 		{"checksums.txt: invalid checksum for x.dmg", updateDownloading, "the release's checksum list could not be read"},
 		{"x.dmg: v0.1.0 predates build provenance, which starts at v0.50.0", updateDownloading, "the update command failed"},

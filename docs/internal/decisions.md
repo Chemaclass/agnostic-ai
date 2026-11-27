@@ -465,3 +465,17 @@ End to end:
 **Accepted limits:** One run per case on one account, macOS only. Not measured: Linux, Codex in `review` (the hook does not hold there, by design), network and MCP prompts (not shown, so not held), a Codex hook in a project `.codex/hooks.json`, several prompts of one session at once, and a click in the companion's own window (the route was called directly; the panel is covered by the preview tests). A held Codex request on a row outside the current page or search does not add to **Needs you**. A Codex request that no live row on the unfiltered first page can show (a hidden chat, a subagent, a thread not read as live) is released after 5 s, so Codex shows its own prompt.
 
 **Revisit when:** Codex shows its prompt while a hook runs, writes a wait to its rollout, or adds a per-request id to the hook input.
+
+## 030: Name the app Agnostic Companion
+
+2026-11-27 · [#4048](https://github.com/Chemaclass/agnostic-ai/issues/4048)
+
+The companion has its own downloads and runs as a sibling of agnostic-ai. The program builds as `agnostic-companion` and installs on macOS as `Agnostic Companion.app`. The CLI manages it through `agnostic-ai companion`. Its module stays at `github.com/chemaclass/agnostic-ai/companion`, the repository path that `go install` needs.
+
+The app uses the bundle and single-instance ID `dev.agnostic-ai.companion` and each installer reuses its signing identity. macOS uses those identities for Accessibility and Automation permissions. The settings and data live under the user's `agnostic-ai/` configuration folder. The Linux window ID keeps existing Sway rules working.
+
+The terminal installer moves the app it manages under the new name and transfers any login entry. A disk image update replaces the app at its installed path, so the path used by Dock shortcuts and the CLI link stays available. The app's display name comes from the bundle.
+
+Stable releases publish the old-layout disk image alongside the new downloads through v1.0.0 and for at least 30 days after the first renamed release, whichever is later. Earlier CLI versions fetch their own release, so the old tarballs remain available at their original tags. [#4060](https://github.com/Chemaclass/agnostic-ai/issues/4060) tracks removal of the old disk image and transition code.
+
+The stable release before the rename must include the different-signer check from [#4046](https://github.com/Chemaclass/agnostic-ai/pull/4046) and verify it with the old layout. The rename ships in a separate stable release before v1.0.0. The [v0.99.0 signed release check](companion-signing.md#local-signer-refusal) records earlier evidence for the signer requirement.

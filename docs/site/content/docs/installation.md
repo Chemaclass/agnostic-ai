@@ -15,7 +15,7 @@ next_label = "Set up your project"
 
 ## macOS companion
 
-The floating companion includes the full web dashboard and the command line tool. Choose your Apple silicon or Intel download and follow the [Companion installation steps](@/docs/cli-reference/companion.md#install).
+The Agnostic Companion disk image includes the web dashboard and the command line tool. Choose your Apple silicon or Intel download and follow the [Companion installation steps](@/docs/cli-reference/companion.md#install).
 
 ## Command line
 

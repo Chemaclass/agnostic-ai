@@ -24,7 +24,9 @@ import (
 const (
 	// companionModule is the companion's Go module, in this repository's companion folder.
 	companionModule = "github.com/chemaclass/agnostic-ai/companion"
-	companionName   = "agnostic-ai-companion"
+	companionName   = "agnostic-companion"
+	// #4060 tracks removal of support for executables and login items with this name.
+	legacyCompanionName = "agnostic-ai-companion"
 	// companionTags turn on the companion's release build; private_mac_apis
 	// lets its windows be see-through on macOS and changes nothing elsewhere.
 	companionTags = "production private_mac_apis"
@@ -160,10 +162,12 @@ type companionTools struct {
 	// loginOff removes the companion from what starts at login.
 	loginOff func(ctx context.Context, path string) error
 	// loginOn adds the companion to what starts at login.
-	loginOn func(ctx context.Context, path string) error
+	loginOn     func(ctx context.Context, path string) error
+	loginStatus func(ctx context.Context, path string) (bool, error)
 	// runValueOff deletes the Windows registry value that starts the
 	// companion at login and reports whether one was there.
-	runValueOff func() (bool, error)
+	runValueOff    func() (bool, error)
+	legacyRunValue func() (companionLegacyRunValue, error)
 	// noSessionBus reports whether this shell has no D-Bus session bus,
 	// the only way to reach a running companion on Linux.
 	noSessionBus func() bool
@@ -187,13 +191,15 @@ func systemCompanionTools() companionTools {
 		download: func(ctx context.Context, out io.Writer, version, into string) (string, error) {
 			return downloadCompanion(ctx, out, &http.Client{Timeout: companionDownloadWait}, releasesBaseURL, version, machineArch(), into, ghProvenance)
 		},
-		start:       startCompanion,
-		builtFor:    companionBuiltFor,
-		quit:        quitCompanion,
-		running:     companionProgramRuns,
-		loginOff:    func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
-		loginOn:     func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
-		runValueOff: removeCompanionRunValue,
+		start:          startCompanion,
+		builtFor:       companionBuiltFor,
+		quit:           quitCompanion,
+		running:        companionProgramRuns,
+		loginOff:       func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOffFlag) },
+		loginOn:        func(ctx context.Context, path string) error { return askCompanion(ctx, path, companionLoginOnFlag) },
+		loginStatus:    companionLoginStatus,
+		runValueOff:    removeCompanionRunValue,
+		legacyRunValue: readLegacyCompanionRunValue,
 		noSessionBus: func() bool {
 			return runtime.GOOS == "linux" && sessionBusMissing(os.Getenv, strconv.Itoa(os.Getuid()), func(path string) bool {
 				_, err := os.Stat(path)
@@ -228,7 +234,7 @@ func companionDir() (string, error) {
 // oldWebviewFolder is where a Windows companion that did not name its
 // web view data folder left it: beside dir, named after the program.
 func oldWebviewFolder(dir string) string {
-	return filepath.Join(filepath.Dir(dir), companionProgramName("windows"))
+	return filepath.Join(filepath.Dir(dir), legacyCompanionName+".exe")
 }
 
 // companionFolder holds everything an install writes besides its notes.

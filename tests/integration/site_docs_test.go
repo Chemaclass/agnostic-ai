@@ -685,8 +685,11 @@ func TestSiteDocs_BuildsBrowsablePublicGuides(t *testing.T) {
 	if count := strings.Count(home, "<section"); count != 5 {
 		t.Errorf("home page has %d sections, want the 5 blocks: hero, steps, explorer, companion, updates", count)
 	}
+	if !strings.Contains(home, "<span>Agnostic Companion.</span>") {
+		t.Error("home page is missing the Agnostic Companion name")
+	}
 	for _, arch := range []string{"arm64", "amd64"} {
-		download := "https://github.com/Chemaclass/agnostic-ai/releases/latest/download/agnostic-ai-companion_darwin_" + arch + ".dmg"
+		download := `href="https://github.com/Chemaclass/agnostic-ai/releases/latest" data-companion-asset="agnostic-companion_darwin_` + arch + `.dmg"`
 		if !strings.Contains(home, download) {
 			t.Errorf("home page is missing the companion download %q", download)
 		}

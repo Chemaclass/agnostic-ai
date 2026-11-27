@@ -709,7 +709,7 @@ export const FIXTURES = {
   'resume-failure': {
     label: 'Resume failure with a command',
     conversations: mixed,
-    openProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    openProblem: 'macOS blocked opening Terminal. Allow Agnostic Companion to control Terminal in System Settings, or run this command yourself.',
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2",
   },
   'list-failure': {
@@ -751,7 +751,7 @@ export const FIXTURES = {
     label: 'Open that fails after the server was slow to answer, once /dev/settle-late-opens',
     conversations: archived,
     openPending: true,
-    lateOpenProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    lateOpenProblem: 'macOS blocked opening Terminal. Allow Agnostic Companion to control Terminal in System Settings, or run this command yourself.',
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2",
   },
   'held-late-open-failure': {
@@ -759,13 +759,13 @@ export const FIXTURES = {
     conversations: archived,
     openPending: true,
     heldOpens: ['done-2'],
-    lateOpenProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    lateOpenProblem: 'macOS blocked opening Terminal. Allow Agnostic Companion to control Terminal in System Settings, or run this command yourself.',
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume done-2",
   },
   'held-open-failure': {
     label: 'Open failure for "Plan the sync dry run", held until /dev/release-opens',
     conversations: mixed,
-    openProblem: 'macOS blocked opening Terminal. Allow agnostic-ai companion to control Terminal in System Settings, or run this command yourself.',
+    openProblem: 'macOS blocked opening Terminal. Allow Agnostic Companion to control Terminal in System Settings, or run this command yourself.',
     openCommand: "cd '/Users/you/Code/agnostic-ai' && claude --resume active-2",
     heldOpens: ['active-2'],
   },
