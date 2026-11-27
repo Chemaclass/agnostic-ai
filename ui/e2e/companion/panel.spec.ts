@@ -2539,7 +2539,24 @@ test('the global mailbox claims card releases a stale owner with no conversation
   const gone = fileClaims(page).getByRole('region', { name: 'Session gone' })
   await expect(gone).toContainText(handoffPath)
   await expect(gone.getByRole('button', { name: 'Release all' })).toHaveCount(0)
-  await gone.getByRole('button', { name: 'Release', exact: true }).press('Enter')
+  let finishReads!: () => void
+  const heldReads = new Promise<void>((resolve) => { finishReads = resolve })
+  const claimsURL = '**/api/mailbox/claims'
+  await page.route(claimsURL, async (route) => {
+    await heldReads
+    await route.continue()
+  })
+  try {
+    const reading = page.waitForRequest(claimsURL)
+    const superseded = page.waitForEvent('requestfailed', async (request) => request === (await reading))
+    await gone.getByRole('button', { name: 'Release', exact: true }).press('Enter')
+    await reading
+    // A new inbox version aborts the post-release read before either read can render.
+    expect((await page.request.post('/dev/arrive')).ok()).toBe(true)
+    await superseded
+  } finally {
+    finishReads()
+  }
   await expect(fileClaims(page)).toContainText('No claims left.')
   await expect(fileClaims(page).getByRole('button', { name: 'Dismiss file claims' })).toBeFocused()
   await expect(claimsButton(page)).toBeHidden()
