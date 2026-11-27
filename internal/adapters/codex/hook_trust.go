@@ -113,11 +113,15 @@ func HookTrustFindings(path string, body []byte) ([]HookTrustFinding, error) {
 			absolute = filepath.Join(home, "hooks.json")
 		}
 	}
-	findings, err := inspectHookTrust(absolute, body, data, runtime.GOOS)
+	findings, err := HookTrustFindingsWithConfig(absolute, body, data)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", configPath, err)
 	}
 	return findings, nil
+}
+
+func HookTrustFindingsWithConfig(path string, body, userConfig []byte) ([]HookTrustFinding, error) {
+	return inspectHookTrust(path, body, userConfig, runtime.GOOS)
 }
 
 func NoteHookTrust(path string, body []byte) {

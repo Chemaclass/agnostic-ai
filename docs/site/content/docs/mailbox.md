@@ -20,7 +20,7 @@ Keep a question or finding beside the two chats it concerns. The [companion](@/d
 
 The **To** list holds the local Claude Code and Codex chats the companion has loaded, grouped like the main list. With the mailbox built-in on, an archived chat gets the message when it is resumed. An ID that matches no loaded chat still sends, and the server checks it.
 
-The line under each chat tells you what happens next. With the [mailbox built-in](#deliver-with-the-next-prompt) on, the receiving chat gets a waiting message with its next prompt. To move it now, choose **Paste into chat**, then press Enter in the receiving terminal. Use **More → Copy message** to paste it yourself. The thread shows **Pasted by you** or **Copied by you** after either action succeeds.
+The line under each chat names the sender or receiver and says what the waiting message needs. If automatic delivery is off or the Companion cannot check it, a thread with one waiting message offers **Paste into chat** on the row. Press Enter in the receiving terminal to submit the pasted message. Open the thread for details, more waiting messages, or **More → Copy message** to paste it yourself. The thread shows **Pasted by you** or **Copied by you** after either action succeeds.
 
 ## Request a code review
 
@@ -85,7 +85,7 @@ Turn on the `mailbox` built-in in the project where the sessions run, then sync:
 builtins: [mailbox]
 ```
 
-It adds two hooks to Claude Code and Codex. A session gets its waiting messages with your next prompt, and when it starts or resumes. Compacting or clearing a session delivers nothing, so a message always waits for you.
+It adds two hooks to Claude Code and Codex. A session gets its waiting messages with your next prompt, and when it starts or resumes. Compacting or clearing a session leaves messages waiting. The Companion checks the receiver's project and home setup. Settings supplied when starting a session can change which hooks run. If setup is off, open the thread for the **Turn on automatic delivery** link. If Codex needs trust, open `/hooks` in Codex before typing the next prompt.
 
 A message marked **Delivered** was printed in full into the session's context. That does not mean the model read it or acted on it. If the hook stops after printing and before saving, the message prints again a minute later. Each message carries its thread ID and number, so a repeat is easy to spot.
 

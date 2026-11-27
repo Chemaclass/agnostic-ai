@@ -556,7 +556,7 @@ func focusTerminal(ctx context.Context, c Conversation, processes Processes, lau
 			return OpenReply{Message: fmt.Sprintf("Codex keeps this thread open in the background (process %d), but no Codex terminal shows it.", c.process.PID)}
 		case len(placed.ttys) == 1:
 			if !processes.Alive(placed.process.PID, placed.process.ProcStart) {
-				return OpenReply{Message: "Could not confirm that the only Codex terminal that may show this thread is still open."}
+				return OpenReply{Message: "Could not confirm that the only matching Codex terminal is still open."}
 			}
 			reply := switchToHost(ctx, c.Folder, *placed, processes, launcher, "")
 			reply.Guessed = reply.Opened
@@ -613,9 +613,11 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 	}
 	where := "It runs"
 	tab := "the " + app + " tab that runs it"
+	var confirmation string
 	if len(placed.ttys) == 1 {
-		where = "It may run"
-		tab = "the " + app + " tab with the only Codex session that may show this thread"
+		where = "The only matching terminal is"
+		tab = "the only matching Codex tab in " + app
+		confirmation = " The session could not be confirmed."
 	}
 	cannot := "its tab cannot be selected from outside"
 	setupNeeded := false
@@ -628,7 +630,7 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		case errors.Is(err, errNoTabCommand):
 			// Without its command the app still comes forward below.
 		case ok && errors.Is(err, errNotInFront):
-			return switchThere("Selected " + tab + ". Its window may be behind other windows.")
+			return switchThere("Selected " + tab + "." + confirmation + " Bring its window forward if needed.")
 		case errors.Is(err, errAutomationDenied):
 			return switchThere(allowControl("switching to", app, "then click again"))
 		case errors.Is(err, context.DeadlineExceeded):
@@ -636,7 +638,7 @@ func switchToHost(ctx context.Context, folder string, placed placement, processe
 		case err != nil || !ok:
 			return resumeElsewhere(fmt.Sprintf("%s in %s on %s (process %d), but no tab shows that terminal. Switch to it there.", where, app, tty, pid), resume)
 		default:
-			return OpenReply{Opened: true, Message: "Switched to " + tab + "."}
+			return OpenReply{Opened: true, Message: "Switched to " + tab + "." + confirmation}
 		}
 	}
 	if editor, ok := editorTerminals[app]; ok && folder != "" {

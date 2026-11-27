@@ -662,7 +662,7 @@ func TestPlace_OnlyPossibleCodexClientIsUsedOnlyForFocus(t *testing.T) {
 
 	launcher := &fakeLauncher{focusOK: true}
 	reply := Open(context.Background(), c, processes, launcher)
-	if !reply.Opened || !strings.Contains(reply.Message, "may show") || reply.Command != "" ||
+	if !reply.Opened || !reply.Guessed || !strings.Contains(reply.Message, "The session could not be confirmed.") || reply.Command != "" ||
 		strings.Join(launcher.calls, "; ") != "focus Ghostty /dev/ttys002" {
 		t.Errorf("calls %v, reply %+v", launcher.calls, reply)
 	}
@@ -902,7 +902,7 @@ func TestOpen_FocusesTheExactTabOrSaysWhy(t *testing.T) {
 		"one Codex client could hold it": {
 			conversation: Conversation{Tool: ToolCodex, Open: Route{Kind: RouteFocus, Command: "codex resume x"}, process: &liveProcess{PID: 42}, placed: &placement{process: liveProcess{PID: 42}, host: terminalHost{App: "Ghostty", TTY: "/dev/ttys002"}, ttys: []string{"/dev/ttys002"}}},
 			launcher:     fakeLauncher{focusOK: true},
-			reply:        OpenReply{Opened: true, Guessed: true, Message: "Switched to the Ghostty tab with the only Codex session that may show this thread."},
+			reply:        OpenReply{Opened: true, Guessed: true, Message: "Switched to the only matching Codex tab in Ghostty. The session could not be confirmed."},
 			calls:        "focus Ghostty /dev/ttys002",
 		},
 	} {

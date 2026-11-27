@@ -390,7 +390,7 @@ func (m mailboxSnapshot) conflicted() []conversations.Ref {
 	return refs
 }
 
-func (h *conversationsHandler) addMailboxSummaries(mail mailboxSnapshot, view *conversations.View, opts conversations.ScanOptions) {
+func (h *conversationsHandler) addMailboxSummaries(mail mailboxSnapshot, view *conversations.View, opts conversations.ScanOptions, query mailboxDeliveryQuery) string {
 	list, claims := mail.list, mail.claims
 	if mail.err != nil {
 		view.MailboxWarning = "The mailbox could not be read. Try again."
@@ -448,32 +448,43 @@ func (h *conversationsHandler) addMailboxSummaries(mail mailboxSnapshot, view *c
 			view.Conversations[at].Threads = append(view.Conversations[at].Threads, summary)
 		}
 	}
-	if len(missing) == 0 && len(offPage) == 0 {
-		return
-	}
-	read, recent := h.scanner.RecentRefsRead(opts, append(missing, offPage...)...)
-	peers := read.Rows
-	// Without a recent read nothing is known, so no claim counts as stale.
-	if recent {
-		for _, owner := range offPage {
-			if claimOwnerGone(read, owner) {
-				view.MailboxClaims.Stale++
+	var peers map[conversations.Ref]conversations.Conversation
+	if len(missing) > 0 || len(offPage) > 0 {
+		read, recent := h.scanner.RecentRefsRead(opts, append(missing, offPage...)...)
+		peers = read.Rows
+		// Without a recent read, no claim counts as stale.
+		if recent {
+			for _, owner := range offPage {
+				if claimOwnerGone(read, owner) {
+					view.MailboxClaims.Stale++
+				}
 			}
 		}
 	}
+	checks := newMailboxDeliveryChecks()
 	for i := range view.Conversations {
 		for j := range view.Conversations[i].Threads {
 			summary := &view.Conversations[i].Threads[j]
 			if peer, found := peers[summary.With]; summary.WithTitle == "" && found && canUseMailbox(peer) {
 				summary.WithTitle = peer.Title
 			}
+			if waiting := summary.WaitingMessage; waiting != nil {
+				receiver := peers[waiting.To]
+				if at, found := page[waiting.To]; found {
+					receiver = view.Conversations[at]
+				}
+				waiting.Setup = checks.setup(receiver)
+			}
 		}
 	}
+	return h.mailboxDelivery.remember(query, checks.inputs)
 }
 
 func mailboxSummary(thread mailbox.Thread, with conversations.Ref) conversations.ThreadSummary {
 	summary := conversations.ThreadSummary{ID: thread.ID, With: with, Status: thread.Status, Cap: thread.Cap}
-	for _, message := range thread.Messages {
+	var oldest *mailbox.Message
+	for i := range thread.Messages {
+		message := &thread.Messages[i]
 		summary.LastType = message.Type
 		if message.Type != "done" && message.State != "rejected" {
 			summary.Count++
@@ -481,8 +492,16 @@ func mailboxSummary(thread mailbox.Thread, with conversations.Ref) conversations
 		switch message.State {
 		case mailbox.Waiting:
 			summary.Waiting++
+			if oldest == nil || message.QueuedAt.Before(oldest.QueuedAt) {
+				oldest = message
+			}
 		case mailbox.Held:
 			summary.Held++
+		}
+	}
+	if oldest != nil {
+		summary.WaitingMessage = &conversations.MailboxWaitingMessage{
+			From: oldest.From.Ref, To: oldest.To, N: oldest.N, Type: oldest.Type, Setup: mailboxSetupUnknown,
 		}
 	}
 	return summary

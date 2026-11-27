@@ -94,7 +94,7 @@ func TestSwitchToHost_ATabSelectedBehindIsNotOpened(t *testing.T) {
 
 	reply := switchToHost(context.Background(), "", placed, fakeProcesses{}, launcher, "")
 
-	if want := (OpenReply{Message: "Selected the WezTerm tab that runs it. Its window may be behind other windows."}); reply != want {
+	if want := (OpenReply{Message: "Selected the WezTerm tab that runs it. Bring its window forward if needed."}); reply != want {
 		t.Errorf("reply %+v, want %+v", reply, want)
 	}
 }

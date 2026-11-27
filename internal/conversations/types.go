@@ -348,16 +348,25 @@ type StuckShell struct {
 }
 
 type ThreadSummary struct {
-	ID        string            `json:"id"`
-	With      Ref               `json:"with"`
-	WithTitle string            `json:"withTitle,omitempty"`
-	Status    string            `json:"status"`
-	Count     int               `json:"count"`
-	Cap       int               `json:"cap"`
-	Waiting   int               `json:"waiting"`
-	Held      int               `json:"held,omitempty"`
-	LastType  string            `json:"lastType,omitempty"`
-	Conflicts []MailboxConflict `json:"conflicts,omitempty"`
+	ID             string                 `json:"id"`
+	With           Ref                    `json:"with"`
+	WithTitle      string                 `json:"withTitle,omitempty"`
+	Status         string                 `json:"status"`
+	Count          int                    `json:"count"`
+	Cap            int                    `json:"cap"`
+	Waiting        int                    `json:"waiting"`
+	Held           int                    `json:"held,omitempty"`
+	LastType       string                 `json:"lastType,omitempty"`
+	Conflicts      []MailboxConflict      `json:"conflicts,omitempty"`
+	WaitingMessage *MailboxWaitingMessage `json:"waitingMessage,omitempty"`
+}
+
+type MailboxWaitingMessage struct {
+	From  Ref    `json:"from"`
+	To    Ref    `json:"to"`
+	N     int    `json:"n"`
+	Type  string `json:"type"`
+	Setup string `json:"setup"`
 }
 
 // MailboxClaims counts claimed paths, the claims whose owner is gone,
