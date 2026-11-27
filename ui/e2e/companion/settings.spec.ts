@@ -39,8 +39,8 @@ test('the keys move through the menu and end on Quit, after Hide', async ({ page
     menu.getByRole('button', { name: 'Send copied text' }),
     menu.getByRole('button', { name: 'Keyboard shortcuts', exact: true }),
     menu.getByRole('switch', { name: 'Start at login' }),
-    menu.getByRole('button', { name: /^Hide Agnostic AI companion/ }),
-    menu.getByRole('button', { name: 'Quit Agnostic AI companion' }),
+    menu.getByRole('button', { name: /^Hide Agnostic Companion/ }),
+    menu.getByRole('button', { name: 'Quit Agnostic Companion' }),
   ]
   for (const item of order) {
     await page.keyboard.press('Tab')
@@ -63,11 +63,11 @@ test('Escape closes the menu and keeps the list; a second Escape hides the list'
   await hidden
 })
 
-const quitQuestion = (page: Page) => page.getByRole('alertdialog', { name: 'Quit Agnostic AI companion?' })
+const quitQuestion = (page: Page) => page.getByRole('alertdialog', { name: 'Quit Agnostic Companion?' })
 
 async function askQuit(page: Page) {
   await openSettings(page)
-  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).click()
+  await page.getByRole('button', { name: 'Quit Agnostic Companion' }).click()
   await expect(quitQuestion(page)).toBeVisible()
 }
 
@@ -137,7 +137,7 @@ test('Enter on Quit with a row selected asks, and neither opens the row nor hide
   await page.keyboard.press('ArrowDown')
   await openSettings(page)
 
-  await page.getByRole('button', { name: 'Quit Agnostic AI companion' }).focus()
+  await page.getByRole('button', { name: 'Quit Agnostic Companion' }).focus()
   await page.keyboard.press('Enter')
 
   await expect(quitQuestion(page)).toBeVisible()
@@ -188,7 +188,7 @@ test('Hide in the menu asks the shell to hide', async ({ page }) => {
   await openPanel(page)
   await openSettings(page)
 
-  const hide = page.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })
+  const hide = page.getByRole('button', { name: 'Hide Agnostic Companion', exact: true })
   await expect(hide).toBeVisible()
   const hidden = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/hide')
   await hide.click()
@@ -203,7 +203,7 @@ test('Hide stays plain after a new shortcut', async ({ page }) => {
 
   await page.request.post('/api/preferences/shortcut', { data: { shortcut: 'Ctrl+Shift+K' } })
 
-  await expect(page.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hide Agnostic Companion', exact: true })).toBeVisible()
 })
 
 test('hidden, an unread reply brings back the faded circle without changing the waiting count', async ({ page }) => {
@@ -461,7 +461,7 @@ test('a known update shows a badge, asks in the panel, then shows the first step
   await button.click()
   const menu = page.getByRole('region', { name: 'Settings', exact: true })
   const entry = menu.getByRole('button', { name: 'Update to v0.97.0', exact: true })
-  await expect(menu.locator('.menu-item:visible')).toHaveText(['Keyboard shortcuts', 'Updates', 'Hide Agnostic AI companion', 'Quit Agnostic AI companion'])
+  await expect(menu.locator('.menu-item:visible')).toHaveText(['Keyboard shortcuts', 'Updates', 'Hide Agnostic Companion', 'Quit Agnostic Companion'])
   await openUpdates(page)
   await entry.click()
 
@@ -624,7 +624,7 @@ test('Updates opens with the keyboard and both controls stay reachable when auto
   await expect(toggle).toHaveAttribute('aria-expanded', 'false')
   await expect(manual).toBeHidden()
   await page.keyboard.press('Tab')
-  await expect(menu.getByRole('button', { name: 'Hide Agnostic AI companion', exact: true })).toBeFocused()
+  await expect(menu.getByRole('button', { name: 'Hide Agnostic Companion', exact: true })).toBeFocused()
 })
 
 for (const [state, label, disabled] of [

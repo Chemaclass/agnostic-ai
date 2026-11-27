@@ -32,6 +32,15 @@ func uninstallCompanion(ctx context.Context, out io.Writer, tools companionTools
 			return err
 		}
 	}
+	if goos == "darwin" {
+		if earlier := firstCompanionProgramIn(legacyCompanionBundle(dir)); earlier != "" && earlier != installed {
+			off, err := stopAndDisableLogin(ctx, out, tools, earlier, goos)
+			if err != nil {
+				return err
+			}
+			loginOff = loginOff || off
+		}
+	}
 	left, err := removeLoginEntries(loginEntries)
 	if err != nil {
 		return fmt.Errorf("turn off start at login: %w", err)
@@ -75,11 +84,11 @@ func stopAndDisableLogin(ctx context.Context, out io.Writer, tools companionTool
 	brokenProgram := err != nil && !ran && !noBus && cannotRun()
 	switch {
 	case noBus:
-		_, _ = fmt.Fprintf(out, "! %v. If a companion runs in another session, end the %s process.\n", err, companionName)
+		_, _ = fmt.Fprintf(out, "! %v. If a companion runs in another session, end the %s process.\n", err, filepath.Base(installed))
 	case err != nil && !brokenProgram:
 		return false, err
 	case err != nil:
-		_, _ = fmt.Fprintf(out, "! Could not stop the companion (%v). If it still runs, end the %s process.\n", err, companionName)
+		_, _ = fmt.Fprintf(out, "! Could not stop the companion (%v). If it still runs, end the %s process.\n", err, filepath.Base(installed))
 	case ran:
 		_, _ = fmt.Fprintln(out, "✓ Stopped the companion")
 	}

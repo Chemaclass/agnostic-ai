@@ -188,3 +188,26 @@ func askCompanion(ctx context.Context, path, flag string) error {
 	}
 	return nil
 }
+
+func companionLoginStatus(ctx context.Context, path string) (bool, error) {
+	ctx, cancel := context.WithTimeout(ctx, companionAnswerWait)
+	defer cancel()
+	// An earlier build still answers --version without opening the app.
+	command := exec.CommandContext(ctx, path, "--version", "--start-at-login-status")
+	command.SysProcAttr = companionSysProcAttr()
+	out, err := command.Output()
+	if err != nil {
+		if exit, ok := errors.AsType[*exec.ExitError](err); ok {
+			err = withWhatItSaid(err, exit.Stderr)
+		}
+		return false, fmt.Errorf("ask %s whether start at login is on: %w", path, err)
+	}
+	switch strings.TrimSpace(string(out)) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%s did not report whether start at login is on", path)
+	}
+}

@@ -12,6 +12,51 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/companion-release.sh"
 
+function test_it_packages_real_layouts_with_the_same_bundle_identity() {
+  # shellcheck disable=SC2034 # read by package_companion
+  local version=1.2.3 min_macos=13.0
+  local work outdir arch name app_name app values
+  work="$(mktemp -d)"
+  outdir="$work/dist"
+  mkdir -p "$outdir"
+  printf 'icon' > "$work/companion.icns"
+
+  # shellcheck disable=SC2329
+  function hdiutil() {
+    if [ "$1" = create ]; then
+      printf '%s\n' "$6" > "${@: -1}"
+    fi
+  }
+  # shellcheck disable=SC2329
+  function plutil() { :; }
+  # shellcheck disable=SC2329
+  function codesign() { :; }
+
+  for arch in arm64 amd64; do
+    mkdir -p "$work/$arch"
+    printf 'new companion program' > "$work/$arch/agnostic-companion"
+    printf 'new bundled CLI' > "$work/$arch/agnostic-ai"
+    assert_successful_code "$(package_companion "$arch")"
+    assert_same agnostic-companion "$(tar -tzf "$outdir/agnostic-companion_darwin_$arch.tar.gz")"
+    assert_file_not_exists "$outdir/agnostic-ai-companion_darwin_$arch.tar.gz"
+    for name in agnostic-companion agnostic-ai-companion; do
+      app_name="Agnostic Companion"
+      if [ "$name" = agnostic-ai-companion ]; then
+        app_name="agnostic-ai companion"
+      fi
+      app="$work/$arch/$name-image/$app_name.app"
+      assert_same "$app" "$(printf '%s\n' "$work/$arch/$name-image/"*.app)"
+      assert_same 'new companion program' "$(cat "$app/Contents/MacOS/$name")"
+      assert_same 'new bundled CLI' "$(cat "$app/Contents/Resources/agnostic-ai")"
+      values="$(python3 -c 'import plistlib, sys; p = plistlib.load(open(sys.argv[1], "rb")); print(p["CFBundleIdentifier"], p["CFBundleExecutable"], p["CFBundleName"], p["CFBundleDisplayName"], sep="|")' "$app/Contents/Info.plist")"
+      assert_same "dev.agnostic-ai.companion|$name|Agnostic Companion|Agnostic Companion" "$values"
+      assert_same "$app_name" "$(cat "$outdir/${name}_darwin_$arch.dmg")"
+    done
+  done
+  unset -f hdiutil plutil codesign
+  rm -rf "$work"
+}
+
 # Each line of $1 is one call's outcome. The calls
 # are counted in a file because the stub runs in a command substitution.
 function stub_hdiutil() {

@@ -1,4 +1,4 @@
-# agnostic-ai companion
+# Agnostic Companion
 
 A small circle that floats over every app and shows how many of your AI
 conversations need you. Click it for a searchable list of your Claude Code,
@@ -28,7 +28,7 @@ tag, `--source`, and other systems build it from the same commit as your `agnost
 print each step as it goes. A build names what your machine lacks before it
 starts. [companion](../docs/site/content/docs/cli-reference/companion.md#companion)
 lists what each system needs. On macOS it installs the companion as an app,
-`agnostic-ai companion.app`, with the agnostic-ai icon, signed on your machine.
+`Agnostic Companion.app`, with the agnostic-ai icon, signed on your machine.
 Only macOS is supported; Windows
 ([#3221](https://github.com/Chemaclass/agnostic-ai/issues/3221)) and Linux
 ([#3222](https://github.com/Chemaclass/agnostic-ai/issues/3222)) need someone to run and verify it.
@@ -37,7 +37,7 @@ Codex and Cursor chats need the `sqlite3` command, as in the web interface.
 
 To work on the companion itself, from the repository root: `make companion-run`
 builds it and the CLI and starts it on that CLI. `make companion` only builds
-`bin/agnostic-ai-companion`.
+`bin/agnostic-companion`.
 
 To work on its pages, `make companion-preview` serves the real bubble and list
 in your browser with made-up conversations, and prints the address. Pick a
@@ -268,7 +268,7 @@ change to a shared setting shows in both menus.
   permission; a Wayland desktop asks you once to approve it.
 - **Send copied text** shows the send shortcut and changes the same way. The
   two shortcuts cannot share keys: keys the other one uses are refused.
-- **Hide Agnostic AI companion** takes the circle and the list off the
+- **Hide Agnostic Companion** takes the circle and the list off the
   screen. The program keeps running and reading, so the shortcut still
   works. While the shortcut is not active, the entry names the way back:
   `agnostic-ai companion`. Press the
@@ -279,7 +279,7 @@ change to a shared setting shows in both menus.
   back; one that started waiting shortly before Hide, before the companion
   read it, can (up to 5 seconds, or about a minute for a change that shows
   when the minute turns). Hide also hides a dimmed circle again.
-- **Quit Agnostic AI companion** asks first. The question says the program
+- **Quit Agnostic Companion** asks first. The question says the program
   stops, so the shortcut will not bring it back, and that `agnostic-ai
   companion` (or your AI tool running it) starts it again. Answer **Quit** to
   end the companion and its server, as `agnostic-ai companion stop` does,
@@ -288,7 +288,7 @@ change to a shared setting shows in both menus.
 
 ## Stop it and remove it
 
-- **Quit Agnostic AI companion**, in the list's ⋯ menu or the circle's
+- **Quit Agnostic Companion**, in the list's ⋯ menu or the circle's
   right-click menu, asks first, then ends the companion and its server.
 - `agnostic-ai companion stop` does the same from a terminal, without asking.
   It says so when none runs. **Start at login** stays as you set it.

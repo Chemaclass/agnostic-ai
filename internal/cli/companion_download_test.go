@@ -19,12 +19,14 @@ import (
 	"testing"
 )
 
-func testCompanionArchive(t *testing.T, program []byte) []byte {
+const testCompanionArchiveName = "agnostic-companion_darwin_arm64.tar.gz"
+
+func testCompanionArchive(t *testing.T, name string, program []byte) []byte {
 	t.Helper()
 	var buf bytes.Buffer
 	gz := gzip.NewWriter(&buf)
 	tw := tar.NewWriter(gz)
-	if err := tw.WriteHeader(&tar.Header{Name: companionName, Mode: 0o755, Size: int64(len(program))}); err != nil {
+	if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o755, Size: int64(len(program))}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := tw.Write(program); err != nil {
@@ -39,27 +41,21 @@ func testCompanionArchive(t *testing.T, program []byte) []byte {
 	return buf.Bytes()
 }
 
-// companionRelease serves release v1.2.3 with the given checksums.txt and
-// the arm64 companion archive; a nil checksums answers 404.
-func companionRelease(t *testing.T, checksums []byte, archive []byte) *httptest.Server {
+func companionRelease(t *testing.T, checksums, archive []byte) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body []byte
 		switch r.URL.Path {
 		case "/v1.2.3/checksums.txt":
-			if checksums == nil {
-				http.NotFound(w, r)
-				return
-			}
-			_, _ = w.Write(checksums)
-		case "/v1.2.3/agnostic-ai-companion_darwin_arm64.tar.gz":
-			if archive == nil {
-				http.NotFound(w, r)
-				return
-			}
-			_, _ = w.Write(archive)
-		default:
-			http.NotFound(w, r)
+			body = checksums
+		case "/v1.2.3/" + testCompanionArchiveName:
+			body = archive
 		}
+		if body == nil {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write(body)
 	}))
 	t.Cleanup(server.Close)
 	return server
@@ -69,10 +65,10 @@ func checksumLine(archive []byte, asset string) []byte {
 	return fmt.Appendf(nil, "%x  %s\n", sha256.Sum256(archive), asset)
 }
 
-func TestDownloadCompanion_WritesTheVerifiedProgram(t *testing.T) {
+func TestDownloadCompanion_InstallsTheVerifiedArchive(t *testing.T) {
 	clearVerifyAttestation(t)
-	archive := testCompanionArchive(t, []byte("the released companion"))
-	server := companionRelease(t, checksumLine(archive, "agnostic-ai-companion_darwin_arm64.tar.gz"), archive)
+	archive := testCompanionArchive(t, "agnostic-companion", []byte("the released companion"))
+	server := companionRelease(t, checksumLine(archive, testCompanionArchiveName), archive)
 	into := t.TempDir()
 	var verified []string
 	verify := func(path, version string) error {
@@ -85,7 +81,7 @@ func TestDownloadCompanion_WritesTheVerifiedProgram(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if path != filepath.Join(into, companionName) {
+	if path != filepath.Join(into, "agnostic-companion") {
 		t.Errorf("path = %q", path)
 	}
 	if raw, _ := os.ReadFile(path); string(raw) != "the released companion" {
@@ -101,22 +97,23 @@ func TestDownloadCompanion_WritesTheVerifiedProgram(t *testing.T) {
 
 func TestDownloadCompanion_SaysWhenTheReleaseHasNoBuiltCompanion(t *testing.T) {
 	clearVerifyAttestation(t)
-	archive := testCompanionArchive(t, []byte("the released companion"))
+	archive := testCompanionArchive(t, "agnostic-companion", []byte("the released companion"))
 	for name, tc := range map[string]struct {
 		checksums []byte
 		archive   []byte
+		missing   string
 	}{
-		"no checksums.txt":           {nil, archive},
-		"not in checksums.txt":       {checksumLine(archive, "agnostic-ai_darwin_arm64.tar.gz"), archive},
-		"listed but not on the page": {checksumLine(archive, "agnostic-ai-companion_darwin_arm64.tar.gz"), nil},
+		"no checksums.txt":           {nil, archive, "checksums.txt"},
+		"not in checksums.txt":       {checksumLine(archive, "agnostic-ai_darwin_arm64.tar.gz"), archive, testCompanionArchiveName},
+		"listed but not on the page": {checksumLine(archive, testCompanionArchiveName), nil, testCompanionArchiveName},
 	} {
 		t.Run(name, func(t *testing.T) {
 			server := companionRelease(t, tc.checksums, tc.archive)
 
 			_, err := downloadCompanion(context.Background(), io.Discard, server.Client(), server.URL, "1.2.3", "arm64", t.TempDir(), skipProvenance)
 
-			if !errors.Is(err, errNoPrebuiltCompanion) {
-				t.Errorf("err = %v", err)
+			if !errors.Is(err, errNoPrebuiltCompanion) || !strings.Contains(err.Error(), tc.missing) {
+				t.Errorf("err = %v, want missing %s", err, tc.missing)
 			}
 		})
 	}
@@ -124,15 +121,14 @@ func TestDownloadCompanion_SaysWhenTheReleaseHasNoBuiltCompanion(t *testing.T) {
 
 func TestDownloadCompanion_RefusesAnArchiveThatDoesNotVerify(t *testing.T) {
 	clearVerifyAttestation(t)
-	archive := testCompanionArchive(t, []byte("the released companion"))
-	asset := "agnostic-ai-companion_darwin_arm64.tar.gz"
+	archive := testCompanionArchive(t, "agnostic-companion", []byte("the released companion"))
 	for name, tc := range map[string]struct {
 		checksums []byte
 		verify    provenanceCheck
 		want      string
 	}{
-		"checksum mismatch": {fmt.Appendf(nil, "%064x  %s\n", 0, asset), skipProvenance, "checksum mismatch"},
-		"provenance refused": {checksumLine(archive, asset), func(string, string) error {
+		"checksum mismatch": {fmt.Appendf(nil, "%064x  %s\n", 0, testCompanionArchiveName), skipProvenance, "checksum mismatch"},
+		"provenance refused": {checksumLine(archive, testCompanionArchiveName), func(string, string) error {
 			return errors.New("build provenance did not verify: no attestation")
 		}, "build provenance did not verify"},
 	} {
@@ -191,7 +187,7 @@ func TestInstallCompanion_InstallsTheReleasedCompanionOnMacOSWithoutBuilding(t *
 	if raw, _ := os.ReadFile(companionFile(dir, "darwin")); string(raw) != "released for 1.2.3" {
 		t.Errorf("installed program = %q", raw)
 	}
-	app := filepath.Join(dir, "companion", "agnostic-ai companion.app")
+	app := filepath.Join(dir, "companion", "Agnostic Companion.app")
 	want := "Downloading the companion for agnostic-ai 1.2.3.\n" +
 		"✓ Downloaded and verified the companion\n" +
 		"✓ Installed " + app + "\n" +
@@ -229,12 +225,12 @@ func TestInstallCompanion_StopsWhenTheDownloadDoesNotVerify(t *testing.T) {
 	installed := installedCompanion(t, dir, "darwin")
 	tools := downloadedTools(t)
 	tools.download = func(context.Context, io.Writer, string, string) (string, error) {
-		return "", errors.New("agnostic-ai-companion_darwin_arm64.tar.gz: checksum mismatch")
+		return "", errors.New("agnostic-companion_darwin_arm64.tar.gz: checksum mismatch")
 	}
 
 	err := installCompanion(context.Background(), io.Discard, false, tools, dir, releasedMacBuild(), nil)
 
-	if err == nil || err.Error() != "download the companion: agnostic-ai-companion_darwin_arm64.tar.gz: checksum mismatch" {
+	if err == nil || err.Error() != "download the companion: agnostic-companion_darwin_arm64.tar.gz: checksum mismatch" {
 		t.Errorf("err = %v", err)
 	}
 	if raw, _ := os.ReadFile(installed); string(raw) != "the one that works" {
@@ -290,12 +286,12 @@ func TestInstallCompanion_NamesHowToSkipAProvenanceCheckThatFails(t *testing.T) 
 	t.Setenv(verifyAttestationEnv, "")
 	tools := downloadedTools(t)
 	tools.download = func(context.Context, io.Writer, string, string) (string, error) {
-		return "", fmt.Errorf("agnostic-ai-companion_darwin_arm64.tar.gz: %w: gh crashed", errProvenanceFailed)
+		return "", fmt.Errorf("agnostic-companion_darwin_arm64.tar.gz: %w: gh crashed", errProvenanceFailed)
 	}
 
 	err := installCompanion(context.Background(), io.Discard, false, tools, t.TempDir(), releasedMacBuild(), nil)
 
-	want := "download the companion: agnostic-ai-companion_darwin_arm64.tar.gz: build provenance did not verify: gh crashed. If gh failed rather than the archive, AGNOSTIC_AI_VERIFY_ATTESTATION=0 installs it on the checksum alone"
+	want := "download the companion: agnostic-companion_darwin_arm64.tar.gz: build provenance did not verify: gh crashed. If gh failed rather than the archive, AGNOSTIC_AI_VERIFY_ATTESTATION=0 installs it on the checksum alone"
 	if err == nil || err.Error() != want {
 		t.Errorf("err = %v", err)
 	}

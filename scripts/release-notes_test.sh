@@ -63,8 +63,8 @@ function test_release_notes_link_the_available_downloads_at_the_exact_tag() {
   root="$(mktemp -d)"
   printf '## v0.2.0 - 2026-05-05\n\n- Current feature.\n' > "$root/CHANGELOG.md"
   cat > "$root/assets" <<'EOF'
-agnostic-ai-companion_darwin_arm64.dmg
-agnostic-ai-companion_darwin_amd64.dmg
+agnostic-companion_darwin_arm64.dmg
+agnostic-companion_darwin_amd64.dmg
 agnostic-ai_darwin_amd64.tar.gz
 agnostic-ai_darwin_arm64.tar.gz
 agnostic-ai_linux_amd64.tar.gz
@@ -75,12 +75,14 @@ checksums.txt
 agnostic-ai.intoto.jsonl
 EOF
   notes="$(bash "$SCRIPT_DIR/release-notes.sh" v0.2.0 "$root/CHANGELOG.md" owner/repo "$root/assets")"
-  assert_contains '[Apple silicon](https://github.com/owner/repo/releases/download/v0.2.0/agnostic-ai-companion_darwin_arm64.dmg)' "$notes"
-  assert_contains '[Intel](https://github.com/owner/repo/releases/download/v0.2.0/agnostic-ai-companion_darwin_amd64.dmg)' "$notes"
+  assert_contains '[Apple silicon](https://github.com/owner/repo/releases/download/v0.2.0/agnostic-companion_darwin_arm64.dmg)' "$notes"
+  assert_contains '[Intel](https://github.com/owner/repo/releases/download/v0.2.0/agnostic-companion_darwin_amd64.dmg)' "$notes"
   assert_contains 'https://agnostic-ai.org/docs/verify-a-release/' "$notes"
   assert_contains 'Current feature.' "$notes"
   assert_contains 'owner/repo/blob/main/CHANGELOG.md' "$notes"
   assert_equals "$(sort "$root/assets")" "$(printf '%s\n' "$notes" | grep -oE 'https://github\.com/owner/repo/releases/download/v0\.2\.0/[^)]+' | cut -d/ -f9 | sort)"
+  printf '%s\n' agnostic-ai-companion_darwin_arm64.dmg agnostic-ai-companion_darwin_amd64.dmg >> "$root/assets"
+  assert_equals "$notes" "$(format_release_notes v0.2.0 "$root/CHANGELOG.md" owner/repo "$root/assets")"
   rm -rf "$root"
 }
 
@@ -88,9 +90,9 @@ function test_prerelease_notes_skip_missing_and_similarly_named_assets() {
   local root notes
   root="$(mktemp -d)"
   printf '## v0.3.0-rc.1 - 2026-05-05\n\n- Prerelease feature.\n' > "$root/CHANGELOG.md"
-  printf '%s\n' agnostic-ai-companion_darwin_arm64.dmg.sha256 agnostic-ai_linux_arm64.tar.gz > "$root/assets"
+  printf '%s\n' agnostic-companion_darwin_arm64.dmg.sha256 agnostic-ai_linux_arm64.tar.gz > "$root/assets"
   notes="$(format_release_notes v0.3.0-rc.1 "$root/CHANGELOG.md" owner/repo "$root/assets")"
-  assert_not_contains 'agnostic-ai-companion_darwin' "$notes"
+  assert_not_contains 'agnostic-companion_darwin' "$notes"
   assert_not_contains 'agnostic-ai_windows' "$notes"
   assert_not_contains '/checksums.txt' "$notes"
   assert_contains 'https://github.com/owner/repo/releases/download/v0.3.0-rc.1/agnostic-ai_linux_arm64.tar.gz' "$notes"

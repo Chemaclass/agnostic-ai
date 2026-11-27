@@ -72,14 +72,14 @@ test('the settings button shows a badge only while an update is known', () => {
 })
 
 test('Hide stays plain while the shortcut works: the item above shows it', () => {
-  assert.equal(hideLabelOf('Hide Agnostic AI companion', preferences), 'Hide Agnostic AI companion')
+  assert.equal(hideLabelOf('Hide Agnostic Companion', preferences), 'Hide Agnostic Companion')
   const rows = menuRowsOf(items, { preferences: { ...preferences, shortcut: 'Cmd+Shift+K' }, appearance, mailbox }, true)
-  assert.equal(rows.find((row) => row.id === 'hide').label, 'Hide Agnostic AI companion')
+  assert.equal(rows.find((row) => row.id === 'hide').label, 'Hide Agnostic Companion')
 })
 
 test('Hide names the command when the shortcut does not work', () => {
   const refused = { ...preferences, shortcutProblem: 'Ctrl+Alt+Space is not active: another app holds these keys' }
-  assert.equal(hideLabelOf('Hide Agnostic AI companion', refused), 'Hide Agnostic AI companion (agnostic-ai companion brings it back)')
+  assert.equal(hideLabelOf('Hide Agnostic Companion', refused), 'Hide Agnostic Companion (agnostic-ai companion brings it back)')
 })
 
 test('Quit says it asks first and the shortcut stops working', () => {

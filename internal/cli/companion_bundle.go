@@ -17,8 +17,10 @@ import (
 // On macOS the companion is an app, so the system shows its name and
 // icon wherever it lists it, such as among the items that open at login.
 const (
-	companionAppName  = "agnostic-ai companion"
-	companionBundleID = "dev.agnostic-ai.companion"
+	companionAppName = "Agnostic Companion"
+	// #4060 tracks removal of the earlier bundle layout.
+	legacyCompanionAppName = "agnostic-ai companion"
+	companionBundleID      = "dev.agnostic-ai.companion"
 	// companionIconName is the icon file in the app's Resources, without its extension.
 	companionIconName = "companion"
 	// companionAsideName is where an install moves the installed app while
@@ -87,6 +89,18 @@ func companionBundle(dir string) string {
 // bareCompanionFile is where installs before the app put the companion on macOS.
 func bareCompanionFile(dir string) string {
 	return filepath.Join(companionFolder(dir), companionName)
+}
+
+func legacyCompanionBundle(dir string) string {
+	return filepath.Join(companionFolder(dir), legacyCompanionAppName+".app")
+}
+
+func legacyBareCompanionFile(dir, goos string) string {
+	name := legacyCompanionName
+	if goos == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(companionFolder(dir), name)
 }
 
 // assembleCompanionApp makes app around the built program and signs it.

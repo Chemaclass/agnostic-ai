@@ -16,9 +16,13 @@ CLI = {
 }
 CLI_ASSETS = CLI | {f"{name}.sbom.json" for name in CLI}
 COMPANION = {
-    f"agnostic-ai-companion_darwin_{arch}.{extension}"
+    f"agnostic-companion_darwin_{arch}.{extension}"
     for arch in ("amd64", "arm64")
     for extension in ("tar.gz", "dmg")
+}
+# Existing apps need the old disk image until #4060.
+LEGACY_COMPANION = {
+    f"agnostic-ai-companion_darwin_{arch}.dmg" for arch in ("amd64", "arm64")
 }
 CHANNELS = {
     "homebrew": {"agnostic-ai.rb"},
@@ -78,18 +82,19 @@ def read_checksums(path):
     return digests
 
 
-def asset_inventory(tag, sealed):
+def check_asset_inventory(found, tag, sealed):
     required = CLI_ASSETS | {CHECKSUMS}
     if sealed:
         required.add(BUNDLE)
-    if not prerelease(tag):
-        required.update(COMPANION)
-    return required
+    companion_assets = COMPANION | LEGACY_COMPANION
+    if not prerelease(tag) or found & companion_assets:
+        required.update(companion_assets)
+    check_inventory(found, required)
 
 
 def validate(tag, directory, sealed=False):
     assets = files(directory / "assets")
-    check_inventory(set(assets), asset_inventory(tag, sealed), COMPANION)
+    check_asset_inventory(set(assets), tag, sealed)
     channels = files(directory / "channels")
     check_inventory(set(channels), MANIFESTS)
     digests = read_checksums(assets[CHECKSUMS])
@@ -109,17 +114,22 @@ def stage(tag, dist, companion, directory):
     channels = directory / "channels"
     assets.mkdir(parents=True)
     channels.mkdir()
-    for source, names, destination in (
-        (dist, CLI_ASSETS | {CHECKSUMS}, assets),
-        (companion, COMPANION, assets),
-        (dist, MANIFESTS, channels),
+    for names, destination in (
+        (CLI_ASSETS | {CHECKSUMS}, assets),
+        (MANIFESTS, channels),
     ):
-        for path in sorted(source.rglob("*")):
+        for path in sorted(dist.rglob("*")):
             if path.name not in names:
                 continue
             output = destination / path.name
             if output.exists() or not path.is_file() or path.is_symlink():
                 raise ValueError(f"{path}: expected one regular file for {path.name}")
+            shutil.copyfile(path, output)
+    if companion.exists():
+        for name, path in files(companion).items():
+            output = assets / name
+            if output.exists():
+                raise ValueError(f"{path}: duplicate staged asset {name}")
             shutil.copyfile(path, output)
     validate(tag, directory)
 
@@ -186,13 +196,13 @@ def published_release(tag, repo, commit):
     require_exact_tag(tag, repo, commit)
     release = release_info(tag, repo)
     if release is None or release["isDraft"] or release["tagName"] != tag:
-        raise ValueError(f"publish the verified release for {tag} before recovering a channel")
+        raise ValueError(f"publish the verified release for {tag} first")
     if release["isPrerelease"] != prerelease(tag):
         raise ValueError(f"unexpected release classification for {tag}")
     names = [asset["name"] for asset in release["assets"]]
     if len(names) != len(set(names)):
         raise ValueError(f"duplicate assets on {tag}")
-    check_inventory(set(names), asset_inventory(tag, sealed=True), COMPANION)
+    check_asset_inventory(set(names), tag, sealed=True)
     for asset in release["assets"]:
         digest = asset["digest"] or ""
         if asset["state"] != "uploaded" or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):

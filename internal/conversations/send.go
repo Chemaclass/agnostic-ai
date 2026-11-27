@@ -195,7 +195,7 @@ func send(ctx context.Context, c Conversation, text string, source sendSource, p
 	case errors.Is(err, errAutomationDenied):
 		return SendReply{Message: allowControl("typing into", app, "then send again") + maybeSet}
 	case errors.Is(err, errAccessibilityDenied):
-		return SendReply{Message: fmt.Sprintf("macOS blocked pasting into %s. Allow agnostic-ai companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again.", app) + pasteSet}
+		return SendReply{Message: fmt.Sprintf("macOS blocked pasting into %s. Allow Agnostic Companion, or the terminal that runs agnostic-ai serve, in System Settings › Privacy & Security › Accessibility, then send again.", app) + pasteSet}
 	case errors.Is(err, context.DeadlineExceeded):
 		return SendReply{Message: fmt.Sprintf("macOS is waiting for you to allow control of %s. Answer its prompt, then send again.", app) + maybeSet}
 	case errors.Is(err, errClipboardChanged):

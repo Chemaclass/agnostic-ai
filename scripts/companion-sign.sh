@@ -12,7 +12,6 @@
 # changing it makes every user grant Accessibility again.
 companion_release_cert="${COMPANION_SIGNING_SHA1:-0E01A50348AA6D59F2CCC808B8CA966BDCD25585}"
 companion_id=dev.agnostic-ai.companion
-companion_app_name="agnostic-ai companion"
 
 # import_companion_signer <keychain>: imports COMPANION_SIGNING_P12 into a
 # new keychain and fails unless it holds the expected certificate.
@@ -50,21 +49,61 @@ sign_companion_app() {
   codesign --verify "-R=$requirement" "$app"
 }
 
-# verify_companion_image <image> <mount>: fails unless the app in the written
-# disk image meets the pinned requirement, the check each update runs too.
-# An image signed ad hoc or with another certificate then stops the release.
+check_companion_bundle() {
+  local app="$1" name="$2"
+  local info="$app/Contents/Info.plist"
+  if [ ! -x "$app/Contents/MacOS/$name" ] ||
+    [ ! -x "$app/Contents/Resources/agnostic-ai" ] ||
+    [ "$(plutil -extract CFBundleIdentifier raw "$info")" != "$companion_id" ] ||
+    [ "$(plutil -extract CFBundleExecutable raw "$info")" != "$name" ] ||
+    [ "$(plutil -extract CFBundleName raw "$info")" != "$companion_app_name" ] ||
+    [ "$(plutil -extract CFBundleDisplayName raw "$info")" != "$companion_app_name" ]; then
+    echo "$app: expected $companion_app_name, bundle ID $companion_id, executable $name and the bundled agnostic-ai CLI" >&2
+    return 1
+  fi
+}
+
+# Reopen the finished image and apply the same signer check as the updater.
 verify_companion_image() {
-  local image="$1" mount="$2" requirement status=0
+  local image="$1" mount="$2" name="$3" app_name="$4" requirement status=0
+  local app="$mount/$app_name.app"
   requirement="identifier \"$companion_id\" and certificate leaf = H\"$companion_release_cert\""
   mkdir -p "$mount"
   hdiutil_retrying attach -nobrowse -readonly -mountpoint "$mount" "$image"
-  codesign --verify --deep --strict "-R=$requirement" "$mount/$companion_app_name.app" || status=$?
+  if check_companion_bundle "$app" "$name"; then
+    codesign --verify --deep --strict "-R=$requirement" "$app" || status=$?
+    if [ "$status" -ne 0 ]; then
+      echo "$image: the app does not meet $requirement" >&2
+    fi
+  else
+    status=1
+  fi
   hdiutil_retrying detach "$mount"
   rmdir "$mount"
-  if [ "$status" -ne 0 ]; then
-    echo "$image: the app does not meet $requirement" >&2
-  fi
   return "$status"
+}
+
+sign_companion_image() {
+  local image="$1" name="$2" app_name="$3"
+  local app="$work/image/$app_name.app"
+  mkdir -p "$work/image" "$work/mount"
+  hdiutil_retrying attach -nobrowse -readonly -mountpoint "$work/mount" "$image"
+  ditto "$work/mount/$app_name.app" "$app"
+  hdiutil_retrying detach "$work/mount"
+  rmdir "$work/mount"
+  check_companion_bundle "$app" "$name"
+  sign_companion_app "$app" "$keychain"
+  ln -s /Applications "$work/image/Applications"
+  hdiutil_retrying create -ov -format UDZO -volname "$app_name" -srcfolder "$work/image" "$work/staged.dmg"
+  release_image "$work/staged.dmg"
+  if ! hdiutil_retrying verify "$work/staged.dmg"; then
+    image_diagnostics "$work/staged.dmg"
+    return 1
+  fi
+  mv -f "$work/staged.dmg" "$image"
+  verify_companion_image "$image" "$work/mount" "$name" "$app_name"
+  rm -rf "$work/image"
+  echo "$image"
 }
 
 # Sourced by scripts/companion-sign_test.sh for the functions above.
@@ -107,28 +146,8 @@ import_companion_signer "$keychain"
 security list-keychains -d user -s ${searched[@]+"${searched[@]}"} "$keychain"
 echo "Signing with the certificate $companion_release_cert, valid until $(security find-certificate -a -p "$keychain" | openssl x509 -noout -enddate | cut -d= -f2)"
 
-shopt -s nullglob
-images=("$dist"/agnostic-ai-companion_darwin_*.dmg)
-if [ "${#images[@]}" -eq 0 ]; then
-  echo "no companion disk images in $dist" >&2
-  exit 1
-fi
-for image in "${images[@]}"; do
-  rm -rf "$work/image" "$work/mount"
-  mkdir -p "$work/image" "$work/mount"
-  hdiutil_retrying attach -nobrowse -readonly -mountpoint "$work/mount" "$image"
-  ditto "$work/mount/$companion_app_name.app" "$work/image/$companion_app_name.app"
-  hdiutil_retrying detach "$work/mount"
-  rmdir "$work/mount"
-  sign_companion_app "$work/image/$companion_app_name.app" "$keychain"
-  ln -s /Applications "$work/image/Applications"
-  hdiutil_retrying create -ov -format UDZO -volname "$companion_app_name" -srcfolder "$work/image" "$work/staged.dmg"
-  release_image "$work/staged.dmg"
-  if ! hdiutil_retrying verify "$work/staged.dmg"; then
-    image_diagnostics "$work/staged.dmg"
-    exit 1
-  fi
-  mv -f "$work/staged.dmg" "$image"
-  verify_companion_image "$image" "$work/mount"
-  echo "$image"
+# Sign both layouts until #4060 removes the old disk images.
+for arch in arm64 amd64; do
+  sign_companion_image "$dist/${companion_binary_name}_darwin_${arch}.dmg" "$companion_binary_name" "$companion_app_name"
+  sign_companion_image "$dist/${legacy_companion_binary_name}_darwin_${arch}.dmg" "$legacy_companion_binary_name" "$legacy_companion_app_name"
 done
