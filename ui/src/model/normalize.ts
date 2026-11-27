@@ -258,6 +258,7 @@ function normalizeConversation(raw: unknown): Conversation {
     updatedAt: text(c.updatedAt),
     opening: arr<unknown>(c.opening).filter((line): line is string => typeof line === 'string'),
     reply: typeof c.reply === 'string' && c.reply.trim() !== '' ? c.reply : undefined,
+    pinnedAt: typeof c.pinnedAt === 'string' && Number.isFinite(Date.parse(c.pinnedAt)) ? c.pinnedAt : undefined,
     withheld: arr<unknown>(c.withheld).filter(isWithheldField),
     live: c.live === true,
     parent: parentOf(c.parent),

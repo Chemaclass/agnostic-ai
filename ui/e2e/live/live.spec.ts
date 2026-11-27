@@ -1880,6 +1880,33 @@ test('live a rename made through another server shows after a reload and in a se
   }
 })
 
+test('live an old pin is shared with the web list and can be cleared there', async ({ page }) => {
+  const f = await conversationServers()
+  try {
+    const id = '11111111-1111-4111-8111-111111111111'
+    const older = new Date(Date.now() - 35 * 24 * 60 * 60_000)
+    await f.writeSession(id, 'Cut the release', older)
+    await f.writeSession('22222222-2222-4222-8222-222222222222', 'Review the new changes', new Date())
+    const companion = await f.start('--api-only')
+    const dashboard = await f.start()
+    const firstPage = async () => (await (await fetch(`${dashboard}api/views/conversations`)).json()).conversations as { id: string; pinnedAt?: string }[]
+    expect((await firstPage()).map((chat) => chat.id)).not.toContain(id)
+
+    expect((await postConversation(companion, 'mark', { tool: 'claude', id, as: 'pinned' })).status).toBe(204)
+    await page.goto(dashboard)
+    const pinned = page.getByRole('region', { name: /^Pinned/ })
+    await expect(pinned.getByRole('heading', { level: 3, name: 'Cut the release' })).toBeVisible()
+    expect((await firstPage()).find((chat) => chat.id === id)?.pinnedAt).toBeTruthy()
+
+    await pinned.getByRole('button', { name: 'More actions for Cut the release' }).click()
+    await page.getByRole('menuitem', { name: 'Unpin' }).click()
+    await expect(pinned).toHaveCount(0)
+    expect((await firstPage()).map((chat) => chat.id)).not.toContain(id)
+  } finally {
+    await f.close()
+  }
+})
+
 test('live the row menu renames a chat and marks it complete through the page', async ({ page }) => {
   const f = await conversationServers()
   try {

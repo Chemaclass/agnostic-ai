@@ -95,6 +95,7 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 | Resume an ended chat by hand | **More actions**, then **Copy resume command**. |
 | Resume a Claude Code cloud session in a terminal | **More actions**, then **Copy resume command**. |
 | Rename or organize a chat | Open **More actions** for available actions. |
+| Keep a chat at the top | Choose **Pin to top** in **More actions**. Choose **Unpin** to put it back in its state group. |
 | Mark a group read or complete | Use **Mark all as read** in expanded **Needs you** or **Mark all complete** in **Active**. This applies to eligible chats in the loaded list that match your filters. |
 | Find a chat | Search, or the tool filter beside it. |
 | See older chats | Scroll to the end, or **Load the week before**. |
@@ -102,8 +103,8 @@ The page the interface opens on. A static snapshot has no server to read chats, 
 {% <details summary="Details: order, loading, tabs, requirements"> %}
 - It lists recent Claude Code, Codex and Cursor chats from each tool's own store.
 - Search every conversation. Use **All**, **Local** and **Cloud** or a tool chip to narrow the list. A shared local chat appears under both Local and Cloud. With filters on, the match count covers the loaded weeks. You can still load older weeks when none of the loaded chats match.
-- Chats appear under **Needs you**, **Working**, **Active** and **Archived**. Needs you puts permission requests first, then other waits and path conflicts, then unread replies. The summary count covers all weeks and tools. Archived starts collapsed.
-- It loads the past week and every blocked or unread chat of any age. It loads the week before each time you scroll to the end, or with **Load the week before**.
+- Chats appear under **Pinned**, **Needs you**, **Working**, **Active** and **Archived**. The order in Pinned follows when you pinned each chat. It uses the same pins as the Companion. Needs you puts permission requests first, then other waits and path conflicts, then unread replies. The summary count covers all weeks and tools. Archived starts collapsed.
+- It loads the past week and every pinned, blocked or unread chat of any age. It loads the week before each time you scroll to the end, or with **Load the week before**.
 - A chat started with [`conversations start`](@/docs/cli-reference/conversations.md#the-link-line) sits indented under the chat it came from while both are in the same group.
 - A row's action reopens the chat where it lives: the Terminal, Ghostty, iTerm, WezTerm, kitty or Konsole tab that runs it, a new tab in the app it last ran in, the editor panel (after opening its folder there), the Cursor chat, or the desktop app.
 - **Copy resume command** copies the command that resumes an ended chat in a terminal. A chat that still runs, or that you just opened from the page, has none, because that command would start a second copy.

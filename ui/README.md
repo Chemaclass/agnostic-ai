@@ -163,7 +163,7 @@ Tabs support Left/Right, Home, and End. The `tab` URL parameter survives refresh
 
 ## Conversations
 
-The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all open chats, every blocked or unread chat, and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
+The page reads `GET /api/views/conversations?editor=<id>` using the editor chosen in Settings. The first page includes all pinned and open chats, every blocked or unread chat, and the past week. Each response's `next` supplies the next `before=<time>`, skipping empty weeks.
 
 An `IntersectionObserver` near the list's end loads the next week, one request at a time. **Load the week before** provides the same action by click or keyboard and works without the observer. While loading it reads **Loading the week before…**. A failed request keeps the loaded rows and offers **Try again** for that week. Rows merge by tool and id, with the later copy winning, newest first, and open chats on top.
 
@@ -171,7 +171,7 @@ The note below the list shows the last cloud problem reported by a loaded page. 
 
 The summary uses the server’s **Needs you** count across all weeks and tools. If the server omits it, the summary describes what is open or when the last chat ran. The facts line counts loaded chats. Choose **All**, **Local** or **Cloud** to filter by place. The address keeps your choice. Shared local chats appear under both Local and Cloud. You can also pick a tool from the stores found. Press its chip again to include every tool.
 
-The list groups chats under **Needs you**, **Working**, **Active** and **Archived**. Needs you starts with permission requests, then other waits and path conflicts, then new replies. Each urgency starts with the newest chat. Archived starts collapsed and keeps its state as you search or load older weeks. On a server that omits chat state, open chats appear first.
+The list groups chats under **Pinned**, **Needs you**, **Working**, **Active** and **Archived**. Pinned shows chats in the order you pinned them, with their state and any visible children. Needs you starts with permission requests, then other waits and path conflicts, then new replies. Each urgency starts with the newest chat. Archived starts collapsed and keeps its state as you search or load older weeks. On a server that omits chat state, open chats appear first.
 
 Each row shows its title, latest available reply, tool, place, folder, branch and time. Needs you rows say why they need you, such as **No activity for 7m** for a quiet Codex chat. A resumed Active chat can still have an **Unread** marker. The tool’s tooltip names its app, and a visible **Cloud**, **Chat**, **Cowork** or **Shared** label says where it runs. Shell input such as `<bash-input>gl</bash-input>` renders as `! gl` in monospace. Withheld fields read **Hidden: may hold a credential**. A title chosen in the Companion appears in the list and search.
 
@@ -179,7 +179,7 @@ Search sends `q` after a 300 ms typing pause and covers chats of every age, incl
 
 The primary action, such as **Open in Terminal** or **Switch to Ghostty**, becomes a filled button on hover or keyboard focus and stays filled for open chats. Opening posts `{tool, id, editor}` to `POST /api/conversations/open`. The row displays the server's reply. For editor extensions, the server first opens the chat's folder, waiting about one second for an existing window or up to five for a new one. If opening fails or a helper points to a detached tmux pane, **Copy command** beside the reply offers any command the server supplied.
 
-The row's **More actions** menu holds copy, read, completion and rename actions where available. For a shared chat, **Open on claude.ai** opens its hosted copy and the local resume command stays available. **Copy resume command** copies an available local command or the `cloudResumeCommand` on a Claude Code cloud row. **Copy session ID** copies the row's `id`. Writes use the row's `tool` and `id`.
+The row's **More actions** menu holds copy, read, completion and rename actions where available. **Pin to top** and **Unpin** share the same pin with the Companion and preserve read and completion marks. For a shared chat, **Open on claude.ai** opens its hosted copy and the local resume command stays available. **Copy resume command** copies an available local command or the `cloudResumeCommand` on a Claude Code cloud row. **Copy session ID** copies the row's `id`. Writes use the row's `tool` and `id`.
 
 **Mark all as read** in expanded Needs you and **Mark all complete** in Active act on eligible chats in the loaded list that match the current filters. The list refreshes after the action. Archived chats can be hidden from list and search while keeping their transcripts. Permanent deletion and stopping a shell require confirmation. A refusal shows the server's reason.
 

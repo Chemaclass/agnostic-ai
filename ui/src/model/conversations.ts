@@ -146,16 +146,18 @@ export function toggleTool(current: ToolFilter, tool: ConversationTool): ToolFil
   return current === tool ? 'all' : tool
 }
 
-type GroupId = 'needs-you' | 'working' | 'active' | 'archived'
+type StateGroupId = 'needs-you' | 'working' | 'active' | 'archived'
+type GroupId = StateGroupId | 'pinned'
 
 const GROUP_LABELS = {
+  pinned: 'Pinned',
   'needs-you': 'Needs you',
   working: 'Working',
   active: 'Active',
   archived: 'Archived',
 } satisfies Record<GroupId, string>
 
-const GROUP_ORDER: GroupId[] = ['needs-you', 'working', 'active', 'archived']
+const GROUP_ORDER: StateGroupId[] = ['needs-you', 'working', 'active', 'archived']
 
 interface ConversationGroup {
   id: GroupId
@@ -171,9 +173,9 @@ const GROUP_OF_STATE = {
   active: 'active',
   completed: 'archived',
   dormant: 'archived',
-} satisfies Record<ConversationState, GroupId>
+} satisfies Record<ConversationState, StateGroupId>
 
-export function conversationGroupOf(conversation: Conversation): GroupId {
+export function conversationGroupOf(conversation: Conversation): StateGroupId {
   if (conversation.claimConflicts?.length) return 'needs-you'
   if (conversation.state !== undefined) return GROUP_OF_STATE[conversation.state]
   return conversation.live ? 'active' : 'archived'
@@ -198,10 +200,35 @@ function mostUrgentFirst(group: Pick<ConversationGroup, 'conversations' | 'under
 
 export function groupConversations(conversations: Conversation[], _now?: Date): ConversationGroup[] {
   const ordered = [...conversations].sort(newestFirst)
-  return GROUP_ORDER.map((id) => {
-    const nested = nestRows(ordered.filter((conversation) => conversationGroupOf(conversation) === id))
+  const [pinned, regular] = splitPinned(ordered)
+  const byState = GROUP_ORDER.map((id) => {
+    const nested = nestRows(regular.filter((conversation) => conversationGroupOf(conversation) === id))
     return { id, label: GROUP_LABELS[id], ...(id === 'needs-you' ? mostUrgentFirst(nested) : nested) }
-  }).filter((group) => group.conversations.length > 0)
+  })
+  return [{ id: 'pinned' as const, label: GROUP_LABELS.pinned, ...nestRows(pinned) }, ...byState]
+    .filter((group) => group.conversations.length > 0)
+}
+
+function splitPinned(rows: Conversation[]): [Conversation[], Conversation[]] {
+  const orders = new Map<Conversation, string>()
+  for (const row of rows) {
+    if (row.parent || !row.pinnedAt || !Number.isFinite(Date.parse(row.pinnedAt))) continue
+    const second = new Date(row.pinnedAt).toISOString().slice(0, 19)
+    const fraction = /[.,](\d+)/.exec(row.pinnedAt)?.[1] ?? ''
+    orders.set(row, `${second}.${fraction.padEnd(9, '0')} ${conversationKey(row)}`)
+  }
+  if (orders.size === 0) return [[], rows]
+  const topOf = topsOf(indexRows(rows))
+  const pinned: { row: Conversation; order: string }[] = []
+  const regular: Conversation[] = []
+  for (const row of rows) {
+    const top = topOf(row)
+    const order = top === LOOP ? undefined : orders.get(top)
+    if (order === undefined) regular.push(row)
+    else pinned.push({ row, order })
+  }
+  pinned.sort((a, b) => a.order === b.order ? 0 : a.order < b.order ? -1 : 1)
+  return [pinned.map(({ row }) => row), regular]
 }
 
 // A walk that meets a loop gives no top, so every row on it stays a normal row.
@@ -261,12 +288,16 @@ function byStart(family: Conversation[]): Conversation[] {
  * One group's rows as the list draws them: every descendant right after the root it sits under,
  * oldest first, one level deep. The first row with a tool and id owns its children, so as many rows come out as go in.
  */
-function nestRows(rows: Conversation[]): Pick<ConversationGroup, 'conversations' | 'under'> {
+function indexRows(rows: Conversation[]): Map<string, Conversation> {
   const byKey = new Map<string, Conversation>()
   for (const conversation of rows) {
     if (!byKey.has(conversationKey(conversation))) byKey.set(conversationKey(conversation), conversation)
   }
-  const topOf = topsOf(byKey)
+  return byKey
+}
+
+function nestRows(rows: Conversation[]): Pick<ConversationGroup, 'conversations' | 'under'> {
+  const topOf = topsOf(indexRows(rows))
   const under = new Map<string, Conversation>()
   const children = new Map<Conversation, Conversation[]>()
   for (const conversation of rows) {
@@ -337,17 +368,17 @@ const RESUMED_UNREAD: StateBadge = { label: 'Unread', tone: 'approval', descript
 
 interface StateBadge {
   label: string
-  /** Amber for a reply that waits to be read, neutral for a finished chat. */
-  tone: 'approval' | 'neutral'
-  /** The full sentence, for the title and screen readers. */
+  tone: 'approval' | 'neutral' | 'permitted'
   description: string
 }
 
-/** The chip for the person's own marks: a reply not yet read, a chat resumed with one, or a chat marked as done. Waiting and working already have the live chip, and any other active or dormant chat needs none. */
-export function stateBadge(state: ConversationState | undefined, unread?: boolean): StateBadge | undefined {
+export function stateBadge(state: ConversationState | undefined, unread?: boolean, group?: StateGroupId): StateBadge | undefined {
   if (state === 'unread' || state === 'completed') return STATE_BADGES[state]
   if (state === 'active' && unread) return RESUMED_UNREAD
-  return undefined
+  if (group === undefined) return undefined
+  if (group === 'working') return ACTIVITY_BADGES.working
+  const label = GROUP_LABELS[group]
+  return { label, tone: group === 'needs-you' ? 'approval' : 'neutral', description: label }
 }
 
 /** "just now", "12 min ago", "3 h ago", "2 days ago", then the date. */

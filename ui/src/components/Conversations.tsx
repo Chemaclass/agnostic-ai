@@ -2,7 +2,7 @@ import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent, typ
 import { CONVERSATIONS_NEED_SERVER, loadConversations, findConversation, markConversation, renameConversation, deleteConversation, openConversation, stopConversationShell, type ConversationOpenOutcome } from '../api'
 import type { Conversation, ConversationHelper, ConversationOpenRequest, ConversationMarkRequest, ConversationProcessRef, ConversationRoute, ConversationSource, ConversationsView, StuckShell } from '../contract'
 import { baseName } from '../model/config-switch'
-import { appLabel, CONVERSATION_PLACES, conversationSearchStatus, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, needsYouReason, conversationToolLabel, conversationPlaceLabel, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter, type PlaceFilter } from '../model/conversations'
+import { appLabel, CONVERSATION_PLACES, conversationGroupOf, conversationSearchStatus, chatText, conversationsVerdict, filterConversations, groupConversations, helperDetails, helperOpenRequest, helperRows, HELPERS_SHOWN, helperTitle, helperTooltip, liveBadge, needsYouReason, conversationToolLabel, conversationPlaceLabel, mergePages, relativeTime, replyCommand, rowCommand, sameFirstPage, selectedStuckShell, shellWarning, shownPrompt, stateBadge, toggleTool, toolChoices, WITHHELD_NOTE, withheldLabel, type ToolFilter, type PlaceFilter } from '../model/conversations'
 import type { DataSource } from '../model/url'
 import { effectiveEditor } from '../model/editor'
 import { formatTime, plural } from '../model/format'
@@ -332,7 +332,7 @@ export function ConversationsPage() {
               <summary className="conversation-group-heading"><h2 id={headingId}>{group.label} <span className="muted kind-count">{group.conversations.length}</span></h2></summary>
               <ul className="conversation-list">
               {group.conversations.map((conversation) => (
-                <ConversationRow key={rowKey(conversation)} conversation={conversation} reason={needsYouReason(conversation, now, (ref) => names.get(rowKey(ref)))} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} onMutationStart={() => feedbackFocus.start('row')} feedbackRef={!noticeOutside && actionNotice?.key === rowKey(conversation) ? feedbackTarget : undefined} onMutation={(feedback, focusIntent, sent = true) => { setActionNotice({ ...feedback, key: rowKey(conversation) }); updateShellFeedback(rowKey(conversation), feedback, focusIntent, sent) }} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
+                <ConversationRow key={rowKey(conversation)} conversation={conversation} inPinnedGroup={group.id === 'pinned'} reason={needsYouReason(conversation, now, (ref) => names.get(rowKey(ref)))} under={group.under.get(rowKey(conversation))} now={now} editor={editor} canOpen={canOpen} opened={opened.has(rowKey(conversation))} onOpened={() => markOpened(rowKey(conversation))} onMutationStart={() => feedbackFocus.start('row')} feedbackRef={!noticeOutside && actionNotice?.key === rowKey(conversation) ? feedbackTarget : undefined} onMutation={(feedback, focusIntent, sent = true) => { setActionNotice({ ...feedback, key: rowKey(conversation) }); updateShellFeedback(rowKey(conversation), feedback, focusIntent, sent) }} shellFeedback={shellFeedback.get(rowKey(conversation))} onShellFeedback={(feedback) => updateShellFeedback(rowKey(conversation), feedback)} />
               ))}
               </ul>
             </details>
@@ -462,7 +462,7 @@ interface ShellFeedback {
   failed: boolean
 }
 
-function ConversationRow({ conversation, reason, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback, onMutation, onMutationStart, feedbackRef }: { conversation: Conversation; reason?: string; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void; onMutation: (feedback: ShellFeedback, focusIntent: ConversationFocusIntent, sent?: boolean) => void; onMutationStart: () => ConversationFocusIntent; feedbackRef?: RefObject<HTMLParagraphElement | null> }) {
+function ConversationRow({ conversation, inPinnedGroup, reason, under, now, editor, canOpen, opened, onOpened, shellFeedback, onShellFeedback, onMutation, onMutationStart, feedbackRef }: { conversation: Conversation; inPinnedGroup: boolean; reason?: string; under?: Conversation; now: Date; editor: string; canOpen: boolean; opened: boolean; onOpened: () => void; shellFeedback?: ShellFeedback; onShellFeedback: (feedback?: ShellFeedback) => void; onMutation: (feedback: ShellFeedback, focusIntent: ConversationFocusIntent, sent?: boolean) => void; onMutationStart: () => ConversationFocusIntent; feedbackRef?: RefObject<HTMLParagraphElement | null> }) {
   const [pending, setPending] = useState(false)
   const [status, setStatus] = useState<OpenStatus>()
   const [shellSelection, setShellSelection] = useState<StuckShell>()
@@ -561,6 +561,8 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
   const run: Record<ConversationMenuItem, () => void> = {
     read: () => { void change('seen') },
     rename: startRename,
+    pin: () => { void change('pinned') },
+    unpin: () => { void change('unpinned') },
     complete: () => { void change('completed') },
     reopen: () => { void change('open') },
     hide: () => { void change('hidden') },
@@ -580,6 +582,10 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
 
   const place = conversationPlaceLabel(conversation)
   const toolLabel = conversationToolLabel(conversation)
+  const activityBadge = conversation.live && !conversation.state && !reason ? liveBadge(conversation, now) : undefined
+  const originalGroup = inPinnedGroup && !reason ? conversationGroupOf(conversation) : undefined
+  const showState = originalGroup !== undefined || (conversation.state === 'active' && conversation.unread)
+  const badge = activityBadge ?? (showState ? stateBadge(conversation.state, conversation.unread, originalGroup) : undefined)
   return (
     <li className={`conversation row-hover${conversation.live ? ' is-live' : ''}${under ? ' is-nested' : ''}`} data-tool={conversation.tool}>
       <span aria-hidden="true"><ToolAvatar target={conversation.tool} /></span>
@@ -593,8 +599,10 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
           ? <Withheld label={withheldLabel('reply')} />
           : conversation.reply && <p className="conversation-reply" title={conversation.reply}><span className="sr-only">Latest reply: </span>{conversation.reply}</p>}
         <p className="conversation-meta">
-          {conversation.live && !conversation.state && !reason && <LiveBadge conversation={conversation} now={now} />}
-          <StateBadge conversation={conversation} />
+          {badge && <Badge tone={badge.tone} className={activityBadge ? 'conversation-live' : 'conversation-state'} title={badge.description}>
+            <span aria-hidden="true">{badge.label}</span>
+            <span className="sr-only">{badge.description}</span>
+          </Badge>}
           <span className="conversation-tool" title={`${toolLabel}, ${appLabel(conversation.app)}`}>{toolLabel}<span className="sr-only">, {appLabel(conversation.app)}</span></span>
           {place && <span className="conversation-place">{place}</span>}
           {conversation.folder && <span className="conversation-folder" title={conversation.folder}>{baseName(conversation.folder)}</span>}
@@ -657,6 +665,8 @@ function ConversationRow({ conversation, reason, under, now, editor, canOpen, op
 const MARKED: Readonly<Record<ConversationMarkRequest['as'], string>> = {
   seen: 'Marked as read.',
   completed: 'Marked complete.',
+  pinned: 'Pinned.',
+  unpinned: 'Unpinned.',
   open: 'Completion undone.',
   hidden: 'Hidden from agnostic-ai. The transcript stays.',
 }
@@ -785,29 +795,6 @@ function Helpers({ conversation, now, pending, onOpen }: { conversation: Convers
         </button>
       )}
     </div>
-  )
-}
-
-function LiveBadge({ conversation, now }: { conversation: Conversation; now: Date }) {
-  const badge = liveBadge(conversation, now)
-  if (!badge) return null
-  return (
-    <Badge tone={badge.tone} className="conversation-live" title={badge.description}>
-      <span aria-hidden="true">{badge.label}</span>
-      <span className="sr-only">{badge.description}</span>
-    </Badge>
-  )
-}
-
-function StateBadge({ conversation }: { conversation: Conversation }) {
-  if (!conversation.unread || (conversation.state !== 'active' && (conversation.state || !conversation.live))) return null
-  const badge = stateBadge(conversation.state, conversation.unread)
-  if (!badge) return null
-  return (
-    <Badge tone={badge.tone} className="conversation-state" title={badge.description}>
-      <span aria-hidden="true">{badge.label}</span>
-      <span className="sr-only">{badge.description}</span>
-    </Badge>
   )
 }
 

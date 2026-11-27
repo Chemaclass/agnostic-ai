@@ -981,6 +981,8 @@ export interface Conversation {
   seenAt?: string
   /** When the person marked it completed. The server clears it once something is written after it or its tool reports it working. */
   completedAt?: string
+  /** When the person pinned this conversation to the first page. */
+  pinnedAt?: string
   /** Set only on a `completed` or `dormant` row: why this conversation cannot be deleted from here, such as one stored in its tool's cloud. Absent on an archived local Claude Code session, which can be. */
   deleteUnsupported?: string
   /** The conversation this one continues, read from the line `Continues <tool>:<id>` that starts its first prompt. That line is cut from the title, opening and prompt. The parent may be on no page: hidden, older, filtered out or deleted. */
@@ -1075,11 +1077,11 @@ export interface ConversationOpenRequest {
   helper?: string
 }
 
-/** A mark on one conversation, kept in a file on this machine: `seen` (read up to now), `completed` (done until something new is written or it starts working; also marks it seen), `open` (takes a completion back) or `hidden` (out of every list and search until something new is written or it starts working; also marks it seen). */
+/** A read, completion, visibility or pin mark kept on this machine. */
 export interface ConversationMarkRequest {
   tool: ConversationTool
   id: string
-  as: 'seen' | 'completed' | 'open' | 'hidden'
+  as: 'seen' | 'completed' | 'open' | 'hidden' | 'pinned' | 'unpinned'
 }
 
 export interface ConversationRenameRequest {

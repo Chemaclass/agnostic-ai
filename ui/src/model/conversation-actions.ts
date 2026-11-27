@@ -7,11 +7,13 @@ export const canComplete = (row: Conversation): boolean => !row.completedAt && r
 export const canRename = (row: Conversation): boolean => !(row.tool === 'claude' && (row.app === 'chat' || row.app === 'cowork')) && !(row.tool === 'codex' && row.app === 'cloud')
 export const cloudResumeOf = (row: Conversation): string | undefined => row.tool === 'claude' && row.app === 'cloud' && row.cloudResumeCommand?.trim() ? row.cloudResumeCommand : undefined
 
-export type ConversationMenuItem = 'read' | 'rename' | 'complete' | 'reopen' | 'hide' | 'web' | 'copy-session-id' | 'copy-resume' | 'delete' | 'stop-shell'
+export type ConversationMenuItem = 'read' | 'rename' | 'pin' | 'unpin' | 'complete' | 'reopen' | 'hide' | 'web' | 'copy-session-id' | 'copy-resume' | 'delete' | 'stop-shell'
 
 export const MENU_LABELS: Readonly<Record<ConversationMenuItem, string>> = {
   read: 'Mark as read',
   rename: 'Rename…',
+  pin: 'Pin to top',
+  unpin: 'Unpin',
   complete: 'Mark complete',
   reopen: 'Undo complete',
   hide: 'Hide from agnostic-ai',
@@ -25,6 +27,8 @@ export const MENU_LABELS: Readonly<Record<ConversationMenuItem, string>> = {
 export const MENU_TOOLTIPS: Readonly<Record<Exclude<ConversationMenuItem, 'copy-resume'>, string>> = {
   read: 'Takes this chat out of Needs you without opening it, until something new is written.',
   rename: 'Changes this chat’s name in the list.',
+  pin: 'Keeps this chat at the top until you unpin it.',
+  unpin: 'Puts this chat back in its state group.',
   complete: 'Moves this chat to Archived until it has new activity.',
   reopen: 'Clears the completion mark you set for this chat.',
   hide: 'Hides this chat from the list and search until it has new activity.',
@@ -46,6 +50,7 @@ export function conversationMenuOf(row: Conversation, { localResume, server }: {
   const offered: ConversationMenuItem[] = []
   if (canRead(row)) offered.push('read')
   if (canRename(row)) offered.push('rename')
+  if (server && (row.pinnedAt || !row.parent)) offered.push(row.pinnedAt ? 'unpin' : 'pin')
   if (!archived && canComplete(row)) offered.push('complete')
   if (row.completedAt) offered.push('reopen')
   if (archived) offered.push('hide')
