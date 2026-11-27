@@ -8,7 +8,9 @@
 # under, each followed by its bullets, as they read in CHANGELOG.md. A release
 # runs this script: it appends each bullet under its heading in [Unreleased],
 # adds a missing heading in the changelog's section order, and deletes the
-# files. Entries already in [Unreleased] keep their text and order.
+# files. Entries already in [Unreleased] keep their text and order. A
+# top-level bullet with no (#N) gets the pull request number from the subject
+# of the commit that added its file; a file never committed stays as written.
 #
 # Usage:
 #   scripts/changelog-assemble.sh [changelog] [changes-dir]
@@ -37,11 +39,54 @@ change_files() {
   done
 }
 
+# pr_refs prints "<file><TAB><number>" for each change file whose adding
+# commit subject ends in (#NNN).
+pr_refs() {
+  local f subject pr
+  for f in "$@"; do
+    subject=$(git -C "$(dirname -- "$f")" log -1 --diff-filter=A --format=%s -- "$(basename -- "$f")" 2>/dev/null || true)
+    pr=$(printf '%s\n' "$subject" | sed -n 's/.*(#\([0-9][0-9]*\))[[:space:]]*$/\1/p')
+    if [ -n "$pr" ]; then printf '%s\t%s\n' "$f" "$pr"; fi
+  done
+  return 0
+}
+
 # merge_unreleased reads the [Unreleased] body on stdin and prints it with the
 # entries of each change file added. It fails, naming the file, on a file with
-# no heading, an entry before its first heading, or a level-2 heading.
+# no heading, an entry before its first heading, or a level-2 heading. REFS,
+# from pr_refs, adds the pull request number to bullets that cite none.
 merge_unreleased() {
   awk '
+    BEGIN {
+      nrefs = split(ENVIRON["REFS"], reflines, "\n")
+      for (i = 1; i <= nrefs; i++) {
+        tab = index(reflines[i], "\t")
+        if (tab > 0) prs[substr(reflines[i], 1, tab - 1)] = substr(reflines[i], tab + 1)
+      }
+    }
+    function finish_bullet(   line) {
+      if (bk != "" && !bref && pr != "") {
+        line = body[bk, bi]
+        if (line ~ /\.[[:space:]]*$/) {
+          sub(/\.[[:space:]]*$/, "", line)
+          body[bk, bi] = line " (#" pr ")."
+        } else {
+          sub(/[[:space:]]+$/, "", line)
+          body[bk, bi] = line " (#" pr ")"
+        }
+      }
+      bk = ""; bref = 0
+    }
+    function track(k, line) {
+      if (!is_change) return
+      if (line ~ /^- /) {
+        finish_bullet(); bk = k; bi = lines[k]; bref = (line ~ /\(#[0-9]/)
+      } else if (line ~ /^[[:space:]]*$/ || line ~ /^[[:space:]]*[-*+] /) {
+        finish_bullet()
+      } else if (bk != "") {
+        bi = lines[k]; if (line ~ /\(#[0-9]/) bref = 1
+      }
+    }
     function rank(h) {
       if (h == "Highlights") return 1
       if (h == "General") return 2
@@ -81,10 +126,12 @@ merge_unreleased() {
       print ""
     }
     FNR == 1 {
+      finish_bullet()
       if (fileno > 0 && is_change && entries == 0) fail("no entry")
       fileno++
       source = (FILENAME == "-") ? "[Unreleased]" : FILENAME
       is_change = (FILENAME != "-")
+      pr = (is_change && (FILENAME in prs)) ? prs[FILENAME] : ""
       close_bucket()
       h3 = ""; h4 = ""; entries = 0; prelude = 0
     }
@@ -93,13 +140,13 @@ merge_unreleased() {
       next
     }
     /^### / {
-      close_bucket(); h3 = heading($0, 5); h4 = ""
+      finish_bullet(); close_bucket(); h3 = heading($0, 5); h4 = ""
       if (is_change && rank(h3) == 5) fail("use ### Highlights, General, By tool or Site, not ### " h3)
       bucket(h3, h4); next
     }
     /^#### / {
       if (h3 == "") fail("a #### heading needs a ### heading above it")
-      close_bucket(); h4 = heading($0, 6); bucket(h3, h4); next
+      finish_bullet(); close_bucket(); h4 = heading($0, 6); bucket(h3, h4); next
     }
     {
       if (h3 == "") {
@@ -108,10 +155,13 @@ merge_unreleased() {
         next
       }
       if ($0 !~ /^[[:space:]]*$/) entries++
-      add(bucket(h3, h4), $0)
+      k = bucket(h3, h4)
+      add(k, $0)
+      track(k, $0)
     }
     END {
       if (failed) exit 1
+      finish_bullet()
       if (is_change && entries == 0) fail("no entry")
       for (i = 1; i <= nprelude; i++) print preludeline[i]
       if (nprelude == 0 || preludeline[nprelude] !~ /^[[:space:]]*$/) print ""
@@ -158,6 +208,8 @@ assemble_changelog() {
     return 0
   fi
   [ "${#files[@]}" -gt 0 ] || { printf 'changelog: no change files in %s\n' "$dir"; return 0; }
+  merged=$(awk '/^## \[Unreleased\]$/{p=1;next} p && /^## /{exit} p' "$changelog" |
+    REFS="$(pr_refs "${files[@]}")" merge_unreleased "${files[@]}") || return 1
 
   tmp=$(mktemp)
   if ! MERGED="$merged" awk '

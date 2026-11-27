@@ -87,6 +87,9 @@ one.
 
 ## Skeleton
 
+`make release-prepare` writes this file with the front matter filled and
+`TODO` in each prose field; `make release-check` fails until none is left.
+
 ```markdown
 +++
 title = "agnostic-ai vX.Y.Z: <what you can now do>"

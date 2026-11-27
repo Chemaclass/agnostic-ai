@@ -133,3 +133,56 @@ function test_keeps_intro_text_before_the_first_section() {
   assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
   assert_equals $'## [Unreleased]\n\nIntro one.\n\nIntro two.\n\n### General\n\n- X.\n\n## v1.0.0 - 2026-01-01' "$(cat "$dir/CHANGELOG.md")"
 }
+
+function in_repo() {
+  git -C "$dir" -c commit.gpgsign=false -c core.hooksPath=/dev/null \
+    -c user.name=t -c user.email=t@example.com "$@"
+}
+
+# commit_change commits one change file with the given subject.
+function commit_change() {
+  in_repo add "$1"
+  in_repo commit -q -m "$2" -- "$1"
+}
+
+function init_repo() {
+  in_repo init -q
+  commit_change CHANGELOG.md "chore: start"
+}
+
+function test_adds_the_pull_request_from_the_commit_that_added_the_file() {
+  write_changelog $'## [Unreleased]\n'
+  init_repo
+  printf '### General\n\n- New thing.\n- Cited (#7).\n- No period\n' > "$dir/changes/one.md"
+  commit_change changes/one.md "feat: new thing (#123)"
+  assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
+  assert_equals $'## [Unreleased]\n\n### General\n\n- New thing (#123).\n- Cited (#7).\n- No period (#123)' "$(cat "$dir/CHANGELOG.md")"
+}
+
+function test_adds_the_reference_to_the_last_line_of_a_wrapped_bullet() {
+  write_changelog $'## [Unreleased]\n'
+  init_repo
+  printf '### Site\n\n- Long entry\n  wraps here.\n  - Nested detail.\n' > "$dir/changes/one.md"
+  commit_change changes/one.md "docs: long (#9)"
+  assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
+  assert_equals $'## [Unreleased]\n\n### Site\n\n- Long entry\n  wraps here (#9).\n  - Nested detail.' "$(cat "$dir/CHANGELOG.md")"
+}
+
+function test_leaves_a_bullet_alone_without_a_pull_request_number() {
+  write_changelog $'## [Unreleased]\n'
+  init_repo
+  printf '### General\n\n- Direct push.\n' > "$dir/changes/one.md"
+  commit_change changes/one.md "fix: pushed to main"
+  printf '### General\n\n- Not committed.\n' > "$dir/changes/two.md"
+  assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
+  assert_equals $'## [Unreleased]\n\n### General\n\n- Direct push.\n- Not committed.' "$(cat "$dir/CHANGELOG.md")"
+}
+
+function test_leaves_entries_already_in_unreleased_alone() {
+  write_changelog $'## [Unreleased]\n\n### General\n\n- Old entry.\n'
+  init_repo
+  printf '### General\n\n- New.\n' > "$dir/changes/one.md"
+  commit_change changes/one.md "feat: new (#5)"
+  assemble_changelog "$dir/CHANGELOG.md" "$dir/changes" >/dev/null
+  assert_equals $'## [Unreleased]\n\n### General\n\n- Old entry.\n- New (#5).' "$(cat "$dir/CHANGELOG.md")"
+}
