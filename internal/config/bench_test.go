@@ -135,7 +135,7 @@ func BenchmarkLoadDecodeOnly(b *testing.B) {
 		if err != nil {
 			b.Fatal(err)
 		}
-		cfg := defaults()
+		cfg := configForDecode()
 		if err := yaml.Unmarshal(data, cfg); err != nil {
 			b.Fatal(err)
 		}

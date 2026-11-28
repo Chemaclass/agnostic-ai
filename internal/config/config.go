@@ -1,6 +1,7 @@
 package config
 
 import (
+	"cmp"
 	"fmt"
 	"maps"
 	"os"
@@ -536,7 +537,7 @@ func LoadWithSources(root string) (*Config, []string, error) {
 		return nil, nil, errs.Coded(errs.CodeConfigDecode, "%s", strings.Join(wrong, "\n"))
 	}
 
-	cfg := defaults()
+	cfg := configForDecode()
 	if len(files) > 1 {
 		err = loadAndMerge(cfg, files[0], files[1])
 	} else {
@@ -857,58 +858,23 @@ func DefaultTargets() []string {
 	}
 }
 
-func defaults() *Config {
+func configForDecode() *Config {
 	return &Config{
-		Version: 1,
-		Sources: Sources{
-			Agents:       defaultSource("agents"),
-			Skills:       defaultSource("skills"),
-			Rules:        defaultSource("rules"),
-			Hooks:        defaultSource("hooks"),
-			MCPs:         defaultSource("mcps"),
-			Commands:     defaultSource("commands"),
-			Settings:     defaultSource("settings"),
-			Reviews:      defaultSource("reviews"),
-			Environments: defaultSource("environments"),
-			Ignore:       defaultSource("ignore"),
-		},
-		Targets:       DefaultTargets(),
-		OnUnsupported: "warn",
+		Version: SupportedVersion,
+		Targets: DefaultTargets(),
 	}
 }
 
 func (c *Config) applyDefaults() {
-	if c.Sources.Agents == "" {
-		c.Sources.Agents = defaultSource("agents")
-	}
-	if c.Sources.Skills == "" {
-		c.Sources.Skills = defaultSource("skills")
-	}
-	if c.Sources.Rules == "" {
-		c.Sources.Rules = defaultSource("rules")
-	}
-	if c.Sources.Hooks == "" {
-		c.Sources.Hooks = defaultSource("hooks")
-	}
-	if c.Sources.MCPs == "" {
-		c.Sources.MCPs = defaultSource("mcps")
-	}
-	if c.Sources.Commands == "" {
-		c.Sources.Commands = defaultSource("commands")
-	}
-	if c.Sources.Settings == "" {
-		c.Sources.Settings = defaultSource("settings")
-	}
-	if c.Sources.Reviews == "" {
-		c.Sources.Reviews = defaultSource("reviews")
-	}
-	if c.Sources.Environments == "" {
-		c.Sources.Environments = defaultSource("environments")
-	}
-	if c.Sources.Ignore == "" {
-		c.Sources.Ignore = defaultSource("ignore")
-	}
-	if c.OnUnsupported == "" {
-		c.OnUnsupported = "warn"
-	}
+	c.Sources.Agents = cmp.Or(c.Sources.Agents, defaultSource("agents"))
+	c.Sources.Skills = cmp.Or(c.Sources.Skills, defaultSource("skills"))
+	c.Sources.Rules = cmp.Or(c.Sources.Rules, defaultSource("rules"))
+	c.Sources.Hooks = cmp.Or(c.Sources.Hooks, defaultSource("hooks"))
+	c.Sources.MCPs = cmp.Or(c.Sources.MCPs, defaultSource("mcps"))
+	c.Sources.Commands = cmp.Or(c.Sources.Commands, defaultSource("commands"))
+	c.Sources.Settings = cmp.Or(c.Sources.Settings, defaultSource("settings"))
+	c.Sources.Reviews = cmp.Or(c.Sources.Reviews, defaultSource("reviews"))
+	c.Sources.Environments = cmp.Or(c.Sources.Environments, defaultSource("environments"))
+	c.Sources.Ignore = cmp.Or(c.Sources.Ignore, defaultSource("ignore"))
+	c.OnUnsupported = cmp.Or(c.OnUnsupported, "warn")
 }
