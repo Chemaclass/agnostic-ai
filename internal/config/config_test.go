@@ -13,7 +13,7 @@ import (
 func TestLoad_Defaults(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, ConfigFileName),
-		[]byte("version: 1\n"), 0o644); err != nil {
+		[]byte("sources:\n  agents: ''\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -24,8 +24,20 @@ func TestLoad_Defaults(t *testing.T) {
 	if cfg.Version != 1 {
 		t.Errorf("expected version 1, got %d", cfg.Version)
 	}
-	if cfg.Sources.Agents != ".agnostic-ai/agents" {
-		t.Errorf("expected default agents source, got %q", cfg.Sources.Agents)
+	wantSources := Sources{
+		Agents:       ".agnostic-ai/agents",
+		Skills:       ".agnostic-ai/skills",
+		Rules:        ".agnostic-ai/rules",
+		Hooks:        ".agnostic-ai/hooks",
+		MCPs:         ".agnostic-ai/mcps",
+		Commands:     ".agnostic-ai/commands",
+		Settings:     ".agnostic-ai/settings",
+		Reviews:      ".agnostic-ai/reviews",
+		Environments: ".agnostic-ai/environments",
+		Ignore:       ".agnostic-ai/ignore",
+	}
+	if cfg.Sources != wantSources {
+		t.Errorf("sources = %+v, want %+v", cfg.Sources, wantSources)
 	}
 	if cfg.OnUnsupported != "warn" {
 		t.Errorf("expected default warn, got %q", cfg.OnUnsupported)
@@ -243,6 +255,8 @@ on-unsupported: warn
 `
 	local := `
 on-unsupported: error
+sources:
+  agents: null
 outputs:
   claude:
     dir: .claude-local
@@ -267,6 +281,9 @@ outputs:
 	}
 	if cfg.OnUnsupported != "error" {
 		t.Errorf("scalar should be replaced by local, got %q", cfg.OnUnsupported)
+	}
+	if cfg.Sources.Agents != ".agnostic-ai/agents" {
+		t.Errorf("local null source should use the default, got %q", cfg.Sources.Agents)
 	}
 	if cfg.Outputs["claude"].Dir != ".claude-local" {
 		t.Errorf("nested map should merge: claude.dir = %q", cfg.Outputs["claude"].Dir)
