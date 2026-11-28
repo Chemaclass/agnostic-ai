@@ -206,19 +206,13 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 	}
 	out := make(map[string]any, len(meta))
 	outKeys := make([]string, 0, len(meta))
-	seen := make(map[string]bool, len(meta))
 	appendKV := func(k string, v any) {
-		if _, dup := out[k]; dup {
-			out[k] = v
-			return
+		if _, exists := out[k]; !exists {
+			outKeys = append(outKeys, k)
 		}
 		out[k] = v
-		outKeys = append(outKeys, k)
-		seen[k] = true
 	}
-	walked := make(map[string]bool, len(meta))
 	for _, k := range keys {
-		walked[k] = true
 		if strings.HasPrefix(k, XPrefix) || routingKeys[k] {
 			continue
 		}
@@ -226,12 +220,10 @@ func ResolveMetaOrdered(meta map[string]any, keys []string, target string) (map[
 			appendKV(k, v)
 		}
 	}
-	// Unhinted top-level keys append in alphabetical order. Go map
-	// iteration is randomized, so sort explicitly or the emitted key order
-	// (and thus the file bytes) would vary per run, breaking sync --check.
-	unhinted := make([]string, 0, len(meta))
+	// Sort unhinted keys so repeated syncs produce the same bytes.
+	unhinted := make([]string, 0, len(meta)-len(out))
 	for k := range meta {
-		if walked[k] || strings.HasPrefix(k, XPrefix) || routingKeys[k] || seen[k] {
+		if _, emitted := out[k]; emitted || strings.HasPrefix(k, XPrefix) || routingKeys[k] {
 			continue
 		}
 		unhinted = append(unhinted, k)

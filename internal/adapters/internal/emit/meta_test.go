@@ -18,20 +18,22 @@ func TestResolveMetaOrdered_DeterministicKeyOrder(t *testing.T) {
 		"zeta":        "z", // unhinted top-level
 		"alpha":       "a", // unhinted top-level
 		"mike":        "m", // unhinted top-level
-		"x-claude":    map[string]any{"tango": 1, "bravo": 2, "yankee": 3},
-		"description": "d",
+		"x-claude":    map[string]any{"tango": 1, "bravo": 2, "yankee": 3, "description": "override"},
+		"description": nil,
 	}
-	// Only `name` is hinted; everything else must order deterministically.
-	hint := []string{"name"}
+	hint := []string{"description", "tango", "name", "description"}
 
-	_, first := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
+	resolved, first := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
+	if got := resolved["description"]; got != "override" {
+		t.Errorf("description = %v, want override", got)
+	}
 	for i := range 50 {
 		_, got := ResolveMetaOrdered(cloneMeta(meta), hint, "claude")
 		if !reflect.DeepEqual(got, first) {
 			t.Fatalf("non-deterministic key order:\n run0 = %v\n run%d = %v", first, i+1, got)
 		}
 	}
-	want := []string{"name", "alpha", "description", "mike", "zeta", "bravo", "tango", "yankee"}
+	want := []string{"description", "name", "alpha", "mike", "zeta", "bravo", "tango", "yankee"}
 	if !reflect.DeepEqual(first, want) {
 		t.Errorf("key order = %v, want %v", first, want)
 	}
