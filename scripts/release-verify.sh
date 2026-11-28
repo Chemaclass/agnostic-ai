@@ -9,7 +9,8 @@
 # checksums.txt with `gh release download`, checks the archive's SHA-256,
 # extracts it, and compares the binary's --version with vX.Y.Z. It then checks
 # that the GitHub release has notes and that the release briefing page answers
-# 200. The briefing date comes from docs/site/content/updates/*-vX.Y.Z.md.
+# 200. The briefing date comes from docs/site/content/updates/*-vX.Y.Z.md in
+# the tag, fetched from origin first.
 #
 # RELEASE_ROOT points it at another checkout; RELEASE_SITE_URL at another site.
 # Portable: bash 3.2, shasum on macOS, sha256sum on Linux.
@@ -45,7 +46,7 @@ verify_sha256() {
 }
 
 release_verify() {
-  local ver="${1:-}" repo="${2:-}" root site tmp archive want got out briefing date url code f
+  local ver="${1:-}" repo="${2:-}" root site tmp archive want got out briefing date url code
   failures=0
   printf '%s\n' "$ver" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$' || {
     printf 'usage: release-verify.sh vX.Y.Z [owner/repo]\n' >&2
@@ -89,12 +90,12 @@ release_verify() {
     verify_fail "release $ver has no notes"
   fi
 
-  briefing=""
-  for f in "$root"/docs/site/content/updates/*-"$ver".md; do
-    if [ -f "$f" ]; then briefing="$f"; break; fi
-  done
+  # The checkout may be behind the tag, so read the briefing name from the tag.
+  git -C "$root" fetch -q --tags origin 2>/dev/null || true
+  briefing=$(git -C "$root" ls-tree --name-only "$ver" docs/site/content/updates/ 2>/dev/null |
+    awk -v s="-$ver.md" 'length($0) > length(s) && substr($0, length($0) - length(s) + 1) == s { print; exit }')
   if [ -z "$briefing" ]; then
-    verify_fail "no briefing docs/site/content/updates/*-$ver.md in $root"
+    verify_fail "no briefing docs/site/content/updates/*-$ver.md in tag $ver"
   else
     date=$(basename -- "$briefing" "-$ver.md")
     url="$site/updates/$date-$ver/"

@@ -6,10 +6,22 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERIFY="$SCRIPT_DIR/release-verify.sh"
 
+function in_root() {
+  git -C "$dir/root" -c commit.gpgsign=false -c tag.gpgsign=false -c core.hooksPath=/dev/null \
+    -c user.name=t -c user.email=t@example.com "$@"
+}
+
 function set_up() {
   dir="$(mktemp -d)"
   mkdir -p "$dir/bin" "$dir/root/docs/site/content/updates" "$dir/assets/pkg"
-  : > "$dir/root/docs/site/content/updates/2026-12-01-v1.11.0.md"
+  printf 'post\n' > "$dir/root/docs/site/content/updates/2026-12-01-v1.11.0.md"
+  in_root init -q -b main
+  in_root add -A
+  in_root commit -q -m "chore(release): v1.11.0"
+  in_root tag v1.11.0
+  # The checkout moves on without the briefing, as a feature branch would.
+  in_root rm -q docs/site/content/updates/2026-12-01-v1.11.0.md
+  in_root commit -q -m "chore: later"
 
   case "$(uname -s)" in Darwin) os=darwin ;; *) os=linux ;; esac
   case "$(uname -m)" in x86_64 | amd64) arch=amd64 ;; *) arch=arm64 ;; esac
@@ -109,12 +121,29 @@ function test_fails_when_the_briefing_is_not_published() {
   assert_contains "answered 404" "$out"
 }
 
-function test_fails_without_a_briefing_file() {
-  rm "$dir/root/docs/site/content/updates/2026-12-01-v1.11.0.md"
+function test_finds_the_briefing_in_the_tag_not_the_checkout() {
+  assert_file_not_exists "$dir/root/docs/site/content/updates/2026-12-01-v1.11.0.md"
+  local out
+  out="$(verify v1.11.0 2>&1)"
+  assert_successful_code "$?"
+  assert_contains "ok   briefing https://site.test/updates/2026-12-01-v1.11.0/" "$out"
+}
+
+function test_fails_when_the_tag_has_no_briefing() {
+  in_root tag -d v1.11.0 >/dev/null
+  in_root tag v1.11.0
   local out
   out="$(verify v1.11.0 2>&1)"
   assert_general_error "$?"
-  assert_contains "FAIL no briefing" "$out"
+  assert_contains "FAIL no briefing docs/site/content/updates/*-v1.11.0.md in tag v1.11.0" "$out"
+}
+
+function test_a_failed_check_exits_one_even_through_a_pipe() {
+  printf '404' > "$dir/assets/http_code"
+  verify v1.11.0 2>&1 | cat >/dev/null
+  assert_equals "1" "${PIPESTATUS[0]}"
+  verify v1.11.0 >/dev/null 2>&1
+  assert_exit_code 1
 }
 
 function test_rejects_a_bad_version() {
