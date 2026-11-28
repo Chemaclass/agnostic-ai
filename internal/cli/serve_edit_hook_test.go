@@ -31,7 +31,7 @@ func hookEditRequest(t *testing.T, h http.Handler, request map[string]any) *http
 // provenUserEdits is a user-level edit handler whose requests all carry
 // proof, as the companion's or an unlocked page's do.
 func provenUserEdits(source string) *editHandler {
-	h := newEditHandler(source, true).(*editHandler)
+	h := newEditHandler(source, true)
 	h.proven = func(*http.Request) bool { return true }
 	return h
 }
@@ -170,7 +170,7 @@ func TestServeEditHook_UserSavesUnderTheUserSource(t *testing.T) {
 func TestServeEditHook_UserApplyNeedsProof(t *testing.T) {
 	silence(t)
 	source := editHome(t)
-	h := newEditHandler(source, true).(*editHandler)
+	h := newEditHandler(source, true)
 	request := hookEditBody("note-start", "session-start", "echo hi")
 	preview := hookEditPreview(t, h, request)
 	request["action"], request["expected"] = "apply", preview.Expected
