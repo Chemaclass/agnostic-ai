@@ -261,6 +261,18 @@ status = "shipped"
 targets = ["agnostic-ai"]
 title = "TODO highest-consequence change"
 summary = "TODO what the reader gets"
+
+[[extra.signals]]
+status = "shipped"
+targets = ["agnostic-ai"]
+title = "TODO second highlight"
+summary = "TODO what the reader gets"
+
+[[extra.signals]]
+status = "shipped"
+targets = ["agnostic-ai"]
+title = "TODO third highlight"
+summary = "TODO what the reader gets"
 +++
 
 ## Highlights {#highlights}
@@ -325,10 +337,29 @@ release_check_section() {
   ' "$changelog"
 }
 
+# release_check_signals prints a line per problem with the briefing's
+# [[extra.signals]]: the updates page panel fits 3 or 4, each title on one
+# line (40 characters) and each summary in three lines (120 characters).
+release_check_signals() {
+  awk '
+    /^\+\+\+$/ { fm++; next }
+    fm != 1 { next }
+    /^\[\[extra\.signals\]\]$/ { n++; insig = 1; next }
+    /^\[/ { insig = 0; next }
+    insig && /^(title|summary) = "/ {
+      key = $0; sub(/ = .*/, "", key)
+      val = $0; sub(/^[a-z]+ = "/, "", val); sub(/"[[:space:]]*$/, "", val)
+      max = (key == "title") ? 40 : 120
+      if (length(val) > max) printf "signal %s over %d characters (%d): %s\n", key, max, length(val), val
+    }
+    END { if (n < 3 || n > 4) printf "briefing has %d [[extra.signals]], want 3 or 4\n", n }
+  ' "$1"
+}
+
 # release_check checks the dated section and, unless only_changelog is 1,
 # the briefing.
 release_check() {
-  local root="$1" ver="$2" only_changelog="$3" problems briefing
+  local root="$1" ver="$2" only_changelog="$3" problems briefing signal_problems
   problems=$(release_check_section "$root/CHANGELOG.md" "$ver")
   briefing=$(release_find_briefing "$root" "$ver")
   if [ "$only_changelog" = 1 ]; then
@@ -336,9 +367,16 @@ release_check() {
   elif [ -z "$briefing" ]; then
     problems="${problems:+$problems
 }no briefing docs/site/content/updates/*-$ver.md"
-  elif grep -q 'TODO' "$briefing"; then
-    problems="${problems:+$problems
+  else
+    if grep -q 'TODO' "$briefing"; then
+      problems="${problems:+$problems
 }briefing still has TODO: ${briefing#"$root"/}"
+    fi
+    signal_problems=$(release_check_signals "$briefing")
+    if [ -n "$signal_problems" ]; then
+      problems="${problems:+$problems
+}$signal_problems"
+    fi
   fi
   if [ -n "$problems" ]; then
     printf '%s\n' "$problems" >&2

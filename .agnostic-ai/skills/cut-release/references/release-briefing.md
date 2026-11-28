@@ -74,10 +74,20 @@ released code) and keep its date and scope; model output, summaries, and
 social posts are not evidence. For a historical post, inspect that release
 tag so later features do not appear as shipped in it.
 
+## Signals
+
+The updates page shows a release's `[[extra.signals]]` in the panel beside
+its title. Write 3 or 4, one per Highlights bullet, breaking first. Each title
+names the outcome in at most 40 characters, so it stays on one line. Each
+summary says what the reader gets in at most 120 characters, about three
+lines. `targets` lists the registered IDs the signal is about, or
+`["agnostic-ai"]` for a general change. `make release-check` and
+`tests/integration/target_updates_test.go` enforce the count and lengths.
+
 ## Front matter
 
 `tests/integration/target_updates_test.go` requires `kind`, `rss_guid`,
-`aliases`, `archive_stats`, `targets`, and at least one `[[extra.signals]]`.
+`aliases`, `archive_stats`, `targets`, and `[[extra.signals]]`.
 Release posts never use `audit_marker`, `report_digest`, `targets_checked`,
 `finding_count`, or `clean_count`. `extra.targets` lists the registered IDs
 from `docs/site/data/updates.toml` that the post covers substantively; a
@@ -110,6 +120,18 @@ targets = ["codex", "pi"]
 status = "shipped"
 targets = ["agnostic-ai"]
 title = "<highest-consequence change>"
+summary = "<what the reader gets>"
+
+[[extra.signals]]
+status = "shipped"
+targets = ["<target id>"]
+title = "<second highlight>"
+summary = "<what the reader gets>"
+
+[[extra.signals]]
+status = "shipped"
+targets = ["agnostic-ai"]
+title = "<third highlight>"
 summary = "<what the reader gets>"
 +++
 

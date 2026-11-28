@@ -50,13 +50,15 @@ Use this workflow when the user asks to publish a new version. A request to prep
    or a line only mentions the issue without delivering support.
 5. Write the briefing prose and replace every `TODO`. Read and
    follow [references/release-briefing.md](references/release-briefing.md):
-   a short title that names the user value, Highlights first, required
-   upgrade actions only, at most four "What changed" groups, one target line
-   per tool with the verification method stated once, and about 600 words.
+   a short title that names the user value, 3 or 4 signals for the updates
+   page panel, Highlights first, required upgrade actions only, at most four
+   "What changed" groups, one target line per tool with the verification
+   method stated once, and about 600 words.
 
    Then run `make release-check VERSION=vX.Y.Z`. It fails on a bullet over 160
    characters, more than five bullets under one heading, an empty heading, or
-   a `TODO` left in the briefing.
+   a `TODO` left in the briefing, and on fewer than 3 or more than 4 signals
+   or a signal title over 40 or summary over 120 characters.
 6. Validate the completed release tree before committing. Follow the generation
    checks for project source specs in repository-root `docs/internal/contributing.md`,
    section "Choose checks for your change", then run `make ci-local` and
