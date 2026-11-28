@@ -428,7 +428,7 @@ func readBuiltFile(t *testing.T, path string) string {
 	return string(data)
 }
 
-// Release posts from v0.100.0 on fill the updates page panel: 3 or 4 signals,
+// Release posts from v0.100.0 on fill the updates page panel with three signals,
 // each title on one line and each summary within three lines.
 const firstPanelReleaseDate = "2026-11-28"
 
@@ -470,8 +470,8 @@ func TestTargetUpdates_ReleasePostsFitTheSignalPanel(t *testing.T) {
 			continue
 		}
 		checked++
-		if n := len(front.Extra.Signals); n < 3 || n > 4 {
-			t.Errorf("%s has %d signals, want 3 or 4", name, n)
+		if n := len(front.Extra.Signals); n != 3 {
+			t.Errorf("%s has %d signals, want 3", name, n)
 		}
 		for _, s := range front.Extra.Signals {
 			if n := len([]rune(s.Title)); n > 40 {

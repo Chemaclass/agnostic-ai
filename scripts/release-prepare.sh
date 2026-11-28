@@ -277,7 +277,7 @@ summary = "TODO what the reader gets"
 
 ## Highlights {#highlights}
 
-- TODO three to five bullets matching the changelog Highlights.
+- TODO three bullets drawn from the changelog Highlights.
 
 ## Upgrading from ${prev:-vPREV} {#actions}
 
@@ -338,7 +338,7 @@ release_check_section() {
 }
 
 # release_check_signals prints a line per problem with the briefing's
-# [[extra.signals]]: the updates page panel fits 3 or 4, each title on one
+# [[extra.signals]]: the updates page panel fits three, each title on one
 # line (40 characters) and each summary in three lines (120 characters).
 release_check_signals() {
   awk '
@@ -352,7 +352,7 @@ release_check_signals() {
       max = (key == "title") ? 40 : 120
       if (length(val) > max) printf "signal %s over %d characters (%d): %s\n", key, max, length(val), val
     }
-    END { if (n < 3 || n > 4) printf "briefing has %d [[extra.signals]], want 3 or 4\n", n }
+    END { if (n != 3) printf "briefing has %d [[extra.signals]], want 3\n", n }
   ' "$1"
 }
 
