@@ -724,6 +724,7 @@ func joinNotes(first, second string) string {
 // age. It takes rows dated after to, which a skewed clock can write.
 func weekPage(all []Conversation, to time.Time, first bool, needsYou map[Ref]bool) (page []Conversation, from time.Time, more bool) {
 	var older []Conversation
+	var newest time.Time
 	pinned := pinnedFamilies(all)
 	for _, c := range all {
 		ref := Ref{Tool: c.Tool, ID: c.ID}
@@ -733,12 +734,19 @@ func weekPage(all []Conversation, to time.Time, first bool, needsYou map[Ref]boo
 			page = append(page, c)
 		case onFirst:
 			// The first page already showed it.
-		case first || lastWritten(c).Before(to):
+		default:
+			written := lastWritten(c)
+			if !first && !written.Before(to) {
+				continue
+			}
+			if len(older) == 0 || written.After(newest) {
+				newest = written
+			}
 			older = append(older, c)
 		}
 	}
 	from = to.Add(-pageSpan)
-	if newest, ok := newestBefore(older, to, first); ok && newest.Before(from) {
+	if len(older) > 0 && newest.Before(from) {
 		from = newest.Add(-pageSpan)
 	}
 	for _, c := range older {
@@ -776,20 +784,6 @@ func pinnedFamilies(all []Conversation) map[Ref]bool {
 		}
 	}
 	return pinned
-}
-
-// newestBefore is the latest last-written time among list before to, or
-// any time at all on the first page; an undated row counts as the zero time.
-func newestBefore(list []Conversation, to time.Time, first bool) (time.Time, bool) {
-	var newest time.Time
-	found := false
-	for _, c := range list {
-		written := lastWritten(c)
-		if (first || written.Before(to)) && (!found || written.After(newest)) {
-			newest, found = written, true
-		}
-	}
-	return newest, found
 }
 
 func lastWritten(c Conversation) time.Time {
