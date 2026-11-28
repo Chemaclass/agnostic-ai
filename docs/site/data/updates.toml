@@ -3,15 +3,14 @@
 page_size = 6
 
 [copy]
-search_label = "Search titles and summaries"
-search_placeholder = "Try skills, hooks, or a target"
-targets_label = "Targets"
-targets_help = "Choose any targets. Editions matching at least one are included."
-apply_label = "Apply filters"
+search_label = "Search editions"
+search_placeholder = "Search, like hooks or skills"
+targets_label = "All tools"
+targets_help = "Show editions that cover any of the tools you pick."
 clear_label = "Clear filters"
 no_results_title = "No editions match"
-no_results_body = "Try a broader search or clear the target filters."
-noscript = "Filters need JavaScript. Every edition remains available below."
+no_results_body = "Try a broader search or pick other tools."
+noscript = "Search needs JavaScript. Every edition is listed below."
 
 [[targets]]
 id = "claude"

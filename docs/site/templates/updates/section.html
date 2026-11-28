@@ -16,34 +16,40 @@
 <main id="content">
   <section class="masthead">
     <div class="wrap masthead-grid">
-      <h1>{{ section.extra.masthead }}</h1>
       <div>
+        <h1>{{ section.extra.masthead }}</h1>
         <p class="lede">{{ section.extra.lede }}</p>
-        {% if latest %}<div class="edition"><strong>Current edition</strong><time datetime="{{ latest.date | date(format='%Y-%m-%d') }}">{{ latest.date | date(format='%d %B %Y') }}</time></div>{% endif %}
       </div>
+      <p class="masthead-meta"><span>{{ section.pages | length }} editions</span><a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">RSS feed</a></p>
     </div>
   </section>
 
   {% if latest %}
   <section class="latest" aria-labelledby="latest-title">
-    <div class="wrap latest-grid">
-      <div class="latest-copy">
-        <div class="edition">
-          {% if latest.extra.kind == "release" %}<span>{{ latest.extra.version }}</span><span>Release briefing</span>{% else %}<span>Week of {{ latest.date | date(format='%d %B %Y') }}</span><span>{{ latest.extra.targets_checked }} targets checked</span>{% endif %}
-        </div>
-        <h2 id="latest-title">{{ latest.title }}</h2>
-        <p class="summary">{{ latest.description }}</p>
-        <a class="read-link" href="{{ latest.permalink }}">Read the briefing<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    <div class="wrap ledger">
+      <div class="ledger-meta">
+        <strong>Latest</strong>
+        {% if latest.extra.kind == "release" %}<span class="ledger-version">{{ latest.extra.version }}</span>{% else %}<span class="ledger-version">Tool check</span>{% endif %}
+        <time datetime="{{ latest.date | date(format='%Y-%m-%d') }}">{{ latest.date | date(format='%d %b %Y') }}</time>
       </div>
-
-      <div class="change-list" aria-label="Critical changes in this edition">
-        {% for signal in latest.extra.signals %}
-        <article class="change">
-          <div class="change-meta"><span class="status">{{ signal.status }}</span>{% for target in signal.targets %}<span class="tag">{{ target }}</span>{% endfor %}</div>
-          <h3>{{ signal.title }}</h3>
-          <p>{{ signal.summary }}</p>
-        </article>
-        {% endfor %}
+      <div class="latest-copy">
+        {% if latest.extra.kind == "release" %}{% set_global headline = latest.title | replace(from="agnostic-ai " ~ latest.extra.version ~ ": ", to="") %}{% else %}{% set_global headline = latest.title %}{% endif %}{% set first_word = headline | split(pat=" ") | first | replace(from=",", to="") %}{% if first_word in ["npm", "init", "sync", "hook"] %}{% set_global headline_class = "headline is-command" %}{% else %}{% set_global headline_class = "headline" %}{% endif %}
+        <h2 id="latest-title" class="{{ headline_class }}">{{ headline }}</h2>
+        <p class="summary">{{ latest.description }}</p>
+        {% if latest.extra.signals %}
+        <ol class="highlights" aria-label="Highlights">
+          {% for signal in latest.extra.signals %}
+          <li>
+            <h3>{{ signal.title }}</h3>
+            <p>{{ signal.summary }}</p>
+          </li>
+          {% endfor %}
+        </ol>
+        {% endif %}
+        <p class="latest-links">
+          <a class="read-link" href="{{ latest.permalink }}">{% if latest.extra.kind == "release" %}Read the release notes{% else %}Read the briefing{% endif %}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          {% if latest.extra.kind == "release" %}<a class="downloads-link" href="{{ config.extra.repository_url }}/releases/tag/{{ latest.extra.version }}">Downloads on GitHub</a>{% endif %}
+        </p>
       </div>
     </div>
   </section>
@@ -52,66 +58,71 @@
   <section class="archive" aria-labelledby="archive-title">
     <div class="wrap">
       <div class="archive-head">
-        <h2 id="archive-title">All editions</h2>
-        <a href="{{ get_url(path='updates/feed.xml', trailing_slash=false) }}">Subscribe by RSS</a>
+        <h2 id="archive-title">Earlier editions</h2>
+        <form class="archive-filter" data-updates-filter role="search" aria-label="Filter editions" hidden>
+          <div class="archive-filter-search">
+            <label class="visually-hidden" for="edition-search">{{ updates.copy.search_label }}</label>
+            <input id="edition-search" name="q" type="search" placeholder="{{ updates.copy.search_placeholder }}" autocomplete="off">
+          </div>
+          <details class="target-filter">
+            <summary data-target-summary>{{ updates.copy.targets_label }}</summary>
+            <fieldset>
+              <legend>Filter editions by tool</legend>
+              <p class="target-filter-help">{{ updates.copy.targets_help }}</p>
+              <div class="target-options">
+                {% for target in updates.targets %}
+                <label><input type="checkbox" name="target" value="{{ target.id }}"><span>{{ target.label }}</span></label>
+                {% endfor %}
+              </div>
+            </fieldset>
+          </details>
+          <div class="filter-feedback" aria-live="polite" aria-atomic="true">
+            <p><strong data-result-count>{{ section.pages | length }} of {{ section.pages | length }} editions</strong><span data-filter-summary>All tools</span></p>
+            <p class="filter-notice" data-filter-notice hidden></p>
+          </div>
+          <button class="filter-clear" type="button" data-clear-filters hidden>{{ updates.copy.clear_label }}</button>
+        </form>
       </div>
-      <form class="archive-filter" data-updates-filter hidden>
-        <div class="archive-filter-search">
-          <label for="edition-search">{{ updates.copy.search_label }}</label>
-          <input id="edition-search" name="q" type="search" placeholder="{{ updates.copy.search_placeholder }}" autocomplete="off">
-        </div>
-        <details class="target-filter">
-          <summary>{{ updates.copy.targets_label }}</summary>
-          <fieldset>
-            <legend>Filter editions by target</legend>
-            <p class="target-filter-help">{{ updates.copy.targets_help }}</p>
-            <div class="target-options">
-              {% for target in updates.targets %}
-              <label><input type="checkbox" name="target" value="{{ target.id }}"><span>{{ target.label }}</span></label>
-              {% endfor %}
-            </div>
-          </fieldset>
-        </details>
-        <div class="archive-filter-actions">
-          <button class="filter-apply" type="submit">{{ updates.copy.apply_label }}</button>
-          <button class="filter-clear" type="button" data-clear-filters>{{ updates.copy.clear_label }}</button>
-        </div>
-        <div class="filter-feedback" aria-live="polite" aria-atomic="true">
-          <p><strong data-result-count>{{ section.pages | length }} of {{ section.pages | length }} editions</strong><span data-filter-summary>All targets</span></p>
-          <p class="filter-notice" data-filter-notice hidden></p>
-        </div>
-      </form>
       <noscript><p class="filter-noscript">{{ updates.copy.noscript }}</p></noscript>
       <div class="archive-list" data-edition-list>
+        {% set_global month = "" %}
         {% for article in section.pages %}
+        {% set article_month = article.date | date(format='%B %Y') %}
+        {% if article_month != month %}
+        {% if not loop.first %}</div>{% endif %}
+        <div class="archive-month" data-month>
+          <h3 class="month-label">{{ article_month }}</h3>
+        {% set_global month = article_month %}
+        {% endif %}
         {% set article_targets = article.extra.targets | default(value=[]) %}
         {% set_global search_text = article.title ~ " " ~ article.description ~ " " ~ article.extra.dek %}
         {% for signal in article.extra.signals %}
           {% set_global search_text = search_text ~ " " ~ signal.title ~ " " ~ signal.summary %}
         {% endfor %}
+        {% set_global target_labels = "" %}
         {% for article_target in article_targets %}
           {% set_global search_text = search_text ~ " " ~ article_target %}
           {% for registered_target in updates.targets %}
-            {% if registered_target.id == article_target %}{% set_global search_text = search_text ~ " " ~ registered_target.label %}{% endif %}
+            {% if registered_target.id == article_target %}{% set_global search_text = search_text ~ " " ~ registered_target.label %}{% if target_labels != "" %}{% set_global target_labels = target_labels ~ " · " %}{% endif %}{% set_global target_labels = target_labels ~ registered_target.label %}{% endif %}
           {% endfor %}
         {% endfor %}
-        <a class="archive-row" href="{{ article.permalink }}" data-targets="{{ article_targets | join(sep=' ') }}" data-search="{{ search_text }}">
-          <time datetime="{{ article.date | date(format='%Y-%m-%d') }}">{{ article.date | date(format='%d %b %Y') }}</time>
+        {% if article.extra.kind == "release" %}{% set_global headline = article.title | replace(from="agnostic-ai " ~ article.extra.version ~ ": ", to="") %}{% else %}{% set_global headline = article.title %}{% endif %}{% set first_word = headline | split(pat=" ") | first | replace(from=",", to="") %}{% if first_word in ["npm", "init", "sync", "hook"] %}{% set_global headline_class = "headline is-command" %}{% else %}{% set_global headline_class = "headline" %}{% endif %}
+        <a class="archive-row ledger" href="{{ article.permalink }}" data-targets="{{ article_targets | join(sep=' ') }}" data-search="{{ search_text }}"{% if loop.first %} data-latest{% endif %}>
+          <span class="ledger-meta">
+            {% if article.extra.kind == "release" %}<span class="ledger-version">{{ article.extra.version }}</span>{% else %}<span class="ledger-version">Tool check</span>{% endif %}
+            <time datetime="{{ article.date | date(format='%Y-%m-%d') }}">{{ article.date | date(format='%d %b %Y') }}</time>
+          </span>
           <span class="archive-row-copy">
-            <h3>{{ article.title }}</h3>
+            <h4 class="{{ headline_class }}">{{ headline }}</h4>
             <span class="archive-description">{{ article.description }}</span>
-            {% if article_targets | length > 0 %}
-            <span class="archive-targets" aria-label="Covered targets">
-              {% for article_target in article_targets %}
-                {% for registered_target in updates.targets %}
-                  {% if registered_target.id == article_target %}<span class="tag">{{ registered_target.label }}</span>{% endif %}
-                {% endfor %}
-              {% endfor %}
-            </span>
+            {% if article.extra.kind == "audit" %}
+            <span class="archive-targets">{{ article.extra.targets_checked }} tools checked · {{ article.extra.finding_count }} findings</span>
+            {% elif target_labels != "" %}
+            <span class="archive-targets" aria-label="Tools covered">{{ target_labels }}</span>
             {% endif %}
           </span>
-          <span class="count">{{ article.extra.archive_stats }}</span>
         </a>
+        {% if loop.last %}</div>{% endif %}
         {% endfor %}
       </div>
       <nav class="archive-pager" data-pager data-page-size="{{ updates.page_size }}" aria-label="Edition pages" hidden></nav>

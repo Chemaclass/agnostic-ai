@@ -8,6 +8,6 @@ generate_feeds = true
 aliases = ["/docs/target-updates/"]
 
 [extra]
-masthead = "AI tooling changed again."
-lede = "What shipped in agnostic-ai, and what changed in the coding tools it supports. Each claim is checked against the vendor docs."
+masthead = "Updates"
+lede = "Every agnostic-ai release, plus what changed in the coding tools it supports. Each tool claim is checked against the vendor docs."
 +++

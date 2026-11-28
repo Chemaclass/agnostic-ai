@@ -98,10 +98,14 @@
     const notice = document.querySelector("[data-filter-notice]");
     const empty = document.querySelector("[data-empty-state]");
     const pager = document.querySelector("[data-pager]");
+    const list = document.querySelector("[data-edition-list]");
+    const months = Array.from(document.querySelectorAll("[data-month]"));
     if (!form || !count || !summary || !notice || !empty || rows.length === 0) {
       return false;
     }
 
+    const targetSummary = form.querySelector("[data-target-summary]");
+    const targetSummaryLabel = targetSummary ? targetSummary.textContent : "";
     const pageSize = Math.max(1, parseInt(pager && pager.dataset.pageSize, 10) || rows.length);
     const search = form.elements.q;
     const checkboxes = Array.from(form.querySelectorAll('input[name="target"]'));
@@ -112,7 +116,8 @@
       return {
         row: row,
         targets: row.dataset.targets.split(/\s+/).filter(Boolean),
-        search: row.dataset.search
+        search: row.dataset.search,
+        latest: row.hasAttribute("data-latest")
       };
     });
 
@@ -170,18 +175,29 @@
       pager.append(list);
     }
 
+    const persistentClear = form.querySelector("[data-clear-filters]");
     let current = { targets: [], query: "", page: 1 };
 
     function render(state) {
       const selectedTargets = normalizeTargets(state.targets || []);
       const selectedSet = new Set(selectedTargets);
       const query = String(state.query || "").trim();
-      search.value = query;
+      // Typing renders too, so only rewrite the field when the state came
+      // from elsewhere; trimming mid-word would eat the space being typed.
+      if (search.value.trim() !== query) {
+        search.value = query;
+      }
       checkboxes.forEach(function (checkbox) {
         checkbox.checked = selectedSet.has(checkbox.value);
       });
 
-      const matches = filterEditions(editions, {
+      const filtering = selectedTargets.length > 0 || query !== "";
+      // The latest edition already leads the page, so the archive lists it
+      // only when it answers a search or a tool filter.
+      const pool = filtering ? editions : editions.filter(function (edition) {
+        return !edition.latest;
+      });
+      const matches = filterEditions(pool, {
         targets: selectedTargets,
         query: query
       });
@@ -190,11 +206,17 @@
       editions.forEach(function (edition) {
         edition.row.hidden = !visible.has(edition);
       });
+      months.forEach(function (month) {
+        month.hidden = !month.querySelector(".archive-row:not([hidden])");
+      });
+      if (list) {
+        list.classList.toggle("is-filtered", filtering);
+      }
       empty.hidden = matches.length !== 0;
       current = { targets: selectedTargets, query: query, page: slice.page };
       renderPager(current, slice);
 
-      count.textContent = matches.length + " of " + editions.length + " editions" +
+      count.textContent = (filtering ? matches.length + " of " + editions.length + " editions" : matches.length + " earlier editions") +
         (slice.pages > 1 ? ", page " + slice.page + " of " + slice.pages : "");
       const knownLabels = selectedTargets.filter(function (target) {
         return knownTargets.has(target);
@@ -205,11 +227,17 @@
         return !knownTargets.has(target);
       });
       const parts = [];
-      parts.push(selectedTargets.length === 0 ? "All targets" : "Targets: " + knownLabels.concat(unknownTargets).join(" or "));
+      parts.push(selectedTargets.length === 0 ? "All tools" : "Tools: " + knownLabels.concat(unknownTargets).join(" or "));
       if (query) {
         parts.push("Search: \u201c" + query + "\u201d");
       }
       summary.textContent = parts.join(". ");
+      if (targetSummary) {
+        targetSummary.textContent = selectedTargets.length === 0 ? targetSummaryLabel : selectedTargets.length + (selectedTargets.length === 1 ? " tool" : " tools");
+      }
+      if (persistentClear) {
+        persistentClear.hidden = !filtering;
+      }
 
       notice.hidden = unknownTargets.length === 0;
       notice.textContent = unknownTargets.length === 0 ? "" : "Unknown target " + (unknownTargets.length === 1 ? "filter" : "filters") + ": " + unknownTargets.join(", ") + ". " + (knownLabels.length === 0 ? "No edition can match until you clear or replace it." : "It remains part of the applied target filter.");
@@ -220,11 +248,37 @@
       browser.history.pushState(null, "", url.pathname + url.search + url.hash);
     }
 
+    // Typing replaces the history entry so Back leaves the page instead of
+    // stepping through every keystroke.
+    function replace(state) {
+      const url = serializeURL(browser.location.href, state);
+      browser.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    }
+
+    let typing = null;
+    search.addEventListener("input", function () {
+      browser.clearTimeout(typing);
+      typing = browser.setTimeout(function () {
+        const state = Object.assign(readForm(), { page: 1 });
+        render(state);
+        replace(state);
+      }, 150);
+    });
+
+    checkboxes.forEach(function (checkbox) {
+      checkbox.addEventListener("change", function () {
+        const state = Object.assign(readForm(), { page: 1 });
+        render(state);
+        push(state);
+      });
+    });
+
     form.addEventListener("submit", function (event) {
       event.preventDefault();
-      const state = readForm();
+      browser.clearTimeout(typing);
+      const state = Object.assign(readForm(), { page: 1 });
       render(state);
-      push(state);
+      replace(state);
     });
 
     if (pager) {
@@ -248,21 +302,19 @@
     }
 
     const clearButtons = Array.from(document.querySelectorAll("[data-clear-filters]"));
-    const persistentClear = form.querySelector("[data-clear-filters]");
     clearButtons.forEach(function (button) {
       button.addEventListener("click", function () {
         const state = { targets: [], query: "", page: 1 };
         render(state);
         push(state);
-        if (button !== persistentClear) {
-          persistentClear.focus();
-        }
+        // The clear button hides once nothing is filtered, so focus moves
+        // to the search field.
+        search.focus();
       });
     });
 
     const targetFilter = form.querySelector("details.target-filter");
     if (targetFilter) {
-      const targetSummary = targetFilter.querySelector("summary");
       const closeOnOutside = function (event) {
         if (dismissesDropdown(targetFilter, event.target)) {
           targetFilter.open = false;
