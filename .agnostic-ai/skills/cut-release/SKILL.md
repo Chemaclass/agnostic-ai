@@ -24,46 +24,39 @@ Use this workflow when the user asks to publish a new version. A request to prep
    - minor: additive features
    - major: breaking changes after v1.0; while on 0.x, use a minor release
      with explicit breaking notes, as required by `spec-migration`
-3. Run `make changelog`. It appends each `changes/*.md` entry under its
-   heading in `## [Unreleased]` and deletes those files; `changes/README.md`
-   stays. Pull requests opened before `changes/` existed may still have edited
-   `## [Unreleased]` directly; the script keeps those lines.
+3. Run `make release-prepare VERSION=vX.Y.Z` (add `DATE=YYYY-MM-DD` for
+   another day). `scripts/release-prepare.sh` refuses a branch other than
+   `main` and edits outside the release files, then:
+   - folds `changes/*.md` into `## [Unreleased]`, adding the pull request
+     number from the commit that added each file to bullets that cite none;
+   - moves `## [Unreleased]` into `## vX.Y.Z - DATE` without empty headings;
+   - on vX.Y1.0 (v0.101.0, v0.111.0), moves the sections before vX.Y0.0 to
+     `docs/CHANGELOG-archive.md` and updates both "Releases before" lines;
+   - bumps `cmd/agnostic-ai/main.go`, `docs/site/config.toml` and the
+     `requires` and `$schema` tag in `agnostic-ai.yaml`;
+   - runs `make size-budget` and `scripts/signals-shipped.sh`;
+   - writes `docs/site/content/updates/DATE-vX.Y.Z.md` with its front matter
+     filled and `TODO` in each prose field.
 
-   Update `CHANGELOG.md`: drop empty `### ` and `#### ` headings from `## [Unreleased]`, then move the remaining lines into a new dated `## vX.Y.Z - YYYY-MM-DD` section (no brackets). The released section must never carry a heading with no entries. Reset `## [Unreleased]` to empty.
-
-   Curate the section first with the layout, entry rules, and length check in
+   A rerun skips the steps already done and keeps the first date, so rerun it
+   to resume after a failure.
+4. Curate the dated section with the layout and entry rules in
    `.agnostic-ai/agents/changelog-curator.md`. Condensing keeps every `#NNN`.
    A path, flag, or case it drops must already be on the docs page or in the
    PR; if it is not, add it to the docs, not back to the bullet.
 
-   `CHANGELOG.md` keeps the current group of ten minor versions. When you
-   release v0.81.0, v0.91.0, and so on, move every dated section older than
-   v0.80.0, v0.90.0, and so on to the top of `docs/CHANGELOG-archive.md`.
-   Update the "Releases before" line at the top of `CHANGELOG.md` and at the
-   top of the archive. `scripts/release-notes.sh` and
-   `scripts/signals-shipped.sh` read both files.
-
-   Then run `scripts/signals-shipped.sh`. It sets `shipped-date` in
-   `scripts/target-audit/signals.tsv` to the release date on every signal
-   whose issue the new section cites, and never moves a date already set.
-   Review the changed rows in `git diff -- scripts/target-audit/signals.tsv`.
-   A line that only mentions the issue, without delivering support, does not
-   ship the signal, so clear only the date newly set for that row.
-4. Bump `version` in `cmd/agnostic-ai/main.go`, `extra.version` in
-   `docs/site/config.toml`, and both release values in the root
-   `agnostic-ai.yaml`: the minimum `requires: ">=X.Y.Z"` and the `$schema`
-   URL's `vX.Y.Z` tag. Run `make size-budget` to set
-   `scripts/binary-size-budget` to the release binary's size plus 2 MiB of
-   headroom; pull requests are checked by growth, so only a release raises
-   this upper bound. Keep
-   them in the release commit. `make site-test` fails when these values
-   disagree with the latest dated changelog section.
-5. After finalizing the changelog, create exactly one
-   `docs/site/content/updates/YYYY-MM-DD-vX.Y.Z.md` release briefing. Read and
+   Review `git diff -- scripts/target-audit/signals.tsv`. The dates were set
+   before curation, so clear a newly set date when its issue left the section
+   or a line only mentions the issue without delivering support.
+5. Write the briefing prose and replace every `TODO`. Read and
    follow [references/release-briefing.md](references/release-briefing.md):
    a short title that names the user value, Highlights first, required
    upgrade actions only, at most four "What changed" groups, one target line
    per tool with the verification method stated once, and about 600 words.
+
+   Then run `make release-check VERSION=vX.Y.Z`. It fails on a bullet over 160
+   characters, more than five bullets under one heading, an empty heading, or
+   a `TODO` left in the briefing.
 6. Validate the completed release tree before committing. Follow the generation
    checks for project source specs in repository-root `docs/internal/contributing.md`,
    section "Choose checks for your change", then run `make ci-local` and
@@ -105,17 +98,18 @@ Use this workflow when the user asks to publish a new version. A request to prep
     tag fixed; stop and report any recovery that requires replacing a release.
     If the automatic Pages run is absent, dispatch `playground.yml` on `main`,
     then watch that run and record its SHA.
-11. Verify the published release: download the archive for this machine and
-    `checksums.txt` to a temporary directory, verify its checksum, and run the
-    extracted binary with `--version`. Confirm the version, release notes, and
-    published briefing match the release. Report the tag, commit, release URL,
-    briefing URL, check results, and any unresolved publication failure.
+11. Run `make release-verify VERSION=vX.Y.Z`. In a temporary folder it
+    downloads this machine's archive and `checksums.txt`, checks the checksum
+    and the binary's `--version`, and checks that the release has notes and the
+    briefing page answers 200. It exits non-zero on any mismatch. Report the
+    tag, commit, release URL, briefing URL, check results, and any unresolved
+    publication failure.
 
 ## Conventions
 
-- `scripts/release-notes.sh vX.Y.Z` selects that version's dated section from `CHANGELOG.md` or its archive. Preview its output after step 3; a missing section fails the release workflow.
-- A release briefing is release material, not a follow-up docs change. It must
-  be created after the changelog is finalized and included in the tagged
+- `scripts/release-notes.sh vX.Y.Z` selects that version's dated section from `CHANGELOG.md` or its archive. Preview its output after step 4; a missing section fails the release workflow.
+- A release briefing is release material, not a follow-up docs change. It is
+  written after the changelog is finalized and included in the tagged
   release commit.
 - The briefing orders breaking behavior, default changes, removals, and
   deprecations before additions. It never presents upstream news as shipped

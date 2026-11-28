@@ -1,4 +1,4 @@
-.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools tools-lefthook doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
+.PHONY: ui-build ui-check companion companion-run companion-test companion-preview companion-e2e build test test-short test-race ci-local opencode-hooks-test wasm-test test-shell size-check size-growth-check size-budget changelog release-prepare release-check release-check-changelog release-verify bench bench-commands coverage coverage-html lint fmt fmt-check vet preflight tools tools-lefthook doctor-dev hooks install clean site-generate site-check site-build site-test site-serve site-clean site-og playground-build playground-serve playground-clean
 
 BIN := agnostic-ai
 PKG := ./cmd/agnostic-ai
@@ -86,6 +86,19 @@ size-budget:
 changelog:
 	scripts/changelog-assemble.sh
 
+# Release steps around curation: VERSION=vX.Y.Z, optional DATE=YYYY-MM-DD.
+release-prepare:
+	scripts/release-prepare.sh $(VERSION) $(DATE)
+
+release-check:
+	scripts/release-prepare.sh --check $(VERSION)
+
+release-check-changelog:
+	scripts/release-prepare.sh --check-changelog $(VERSION)
+
+release-verify:
+	scripts/release-verify.sh $(VERSION)
+
 # Builds BASE (default: where this branch left origin/main) from its committed
 # tree and fails when the working tree's build grows past the allowance.
 size-growth-check:
@@ -108,6 +121,7 @@ bashunit --parallel scripts/release-notes_test.sh scripts/target-facts_test.sh \
 		scripts/install_test.sh scripts/npm-binaries_test.sh scripts/npm-publish_test.sh scripts/companion-release_test.sh scripts/companion-sign_test.sh scripts/release-assets_test.sh scripts/npm-verify-provenance_test.sh scripts/npm-smoke_test.sh scripts/npm-toolchain_test.sh \
 		scripts/e2e_test.sh scripts/vendor-watch_test.sh scripts/jev-triage_test.sh scripts/audit-metrics_test.sh \
 		scripts/signals-shipped_test.sh scripts/tool-load_test.sh scripts/binary-size_test.sh scripts/changelog-assemble_test.sh \
+		scripts/release-prepare_test.sh scripts/release-verify_test.sh \
 		scripts/bench-commands_test.sh scripts/test-go_test.sh scripts/go-packages_test.sh scripts/doctor-dev_test.sh scripts/gofmt-on-edit_test.sh scripts/sync-generated_test.sh scripts/verify-issue-features_test.sh
 endef
 
