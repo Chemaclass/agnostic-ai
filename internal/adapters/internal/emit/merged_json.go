@@ -433,21 +433,19 @@ func withoutItems(raw json.RawMessage, items []string) (value any, keep, changed
 	// sync appends its own after the user's: a copy the user added
 	// beside it stays.
 	pending := slices.Clone(items)
-	drop := make([]bool, len(list))
-	for i := len(list) - 1; i >= 0; i-- {
-		if at := slices.Index(pending, ContentSum(canonicalJSON(list[i]))); at >= 0 {
-			drop[i] = true
+	firstKept := len(list)
+	for _, entry := range slices.Backward(list) {
+		if at := slices.Index(pending, ContentSum(canonicalJSON(entry))); at >= 0 {
 			pending = slices.Delete(pending, at, at+1)
+			continue
 		}
+		firstKept--
+		list[firstKept] = entry
 	}
-	index := -1
-	kept := slices.DeleteFunc(slices.Clone(list), func(json.RawMessage) bool {
-		index++
-		return drop[index]
-	})
-	if len(kept) == len(list) {
+	if firstKept == 0 {
 		return nil, true, false
 	}
+	kept := list[firstKept:]
 	return kept, len(kept) > 0, true
 }
 

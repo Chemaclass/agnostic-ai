@@ -82,14 +82,19 @@ func TestMergeOwnedLists_TreatsAnUnchangedWholeClaimAsSyncs(t *testing.T) {
 	}
 }
 
-func TestWithoutItems_DropsClaimedObjectEntries(t *testing.T) {
-	entry := map[string]any{"command": "memory"}
-	raw, _ := json.Marshal([]any{entry, map[string]any{"command": "mine"}})
+func TestWithoutItems_PreservesOrderOfUserEntriesAndTheirKeys(t *testing.T) {
+	entry := map[string]any{"matcher": "Bash", "command": "./guard.sh"}
+	raw := json.RawMessage(`[{"matcher":"Bash","command":"./guard.sh"},{"command":"./mine.sh"},{"command":"./guard.sh","matcher":"Bash"}]`)
 
 	value, keep, changed := withoutItems(raw, []string{ContentSum(canonicalJSON(entry))})
 
-	if !changed || !keep || len(value.([]json.RawMessage)) != 1 {
-		t.Errorf("value %v keep %v changed %v", value, keep, changed)
+	got, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const want = `[{"matcher":"Bash","command":"./guard.sh"},{"command":"./mine.sh"}]`
+	if !changed || !keep || string(got) != want {
+		t.Errorf("value %s, want %s; keep %v, changed %v", got, want, keep, changed)
 	}
 }
 
