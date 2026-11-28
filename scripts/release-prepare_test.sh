@@ -300,22 +300,18 @@ function test_check_reports_a_missing_section() {
   assert_contains 'no "## v1.11.0 - " section' "$out"
 }
 
-function test_check_requires_three_or_four_signals() {
+function test_check_requires_exactly_three_signals() {
   write_released $'### General\n\n- One (#1).'
   write_briefing 2
   local out
   out="$(prepare --check v1.11.0 2>&1)"
   assert_general_error "$?"
-  assert_contains "briefing has 2 [[extra.signals]], want 3 or 4" "$out"
-
-  write_briefing 5
-  out="$(prepare --check v1.11.0 2>&1)"
-  assert_general_error "$?"
-  assert_contains "briefing has 5 [[extra.signals]], want 3 or 4" "$out"
+  assert_contains "briefing has 2 [[extra.signals]], want 3" "$out"
 
   write_briefing 4
-  out="$(prepare --check v1.11.0)"
-  assert_successful_code "$?"
+  out="$(prepare --check v1.11.0 2>&1)"
+  assert_general_error "$?"
+  assert_contains "briefing has 4 [[extra.signals]], want 3" "$out"
 }
 
 function test_check_reports_signal_text_that_does_not_fit_the_panel() {

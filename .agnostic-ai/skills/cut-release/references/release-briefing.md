@@ -21,8 +21,8 @@ the main capabilities. Migration details belong in the actions section.
 
 ## Sections, in order
 
-1. `## Highlights {#highlights}`: three to five one-sentence bullets that match
-   the changelog `### Highlights`, breaking changes first, each linking its
+1. `## Highlights {#highlights}`: three one-sentence bullets drawn from the
+   changelog `### Highlights`, breaking changes first, each linking its
    reference page where one exists.
 2. `## Upgrading from vPREV {#actions}`: only when a reader must act. One
    bullet per required action: who it affects, what to change, where it is
@@ -77,7 +77,7 @@ tag so later features do not appear as shipped in it.
 ## Signals
 
 The updates page shows a release's `[[extra.signals]]` in the panel beside
-its title. Write 3 or 4, one per Highlights bullet, breaking first. Each title
+its title. Write three, one per Highlights bullet, breaking first. Each title
 names the outcome in at most 40 characters, so it stays on one line. Each
 summary says what the reader gets in at most 120 characters, about three
 lines. `targets` lists the registered IDs the signal is about, or
@@ -138,7 +138,8 @@ summary = "<what the reader gets>"
 ## Highlights {#highlights}
 
 - **Breaking:** <change>. See [<page>](@/docs/...).
-- <three to five bullets>
+- <second highlight>. See [<page>](@/docs/...).
+- <third highlight>. See [<page>](@/docs/...).
 
 ## Upgrading from vPREV {#actions}
 
