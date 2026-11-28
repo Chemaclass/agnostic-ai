@@ -11,20 +11,20 @@
 
 {% block content %}
 <main id="content">
-  <section class="docs-hero">
-    <div class="wrap docs-hero-grid">
-      <h1>Documentation.</h1>
+  <section class="masthead">
+    <div class="wrap masthead-grid">
       <div>
-        <p>{{ section.description }}</p>
-        <a class="button button-primary" href="{{ get_url(path='@/docs/getting-started.md') }}">Set up your project</a>
+        <h1>{{ section.title }}</h1>
+        <p class="lede">{{ section.description }}</p>
       </div>
+      <p class="masthead-meta"><a href="{{ get_url(path='@/docs/getting-started.md') }}">Set up your project</a></p>
     </div>
   </section>
 
   <section class="docs-directory" aria-labelledby="docs-directory-title">
     <div class="wrap">
       <div class="docs-directory-head">
-        <h2 id="docs-directory-title">Find the guide for the job.</h2>
+        <h2 id="docs-directory-title" class="visually-hidden">All guides</h2>
         {% set content_parts = section.content | split(pat='<span id="continue-reading"></span>') %}
         {{ content_parts | first | safe }}
       </div>

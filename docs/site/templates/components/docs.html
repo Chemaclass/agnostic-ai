@@ -59,7 +59,7 @@
     </aside>
 
     <article class="docs-content" id="doc-body">
-      <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span>{% if document.extra.target_id %}<a href="{{ get_url(path='@/docs/targets/_index.md') }}">Targets</a>{% elif is_page and document.ancestors | length > 1 %}{% set parent = get_section(path=document.ancestors | last) %}<a href="{{ parent.permalink }}">{{ parent.title }}</a>{% else %}<span>{{ document.extra.group }}</span>{% endif %}</div>
+      <div class="docs-breadcrumb"><a href="{{ docs_section.permalink }}">Docs</a><span aria-hidden="true">/</span>{% if document.extra.target_id %}<a href="{{ get_url(path='@/docs/targets/_index.md') }}">Targets</a>{% elif is_page and document.ancestors | length > 2 %}{% set parent = get_section(path=document.ancestors | last) %}<a href="{{ parent.permalink }}">{{ parent.title }}</a>{% else %}<span>{% if document.extra.group == "Start" %}Start here{% elif document.extra.group == "Workflows" %}Guides{% else %}{{ document.extra.group }}{% endif %}</span>{% endif %}</div>
       {{ document.content | safe }}
       {% if document.extra.next %}
       <nav aria-label="Next lesson">
