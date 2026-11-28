@@ -427,3 +427,62 @@ func readBuiltFile(t *testing.T, path string) string {
 	}
 	return string(data)
 }
+
+// Release posts from v0.100.0 on fill the updates page panel: 3 or 4 signals,
+// each title on one line and each summary within three lines.
+const firstPanelReleaseDate = "2026-11-28"
+
+func TestTargetUpdates_ReleasePostsFitTheSignalPanel(t *testing.T) {
+	t.Parallel()
+	articles, err := filepath.Glob(filepath.Join(updatesContentDir, "[0-9]*.md"))
+	if err != nil {
+		t.Fatalf("find target update articles: %v", err)
+	}
+	checked := 0
+	for _, path := range articles {
+		name := filepath.Base(path)
+		if len(name) < 10 || name[:10] < firstPanelReleaseDate {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		parts := strings.SplitN(string(data), "+++", 3)
+		if len(parts) < 3 {
+			t.Errorf("%s has no +++ front matter", name)
+			continue
+		}
+		var front struct {
+			Extra struct {
+				Kind    string `toml:"kind"`
+				Signals []struct {
+					Title   string `toml:"title"`
+					Summary string `toml:"summary"`
+				} `toml:"signals"`
+			} `toml:"extra"`
+		}
+		if _, err := toml.Decode(parts[1], &front); err != nil {
+			t.Errorf("parse %s: %v", name, err)
+			continue
+		}
+		if front.Extra.Kind != "release" {
+			continue
+		}
+		checked++
+		if n := len(front.Extra.Signals); n < 3 || n > 4 {
+			t.Errorf("%s has %d signals, want 3 or 4", name, n)
+		}
+		for _, s := range front.Extra.Signals {
+			if n := len([]rune(s.Title)); n > 40 {
+				t.Errorf("%s signal title over 40 characters (%d): %s", name, n, s.Title)
+			}
+			if n := len([]rune(s.Summary)); n > 120 {
+				t.Errorf("%s signal summary over 120 characters (%d): %s", name, n, s.Summary)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no release posts on or after " + firstPanelReleaseDate)
+	}
+}

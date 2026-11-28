@@ -224,7 +224,18 @@ function test_rejects_a_bad_version() {
 
 function write_released() {
   printf '# Changelog\n\n## [Unreleased]\n\n## v1.11.0 - 2026-12-01\n\n%s\n\n## v1.10.0 - 2026-11-01\n\n- Ten.\n' "$1" > "$dir/CHANGELOG.md"
-  printf '+++\ntitle = "done"\n+++\n' > "$dir/docs/site/content/updates/2026-12-01-v1.11.0.md"
+  write_briefing 3
+}
+
+function write_briefing() {
+  local count="$1" i
+  {
+    printf '+++\ntitle = "done"\n\n[extra]\nkind = "release"\n'
+    for ((i = 1; i <= count; i++)); do
+      printf '\n[[extra.signals]]\nstatus = "shipped"\ntitle = "Signal %s"\nsummary = "What the reader gets."\n' "$i"
+    done
+    printf '+++\n'
+  } > "$dir/docs/site/content/updates/2026-12-01-v1.11.0.md"
 }
 
 function test_check_passes_a_curated_release() {
@@ -287,4 +298,35 @@ function test_check_reports_a_missing_section() {
   out="$(prepare --check v1.11.0 2>&1)"
   assert_general_error "$?"
   assert_contains 'no "## v1.11.0 - " section' "$out"
+}
+
+function test_check_requires_three_or_four_signals() {
+  write_released $'### General\n\n- One (#1).'
+  write_briefing 2
+  local out
+  out="$(prepare --check v1.11.0 2>&1)"
+  assert_general_error "$?"
+  assert_contains "briefing has 2 [[extra.signals]], want 3 or 4" "$out"
+
+  write_briefing 5
+  out="$(prepare --check v1.11.0 2>&1)"
+  assert_general_error "$?"
+  assert_contains "briefing has 5 [[extra.signals]], want 3 or 4" "$out"
+
+  write_briefing 4
+  out="$(prepare --check v1.11.0)"
+  assert_successful_code "$?"
+}
+
+function test_check_reports_signal_text_that_does_not_fit_the_panel() {
+  write_released $'### General\n\n- One (#1).'
+  local f="$dir/docs/site/content/updates/2026-12-01-v1.11.0.md" long_title long_summary
+  long_title="$(printf 't%.0s' $(seq 1 41))"
+  long_summary="$(printf 's%.0s' $(seq 1 121))"
+  sed -e "s/^title = \"Signal 1\"/title = \"$long_title\"/" -e "s/^summary = \"What the reader gets.\"/summary = \"$long_summary\"/" "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+  local out
+  out="$(prepare --check v1.11.0 2>&1)"
+  assert_general_error "$?"
+  assert_contains "signal title over 40 characters (41)" "$out"
+  assert_contains "signal summary over 120 characters (121)" "$out"
 }
