@@ -1009,8 +1009,10 @@ func TestWeekPage_ShowsOpenConversationsThenAWeekAtATime(t *testing.T) {
 	now := time.Date(2026, 11, 7, 12, 0, 0, 0, time.UTC)
 	all := []Conversation{
 		paged("today", "2026-11-07T10:00:00Z", false),
+		paged("ahead-of-clock", "2026-11-07T13:00:00Z", false),
 		paged("open-but-old", "2026-09-01T10:00:00Z", true),
 		paged("six-days", "2026-11-01T13:00:00Z", false),
+		paged("week-boundary", "2026-10-31T12:00:00Z", false),
 		paged("eight-days", "2026-10-30T10:00:00Z", false),
 		paged("after-a-gap", "2026-10-01T10:00:00Z", false),
 		paged("gap-week", "2026-09-26T10:00:00Z", false),
@@ -1027,7 +1029,7 @@ func TestWeekPage_ShowsOpenConversationsThenAWeekAtATime(t *testing.T) {
 	}
 
 	page, from, more := weekPage(all, now, true, nil)
-	if ids(page) != "open-but-old,unread-old,blocked-old,today,six-days" || !from.Equal(now.Add(-pageSpan)) || !more {
+	if ids(page) != "open-but-old,unread-old,blocked-old,today,ahead-of-clock,six-days,week-boundary" || !from.Equal(now.Add(-pageSpan)) || !more {
 		t.Errorf("first page = %s from %s more %v", ids(page), from, more)
 	}
 	page, from, more = weekPage(all, from, false, nil)
