@@ -14,40 +14,44 @@ import (
 // hookEventTypos compares with the events every target reads, not only
 // the enabled ones: hooks carry each tool's own names, so another tool's
 // event is not a typo.
-func hookEventTypos(b spec.Bundle, targets []string) []validationIssue {
+func hookEventTypos(hooks []spec.Entry, targets []string) []validationIssue {
+	if len(hooks) == 0 {
+		return nil
+	}
+	enabled := unionEvents(targets)
+	if len(enabled) == 0 {
+		return nil
+	}
+	known := unionEvents(slices.Collect(maps.Keys(hookEventsByTarget)))
+	// One spelling per event, the enabled targets' first, or
+	// PreToolUse and preToolUse tie and suggest nothing.
+	byFold := map[string]string{}
+	for _, set := range []map[string]struct{}{enabled, known} {
+		for _, ev := range sortedKeys(set) {
+			if _, ok := byFold[strings.ToLower(ev)]; !ok {
+				byFold[strings.ToLower(ev)] = ev
+			}
+		}
+	}
+	events := slices.Sorted(maps.Values(byFold))
+	// OpenHands accepts session_start for SessionStart, so a spelling
+	// that only differs in case or underscores is known.
+	loose := map[string]bool{}
+	for ev := range known {
+		loose[looseEvent(ev)] = true
+	}
 	var out []validationIssue
-	if len(unionEvents(targets)) > 0 {
-		known := unionEvents(slices.Collect(maps.Keys(hookEventsByTarget)))
-		// One spelling per event, the enabled targets' first, or
-		// PreToolUse and preToolUse tie and suggest nothing.
-		byFold := map[string]string{}
-		for _, set := range []map[string]struct{}{unionEvents(targets), known} {
-			for _, ev := range sortedKeys(set) {
-				if _, ok := byFold[strings.ToLower(ev)]; !ok {
-					byFold[strings.ToLower(ev)] = ev
-				}
-			}
+	for _, e := range hooks {
+		event, _ := e.Meta["event"].(string)
+		if event == "" || loose[looseEvent(event)] {
+			continue
 		}
-		events := slices.Sorted(maps.Values(byFold))
-		// Some tools take any case or snake_case, as OpenHands'
-		// session_start for SessionStart, so a spelling that only
-		// differs that way is known.
-		loose := map[string]bool{}
-		for ev := range known {
-			loose[looseEvent(ev)] = true
+		if _, _, alias := hookEventAlias(targets, event); alias {
+			continue
 		}
-		for _, e := range b.Hooks {
-			event, _ := e.Meta["event"].(string)
-			if event == "" || loose[looseEvent(event)] {
-				continue
-			}
-			if _, _, alias := hookEventAlias(targets, event); alias {
-				continue
-			}
-			if s := suggest.Name(event, events); s != "" {
-				out = append(out, validationIssue{Path: e.Path, Field: "event",
-					Message: fmt.Sprintf("unknown hook event %q (did you mean %s?)", event, s)})
-			}
+		if s := suggest.Name(event, events); s != "" {
+			out = append(out, validationIssue{Path: e.Path, Field: "event",
+				Message: fmt.Sprintf("unknown hook event %q (did you mean %s?)", event, s)})
 		}
 	}
 	return out
@@ -83,7 +87,7 @@ func agentSkillTypos(b spec.Bundle) []validationIssue {
 // pack MCP literal an agent file would carry is refused too.
 func stopOnSpecTypos(b spec.Bundle, targets []string) error {
 	own := ownSpecs(b)
-	issues := append(hookEventTypos(own, targets), portableHookProblems(own.Hooks)...)
+	issues := append(hookEventTypos(own.Hooks, targets), portableHookProblems(own.Hooks)...)
 	issues = append(issues, agentCapabilityIssues(own.Agents)...)
 	issues = append(issues, agentLimitIssues(own.Agents)...)
 	issues = append(issues, skillCapabilityIssues(b.Skills)...)
