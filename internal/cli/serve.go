@@ -255,10 +255,11 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 		views = newUserOverviewHandler(muxOpts.compareInstalled)
 	}
 	mux.Handle(overview.OverviewPath, views)
-	edits := newEditHandler(".", false)
+	editRoot := "."
 	if opts.UserLevel {
-		edits = newEditHandler(opts.Root, true)
+		editRoot = opts.Root
 	}
+	edits := newEditHandler(editRoot, opts.UserLevel)
 	mux.Handle(editBuiltinPath, edits)
 	mux.Handle(editTargetsPath, edits)
 	mux.Handle(editValuePath, edits)
@@ -285,9 +286,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	settings := newSettingsHandler(opts.UserLevel, conversationsHandler.approvals, func() string { return conversationsHandler.scanner.MarksPath }, muxOpts.companion, opts.Version)
 	settings.session = muxOpts.session
 	conversationsHandler.proven, conversationsHandler.canProve = settings.proven, settings.canProve
-	if userEdits, ok := edits.(*editHandler); ok {
-		userEdits.proven = settings.proven
-	}
+	edits.proven = settings.proven
 	sessions := sessionHandler{session: muxOpts.session}
 	mux.Handle(sessionUnlockPath, sessions)
 	mux.Handle(sessionOfferPath, sessions)
@@ -299,11 +298,7 @@ func newServeMux(load authority.Loader, opts authority.HandlerOptions, muxOpts s
 	if switches != nil {
 		peer = switches.peer
 	}
-	moveRoot := "."
-	if opts.UserLevel {
-		moveRoot = opts.Root
-	}
-	mux.Handle(editSpecMovePath, newSpecMoveHandler(moveRoot, opts.UserLevel, peer))
+	mux.Handle(editSpecMovePath, newSpecMoveHandler(editRoot, opts.UserLevel, peer))
 	if switches != nil {
 		mux.Handle(switchPath, switches)
 		if switches.peer != nil && switches.peer.userLevel {

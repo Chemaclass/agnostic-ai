@@ -68,7 +68,7 @@ func (h *editHandler) levelLabel() string {
 	return "Project"
 }
 
-func newEditHandler(root string, userLevel bool) http.Handler {
+func newEditHandler(root string, userLevel bool) *editHandler {
 	return &editHandler{root: root, userLevel: userLevel}
 }
 
