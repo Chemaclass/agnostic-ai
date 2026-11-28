@@ -71,7 +71,7 @@ func buildHealth(in Inputs, targets []string, caps map[string][]spec.Kind) Healt
 		total++
 		// Any hook that runs at the stage for a tool that has it fills the stage, an enabled built-in's included.
 		if slices.ContainsFunc(in.Bundle.Hooks, func(e spec.Entry) bool {
-			return slices.ContainsFunc(supported, func(t string) bool { return e.EmitsTo(t) && runsAt(e, st.id, []string{t}) })
+			return slices.ContainsFunc(supported, func(t string) bool { return e.EmitsTo(t) && runsAt(e, st.id, t) })
 		}) {
 			continue
 		}
@@ -117,9 +117,7 @@ func ownSpec(e spec.Entry) bool {
 	return e.Layer != builtinLayer
 }
 
-// runsAt reports whether hook e runs at stage: its portable event is the
-// stage, or its native event is what a configured target calls it.
-func runsAt(e spec.Entry, stage string, targets []string) bool {
+func runsAt(e spec.Entry, stage, target string) bool {
 	event := hookEvent(e)
 	if event == stage {
 		return true
@@ -128,8 +126,6 @@ func runsAt(e spec.Entry, stage string, targets []string) bool {
 	if !ok {
 		return false
 	}
-	return slices.ContainsFunc(targets, func(t string) bool {
-		mapped, ok := spec.PortableHookEvent(t, stage)
-		return ok && mapped == native
-	})
+	mapped, ok := spec.PortableHookEvent(target, stage)
+	return ok && mapped == native
 }
