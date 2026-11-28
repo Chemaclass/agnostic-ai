@@ -18,6 +18,7 @@
 | Work on the browser playground | [Playground development](../playground/README.md) |
 | Ship a version | [Release process](release-process.md) |
 | Sign the macOS companion or rotate its certificate | [macOS companion signing](companion-signing.md) |
+| Check what ran on Linux and Windows | [Companion platform checks](companion-platform-checks.md) |
 | Understand past choices or planned work | [Decisions](decisions.md) and [Roadmap](roadmap.md) |
 | Check adapters against vendor documentation | [Target audit](../../.agnostic-ai/skills/target-audit/SKILL.md), [coverage manifest](../../scripts/target-audit/manifest.md), [review reasons](../../.agnostic-ai/skills/target-audit/references/review-reasons.md) |
 | Use Jev to decide which vendor changes need review | [Jev triage](jev-triage.md) |

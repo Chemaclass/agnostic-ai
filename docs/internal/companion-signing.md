@@ -132,7 +132,7 @@ Use two consecutive published releases with disk images. Test in a separate macO
 6. Confirm the release checksum and, when `gh` is available and logged in, the build provenance. Run the [local signer refusal check](#local-signer-refusal), then install an app signed with a different certificate by hand to verify certificate rotation.
 7. Check that `~/Library/Application Support/agnostic-ai/companion-update.log` has the line `Replaced the companion app.`
 
-Record the result in the update details of `docs/site/content/docs/cli-reference/companion.md`.
+Record the result here with the releases, test environment, and outcome.
 
 On macOS 27.2.1 (arm64), the checksums and release workflow attestations matched both published disk images. Both bundles passed strict verification against the pinned release certificate. The same check refused them against a different certificate requirement. Both signing jobs printed the pinned certificate fingerprint. [v0.97.0 signing job](https://github.com/Chemaclass/agnostic-ai/actions/runs/45083126805/job/137397071244) · [v0.98.0 signing job](https://github.com/Chemaclass/agnostic-ai/actions/runs/45131337779/job/137548771551)
 
